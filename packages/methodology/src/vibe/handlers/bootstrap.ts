@@ -11,7 +11,9 @@ import {
   writeRoadmap,
   writeState,
 } from '@swt-labs/artifacts';
+import type { Prompter } from '@swt-labs/core';
 
+import { runDiscussionEngine } from '../../discussion/engine.js';
 import { NotImplementedError } from '../errors.js';
 import type { VibeRoute } from '../route.js';
 
@@ -28,6 +30,8 @@ export interface BootstrapHandlerOptions {
   readonly resolve: (io: ModeIO) => Promise<BootstrapInput | undefined>;
   /** Override the planning dir name (defaults to '.swt-planning'). */
   readonly planningDirName?: string;
+  /** Optional prompter — when provided and resolve returns undefined, runs the discussion engine. */
+  readonly prompter?: Prompter;
 }
 
 export const DEFAULT_BOOTSTRAP_RESOLVER = async (
@@ -57,7 +61,23 @@ export function bootstrapHandler(
   return {
     kind: 'bootstrap',
     async run(route: VibeRoute, io: ModeIO): Promise<HandlerResult> {
-      const input = await opts.resolve(io);
+      let input = await opts.resolve(io);
+      if (input === undefined && opts.prompter !== undefined) {
+        const result = await runDiscussionEngine({
+          prompter: opts.prompter,
+          context: { mode: 'bootstrap' },
+        });
+        const project_name = pickValue(result.payload.answered, 'project_name');
+        const description = pickValue(result.payload.answered, 'description');
+        const core_value = pickValueOrUndefined(result.payload.answered, 'core_value');
+        if (project_name !== undefined && description !== undefined) {
+          input = {
+            project_name,
+            description,
+            ...(core_value !== undefined ? { core_value } : {}),
+          };
+        }
+      }
       if (input === undefined) {
         throw new NotImplementedError(
           'bootstrap',
@@ -128,4 +148,19 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function pickValue(
+  answers: ReadonlyArray<{ id: string; value: string }>,
+  id: string,
+): string | undefined {
+  const a = answers.find((x) => x.id === id);
+  return a !== undefined && a.value.length > 0 ? a.value : undefined;
+}
+
+function pickValueOrUndefined(
+  answers: ReadonlyArray<{ id: string; value: string }>,
+  id: string,
+): string | undefined {
+  return pickValue(answers, id);
 }

@@ -7,4 +7,5 @@ export * from './memory/index.js';
 export * from './state/index.js';
 export * from './qa/index.js';
 export * from './audit/index.js';
+export * from './discussion/index.js';
 export * from './vibe/index.js';

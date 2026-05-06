@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { NotImplementedError } from '../../../src/vibe/errors.js';
 import { bootstrapHandler } from '../../../src/vibe/handlers/bootstrap.js';
+import { ScriptedPrompter } from '../../../../core/test/mock-driver.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
@@ -93,5 +94,26 @@ describe('bootstrapHandler', () => {
     const discovery = await readFile(join(cwd, '.swt-planning', 'discovery.json'), 'utf8');
     const parsed = JSON.parse(discovery) as Record<string, unknown>;
     expect(parsed).toMatchObject({ answered: [], inferred: [], deferred: [] });
+  });
+
+  it('runs the discussion engine when no JSON input + a prompter is supplied', async () => {
+    await mkdir(join(cwd, '.swt-planning'), { recursive: true });
+    const prompter = new ScriptedPrompter([
+      { kind: 'text', value: 'swt-test' }, // project_name
+      { kind: 'text', value: 'Token-disciplined SDLC' }, // description
+      { kind: 'text', value: 'Stop wasting tokens' }, // core_value
+      { kind: 'choice', value: 'mit' },
+      { kind: 'choice', value: 'just-me' },
+    ]);
+    const handler = bootstrapHandler({
+      resolve: async () => undefined,
+      prompter,
+    });
+    const { io, stdout } = makeIO();
+    const result = await handler.run({ kind: 'bootstrap', requires_confirmation: true }, io);
+    expect(result.exit).toBe(0);
+    expect(stdout.text()).toContain('Bootstrap complete');
+    const project = await readFile(join(cwd, '.swt-planning', 'PROJECT.md'), 'utf8');
+    expect(project).toContain('# swt-test');
   });
 });

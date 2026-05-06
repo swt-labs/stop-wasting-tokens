@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { NotImplementedError } from '../../../src/vibe/errors.js';
 import { scopeHandler } from '../../../src/vibe/handlers/scope.js';
+import { ScriptedPrompter } from '../../../../core/test/mock-driver.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
@@ -104,5 +105,36 @@ describe('scopeHandler', () => {
     await expect(
       handler.run({ kind: 'scope', requires_confirmation: true }, io),
     ).rejects.toThrow();
+  });
+
+  it('runs the discussion engine when no JSON input + a prompter is supplied', async () => {
+    await mkdir(join(cwd, '.swt-planning'), { recursive: true });
+    const prompter = new ScriptedPrompter([
+      // Engine gray-area answers (scope mode, builder calibration):
+      { kind: 'text', value: 'mvp' }, // milestone_name
+      { kind: 'text', value: 'Cover bootstrap-through-archive' }, // scope_boundary
+      { kind: 'text', value: 'Two-phase split' }, // decomposition_rationale
+      { kind: 'choice', value: '3' }, // phase_count (recommendation)
+      { kind: 'text', value: 'defer' }, // deferred_ideas
+      // Then phase questions (3 phases × 2 prompts each):
+      { kind: 'text', value: 'Setup' },
+      { kind: 'text', value: 'Stand up the workspace' },
+      { kind: 'text', value: 'Foundation' },
+      { kind: 'text', value: 'Compile and test' },
+      { kind: 'text', value: 'Polish' },
+      { kind: 'text', value: 'Final touches' },
+    ]);
+    const handler = scopeHandler({
+      resolve: async () => undefined,
+      prompter,
+      projectNameFallback: 'swt-test',
+    });
+    const { io, stdout } = makeIO();
+    const result = await handler.run({ kind: 'scope', requires_confirmation: true }, io);
+    expect(result.exit).toBe(0);
+    expect(stdout.text()).toContain('Scope complete — 3 phases created');
+    const roadmap = await readFile(join(cwd, '.swt-planning', 'ROADMAP.md'), 'utf8');
+    expect(roadmap).toContain('## Phase 1: Setup');
+    expect(roadmap).toContain('## Phase 3: Polish');
   });
 });

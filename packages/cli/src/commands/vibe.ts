@@ -3,6 +3,8 @@ import {
   archiveHandler,
   bootstrapHandler,
   buildVibeRegistry,
+  DEFAULT_BOOTSTRAP_RESOLVER,
+  DEFAULT_SCOPE_RESOLVER,
   detectPhase,
   executeHandler,
   milestoneUatRecoveryHandler,
@@ -70,9 +72,18 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
   const archiveOpts: { skipAudit?: boolean; force?: boolean } = {};
   if (args.skipAudit === true) archiveOpts.skipAudit = true;
 
+  const bootstrapOpts =
+    prompter !== undefined
+      ? { resolve: DEFAULT_BOOTSTRAP_RESOLVER, prompter }
+      : undefined;
+  const scopeOpts =
+    prompter !== undefined
+      ? { resolve: DEFAULT_SCOPE_RESOLVER, prompter }
+      : undefined;
+
   const registry = buildVibeRegistry([
-    bootstrapHandler(),
-    scopeHandler(),
+    bootstrapOpts !== undefined ? bootstrapHandler(bootstrapOpts) : bootstrapHandler(),
+    scopeOpts !== undefined ? scopeHandler(scopeOpts) : scopeHandler(),
     planAndExecuteHandler(),
     executeHandler(),
     qaHandler(),
