@@ -13,7 +13,7 @@ Defined: 2026-05-05 | Core value: Token-disciplined, methodology-first SDLC for 
 - [ ] **REQ-02**: Codex-first backend driver — emits TOML agents under `.codex/agents/`, writes `hooks.json`, installs Skills, manages AGENTS.md and custom prompts.
 - [ ] **REQ-13**: Codex lifecycle hooks via `hooks.json` — SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PermissionRequest, Stop.
 - [ ] **REQ-19**: Submit SWT to the Codex Plugin Marketplace via `.codex-plugin/plugin.json` once the npm path is solid.
-- [ ] **REQ-20**: v1.5 forward-compatibility — design-only stubs for Claude Code and Ollama drivers behind the same four core abstractions.
+- [x] **REQ-20**: v1.5 forward-compatibility — design-only stubs for Claude Code and Ollama drivers behind the same four core abstractions. (Phase 15 / PLAN 01 — `@swt-labs/claude-code-driver` and `@swt-labs/ollama-driver` shipped as stubs; abstractions audit at `.vbw-planning/research/v1-5-abstractions-audit.md`.)
 
 ### Methodology Layer
 - [ ] **REQ-03**: Six methodology agents — Scout, Architect, Lead, Dev, QA, Debugger — each with its own model, reasoning effort, sandbox mode, and developer instructions.
@@ -37,7 +37,7 @@ Defined: 2026-05-05 | Core value: Token-disciplined, methodology-first SDLC for 
 - [ ] **REQ-18**: Documentation site at `docs.stopwastingtokens.dev` (Mintlify or Docusaurus) covering getting-started, concepts, reference, recipes, and a v1.5 roadmap.
 
 ## v2 Requirements
-- [ ] **REQ-V2-01**: UI/dashboard (Ink TUI vs web — design notes in Phase 12).
+- [ ] **REQ-V2-01**: UI/dashboard (Ink TUI vs web — design notes in Phase 12). (See `.vbw-planning/research/ui-dashboard-tradeoffs.md` for the v1.5 design notes; recommendation is Ink TUI first, web deferred to v2.)
 - [ ] **REQ-V2-02**: Claude Code backend driver implementation (12-event hook taxonomy, Agent Teams, isolation modes).
 - [ ] **REQ-V2-03**: Ollama / open-source backend driver implementation.
 

@@ -43,7 +43,7 @@ See [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) for the ful
 
 ## Release notes
 
-The first stable release is documented in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md). Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+The first stable release is documented in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md). Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md). The forward-compatibility plan for v1.5 is in [`docs/roadmap/v1.5.md`](docs/roadmap/v1.5.md).
 
 ## Status
 
@@ -62,8 +62,8 @@ The first stable release is documented in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-
 | 11 | Documentation site | Complete |
 | 12 | Distribution | Complete |
 | 13 | Beta & feedback | Complete |
-| 14 | v1.0 launch | In progress |
-| 15 | v1.5 forward-compat prep | Pending |
+| 14 | v1.0 launch | Complete |
+| 15 | v1.5 forward-compat prep | Complete |
 
 ## Contributing
 
