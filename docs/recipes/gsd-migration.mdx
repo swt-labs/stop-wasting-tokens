@@ -1,0 +1,138 @@
+---
+title: GSD migration
+description: Move a project from the GSD plugin to SWT — `.planning/` import + first SWT-native phase.
+---
+
+# GSD migration
+
+GSD ("Get Stuff Done") was a Claude Code plugin that pre-dated VBW. If your repo has a `.planning/` directory, SWT can import the work history and continue from there.
+
+## Detect + import
+
+```bash
+cd repo-with-gsd
+swt init
+```
+
+`swt init` detects `.planning/` and prompts:
+
+> GSD project detected. Import work history?
+>
+> This will copy .planning/ to .swt-planning/gsd-archive/ for reference. Your original .planning/ directory will remain untouched.
+>
+> ○ Import (Recommended)
+> ○ Skip
+
+Choose **Import**. SWT runs `cp -r .planning/* .swt-planning/gsd-archive/` and generates an index:
+
+```
+.swt-planning/gsd-archive/
+  INDEX.json           # generated index
+  ROADMAP.md           # original GSD roadmap
+  config.json          # GSD config
+  phases/              # GSD phases
+    01-foundation/
+      ...
+  state/               # GSD state
+```
+
+## Inspect the import
+
+```bash
+cat .swt-planning/gsd-archive/INDEX.json | jq .
+```
+
+Sample output:
+
+```json
+{
+  "imported_at": "2026-05-06T10:30:00Z",
+  "gsd_version": "0.4.2",
+  "phases_total": 6,
+  "phases_complete": 4,
+  "milestones": ["01-foundation", "02-features"],
+  "quick_paths": {
+    "roadmap": "ROADMAP.md",
+    "project": "PROJECT.md",
+    "phases": "phases/",
+    "config": "config.json"
+  },
+  "phases": [
+    {"num": "01", "slug": "foundation", "plans": 3, "status": "complete"},
+    {"num": "02", "slug": "auth-layer", "plans": 4, "status": "complete"},
+    ...
+  ]
+}
+```
+
+This index is read-only — feel free to grep, jq, or browse it as reference.
+
+## Plan a SWT-native phase that references GSD context
+
+Now bootstrap your SWT project. The discussion engine knows about the GSD archive:
+
+```bash
+swt vibe
+# Bootstrap: name + purpose
+> URL Shortener (continuing from GSD work)
+```
+
+When you scope phases:
+
+```bash
+swt vibe
+# Scope: what do you want to build?
+> Continue from where GSD left off — Phase 6 (admin dashboard) and Phase 7 (analytics).
+```
+
+Lead reads `.swt-planning/gsd-archive/phases/05-*/05-SUMMARY.md` to understand what already shipped, then proposes 2-3 SWT-native phases:
+
+```
+Phase 1: Admin dashboard (extends gsd-archive Phase 5)
+Phase 2: Click analytics (REQ from gsd-archive REQUIREMENTS.md)
+```
+
+The phase numbering restarts at 1 — SWT phases are scoped to the new milestone, not concatenated to GSD's count.
+
+## What about GSD's UAT / verification artifacts?
+
+GSD predates SWT's structured UAT/Verification. The archive is reference material. SWT runs its own UAT/Verification on every new phase regardless. If you find a concern that traces back to GSD work, file it as a deviation in the relevant SUMMARY.md or run a remediation phase with `swt vibe --add "Fix GSD-era login regression"`.
+
+## What about GSD's hooks / CI integrations?
+
+The `.planning/` directory in the import does **not** rewire any installed hooks. If GSD installed git hooks (e.g., pre-push), they remain unless you remove them manually. SWT installs its own hooks via `swt init` (only the canonical `pre-push` for archive guards) — they don't conflict because they target different paths.
+
+## Cleanup
+
+After confirming the SWT-native flow is healthy, you can remove the original `.planning/` directory:
+
+```bash
+rm -rf .planning
+```
+
+The archive at `.swt-planning/gsd-archive/` stays — it's the historical reference.
+
+## Decision: keep or skip
+
+Choose **Skip** if:
+- The GSD work was a different milestone you've fully shipped and don't want surfaced.
+- The `.planning/` history is corrupted or partial enough that surfacing it would mislead.
+
+Choose **Import** if:
+- The current SWT work continues GSD work (most cases).
+- You want a single repo-level audit trail — even if just for reference.
+
+## Edge case: corrupted or partial `.planning/`
+
+If `.planning/` is missing core files (no `ROADMAP.md`, no phase directories), `swt init` still imports what's there but the generated `INDEX.json` will reflect the gaps:
+
+```json
+{ "phases_total": 0, "phases_complete": 0, "milestones": [], "phases": [] }
+```
+
+Read it, decide whether to keep the import as historical breadcrumb or `rm -rf .swt-planning/gsd-archive/`.
+
+## Next
+
+- [Brownfield init](/recipes/brownfield) — codebase mapping + assumptions discussion (often combined with GSD migration)
+- [Migration from VBW](/migration/from-vbw) — different path: in-place rename vs archive import

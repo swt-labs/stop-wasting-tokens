@@ -1,0 +1,192 @@
+---
+title: Greenfield bootstrap
+description: Brand-new project — empty directory to shipped milestone.
+---
+
+# Greenfield bootstrap
+
+You have a project idea and an empty directory. Goal: ship a complete first milestone with SWT.
+
+## Setup
+
+```bash
+mkdir url-shortener && cd url-shortener
+swt init
+# planning_tracking: manual
+# auto_push: never
+```
+
+Choose `manual` if this is a personal repo where you want to commit planning artifacts deliberately. Choose `commit` if you want planning history co-authored with code.
+
+## 1. Bootstrap
+
+```bash
+swt vibe
+```
+
+The runtime detects no `PROJECT.md` and routes to **Bootstrap**:
+
+> No project defined. Set one up?
+
+Answer:
+
+- **Project name:** `url-shortener`
+- **Core purpose (one sentence):** `A self-hosted URL shortener with a Postgres-backed admin API and a single-page redirect frontend.`
+
+Then the **discussion engine** runs. Sample questions:
+
+- "Who will use this — you alone, a small team, or many users?" → small team
+- "Strict input validation needed (e.g., for security or compliance)?" → yes, basic XSS hardening
+- "Do you need analytics on click-throughs?" → not in v1
+
+Each question takes 5-15 seconds. The engine records answers as `discovery.json` and feeds them into `REQUIREMENTS.md`.
+
+Outputs after bootstrap:
+```
+.swt-planning/
+  PROJECT.md           # name + purpose
+  REQUIREMENTS.md      # ~6-8 REQ-IDs from your answers
+  discovery.json       # raw discussion output
+  domain-research.md   # Scout's domain research
+```
+
+## 2. Scope into phases
+
+```bash
+swt vibe
+```
+
+`phase_count=0` → **Scope** mode:
+
+> Project defined but no phases. Scope the work?
+
+The runtime suggests 3-5 phases. For our URL shortener:
+
+```
+Phase 1: Postgres schema + storage layer
+Phase 2: Redirect API
+Phase 3: Admin API
+Phase 4: SPA frontend
+Phase 5: Docker compose + deployment
+```
+
+Accept or revise. Outputs:
+
+```
+.swt-planning/
+  ROADMAP.md           # phase decomposition
+  STATE.md             # milestone-level state
+  CONTEXT.md           # decomposition rationale
+  phases/
+    01-postgres-schema/
+    02-redirect-api/
+    03-admin-api/
+    04-spa-frontend/
+    05-docker-compose/
+```
+
+## 3. Plan + execute Phase 1
+
+```bash
+swt vibe
+```
+
+`next_phase_state=needs_plan_and_execute` → **Plan + Execute** mode.
+
+Lead spawns, reads `ROADMAP.md` + (optionally) `RESEARCH.md` from Scout, and writes `01-01-PLAN.md`. With `effort: balanced`, you get 2-3 plans per phase. Confirm:
+
+> Phase 1 needs planning and execution. Start?
+
+After confirmation, Dev agents execute each plan task. You see:
+
+```
+Phase 1: Postgres schema + storage layer
+Plans: 2
+  01-01-PLAN.md: Schema migration + Drizzle ORM setup (wave 1, 4 tasks)
+  01-02-PLAN.md: Repository layer (wave 2, 3 tasks, depends_on: ["01"])
+Effort: balanced
+Model Profile: quality
+
+◆ Executing 01-01-PLAN.md...
+✓ Task P01: Drizzle config + schema definitions
+✓ Task P02: Initial migration
+✓ Task P03: Migration runner
+✓ Task P04: README integration tests
+✓ QA: PASS (5/5 must-haves)
+
+◆ Executing 01-02-PLAN.md...
+✓ Task P05: UrlRepository class
+✓ Task P06: ClickRepository class
+✓ Task P07: Vitest integration
+✓ QA: PASS (4/4 must-haves)
+```
+
+## 4. Verify (UAT)
+
+`auto_uat=true` (default) → **Verify** chains directly:
+
+```
+Test 1: Schema migration runs cleanly on a fresh Postgres
+> Pass
+
+Test 2: addUrl persists with the expected slug
+> Pass
+
+Test 3: getUrl by slug returns the expected row
+> Pass
+
+...
+
+UAT result: PASS (5/5)
+```
+
+`01-UAT.md` records `status: pass`.
+
+## 5. Loop through Phases 2-5
+
+Each `swt vibe` invocation auto-routes:
+
+```bash
+swt vibe   # Phase 2 → plan + execute → verify
+swt vibe   # Phase 3 → ...
+swt vibe   # Phase 4 → ...
+swt vibe   # Phase 5 → ...
+```
+
+With `pure-vibe` autonomy, the runtime auto-chains across phases — `swt vibe` once may carry you through several phases in a single invocation.
+
+## 6. Archive
+
+After Phase 5:
+
+```bash
+swt vibe
+```
+
+`next_phase_state=all_done` → **Archive**:
+
+> All phases complete. Run audit and archive?
+
+The 7-point audit runs:
+- Roadmap completeness ✓
+- Phase planning ✓ (all 5 phases have plans)
+- Plan execution ✓ (all SUMMARY.md complete)
+- Verification ✓ (all VERIFICATION.md PASS, fresh)
+- UAT ✓ (no `issues_found`)
+- Requirements coverage ✓
+- Hard UAT gate ✓
+
+Archive runs. Files move from `.swt-planning/{ROADMAP.md, STATE.md, phases/}` to `.swt-planning/milestones/01-url-shortener/`. Git tag `milestone/01-url-shortener` created. Root `STATE.md` resets to project-level (Todos, Decisions, Codebase Profile preserved).
+
+## What you have now
+
+A working URL shortener, a complete audit trail (every plan + summary + verification on disk), and a clean slate for Milestone 2.
+
+```bash
+swt vibe   # phase_count=0 again — ready to scope Milestone 2
+```
+
+## Next
+
+- [Brownfield init](/recipes/brownfield) — same flow against an existing repo
+- [UAT remediation](/recipes/uat-remediation) — what happens when verification finds issues

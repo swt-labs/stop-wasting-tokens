@@ -1,0 +1,170 @@
+---
+title: Custom hooks
+description: Wire shell commands into SWT's lifecycle events — post-archive Slack notifications, pre-push validation, etc.
+---
+
+# Custom hooks
+
+SWT exposes a small set of lifecycle hook points. The most useful is `post_archive` — runs after `swt vibe --archive` succeeds. Use it for Slack/Discord notifications, deployment kicks, release-note generation, etc.
+
+## Configure `post_archive`
+
+Edit `.swt-planning/config.json`:
+
+```json
+{
+  "hooks": {
+    "post_archive": "bash .swt-planning/hooks/post-archive.sh"
+  }
+}
+```
+
+Then create the script:
+
+```bash
+mkdir -p .swt-planning/hooks
+touch .swt-planning/hooks/post-archive.sh
+chmod +x .swt-planning/hooks/post-archive.sh
+```
+
+## Hook arguments
+
+`post_archive` is invoked with three positional arguments:
+
+```bash
+.swt-planning/hooks/post-archive.sh "$MILESTONE_SLUG" "$ARCHIVE_PATH" "$TAG"
+```
+
+| `$1` | `$MILESTONE_SLUG` | e.g., `01-todo-cli`                                 |
+| `$2` | `$ARCHIVE_PATH`    | e.g., `.swt-planning/milestones/01-todo-cli`        |
+| `$3` | `$TAG`             | e.g., `milestone/01-todo-cli` (empty if `--no-tag`) |
+
+The hook runs **after** all archive steps succeed: directories moved, git tag created (if requested), root STATE.md reset. Failure of the hook **does not** roll back the archive — it's reported as a warning only.
+
+## Example: Slack notification
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+MILESTONE_SLUG="$1"
+ARCHIVE_PATH="$2"
+TAG="$3"
+
+if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+  echo "post-archive: SLACK_WEBHOOK_URL not set, skipping" >&2
+  exit 0
+fi
+
+# Count what shipped
+PHASES=$(find "$ARCHIVE_PATH/phases" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+COMMITS=$(grep -h "^- " "$ARCHIVE_PATH/phases"/*/SUMMARY.md 2>/dev/null \
+  | grep -E "[0-9a-f]{7,40}" | wc -l | tr -d ' ')
+
+PAYLOAD=$(jq -n \
+  --arg slug "$MILESTONE_SLUG" \
+  --arg tag "$TAG" \
+  --arg phases "$PHASES" \
+  --arg commits "$COMMITS" \
+  '{
+    text: "🚀 Milestone shipped: \($slug)",
+    blocks: [
+      {type: "section", text: {type: "mrkdwn", text: "*Milestone:* \($slug)\n*Tag:* \($tag)\n*Phases:* \($phases)\n*Commits:* \($commits)"}}
+    ]
+  }')
+
+curl -sS -X POST -H 'Content-Type: application/json' \
+  -d "$PAYLOAD" \
+  "$SLACK_WEBHOOK_URL"
+```
+
+Set `SLACK_WEBHOOK_URL` in your shell profile or CI environment.
+
+## Example: Trigger deployment
+
+For a project where shipping a milestone means deploying:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+MILESTONE_SLUG="$1"
+TAG="$3"
+
+# Push the tag (if not already pushed by auto_push)
+if [ -n "$TAG" ]; then
+  git push origin "$TAG" || true
+fi
+
+# Trigger the deployment workflow
+gh workflow run deploy.yml --ref "$TAG"
+```
+
+This is opt-in deployment automation — the hook is the right place because it runs only when a milestone genuinely shipped (not on every commit).
+
+## Example: Generate release notes
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+MILESTONE_SLUG="$1"
+ARCHIVE_PATH="$2"
+TAG="$3"
+
+NOTES_FILE="release-notes/${TAG//\//-}.md"
+mkdir -p "$(dirname "$NOTES_FILE")"
+
+{
+  echo "# $TAG"
+  echo
+  echo "Shipped: $(date +%Y-%m-%d)"
+  echo
+  echo "## Phases"
+  echo
+  for phase_dir in "$ARCHIVE_PATH/phases"/*; do
+    title=$(grep -m1 "^title:" "$phase_dir"/*-SUMMARY.md 2>/dev/null | head -1 | sed 's/^title: //; s/^"//; s/"$//')
+    echo "- $(basename "$phase_dir"): $title"
+  done
+} > "$NOTES_FILE"
+
+git add "$NOTES_FILE"
+git commit -m "docs: release notes for $TAG"
+```
+
+This is non-destructive — the hook only adds a release notes file and commits it.
+
+## Hook safety
+
+- Hooks run in the project root with the project's environment.
+- Hooks should be idempotent. Slack should not double-fire if you re-archive (which shouldn't happen but might during manual recovery).
+- Hooks should never modify `.swt-planning/milestones/` — those are immutable.
+- Hooks must `set -e` (or equivalent) to fail loudly. Silent failures cost trust.
+
+## Disabling a hook temporarily
+
+```bash
+swt vibe --archive --no-hook=post_archive
+```
+
+(planned for v1.5; in v1.0, comment out the `hooks.post_archive` config line)
+
+## What about pre-push hooks?
+
+`swt init` installs a single git pre-push hook that runs `verify-state-consistency.sh`. This is independent of the `hooks.*` config — it's an SWT-managed hook that prevents pushing inconsistent planning state. To disable, remove `.git/hooks/pre-push` (not recommended; you'll push broken planning artifacts).
+
+## Other hook events (planned)
+
+| Event           | Status      | Trigger                                          |
+|----------------|-------------|--------------------------------------------------|
+| `post_archive`  | ✅ v1.0     | After `swt vibe --archive` succeeds              |
+| `post_phase`    | 📋 v1.5     | After each phase ships (verified clean)         |
+| `pre_archive`   | 📋 v1.5     | Before audit runs                                |
+| `post_uat_fail` | 📋 v1.5     | Each time UAT records `issues_found`             |
+
+`post_phase` and `pre_archive` are the most-requested. Track in [v1.5 roadmap](/v1-5-roadmap/index).
+
+## Next
+
+- [Configuration reference](/reference/config) — `hooks.post_archive` schema
+- [Lifecycle states](/concepts/lifecycle-states) — when each hook fires

@@ -1,0 +1,110 @@
+---
+title: v1.5 roadmap
+description: What's planned, what's in design, what's blocked.
+---
+
+# v1.5 roadmap
+
+v1.0 ships the methodology + the typed-shape contract + the docs site. v1.5 adds runtime depth: real Codex execution, multi-driver, TUI, marketplace.
+
+This page is intentionally sparse — it's a roadmap, not a spec. Each item links to a tracking issue once design is in flight.
+
+## Runtime
+
+### Real Codex AgentSpawner wiring (`@swt-labs/codex-driver`)
+
+**Status:** ⚠ blocked
+
+The methodology runtime in `@swt-labs/methodology` is complete, but `executeHandler` and `qaHandler` cannot spawn real Codex sessions yet — `AgentSpawner` is a placeholder. Real wiring requires the Codex CLI to expose a stable subagent-spawn API (or for SWT to wrap `codex exec` calls into the same shape).
+
+This is the highest-priority v1.5 item — without it, `swt vibe --execute` runs only against the mock driver in tests.
+
+### Claude Code backend driver
+
+**Status:** 📋 planned
+
+Add a driver that uses Claude Code's subagent API instead of Codex's. Lets users on Claude Code run the same methodology without switching CLIs.
+
+The 12-event hook taxonomy (PreToolUse, PostToolUse, etc.) lands here — it's Claude-Code-specific and pairs with the Claude Code driver.
+
+### Ollama / open-source backend driver
+
+**Status:** 📋 planned
+
+Lower-priority but high-impact for self-hosted users. Driver wraps a local Ollama instance with the same `AgentSpawner` interface.
+
+## Tooling
+
+### Ink TUI dashboard
+
+**Status:** 📋 planned
+
+Real-time dashboard showing current phase, plan progress, agent status, token spend. Built with Ink (React for terminals). Lives under `apps/dashboard/` (currently the directory doesn't exist; v1.5 introduces it alongside Ink).
+
+### Plugin marketplace listing
+
+**Status:** 📋 planned
+
+Submit `@swt-labs/cli` to the Codex Plugin Marketplace. Includes:
+- Marketplace metadata
+- Auto-update mechanism (`swt update` calls the marketplace API)
+- Provenance attestation
+
+### Auto-derived reference docs
+
+**Status:** 📋 planned
+
+Replace hand-authored `reference/cli.mdx`, `reference/config.mdx`, `reference/artifacts.mdx` with build-time codegen from source. Today these pages have `<!-- AUTO-DERIVE-CANDIDATE -->` annotations marking sections to mechanize.
+
+The user-facing URLs stay the same; content goes from "captured at v1.0 release" to "always reflects current source."
+
+## Methodology
+
+### Hook event taxonomy expansion
+
+**Status:** 📋 planned
+
+v1.0 ships `post_archive` only. v1.5 adds `pre_archive`, `post_phase`, `pre_phase`, `post_uat_fail`, `pre_qa`, `post_qa`. These let users wire CI-style integrations without monkey-patching SWT internals.
+
+### Migration tool: rewrite SWT phase 1-9 SUMMARY.md ac_results
+
+**Status:** 🔧 internal
+
+A small one-shot script to rewrite SWT's own retrofit phases (1-9) from `{id, must_have, status}` to `{id, criterion, verdict, evidence}`. The Zod transform handles parsing already; this just normalizes on disk for cleaner git diffs.
+
+Tracked because it's a useful template for the broader VBW-to-SWT bulk migration helper.
+
+## Distribution
+
+### Versioned release artifacts
+
+**Status:** 📋 planned
+
+GitHub Releases with cross-platform binaries (no Node.js required), checksums, and signed provenance. Useful for offline installs.
+
+### Discord / community
+
+**Status:** 📋 planned
+
+Discord server for SWT users to share recipes, debug routing edge cases, propose plugin patterns. Linked in the docs footer once live.
+
+## Compatibility commitment
+
+Everything in v1.0 stays working through v1.5:
+
+- All 11 lifecycle states remain
+- `ac_results` shapes (both VBW and SWT) remain parseable
+- `swt init`, `swt vibe`, `swt detect-phase` flag surfaces remain
+- `post_archive` hook remains
+
+New behavior is additive. Where v1.5 introduces changes that affect existing users (e.g., the auto-derived reference URLs), the old behavior is preserved as a fallback for at least one minor release.
+
+## Beyond v1.5 (v2.0+)
+
+Tracked as **v2 Requirements** in [REQUIREMENTS.md](https://github.com/swt-labs/stop-wasting-tokens/blob/main/REQUIREMENTS.md):
+
+- UI/dashboard (web vs Ink decision deferred)
+- Hosted SaaS / cloud orchestration (currently out of scope for v1)
+- Multi-tenant team workflows
+
+These are explicitly **not promised**. They're tracked so the v1.5 design accounts for them; whether they ship depends on what the v1 user base actually needs.

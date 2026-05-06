@@ -1,0 +1,247 @@
+---
+title: Configuration reference
+description: Every key in `.swt-planning/config.json` — type, default, when to override.
+---
+
+# Configuration reference
+
+`config.json` lives at `.swt-planning/config.json` and is read on every `swt` invocation. All keys are optional — defaults from `@swt-labs/core/config/defaults.json` apply where missing.
+
+<!-- AUTO-DERIVE-CANDIDATE: keep in sync with packages/core/src/config/defaults.json + schema.ts -->
+
+## Lifecycle
+
+### `effort`
+
+Plan depth + research depth + model selection.
+
+- **Type:** `"turbo" | "fast" | "balanced" | "thorough"`
+- **Default:** `"balanced"`
+- **When to override:** `turbo` for prototypes, `thorough` for production. See [effort levels](/concepts/effort-levels).
+
+### `autonomy`
+
+Confirmation cadence.
+
+- **Type:** `"cautious" | "standard" | "confident" | "pure-vibe"`
+- **Default:** `"standard"`
+- **When to override:** `pure-vibe` for solo mature projects, `cautious` for regulated work. See [autonomy levels](/concepts/autonomy-levels).
+
+### `auto_commit`
+
+Whether `swt vibe` makes git commits as part of execution.
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** Set `false` in environments where commit signing or pre-commit hooks have constraints SWT does not satisfy.
+
+## Routing & git
+
+### `planning_tracking`
+
+How `.swt-planning/` is tracked in git.
+
+- **Type:** `"manual" | "ignore" | "commit"`
+- **Default:** `"manual"`
+- **When to override:** `"commit"` when planning history should ship with code commits; `"ignore"` for personal exploration repos.
+
+### `auto_push`
+
+When to push commits.
+
+- **Type:** `"never" | "after_phase" | "always"`
+- **Default:** `"never"`
+- **When to override:** `"after_phase"` for solo projects with a remote; `"always"` only for ephemeral branches.
+
+### `verification_tier`
+
+QA depth.
+
+- **Type:** `"standard" | "thorough"`
+- **Default:** `"standard"`
+- **When to override:** `"thorough"` for security-sensitive code or before a customer-facing release.
+
+## Agents
+
+### `prefer_teams`
+
+Whether Execute mode prefers team-spawned parallel Devs over serialized Devs.
+
+- **Type:** `"auto" | "always" | "never"`
+- **Default:** `"auto"`
+- **When to override:** `"never"` if your environment cannot reliably create real team-scoped teammates (e.g., pure-CLI Codex without team support).
+
+### `max_tasks_per_plan`
+
+Soft guidance for Lead when decomposing a phase.
+
+- **Type:** `number`
+- **Default:** `5`
+- **When to override:** Lower for tight atomic commits; higher for content-heavy phases.
+
+### `model_profile`
+
+Default model bias.
+
+- **Type:** `"quality" | "balanced" | "fast"`
+- **Default:** `"quality"`
+- **When to override:** `"fast"` to save tokens during iteration; `"quality"` is the default for shipping work.
+
+### `model_overrides`
+
+Per-role model pinning.
+
+- **Type:** `Record<string, string>`
+- **Default:** `{}`
+- **When to override:** Pin a specific model for a role: `{ "qa": "gpt-5-codex", "dev": "gpt-5-codex-thinking" }`.
+
+### `agent_max_turns`
+
+Per-role turn budget.
+
+- **Type:** `Record<string, number>`
+- **Default:** `{ "scout": 15, "qa": 25, "architect": 30, "debugger": 80, "lead": 50, "dev": 75 }`
+- **When to override:** Bump `qa` if your QA agent regularly hits the cap on dense phases.
+
+### `qa_skip_agents`
+
+Roles excluded from QA verification.
+
+- **Type:** `string[]`
+- **Default:** `["docs"]`
+- **When to override:** Add `"prototypes"` to skip QA on throwaway phases.
+
+## Methodology
+
+### `context_compiler`
+
+Whether `compile-context.sh` runs before each agent spawn.
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** `false` only when debugging context compilation issues — leave on for normal use.
+
+### `require_phase_discussion`
+
+Force `needs_discussion` state on every new phase.
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **When to override:** `true` when working with collaborators who benefit from explicit gray-area discussion before each phase.
+
+### `auto_uat`
+
+Whether `swt vibe` auto-routes into UAT after a phase ships.
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** `false` to require explicit `swt vibe --verify` invocations.
+
+### `max_uat_remediation_rounds`
+
+Cap on UAT remediation rounds before STOP.
+
+- **Type:** `number | false`
+- **Default:** `false` (unlimited)
+- **When to override:** Set to `5` to bound recurring UAT loops; `0` to disable remediation entirely.
+
+### `discovery_questions`
+
+Whether bootstrap asks discovery questions.
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** `false` for headless bootstrap (CI scaffolds, demos).
+
+### `discussion_mode`
+
+Discussion engine input source.
+
+- **Type:** `"questions" | "assumptions" | "auto"`
+- **Default:** `"auto"`
+- **When to override:** `"assumptions"` to always prefer codebase-derived assumptions over open questions.
+
+## Display
+
+### `visual_format`
+
+Output rendering style.
+
+- **Type:** `"unicode" | "ascii"`
+- **Default:** `"unicode"`
+- **When to override:** `"ascii"` in environments without unicode font support.
+
+### `plain_summary`
+
+Whether end-of-phase summaries skip ANSI styling.
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+### `statusline_hide_limits`
+
+Hide token/context limit lines from the statusline.
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+## Hooks
+
+### `hooks.post_archive`
+
+Optional shell command run after `swt vibe --archive` succeeds.
+
+- **Type:** `string | undefined`
+- **Default:** `undefined`
+- **When to override:** Notify a webhook, post to Slack, etc. Receives milestone slug + tag as positional args.
+
+```json
+{
+  "hooks": {
+    "post_archive": "bash .swt-planning/hooks/post-archive.sh"
+  }
+}
+```
+
+See [Recipes: custom hooks](/recipes/custom-hooks).
+
+## Full default
+
+```json
+{
+  "effort": "balanced",
+  "autonomy": "standard",
+  "auto_commit": true,
+  "planning_tracking": "manual",
+  "auto_push": "never",
+  "verification_tier": "standard",
+  "prefer_teams": "auto",
+  "max_tasks_per_plan": 5,
+  "model_profile": "quality",
+  "model_overrides": {},
+  "agent_max_turns": {
+    "scout": 15,
+    "qa": 25,
+    "architect": 30,
+    "debugger": 80,
+    "lead": 50,
+    "dev": 75
+  },
+  "qa_skip_agents": ["docs"],
+  "context_compiler": true,
+  "require_phase_discussion": false,
+  "auto_uat": true,
+  "max_uat_remediation_rounds": false,
+  "discovery_questions": true,
+  "discussion_mode": "auto",
+  "visual_format": "unicode",
+  "plain_summary": true,
+  "statusline_hide_limits": false
+}
+```
+
+## See also
+
+- [CLI reference](/reference/cli) — overrides via flags
+- [Effort levels](/concepts/effort-levels) — what `effort` actually changes
+- [Autonomy levels](/concepts/autonomy-levels) — what `autonomy` actually changes

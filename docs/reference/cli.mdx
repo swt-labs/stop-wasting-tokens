@@ -1,0 +1,148 @@
+---
+title: CLI reference
+description: Every `swt` command, flag, and example.
+---
+
+# CLI reference
+
+The `swt` CLI is the entry point for everything. Two top-level commands plus several modes invoked through `swt vibe`.
+
+<!-- AUTO-DERIVE-CANDIDATE: keep in sync with packages/cli/src/main.ts and packages/cli/src/commands/ -->
+
+## `swt init`
+
+Bootstrap a new project (or wire SWT into an existing repo).
+
+```bash
+swt init [--yes]
+```
+
+| Flag      | Type    | Default | Description                                                |
+|----------|---------|---------|------------------------------------------------------------|
+| `--yes`  | boolean | false   | Accept all defaults — skip planning_tracking + auto_push prompts |
+
+**Examples**
+
+```bash
+# Interactive
+swt init
+
+# Headless (defaults: planning_tracking=manual, auto_push=never)
+swt init --yes
+```
+
+See [Initialize a project](/getting-started/init) for the detailed flow.
+
+## `swt vibe`
+
+The main entry point. With no arguments, reads `.swt-planning/` and routes to the next step.
+
+```bash
+swt vibe [<args>] [--mode-flag] [--effort <level>] [--yolo]
+```
+
+### Mode flags
+
+| Flag                  | Routes to                                              |
+|----------------------|--------------------------------------------------------|
+| `--plan [N]`          | Plan mode for phase N (auto-detect if omitted)        |
+| `--execute [N]`       | Execute mode                                           |
+| `--discuss [N]`       | Discussion engine for phase N                          |
+| `--assumptions [N]`   | Assumptions mode (codebase-driven discussion)         |
+| `--scope`             | Decompose project into phases                          |
+| `--add "<name>"`      | Append a new phase                                     |
+| `--insert N "<name>"` | Insert a phase at position N                           |
+| `--remove N`          | Remove phase N (if it has no artifacts)                |
+| `--verify [N]`        | Run UAT for phase N                                    |
+| `--archive`           | Run audit + archive milestone                          |
+
+### Behavior modifiers
+
+| Flag                | Effect                                                                       |
+|--------------------|------------------------------------------------------------------------------|
+| `--effort <level>`  | Override `effort` config for this run (`turbo` / `fast` / `balanced` / `thorough`) |
+| `--skip-qa`         | Skip post-build QA (does not bypass tracked known issues)                    |
+| `--skip-audit`      | Skip non-UAT audit checks at archive (UAT gate still hard-enforced)         |
+| `--yolo`            | Skip all confirmation gates; auto-loop remaining phases                      |
+| `--plan=NN`         | Execute a single plan, bypassing wave grouping                               |
+| `N` (bare integer)  | Target phase N (works with any mode flag)                                    |
+
+**Examples**
+
+```bash
+# Auto-route (recommended)
+swt vibe
+
+# Force planning Phase 3
+swt vibe --plan 3
+
+# Execute only the first plan of phase 5
+swt vibe --execute --plan=01 5
+
+# Maximum velocity — no prompts, fast effort
+swt vibe --yolo --effort fast
+
+# Add a hotfix phase mid-project
+swt vibe --add "Fix login regression"
+```
+
+## `swt detect-phase`
+
+Surface the routing state directly. Used by integrations and for debugging.
+
+```bash
+swt detect-phase [--json | --bash-format] [--planning-dir <path>]
+```
+
+| Flag              | Type   | Default                       | Description                                                |
+|------------------|--------|-------------------------------|------------------------------------------------------------|
+| `--json`          | boolean | true                          | Output structured JSON (default)                          |
+| `--bash-format`   | boolean | false                         | Output VBW-compatible `key=value` lines                    |
+| `--planning-dir`  | string  | `.swt-planning` or `.vbw-planning` | Override planning directory                            |
+
+**Examples**
+
+```bash
+swt detect-phase --json | jq .next_phase_state
+# "needs_plan_and_execute"
+
+swt detect-phase --bash-format | grep next_phase
+# next_phase=03
+# next_phase_slug=03-cli-commands
+# next_phase_state=needs_plan_and_execute
+
+swt detect-phase --planning-dir .swt-planning/milestones/01-todo-cli
+# (inspect a shipped milestone)
+```
+
+The JSON shape mirrors the `PhaseDetectResult` type from `@swt-labs/methodology` — see [artifact reference](/reference/artifacts) for the full schema.
+
+## Exit codes
+
+| Code | Meaning                                                                        |
+|------|--------------------------------------------------------------------------------|
+| 0    | Success                                                                         |
+| 1    | Routing or audit failure (e.g., archive blocked by audit gate)                  |
+| 2    | UAT issues unresolved at archive — hard UAT gate triggered                      |
+| 3    | Configuration error (malformed `config.json`, missing planning dir, etc.)       |
+
+Use exit codes in CI to gate deployment:
+
+```bash
+swt vibe --archive --skip-audit  # exit 2 if UAT issues, 0 otherwise
+```
+
+## Environment variables
+
+| Variable                         | Effect                                                          |
+|---------------------------------|-----------------------------------------------------------------|
+| `SWT_PLANNING_DIR`               | Override planning directory globally                            |
+| `SWT_NO_COLOR`                   | Disable terminal colors (also respects `NO_COLOR`)             |
+| `MINTLIFY_ANALYTICS_TOKEN`       | Inject GA4 measurement ID into the docs site (build-time only) |
+| `SWT_LOG_LEVEL`                  | `error` / `warn` / `info` / `debug` (default: `info`)          |
+
+## See also
+
+- [Configuration reference](/reference/config) — every `config.json` key
+- [Artifact schemas](/reference/artifacts) — Zod-typed shapes for every artifact kind
+- [Recipes](/recipes/greenfield) — end-to-end CLI usage walkthroughs

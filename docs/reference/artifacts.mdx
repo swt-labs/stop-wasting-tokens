@@ -1,0 +1,187 @@
+---
+title: Artifact schemas
+description: Every Zod-typed artifact kind in `@swt-labs/artifacts/schemas/` — frontmatter shape, helpers, examples.
+---
+
+# Artifact schemas
+
+Every artifact SWT writes has a Zod schema in `@swt-labs/artifacts/schemas/`. The schemas are the contract: parsing rejects malformed frontmatter, rendering produces canonical output, and round-trip is lossless for the modeled fields.
+
+<!-- AUTO-DERIVE-CANDIDATE: keep in sync with packages/artifacts/src/schemas/*.ts -->
+
+## PlanFrontmatterSchema
+
+Source: `packages/artifacts/src/schemas/plan.ts`. Models `NN-MM-PLAN.md`.
+
+| Field                | Type                                | Required | Description                                              |
+|---------------------|-------------------------------------|----------|----------------------------------------------------------|
+| `phase`              | `number \| string`                  | yes      | Phase number, e.g., `3` or `"03"`                       |
+| `plan`               | `number \| string`                  | yes      | Plan number within the phase                             |
+| `title`              | `string`                            | yes      | Human-readable plan title                                |
+| `wave`               | `number`                            | yes      | Wave for parallelism (1-indexed)                         |
+| `depends_on`         | `string[]`                          | no       | Plan IDs this plan depends on                            |
+| `must_haves`         | `(string \| MustHaveBlock)[]`       | yes      | Acceptance criteria — string or `{truths, artifacts, key_links}` block |
+| `cross_phase_deps`   | `string[]`                          | no       | Cross-phase dependency IDs                               |
+| `effort_override`    | `string`                            | no       | Per-plan effort override                                 |
+| `forbidden_commands` | `string[]`                          | no       | Commands Dev must not run                                |
+| `skills_used`        | `string[]`                          | no       | Skill names Dev should activate                          |
+| `files_modified`     | `string[]`                          | no       | Hint to Dev about scope                                  |
+| `acceptance_criteria`| `string`                            | no       | Long-form acceptance narrative                           |
+| `deferred_to_followup`| `string[]`                         | no       | Items intentionally deferred                             |
+
+**Helpers:** `readPlanFrontmatter(text: string): PlanDoc`, `writePlanFrontmatter(doc: PlanDoc): string`.
+
+```yaml
+---
+phase: 3
+plan: "01"
+title: TODO storage primitives
+wave: 1
+depends_on: []
+must_haves:
+  - "createStore(path) creates a JSON file with []"
+  - "addTodo(store, text) appends and persists"
+  - "listTodos(store) returns the array"
+must_haves:
+  - truths: ["JSON storage is sync (no concurrency yet)"]
+    artifacts: ["packages/storage/src/index.ts"]
+    key_links: ["#REQ-01"]
+---
+```
+
+## SummaryFrontmatterSchema
+
+Source: `packages/artifacts/src/schemas/summary.ts`. Models `NN-MM-SUMMARY.md`.
+
+| Field                | Type                          | Required | Description                              |
+|---------------------|-------------------------------|----------|------------------------------------------|
+| `phase`              | `number \| string`            | yes      |                                          |
+| `plan`               | `number \| string`            | yes      |                                          |
+| `title`              | `string`                      | yes      |                                          |
+| `status`             | `"complete" \| "partial" \| "failed"` | yes |                                       |
+| `completed`          | `string` (ISO date)           | yes      |                                          |
+| `tasks_completed`    | `number`                      | yes      |                                          |
+| `tasks_total`        | `number`                      | yes      |                                          |
+| `ac_results`         | `AcResult[]`                  | yes      | `{id, criterion, verdict, evidence}` (transforms VBW shape) |
+| `pre_existing_issues`| `string[]`                    | no       |                                          |
+| `commit_hashes`      | `string[]`                    | no       |                                          |
+| `files_modified`     | `string[]`                    | no       |                                          |
+| `deviations`         | `Deviation[]`                 | no       | `{id, type, description, resolution}`    |
+| `deferred_to_followup`| `string[]`                   | no       |                                          |
+
+The `AcResult` transform accepts both `{id, criterion, verdict, evidence}` (SWT) and `{id, must_have, status, evidence}` (legacy VBW), normalizing to the SWT shape on read.
+
+**Helpers:** `readSummaryFrontmatter`, `writeSummaryFrontmatter`.
+
+## VerificationDocSchema
+
+Source: `packages/artifacts/src/schemas/verification.ts`. Models `NN-VERIFICATION.md`.
+
+Header frontmatter + multi-section body (Must-Have Checks table, Result section, Pre-Existing Issues section, Plan Coverage). The Zod schema exposes `parseVerification` and `writeVerification` round-trip helpers.
+
+```yaml
+---
+phase: "03"
+tier: standard
+result: PASS
+passed: 4
+failed: 0
+total: 4
+date: 2026-05-06
+plans_verified: ["01"]
+verified_at_commit: 7d582f1
+---
+```
+
+## UatDocSchema
+
+Source: `packages/artifacts/src/schemas/uat.ts`. Models `NN-UAT.md`.
+
+| Field             | Type                                                              | Required | Description                          |
+|------------------|-------------------------------------------------------------------|----------|--------------------------------------|
+| `phase`           | `string`                                                          | yes      |                                      |
+| `status`          | `"pass" \| "issues_found"`                                        | yes      |                                      |
+| `total_tests`     | `number`                                                          | yes      |                                      |
+| `passed`          | `number`                                                          | yes      |                                      |
+| `skipped`         | `number`                                                          | yes      |                                      |
+| `issues`          | `number`                                                          | yes      |                                      |
+| `severity_counts` | `{minor: number, major: number, critical: number}`                | no       | Severity histogram for issues_found  |
+| `started`         | `string`                                                          | yes      |                                      |
+| `completed`       | `string`                                                          | yes      |                                      |
+
+## ResearchFrontmatterSchema / StandaloneResearchFrontmatterSchema
+
+Sources: `packages/artifacts/src/schemas/research.ts`. Models `NN-RESEARCH.md` and standalone phase research. Fields: `phase`, `plan?` (per-plan), `gathered`, `sources_consulted[]`, `files_referenced[]`, `findings_summary`, `live_validation_required` (boolean for authenticated APIs).
+
+## RemediationPlanFrontmatterSchema
+
+Source: `packages/artifacts/src/schemas/remediation-plan.ts`. Models `R{RR}-PLAN.md`.
+
+Adds beyond `PlanFrontmatterSchema`:
+
+- `round` — round number (`"01"`, `"02"`, ...)
+- `fail_classifications` — array of `{id, type: "code-fix" | "plan-amendment" | "process-exception", rationale, source_plan?}`
+- `known_issues_input` — JSON-string array of `{test, file, error}`
+- `known_issue_resolutions` — JSON-string array of `{test, file, error, disposition: "resolved" | "accepted-process-exception" | "unresolved", rationale}`
+
+## RemediationSummaryFrontmatterSchema
+
+Source: `packages/artifacts/src/schemas/remediation-summary.ts`. Models `R{RR}-SUMMARY.md`. Adds `known_issue_outcomes` to the standard summary shape.
+
+## RemediationResearchFrontmatterSchema
+
+Source: `packages/artifacts/src/schemas/remediation-research.ts`. Models `R{RR}-RESEARCH.md`. Round-scoped research with the same fields as `ResearchFrontmatterSchema`.
+
+## DebugSessionSchema
+
+Source: `packages/artifacts/src/schemas/debug-session.ts`. Models `SS-DEBUG.md` under `phases/NN-slug/debug/`.
+
+| Field        | Type                                       | Required | Description                                 |
+|-------------|--------------------------------------------|----------|---------------------------------------------|
+| `session_id` | `string`                                   | yes      | Stable identifier (e.g., `01-2026-05-06`) |
+| `started`    | `string`                                   | yes      |                                             |
+| `agent`      | `"debugger" \| "qa" \| "dev"`              | yes      | Which role ran the investigation           |
+| `phase`      | `string`                                   | no       | Targeted phase                              |
+| `plan`       | `string`                                   | no       | Targeted plan                               |
+| `status`     | `"open" \| "resolved" \| "abandoned"`      | yes      |                                             |
+| `summary`    | `string`                                   | yes      | One-line summary                            |
+
+Body is structured: `## Investigation`, `## Findings`, `## Resolution` — extracted by regex.
+
+## PhaseContextSchema
+
+Source: `packages/artifacts/src/schemas/context.ts`. Models `NN-CONTEXT.md`.
+
+| Field               | Type      | Required | Description                                                                  |
+|--------------------|-----------|----------|------------------------------------------------------------------------------|
+| `phase`             | `string`  | yes      |                                                                              |
+| `slug`              | `string`  | yes      |                                                                              |
+| `name`              | `string`  | yes      |                                                                              |
+| `goal`              | `string`  | yes      |                                                                              |
+| `requirements`      | `string[]`| no       | REQ-IDs                                                                       |
+| `success_criteria`  | `string[]`| no       |                                                                              |
+| `pre_seeded`        | `boolean` | no       | `true` for remediation phases — discussion engine reads pre-seeded content   |
+
+Body sections: `## Notes`, `## Decisions`, `## Deferred Ideas`. Helpers are `parsePhaseContext` and `renderPhaseContext` (not read/write — those names belong to `bootstrap/context.ts`).
+
+## MilestoneContextSchema
+
+Source: `packages/artifacts/src/schemas/context.ts`. Models `.swt-planning/CONTEXT.md`.
+
+| Field           | Type                       | Required | Description                                |
+|----------------|----------------------------|----------|--------------------------------------------|
+| `milestone_name`| `string`                   | yes      |                                            |
+| `gathered`      | `string`                   | yes      | ISO date                                   |
+| `calibration`   | `"builder" \| "architect"` | yes      | Set by the discussion engine                |
+
+Body sections (all required):
+- `## Scope Boundary`
+- `## Decomposition Decisions` (with `### Scope Coverage` subsection)
+- `## Requirement Mapping`
+- `## Key Decisions`
+- `## Deferred Ideas`
+
+## See also
+
+- [Phases, plans, summaries](/concepts/phases-plans-summaries) — how artifacts compose
+- [Frontmatter parser](https://github.com/swt-labs/stop-wasting-tokens/blob/main/packages/artifacts/src/frontmatter.ts) — parser source

@@ -1,0 +1,45 @@
+---
+title: Breaking changes
+description: SWT v1.0 introduces zero breaking changes from VBW. This page tracks future versions.
+---
+
+# Breaking changes
+
+## v1.0 (current)
+
+**No breaking changes from VBW.**
+
+Frontmatter shapes are forward-compatible via Zod transforms. Lifecycle states are 1:1. CLI flag shapes match. Configuration keys are a strict superset.
+
+A VBW project that was working yesterday works on SWT today after a `mv .vbw-planning .swt-planning`. Nothing in the methodology changed.
+
+## v1.5 (planned)
+
+The v1.5 release is when breaking changes (if any) will be introduced. This section is a placeholder; it will be updated as v1.5 scopes.
+
+Likely candidates:
+
+- **`hooks.*` event taxonomy expansion.** The current `post_archive` is the only hook in v1.0. v1.5 adds `pre_archive`, `post_phase`, `post_uat_fail`, etc. Existing `post_archive` configs continue to work; new event names won't conflict.
+- **Auto-derived reference docs.** v1.5 will replace hand-authored CLI/config/artifact reference pages with docs generated at build time from source. The user-visible URLs stay the same; the content fidelity improves.
+- **Codex AgentSpawner wiring.** v1.0 ships with placeholder AgentSpawner that depends on a real Codex driver landing. v1.5 unblocks live `swt vibe` execution against Codex CLI.
+
+If a v1.5 deliverable does require a breaking change, it will be:
+1. Announced in advance via the [v1.5 roadmap](/v1-5-roadmap/index)
+2. Accompanied by a migration script (similar to the SWT-from-VBW path)
+3. Released under a clearly-marked major version bump
+
+## How we treat breaking changes
+
+SWT follows [semver](https://semver.org). Any breaking change requires a major version bump (1.x → 2.0). Migration tooling ships in the same release.
+
+The methodology contract — phases, plans, summaries, the 11 lifecycle states, the 7-point audit — is treated as semver-permanent. We will not change what `next_phase_state` returns or what `ac_results` records. Adding new states / fields is allowed; renaming or removing existing ones is not.
+
+The CLI surface (`swt init`, `swt vibe`, `swt detect-phase`) is also semver-stable. New flags and modes can be added; existing ones cannot be removed.
+
+## Reporting compatibility issues
+
+If you encounter a real-world break (e.g., a VBW frontmatter shape that SWT v1.0 fails to parse), please file an issue:
+
+[github.com/swt-labs/stop-wasting-tokens/issues](https://github.com/swt-labs/stop-wasting-tokens/issues)
+
+Include the offending file (anonymized) and the parser error. Compatibility bugs are treated as P0 in v1.x.

@@ -1,0 +1,133 @@
+---
+title: Brownfield init
+description: Wire SWT into an existing codebase — codebase mapping, assumptions-mode discussion, first remediation phase.
+---
+
+# Brownfield init
+
+You have an existing repo and want to start using SWT to drive new work. SWT's brownfield path includes a codebase mapping pass that bootstraps the discussion engine with assumptions instead of from-scratch questions.
+
+## Setup
+
+```bash
+cd existing-repo
+swt init
+# planning_tracking: manual (or commit if your team wants planning in PRs)
+# auto_push: never
+```
+
+`swt init` detects the brownfield codebase via `git ls-files` (or via Glob if not a git repo). The brownfield branch runs **codebase mapping**: a Scout-driven scan that writes `.swt-planning/codebase/`:
+
+```
+.swt-planning/codebase/
+  ARCHITECTURE.md     # high-level structure (services, modules, layers)
+  PATTERNS.md         # conventions detected (naming, error handling, testing)
+  CONCERNS.md         # security/perf/observability hot spots
+  STACK.md            # languages, frameworks, build tools
+  STRUCTURE.md        # directory tree summary
+  DEPENDENCIES.md     # package manifests
+  META.md             # date + Scout's version
+```
+
+This typically takes 2-4 minutes for a 50-200kloc repo. The output feeds every later discussion and plan — Lead and Dev read these files to bootstrap context.
+
+## 1. Bootstrap with assumptions mode
+
+```bash
+swt vibe
+```
+
+`bootstrap_required` → **Bootstrap**. Because `.swt-planning/codebase/META.md` exists, the discussion engine runs in **assumptions mode**: it forms evidence-backed claims from `PATTERNS.md` / `ARCHITECTURE.md` and asks you to confirm or correct them.
+
+Sample assumption flow:
+
+> ⚡ Assumption: Backend uses Express.js with no global middleware for request validation. (Source: `src/routes/*.ts` — no `validate()` or zod-based request parsing detected.)
+>
+> Status: confirmed / corrected / refined?
+
+You answer with `confirmed`, or with a correction (`refined: actually we use zod-based validation in src/middleware/validate.ts but only on /api/v2/`). The engine records each as `confirmed` (✓), `validated` (⚡), `corrected` (✗), or `expanded` (○).
+
+Outputs land in `REQUIREMENTS.md` — but with REQ-IDs reflecting the existing system, not a greenfield wishlist.
+
+## 2. Scope around brownfield concerns
+
+```bash
+swt vibe
+```
+
+`phase_count=0` → **Scope**. The engine reads `CONCERNS.md` and proposes phases that address detected risks first:
+
+```
+Phase 1: Add request validation middleware (CONCERN-01: missing zod parsing)
+Phase 2: Database transaction wrapping (CONCERN-03: implicit autocommit)
+Phase 3: Structured logging migration (CONCERN-05: console.log usage)
+```
+
+Note that brownfield phases are often **remediation-shaped**: they fix existing concerns rather than building from scratch. This is normal and expected.
+
+## 3. Plan + execute Phase 1
+
+```bash
+swt vibe
+```
+
+When Lead writes `01-01-PLAN.md`, it includes brownfield-specific must-haves:
+
+```yaml
+must_haves:
+  - "All /api/v1/ routes wrapped in zodValidate middleware"
+  - "Existing /api/v2/ routes left untouched (per Phase 1 scope)"
+  - "100% test coverage on validate() error paths"
+  - "Migration script for downstream consumers (if any)"
+```
+
+The Dev agent reads `PATTERNS.md` to follow your project's conventions (naming, error handling, test framework). Compiled context (`.context-dev.md`) bundles the relevant codebase intel + the plan + the slice of existing source files.
+
+## 4. Verify
+
+UAT walks through scenarios that touch real existing endpoints:
+
+```
+Test 1: GET /api/v1/users returns 400 for invalid query params
+> Pass
+
+Test 2: POST /api/v1/users with malformed JSON returns 422
+> Pass
+
+Test 3: GET /api/v2/users (excluded from this phase) still works
+> Pass
+
+Test 4: Existing integration tests still pass
+> Pass
+```
+
+Brownfield UAT is critical — it catches regressions in untouched paths.
+
+## What's different from greenfield
+
+| Aspect              | Greenfield                    | Brownfield                                              |
+|--------------------|-------------------------------|--------------------------------------------------------|
+| Codebase mapping    | Skipped                        | Run on `swt init` (~2-4 min for 50-200kloc)            |
+| Discussion mode     | Open questions                  | Assumptions (codebase-derived)                          |
+| First phases        | Build new features              | Often remediate existing concerns                       |
+| Dev context         | Plan + research                 | Plan + research + codebase intel slice                  |
+| UAT focus           | New behavior works              | New behavior works **and** old behavior unchanged      |
+| Codebase Profile    | Empty until first phase ships   | Populated by Scout immediately                          |
+
+## STATE.md after init
+
+```markdown
+## Codebase Profile
+- Source files: 1,247
+- Tech stack: TypeScript / Express / Postgres / Vitest
+- Tests: 89 vitest suites, 412 cases
+- CI/CD: GitHub Actions
+- Docker: yes (docker-compose with postgres + redis)
+- Monorepo: no
+- Notes: Pre-existing zod usage in /api/v2/. Phase 1 backports to /api/v1/.
+```
+
+## Next
+
+- [GSD migration](/recipes/gsd-migration) — for repos already running the predecessor GSD plugin
+- [Custom hooks](/recipes/custom-hooks) — wire post-archive notifications into existing CI/CD

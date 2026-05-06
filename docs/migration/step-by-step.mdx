@@ -1,0 +1,149 @@
+---
+title: Step-by-step migration
+description: Exact commands to move a VBW project to SWT.
+---
+
+# Step-by-step migration
+
+This is the literal command sequence. Allow ~10 minutes.
+
+## Pre-flight
+
+- [ ] All in-flight VBW work committed (no uncommitted changes in `.vbw-planning/`)
+- [ ] Latest SWT installed: `npm install -g @swt-labs/cli`
+- [ ] `swt --version` returns 1.0.x
+
+## 1. Snapshot the current state
+
+```bash
+swt detect-phase --planning-dir .vbw-planning --bash-format > /tmp/vbw-state.txt
+cat /tmp/vbw-state.txt | head -10
+```
+
+Capture this so you can compare against the post-migration state.
+
+## 2. Rename or copy the planning directory
+
+Choose one of two paths:
+
+### Path A — Rename in place (recommended)
+
+```bash
+mv .vbw-planning .swt-planning
+```
+
+The simplest, lowest-friction migration. Your git history shows a single rename commit; no duplicate planning artifacts to keep in sync.
+
+### Path B — Copy and migrate (cautious)
+
+```bash
+cp -r .vbw-planning .swt-planning
+```
+
+Useful if you want to keep VBW running in parallel during evaluation. **Both planning directories will be considered authoritative** — `swt detect-phase` will find `.swt-planning` first, but VBW's bash phase-detect will find `.vbw-planning`. Sync changes manually until you commit to one.
+
+## 3. Validate the round-trip
+
+```bash
+swt detect-phase --json | jq .next_phase_state
+swt detect-phase --bash-format | diff - /tmp/vbw-state.txt
+```
+
+If `next_phase_state` matches what VBW's phase-detect returned (modulo the planning dir path), you're good. If `diff` shows substantive differences (different `next_phase`, different `qa_status`), inspect the offending field — it's almost certainly a frontmatter shape SWT validates more strictly than VBW.
+
+Common findings:
+
+- `qa_status=pending` because `verified_at_commit` field was missing in a VBW VERIFICATION.md → re-run QA on that phase
+- `next_phase` off by one because of a missing SUMMARY.md → fill it in or revert/redo the phase
+
+## 4. Update `.gitignore` (if needed)
+
+If your repo had `.vbw-planning/` in `.gitignore`, swap it:
+
+```bash
+sed -i.bak 's|^\.vbw-planning|.swt-planning|' .gitignore
+rm .gitignore.bak
+git diff .gitignore
+git add .gitignore
+git commit -m "chore: migrate .gitignore from .vbw-planning to .swt-planning"
+```
+
+If your repo committed planning artifacts, no `.gitignore` change needed — but you'll need to commit the rename:
+
+```bash
+git add -A
+git commit -m "chore: rename .vbw-planning to .swt-planning (SWT migration)"
+```
+
+## 5. Update CI (if any)
+
+If your CI calls `vbw` commands, swap to `swt`:
+
+```yaml
+# Before
+- run: vbw vibe --verify
+# After
+- run: swt vibe --verify
+```
+
+The flag and argument shape is the same.
+
+## 6. Update CLAUDE.md / agent instructions
+
+Your `CLAUDE.md` may reference VBW commands or `.vbw-planning/` paths. Update:
+
+```bash
+# Quick scan
+grep -n "vbw\|\\.vbw-planning" CLAUDE.md
+```
+
+Replace `.vbw-planning` with `.swt-planning` and `vbw` with `swt`. The VBW Rules section (commit format, etc.) stays the same — it's identical in SWT.
+
+## 7. Test against a known-good phase
+
+Run `swt vibe` on a completed phase to make sure routing works:
+
+```bash
+swt vibe --verify 01
+# Should walk through UAT for Phase 1 (or report "already verified")
+```
+
+If you get "Phase 1 has no completed plans," your `swt detect-phase` didn't find the SUMMARY.md — inspect the rename and re-validate frontmatter.
+
+## 8. Run a fresh `swt vibe`
+
+```bash
+swt vibe
+```
+
+This routes to the next pending step. Confirm it does what you expect before letting it execute.
+
+## Rollback
+
+If anything goes wrong:
+
+```bash
+mv .swt-planning .vbw-planning
+git restore .gitignore  # if you changed it
+```
+
+VBW reads from `.vbw-planning` again. No data loss — everything you saw was identical bytes; the change was just the directory name and the CLI binary.
+
+## Troubleshooting
+
+### `swt vibe` says `next_phase_state=needs_qa_remediation` but VBW didn't
+
+SWT validates `verified_at_commit` against the current git HEAD more strictly than VBW. If the working tree changed since QA verified the phase, SWT will route to QA remediation. Either re-run QA (`swt vibe --verify {N}` will trigger it) or revert the working tree changes.
+
+### `swt detect-phase` reports a missing field that VBW accepted
+
+A schema upgrade (typically Phase 10's typed-shape contract) introduced stricter validation. Check the schema in `packages/artifacts/src/schemas/` for the missing field. Add it manually to the offending artifact, or run `swt vibe --verify {N}` to regenerate.
+
+### My `config.json` has VBW-specific keys
+
+SWT v1.0 silently ignores unknown keys. They stay in your `config.json` for VBW compatibility. v1.5 may surface a warning or a migration helper.
+
+## Next
+
+- [Breaking changes](/migration/breaking-changes) — v1.0 has none; v1.5 placeholder
+- [Recipes: brownfield](/recipes/brownfield) — for the case where SWT migration is also when you're switching from "no methodology" to SWT

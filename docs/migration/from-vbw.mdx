@@ -1,0 +1,95 @@
+---
+title: Migration from VBW
+description: SWT and VBW share the same methodology — moving between them is a rename, not a rewrite.
+---
+
+# Migration from VBW
+
+[Vibe Better with Claude Code](https://github.com/Hesreallyhim/awesome-claude-code) (VBW) is the methodology SWT is based on. By design, **SWT reads VBW's artifacts unchanged** — same frontmatter shapes, same lifecycle states, same routing logic.
+
+If you have a working VBW project, migrating to SWT is `mv .vbw-planning .swt-planning` plus a few config tweaks.
+
+## Feature parity
+
+| Feature                           | VBW         | SWT         |
+|----------------------------------|-------------|-------------|
+| Bootstrap                         | ✅          | ✅          |
+| Scope (phase decomposition)       | ✅          | ✅          |
+| Plan + Execute                    | ✅          | ✅          |
+| Verify (UAT)                      | ✅          | ✅          |
+| Archive                           | ✅          | ✅          |
+| Discussion engine                 | ✅          | ✅          |
+| Add / Insert / Remove phase       | ✅          | ✅          |
+| UAT remediation pipeline          | ✅          | ✅          |
+| QA remediation pipeline           | ✅          | ✅          |
+| 7-point archive audit             | ✅          | ✅          |
+| Hard UAT gate at archive          | ✅          | ✅          |
+| State-consistency verifier        | ✅          | ✅          |
+| Hook event taxonomy               | ✅          | ✅ (post_archive only in v1.0) |
+| Codebase mapping (brownfield)     | ✅          | ✅          |
+| GSD migration import              | ✅          | ✅          |
+| `--bash-format` phase-detect      | ✅          | ✅          |
+| Real Codex AgentSpawner wiring    | n/a (Claude) | ⚠ blocked (v1.5) |
+| Ink TUI dashboard                 | ❌          | 📋 v1.5    |
+| Plugin marketplace listing        | ✅          | 📋 v1.5    |
+| Multi-driver (Claude / Ollama)    | ❌ (Claude only) | 📋 v1.5 |
+
+## Frontmatter compatibility
+
+Every VBW frontmatter shape parses cleanly through SWT's Zod schemas. The transforms in `@swt-labs/artifacts/schemas/` accept both shapes:
+
+| Artifact      | VBW shape                                    | SWT shape                                    | Migration |
+|--------------|----------------------------------------------|----------------------------------------------|-----------|
+| `PLAN.md`     | `must_haves: [string]` or `[MustHaveBlock]`  | Same                                          | None      |
+| `SUMMARY.md`  | `ac_results: [{id, must_have, status, evidence}]` | `ac_results: [{id, criterion, verdict, evidence}]` | Auto-normalized on read |
+| `VERIFICATION.md` | Markdown table + frontmatter               | Same shape, Zod-validated                    | None      |
+| `UAT.md`      | YAML + body                                   | Same shape + optional `severity_counts`      | None      |
+| `RESEARCH.md` | Markdown body                                 | Same                                          | None      |
+| `CONTEXT.md`  | YAML + 3-section body                         | Same                                          | None      |
+| `MILESTONE-CONTEXT.md` | YAML + 6-section body               | Same                                          | None      |
+| `REMEDIATION-PLAN.md` | `fail_classifications[]` array       | Same                                          | None      |
+| `REMEDIATION-SUMMARY.md` | `known_issue_outcomes[]` array     | Same                                          | None      |
+| `DEBUG-SESSION.md` | `agent` + structured body                | Same                                          | None      |
+
+The "Auto-normalized" entry for SUMMARY means: a VBW SUMMARY with `must_have` and `status` keys is parsed and re-rendered as `criterion` and `verdict` on save. The original semantics are preserved.
+
+## Lifecycle state parity
+
+The 11 SWT lifecycle states map 1:1 to VBW's. Same names, same triggers, same routing decisions. `swt detect-phase --bash-format` produces VBW-compatible `key=value` output — VBW shell scripts work against SWT's planning dir without modification.
+
+## Config compatibility
+
+VBW's `config.json` keys are a strict superset of SWT's v1.0 keys. Reading a VBW config through SWT works; SWT silently ignores keys not yet in the v1.0 schema (e.g., VBW-specific `agent_max_turns.architect_v2`).
+
+The reverse is also true within v1.0: VBW reads an SWT config without complaining.
+
+## What's different
+
+The actual differences are operational, not methodological:
+
+- **Distribution.** VBW is a Claude Code plugin (bash + commands). SWT is an npm package (TypeScript CLI).
+- **Backend.** VBW runs in Claude Code only. SWT v1.0 runs against Codex CLI; v1.5 adds Claude Code and Ollama drivers.
+- **Hooks.** VBW exposes a 12-event hook taxonomy (PreToolUse, PostToolUse, etc.). SWT v1.0 exposes `post_archive` only — the full taxonomy lands in v1.5.
+
+Methodologically: identical.
+
+## When to migrate
+
+Migrate from VBW to SWT if:
+
+- You're moving to Codex CLI as your primary tool.
+- You want a single CLI distributed via npm rather than a Claude Code plugin install.
+- You want SWT's stricter Zod-validated artifact schemas (e.g., parse-on-read catches malformed YAML earlier than VBW's freeform parser).
+
+Stay on VBW if:
+
+- Your team is committed to Claude Code as the only LLM tool.
+- You rely on VBW-specific features that SWT v1.0 hasn't ported (the 12-event hook taxonomy, Agent Teams, isolation modes).
+- You want plugin-marketplace install + auto-update.
+
+Both projects share the methodology. You can run them side-by-side during evaluation — they don't conflict at the file level.
+
+## Next
+
+- [Step-by-step migration](/migration/step-by-step) — exact commands
+- [Breaking changes](/migration/breaking-changes) — none in v1.0; placeholder for v1.5

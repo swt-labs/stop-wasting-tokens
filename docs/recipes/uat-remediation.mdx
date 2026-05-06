@@ -1,0 +1,210 @@
+---
+title: UAT remediation
+description: Walk through a complete UAT remediation round — research → plan → execute → re-verify — including a recurring issue.
+---
+
+# UAT remediation
+
+Verification didn't pass. SWT's remediation pipeline is structured: research → plan → execute → re-verify, with deterministic round caps and recurrence tracking.
+
+This recipe walks Round 01 (first remediation) and Round 02 (recurring issue) end-to-end.
+
+## When remediation triggers
+
+After Verify mode runs, `01-UAT.md` is written:
+
+```yaml
+---
+phase: "03"
+status: issues_found
+total_tests: 5
+passed: 3
+skipped: 0
+issues: 2
+severity_counts: {minor: 1, major: 1, critical: 0}
+---
+
+## Issues
+
+### UAT-1 (major) — POST /shorten with malformed JSON returns 500
+Expected 422; got 500 (server stacktrace exposed). Affected: src/routes/shorten.ts.
+
+### UAT-2 (minor) — Slug collision returns 200 with original URL
+Expected 409 with the existing slug. Affected: src/routes/shorten.ts.
+```
+
+Next `swt vibe` reads this and routes to **UAT Remediation** mode.
+
+## Round 01: research
+
+```bash
+swt vibe
+```
+
+Routing detects `next_phase_state=needs_uat_remediation`. With `auto_uat=true` (default), no confirmation prompt — the runtime enters Round 01 stage `research`.
+
+The runtime spawns Scout with the issue list:
+
+```
+Scout (round 01, stage=research):
+
+Investigate these UAT issues:
+  ⚠ UAT-1 (major) — POST /shorten malformed JSON returns 500
+  UAT-2 (minor) — Slug collision returns 200 with original URL
+
+Source artifact: 03-UAT.md
+Output path: phases/03-redirect-api/remediation/uat/round-01/R01-RESEARCH.md
+```
+
+Scout reads `src/routes/shorten.ts`, `src/middleware/`, traces the JSON-parse error path, and writes findings:
+
+```markdown
+## UAT-1 root cause
+Express body-parser throws on malformed JSON before reaching the route handler.
+No global error handler catches it, so the default Express handler returns 500
+with a stacktrace.
+
+## UAT-2 root cause
+The createShortlink function checks if (!existing) but does not return the
+existing slug when one is found — it silently returns 200 with original URL.
+
+## Recommended fix
+1. Add an error-handling middleware that converts SyntaxError → 422.
+2. Update createShortlink to return 409 with { existing_slug } on collision.
+```
+
+`R01-RESEARCH.md` lands. Stage advances to `plan`.
+
+## Round 01: plan
+
+Lead reads `R01-RESEARCH.md` and writes `R01-PLAN.md`:
+
+```yaml
+---
+phase: "03"
+round: "01"
+title: Fix UAT-1 and UAT-2 from Round 00
+fail_classifications:
+  - {"id":"UAT-1","type":"code-fix","rationale":"Missing error-handling middleware for malformed JSON"}
+  - {"id":"UAT-2","type":"code-fix","rationale":"createShortlink does not return 409 on collision"}
+---
+
+# R01 / P01 — JSON error middleware
+Add SyntaxError handler to src/middleware/errors.ts that returns 422.
+
+# R01 / P02 — Collision response in createShortlink
+Update createShortlink to return { status: 409, existing_slug } on collision.
+```
+
+Stage advances to `execute`.
+
+## Round 01: execute
+
+Dev agents run `P01` then `P02` sequentially (remediation is always sequential — no wave parallelism). Each writes to `R01-SUMMARY.md`. After both, the orchestrator finalizes the summary's frontmatter (`status: complete`, aggregates `commit_hashes`, `files_modified`, `deviations`).
+
+Stage advances to `done`. The runtime immediately runs `prepare-reverification.sh`, archives the previous UAT, and chains directly into **Verify mode** — no separate `swt vibe` invocation needed.
+
+## Round 01: re-verification
+
+Verify mode walks the same UAT scenarios plus any new ones from `R01-PLAN.md`:
+
+```
+Test 1: POST /shorten malformed JSON returns 422 (was 500)
+> Pass
+
+Test 2: Slug collision returns 409 with existing_slug (was 200)
+> Pass
+
+Test 3: All previous PASS scenarios still pass
+> Pass
+```
+
+Round 01 closes clean. UAT result: PASS.
+
+## Round 02: recurrence
+
+Suppose Round 01 fixed UAT-1 but UAT-2 still fails — the test wasn't quite right. SWT detects this:
+
+```bash
+swt vibe
+```
+
+Round 02 stage `research` spawns. The Scout prompt now includes recurrence annotations:
+
+```
+Investigate these UAT issues:
+  ⚠ RECURRING (failed in 2 recorded rounds: 01, 02): UAT-2 (minor) — Slug collision returns 200 with original URL
+
+Current source artifact round: 02; current remediation round: 02.
+Prior fixes have not resolved this. Investigate WHY previous fixes failed
+before proposing a new approach — examine the actual data flow, not just symptoms.
+```
+
+The annotation tells Scout to dig deeper. Maybe the test mocks the database in a way that avoids the collision branch entirely; maybe the fix landed in a path that bypasses the create flow; maybe there's a race condition.
+
+Lead's planning prompt also reflects priority:
+
+```
+Prioritize recurring failures. UAT-2 has failed in 2 recorded UAT rounds —
+allocate more plans/effort to this issue than to first-time failures.
+```
+
+## The remediation round cap
+
+`max_uat_remediation_rounds` (default `false` = unlimited) bounds the loop. If you set:
+
+```json
+{ "max_uat_remediation_rounds": 3 }
+```
+
+…then after Round 03 fails, SWT stops with:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Reached maximum UAT remediation rounds (3).
+  Review issues manually or adjust max_uat_remediation_rounds
+  in config.json.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+You then debug manually, fix, and run `swt vibe --verify {N}` to re-enter the loop.
+
+## Phase-level escalation
+
+When `RR >= 3`, **all** issues route through `research → plan → execute` regardless of severity. Quick-fixes (`fix` stage) only apply to minor first-time issues — once round 03 hits, every issue gets the full pipeline.
+
+## Round directory layout
+
+```
+phases/03-redirect-api/
+  03-PLAN.md                            # original phase plan
+  03-SUMMARY.md
+  03-VERIFICATION.md                    # original phase QA
+  03-UAT.md                             # original phase UAT (frozen after round 01)
+  remediation/
+    uat/
+      round-01/
+        R01-RESEARCH.md
+        R01-PLAN.md
+        R01-SUMMARY.md
+        R01-VERIFICATION.md             # round-scoped QA
+        R01-UAT.md                      # round-scoped UAT
+      round-02/
+        ...
+```
+
+## What if Round N is stuck?
+
+If a recurring issue cannot be resolved (genuine architectural deadlock), classify the failing acceptance check as a `process-exception` in the remediation plan:
+
+```yaml
+fail_classifications:
+  - {"id":"UAT-2","type":"process-exception","rationale":"Race condition in upstream library; fix requires major refactor outside this phase's scope. Filed as Phase 4 follow-up."}
+```
+
+Then Verify mode accepts the exception (assuming QA agrees the rationale is credible). The issue lands in `STATE.md ## Todos` for future remediation.
+
+## Next
+
+- [Lifecycle states](/concepts/lifecycle-states) — how `needs_uat_remediation` and `needs_reverification` route
+- [Custom hooks](/recipes/custom-hooks) — wire `post_archive` to alert when UAT debt accumulates
