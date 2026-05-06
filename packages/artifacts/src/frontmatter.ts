@@ -85,8 +85,17 @@ function parseScalarYaml(block: string): Record<string, unknown> {
     }
 
     if (value.startsWith('[') && value.endsWith(']')) {
-      out[key] = value
-        .slice(1, -1)
+      const inner = value.slice(1, -1).trim();
+      if (inner.startsWith('{')) {
+        try {
+          out[key] = JSON.parse(value) as unknown;
+          i += 1;
+          continue;
+        } catch {
+          // fall through to the string-array path
+        }
+      }
+      out[key] = inner
         .split(',')
         .map((s) => s.trim())
         .map((s) => unquote(s))
@@ -133,6 +142,10 @@ function formatScalarYaml(obj: Record<string, unknown>): string {
   for (const [key, value] of Object.entries(obj)) {
     if (value === undefined) continue;
     if (Array.isArray(value)) {
+      if (value.some((item) => typeof item === 'object' && item !== null)) {
+        lines.push(`${key}: ${JSON.stringify(value)}`);
+        continue;
+      }
       const items = value
         .map((item) => (typeof item === 'string' ? JSON.stringify(item) : String(item)))
         .join(', ');
