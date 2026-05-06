@@ -1,7 +1,6 @@
 {
   "name": "@swt-labs/core",
   "version": "0.0.0",
-  "private": true,
   "description": "Type definitions, abstractions, and Zod schemas for SWT (HookHost, AgentSpawner, PermissionGate, MemoryStore).",
   "license": "MIT",
   "type": "module",
@@ -18,5 +17,19 @@
   },
   "dependencies": {
     "zod": "^3.23.8"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swt-labs/stop-wasting-tokens.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
+  },
+  "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
+  "author": "Tiago Ser\u00f4dio (@yidakee)"
 }

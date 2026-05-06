@@ -1,7 +1,6 @@
 {
   "name": "@swt-labs/codex-driver",
   "version": "0.0.0",
-  "private": true,
   "description": "Codex backend driver: TOML agent emitter, hooks.json writer, codex exec spawn wrapper, skill installer.",
   "license": "MIT",
   "type": "module",
@@ -13,5 +12,19 @@
   "dependencies": {
     "@swt-labs/core": "workspace:*",
     "execa": "^9.5.1"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swt-labs/stop-wasting-tokens.git",
+    "directory": "packages/codex-driver"
+  },
+  "bugs": {
+    "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
+  },
+  "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
+  "author": "Tiago Ser\u00f4dio (@yidakee)"
 }

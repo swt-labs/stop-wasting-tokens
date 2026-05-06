@@ -3,19 +3,21 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [],
+  "linked": [
+    [
+      "@swt-labs/core",
+      "@swt-labs/cli",
+      "@swt-labs/codex-driver",
+      "@swt-labs/methodology",
+      "@swt-labs/artifacts",
+      "@swt-labs/verification",
+      "@swt-labs/telemetry"
+    ]
+  ],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@swt-labs/core",
-    "@swt-labs/cli",
-    "@swt-labs/codex-driver",
-    "@swt-labs/methodology",
-    "@swt-labs/artifacts",
-    "@swt-labs/verification",
-    "@swt-labs/telemetry"
-  ],
+  "ignore": [],
   "privatePackages": {
     "version": false,
     "tag": false

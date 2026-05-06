@@ -13,38 +13,53 @@ A token-disciplined, methodology-first software development lifecycle for the Op
 - **Methodology over tooling.** Skills, AGENTS.md, and structured artefacts carry the workflow — not bespoke slash commands.
 - **Cross-platform.** Node/TypeScript only. No Bash hard dependency. Windows works natively.
 
-## Install (planned)
+## Install
 
-```
-npm i -g stop-wasting-tokens
+```bash
+npm install -g @swt-labs/cli
+# or
+pnpm add -g @swt-labs/cli
+# or
+bun add -g @swt-labs/cli
 ```
 
-The package is not yet published. Track Phase 9 (Distribution) on the roadmap for the v0.1.0-alpha release.
+All packages publish with [npm provenance attestation](https://docs.npmjs.com/generating-provenance-statements) — verify with `npm view @swt-labs/cli`.
 
-## Quick start (planned)
+[![install-smoke](https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/install-smoke.yml/badge.svg)](https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/install-smoke.yml)
 
+## Marketplace
+
+The Codex Plugin Marketplace listing is shipped via `packages/cli/codex-plugin.json` (PLAN 12-03). The live marketplace URL lands once Codex accepts the submission — track [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) for the link.
+
+## Quick start
+
+```bash
+swt init      # bootstrap a project
+swt vibe      # plan + execute the next phase
+swt update    # check for newer published version
 ```
-swt init
-swt vibe
-```
+
+See [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) for the full guide.
 
 ## Status
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Repo & org setup | In progress |
-| 2 | Foundation (TS monorepo, CI) | Pending |
-| 3 | Core abstractions | Pending |
-| 4 | Codex backend driver | Pending |
-| 5 | Methodology authoring | Pending |
-| 6 | Commands | Pending |
-| 7 | Artefacts engine | Pending |
-| 8 | Verification & QA | Pending |
-| 9 | Documentation site | Pending |
-| 10 | Distribution | Pending |
-| 11 | Beta & feedback | Pending |
-| 12 | v1.0 launch | Pending |
-| 13 | v1.5 forward-compat prep | Pending |
+| 1 | Repo & org setup | Complete |
+| 2 | Foundation (TS monorepo, CI) | Complete |
+| 3 | Core abstractions | Complete |
+| 4 | Codex backend driver | Complete |
+| 5 | Methodology authoring | Complete |
+| 6 | Commands | Complete |
+| 7 | Artefacts engine | Complete |
+| 8 | Verification & QA | Complete |
+| 9 | Methodology runtime | Complete |
+| 10 | Template fidelity | Complete |
+| 11 | Documentation site | Complete |
+| 12 | Distribution | In progress |
+| 13 | Beta & feedback | Pending |
+| 14 | v1.0 launch | Pending |
+| 15 | v1.5 forward-compat prep | Pending |
 
 ## Contributing
 
