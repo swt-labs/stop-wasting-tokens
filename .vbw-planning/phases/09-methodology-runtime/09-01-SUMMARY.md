@@ -2,9 +2,9 @@
 phase: 09
 plan: 01
 title: TypeScript port of VBW phase-detect.sh into @swt-labs/methodology
-status: partial
+status: complete
 completed: 2026-05-06
-tasks_completed: 7
+tasks_completed: 10
 tasks_total: 10
 ac_results:
   - id: AC1
