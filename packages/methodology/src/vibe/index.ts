@@ -6,4 +6,7 @@ export * from './handlers/scope.js';
 export * from './handlers/plan.js';
 export * from './handlers/execute.js';
 export * from './handlers/plan-and-execute.js';
+export * from './handlers/qa.js';
+export * from './handlers/verify.js';
+export * from './handlers/re-verify.js';
 export * from './orchestration/index.js';

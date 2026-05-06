@@ -40,16 +40,47 @@ export function formatFrontmatter(
 
 function parseScalarYaml(block: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const raw of block.split(/\r?\n/)) {
+  const lines = block.split(/\r?\n/);
+  let i = 0;
+  while (i < lines.length) {
+    const raw = lines[i] ?? '';
     const line = raw.trim();
-    if (line.length === 0 || line.startsWith('#')) continue;
+    if (line.length === 0 || line.startsWith('#')) {
+      i += 1;
+      continue;
+    }
     const colonIdx = line.indexOf(':');
-    if (colonIdx === -1) continue;
+    if (colonIdx === -1) {
+      i += 1;
+      continue;
+    }
     const key = line.slice(0, colonIdx).trim();
-    let value = line.slice(colonIdx + 1).trim();
+    const value = line.slice(colonIdx + 1).trim();
 
     if (value.length === 0) {
+      const items: string[] = [];
+      let j = i + 1;
+      while (j < lines.length) {
+        const next = lines[j] ?? '';
+        const trimmed = next.trim();
+        if (trimmed.length === 0) {
+          j += 1;
+          continue;
+        }
+        if (next.startsWith('  - ') || next.startsWith('- ')) {
+          items.push(unquote(trimmed.slice(2).trim()));
+          j += 1;
+          continue;
+        }
+        break;
+      }
+      if (items.length > 0) {
+        out[key] = items;
+        i = j;
+        continue;
+      }
       out[key] = '';
+      i += 1;
       continue;
     }
 
@@ -60,23 +91,28 @@ function parseScalarYaml(block: string): Record<string, unknown> {
         .map((s) => s.trim())
         .map((s) => unquote(s))
         .filter((s) => s.length > 0);
+      i += 1;
       continue;
     }
 
     if (value === 'true') {
       out[key] = true;
+      i += 1;
       continue;
     }
     if (value === 'false') {
       out[key] = false;
+      i += 1;
       continue;
     }
     if (/^-?\d+$/.test(value)) {
       out[key] = Number.parseInt(value, 10);
+      i += 1;
       continue;
     }
 
     out[key] = unquote(value);
+    i += 1;
   }
   return out;
 }

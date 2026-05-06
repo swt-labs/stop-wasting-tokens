@@ -5,9 +5,12 @@ import {
   executeHandler,
   NotImplementedError,
   planAndExecuteHandler,
+  qaHandler,
+  reVerifyHandler,
   RoutingError,
   routeFromState,
   scopeHandler,
+  verifyHandler,
   type RouteArgs,
   type VibeRoute,
 } from '@swt-labs/methodology';
@@ -52,6 +55,9 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     scopeHandler(),
     planAndExecuteHandler(),
     executeHandler(),
+    qaHandler(),
+    verifyHandler(),
+    reVerifyHandler(),
   ]);
   try {
     const result = await registry.dispatch(route, {
