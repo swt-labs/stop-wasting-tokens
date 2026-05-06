@@ -11,11 +11,12 @@ const EXPECTED_GROUPS = [
   'Reference',
   'Recipes',
   'Migration',
+  'Blog',
   'v1.5 Roadmap',
 ];
 
 describe('docs.json structure', () => {
-  it('has the 6 expected top-level navigation groups', () => {
+  it('has the 7 expected top-level navigation groups', () => {
     const groups = config.navigation.map((n: { group: string }) => n.group);
     expect(groups).toEqual(EXPECTED_GROUPS);
   });

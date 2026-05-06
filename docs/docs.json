@@ -69,6 +69,12 @@
       ]
     },
     {
+      "group": "Blog",
+      "pages": [
+        "blog/v1-0-launch"
+      ]
+    },
+    {
       "group": "v1.5 Roadmap",
       "pages": [
         "v1-5-roadmap/index"

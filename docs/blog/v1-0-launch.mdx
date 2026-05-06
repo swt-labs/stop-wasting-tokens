@@ -1,0 +1,86 @@
+---
+title: stop-wasting-tokens v1.0 is here
+description: A token-disciplined SDLC for the Codex CLI — phases, plans, summaries, and a deterministic state machine. v1.0 is the first stable release.
+---
+
+# stop-wasting-tokens v1.0 is here
+
+After thirteen phases of methodical engineering — phase-detect ports, artifact schemas, the docs site, distribution wiring — v1.0 of **stop-wasting-tokens** is shipped. A portable npm CLI for token-disciplined work on the Codex CLI.
+
+## The problem
+
+Codex is excellent at small tasks and unpredictable on large ones. Multi-week projects burn tokens on rework: re-explaining context every session, reinventing abstractions, hand-waving verification.
+
+The cost shows up as wasted hours, not just wasted tokens.
+
+## The solution
+
+Structure the work so token spend goes toward _new_ progress.
+
+- **Phases on disk.** Every project decomposes into phases with explicit goals and success criteria. The roadmap is a real file you can grep, edit, and review.
+- **Plans on disk.** Each phase decomposes into plans with typed must-haves. Lead writes the plan; Dev executes; QA verifies row-by-row against the must-haves.
+- **Verification as a separate stage.** UAT walks interactively against acceptance criteria — not "implement and test" mashed together. Failed UAT routes through `research → plan → execute → re-verify` with bounded round caps and recurrence tracking.
+- **Eleven deterministic lifecycle states.** `swt detect-phase --json` returns the same routing decision for the same disk state, every time. No fuzzy reasoning about "what should I do next."
+
+## What you get with v1.0
+
+<CardGroup cols={2}>
+  <Card title="Install" icon="rocket" href="/getting-started/install">
+    `npm install -g @swt-labs/cli` and you're shipping.
+  </Card>
+  <Card title="Concepts" icon="lightbulb" href="/concepts/methodology">
+    The methodology in five pages.
+  </Card>
+  <Card title="Recipes" icon="map" href="/recipes/greenfield">
+    End-to-end walkthroughs for greenfield, brownfield, GSD migration, UAT remediation, custom hooks.
+  </Card>
+  <Card title="Migration" icon="arrows-right-left" href="/migration/from-vbw">
+    Coming from VBW? `mv .vbw-planning .swt-planning` is most of the work.
+  </Card>
+</CardGroup>
+
+The full feature set:
+
+- **Methodology runtime** — phase-detect, VibeRoute dispatch, discussion engine, 7-point archive audit
+- **Twelve typed artifact schemas** — PLAN, SUMMARY, VERIFICATION, UAT, RESEARCH, REMEDIATION-{PLAN,SUMMARY,RESEARCH}, DEBUG-SESSION, CONTEXT, MILESTONE-CONTEXT
+- **Six-agent SDLC** — Scout (research), Architect (design), Lead (planning), Dev (implementation), QA (contract verification), Debugger (investigation)
+- **CLI commands** — `swt init`, `swt vibe`, `swt detect-phase`, `swt update`, `swt config`, `swt status`, `swt doctor`
+- **Documentation site** — eighteen pages with Vale prose linting in CI
+- **npm distribution with provenance attestation** — all seven packages publish with cryptographic attestation linking the build to the source commit
+- **Opt-in telemetry** — privacy-by-default, anonymous UUIDv4, PII-stripping sanitize pass
+
+## Why now
+
+VBW (Vibe Better with Claude Code) proved the methodology in Claude Code over the last year. The token-discipline insight is sound — but VBW is a Claude Code plugin, locked to one runtime. The next step was making it portable.
+
+SWT v1.0 is that portable distribution. v1.5 adds the multi-driver future: Claude Code, Ollama, possibly more. Same methodology, multiple substrates.
+
+## What's next
+
+[`docs/v1-5-roadmap/`](/v1-5-roadmap/index) lists the planned v1.5 work in detail. Highlights:
+
+- **Real Codex AgentSpawner wiring** — v1.0 ships the abstraction layer with a mock driver; v1.5 wires the live Codex backend
+- **Claude Code + Ollama drivers** — same shape, different substrates
+- **Ink TUI dashboard** — real-time phase progress, agent status, token spend
+- **Auto-derived reference docs** — codegen replaces hand-authored CLI/config/artifact references
+- **Hook event taxonomy expansion** — `pre_archive`, `post_phase`, `post_uat_fail`, more
+
+## Closed beta
+
+The closed beta is open this week. If you're running a multi-week project on Codex, you're the audience for v0.1.0-alpha.
+
+[Beta tester guide →](/recipes/beta-feedback)
+
+## Try it
+
+```bash
+npm install -g @swt-labs/cli
+swt init
+swt vibe
+```
+
+That's the whole onboarding.
+
+Friction reports, edge cases, and "this should be smoother" feedback all welcome — the first ten beta users get personal welcomes on Discord. The top-ten friction items will be addressed before the v1.0 stable cut.
+
+— SWT maintainers

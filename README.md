@@ -41,6 +41,10 @@ swt update    # check for newer published version
 
 See [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) for the full guide.
 
+## Release notes
+
+The first stable release is documented in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md). Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## Status
 
 | Phase | Name | Status |
@@ -56,9 +60,9 @@ See [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) for the ful
 | 9 | Methodology runtime | Complete |
 | 10 | Template fidelity | Complete |
 | 11 | Documentation site | Complete |
-| 12 | Distribution | In progress |
-| 13 | Beta & feedback | Pending |
-| 14 | v1.0 launch | Pending |
+| 12 | Distribution | Complete |
+| 13 | Beta & feedback | Complete |
+| 14 | v1.0 launch | In progress |
 | 15 | v1.5 forward-compat prep | Pending |
 
 ## Contributing
