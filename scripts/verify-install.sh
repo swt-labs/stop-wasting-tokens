@@ -43,12 +43,12 @@ if ! swt init --yes 2>/dev/null && ! echo | swt init 2>/dev/null; then
   exit 1
 fi
 
-if [ ! -f .swt-planning/PROJECT.md ] && [ ! -f .vbw-planning/PROJECT.md ]; then
-  echo "✗ swt init did not scaffold PROJECT.md" >&2
+if [ ! -f .swt-planning/PROJECT.md ]; then
+  echo "✗ swt init did not scaffold .swt-planning/PROJECT.md" >&2
   popd >/dev/null
   exit 1
 fi
-echo "  ✓ swt init scaffolds planning directory"
+echo "  ✓ swt init scaffolds .swt-planning/"
 popd >/dev/null
 
 # 4. detect-phase round-trips

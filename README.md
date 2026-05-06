@@ -1,6 +1,6 @@
 # stop-wasting-tokens
 
-> **Status:** alpha — under active development. APIs, file layouts, and command surface will change without notice until v1.0. See [ROADMAP](.vbw-planning/ROADMAP.md).
+> **Status:** alpha — under active development. APIs, file layouts, and command surface will change without notice until v1.0. See the [v1.5 roadmap](docs/roadmap/v1.5.md) for what's coming next.
 
 A token-disciplined, methodology-first software development lifecycle for the OpenAI Codex CLI.
 
