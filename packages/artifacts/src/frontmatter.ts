@@ -104,6 +104,16 @@ function parseScalarYaml(block: string): Record<string, unknown> {
       continue;
     }
 
+    if (value.startsWith('{') && value.endsWith('}')) {
+      try {
+        out[key] = JSON.parse(value) as unknown;
+        i += 1;
+        continue;
+      } catch {
+        // fall through to plain-string handling
+      }
+    }
+
     if (value === 'true') {
       out[key] = true;
       i += 1;
@@ -150,6 +160,10 @@ function formatScalarYaml(obj: Record<string, unknown>): string {
         .map((item) => (typeof item === 'string' ? JSON.stringify(item) : String(item)))
         .join(', ');
       lines.push(`${key}: [${items}]`);
+      continue;
+    }
+    if (typeof value === 'object' && value !== null) {
+      lines.push(`${key}: ${JSON.stringify(value)}`);
       continue;
     }
     if (typeof value === 'string') {

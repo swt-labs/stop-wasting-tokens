@@ -29,6 +29,17 @@ export const UatIssueSchema = z.object({
   details: z.string().default(''),
 });
 
+export const SeverityCountsSchema = z
+  .object({
+    critical: z.number().int().nonnegative().default(0),
+    major: z.number().int().nonnegative().default(0),
+    minor: z.number().int().nonnegative().default(0),
+    cosmetic: z.number().int().nonnegative().default(0),
+  })
+  .default({ critical: 0, major: 0, minor: 0, cosmetic: 0 });
+
+export type SeverityCounts = z.infer<typeof SeverityCountsSchema>;
+
 export const UatDocSchema = z.object({
   phase: z.string().regex(/^\d{2}$/),
   plan_count: z.number().int().nonnegative(),
@@ -39,36 +50,52 @@ export const UatDocSchema = z.object({
   passed: z.number().int().nonnegative(),
   skipped: z.number().int().nonnegative(),
   issues: z.number().int().nonnegative(),
+  severity_counts: SeverityCountsSchema,
   tests: z.array(UatTestSchema).default([]),
   issue_records: z.array(UatIssueSchema).default([]),
   body: z.string().default(''),
 });
 
+export function deriveSeverityCounts(issues: readonly UatIssue[]): SeverityCounts {
+  const out: SeverityCounts = { critical: 0, major: 0, minor: 0, cosmetic: 0 };
+  for (const issue of issues) {
+    out[issue.severity] += 1;
+  }
+  return out;
+}
+
 export type UatDoc = z.infer<typeof UatDocSchema>;
+export type UatDocInput = z.input<typeof UatDocSchema>;
 export type UatTest = z.infer<typeof UatTestSchema>;
 export type UatIssue = z.infer<typeof UatIssueSchema>;
 
 export interface WriteUatOptions {
   readonly phaseDir: string;
-  readonly doc: UatDoc;
+  readonly doc: UatDocInput;
   /** Optional override path (used by re-verify round-dir layouts). */
   readonly path?: string;
 }
 
 export async function writeUat(opts: WriteUatOptions): Promise<string> {
-  const path = opts.path ?? join(opts.phaseDir, `${opts.doc.phase}-UAT.md`);
+  const doc = UatDocSchema.parse(opts.doc);
+  const path = opts.path ?? join(opts.phaseDir, `${doc.phase}-UAT.md`);
+  const counts = doc.severity_counts ?? deriveSeverityCounts(doc.issue_records);
   const ordered: Record<string, unknown> = {
-    phase: opts.doc.phase,
-    plan_count: opts.doc.plan_count,
-    status: opts.doc.status,
-    started: opts.doc.started,
-    completed: opts.doc.completed,
-    total_tests: opts.doc.total_tests,
-    passed: opts.doc.passed,
-    skipped: opts.doc.skipped,
-    issues: opts.doc.issues,
+    phase: doc.phase,
+    plan_count: doc.plan_count,
+    status: doc.status,
+    started: doc.started,
+    completed: doc.completed,
+    total_tests: doc.total_tests,
+    passed: doc.passed,
+    skipped: doc.skipped,
+    issues: doc.issues,
   };
-  const body = opts.doc.body.length > 0 ? opts.doc.body : renderDefaultBody(opts.doc);
+  if (counts.critical + counts.major + counts.minor + counts.cosmetic > 0) {
+    ordered.severity_counts = counts;
+  }
+  const docWithCounts = { ...doc, severity_counts: counts };
+  const body = doc.body.length > 0 ? doc.body : renderDefaultBody(docWithCounts);
   await writeAtomically(path, formatFrontmatter(ordered, body));
   return path;
 }
@@ -113,6 +140,17 @@ function renderDefaultBody(doc: UatDoc): string {
   if (doc.issue_records.length > 0) {
     lines.push('## Issues');
     lines.push('');
+    const counts = doc.severity_counts ?? deriveSeverityCounts(doc.issue_records);
+    if (counts.critical + counts.major + counts.minor + counts.cosmetic > 0) {
+      const parts = [
+        counts.critical > 0 ? `${counts.critical} critical` : '',
+        counts.major > 0 ? `${counts.major} major` : '',
+        counts.minor > 0 ? `${counts.minor} minor` : '',
+        counts.cosmetic > 0 ? `${counts.cosmetic} cosmetic` : '',
+      ].filter((s) => s.length > 0);
+      lines.push(`Severity Mix: ${parts.join(', ')}`);
+      lines.push('');
+    }
     for (const issue of doc.issue_records) {
       lines.push(`### ${issue.id} — ${issue.severity.toUpperCase()}`);
       lines.push('');
