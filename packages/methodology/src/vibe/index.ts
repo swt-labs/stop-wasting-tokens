@@ -10,4 +10,6 @@ export * from './handlers/qa.js';
 export * from './handlers/verify.js';
 export * from './handlers/re-verify.js';
 export * from './handlers/milestone-uat-recovery.js';
+export * from './handlers/archive.js';
+export * from './handlers/all-done.js';
 export * from './orchestration/index.js';

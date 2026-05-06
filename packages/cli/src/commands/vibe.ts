@@ -1,4 +1,6 @@
 import {
+  allDoneHandler,
+  archiveHandler,
   bootstrapHandler,
   buildVibeRegistry,
   detectPhase,
@@ -65,6 +67,9 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
         ? { forceDecision: 'create-remediation' as const }
         : {};
 
+  const archiveOpts: { skipAudit?: boolean; force?: boolean } = {};
+  if (args.skipAudit === true) archiveOpts.skipAudit = true;
+
   const registry = buildVibeRegistry([
     bootstrapHandler(),
     scopeHandler(),
@@ -74,6 +79,8 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     verifyHandler(verifyOpts),
     reVerifyHandler(),
     milestoneUatRecoveryHandler(milestoneOpts),
+    archiveHandler(archiveOpts),
+    allDoneHandler(),
   ]);
   try {
     const result = await registry.dispatch(route, {

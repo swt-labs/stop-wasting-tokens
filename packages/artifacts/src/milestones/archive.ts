@@ -34,6 +34,10 @@ export async function archiveMilestone(
     join(milestoneDir, 'ROADMAP.md'),
   );
   await renameIfExists(
+    join(opts.planningDir, 'CONTEXT.md'),
+    join(milestoneDir, 'CONTEXT.md'),
+  );
+  await renameIfExists(
     join(opts.planningDir, 'phases'),
     join(milestoneDir, 'phases'),
   );

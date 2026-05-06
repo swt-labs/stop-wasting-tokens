@@ -6,4 +6,5 @@ export * from './prompt-builder/index.js';
 export * from './memory/index.js';
 export * from './state/index.js';
 export * from './qa/index.js';
+export * from './audit/index.js';
 export * from './vibe/index.js';
