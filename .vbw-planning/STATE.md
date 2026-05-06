@@ -4,10 +4,10 @@
 **Milestone:** Phase 1 — Repo & org setup (artifact Phase 0)
 
 ## Current Phase
-Phase: 11 of 15 (Phase 8 Documentation Site)
-Plans: 2/3
-Progress: 66%
-Status: active
+Phase: 12 of 15 (Phase 9 Distribution)
+Plans: 0/0
+Progress: 0%
+Status: ready
 
 ## Phase Status
 - **Phase 1 (Phase 0 Repo Org Setup):** Complete
@@ -20,7 +20,7 @@ Status: active
 - **Phase 8 (Phase 7 Verification Qa):** Complete
 - **Phase 9 (Methodology Runtime):** Complete
 - **Phase 10 (Template Fidelity):** Complete
-- **Phase 11 (Phase 8 Documentation Site):** In progress
+- **Phase 11 (Phase 8 Documentation Site):** Complete
 - **Phase 12 (Phase 9 Distribution):** Pending
 - **Phase 13 (Phase 10 Beta Feedback):** Pending
 - **Phase 14 (Phase 11 V1 0 Launch):** Pending
