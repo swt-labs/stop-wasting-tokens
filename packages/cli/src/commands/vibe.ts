@@ -2,7 +2,9 @@ import {
   bootstrapHandler,
   buildVibeRegistry,
   detectPhase,
+  executeHandler,
   NotImplementedError,
+  planAndExecuteHandler,
   RoutingError,
   routeFromState,
   scopeHandler,
@@ -45,7 +47,12 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     return EXIT.USAGE_ERROR;
   }
 
-  const registry = buildVibeRegistry([bootstrapHandler(), scopeHandler()]);
+  const registry = buildVibeRegistry([
+    bootstrapHandler(),
+    scopeHandler(),
+    planAndExecuteHandler(),
+    executeHandler(),
+  ]);
   try {
     const result = await registry.dispatch(route, {
       cwd: io.cwd,
