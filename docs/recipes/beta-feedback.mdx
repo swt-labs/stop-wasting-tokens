@@ -1,0 +1,95 @@
+---
+title: Beta tester guide
+description: How to participate in the v0.1.0-alpha closed beta — install, test, report friction.
+---
+
+# Beta tester guide
+
+Welcome to the closed beta. This page is your one-stop walkthrough for installing v0.1.0-alpha, testing the methodology against real work, and reporting what you find.
+
+## Install
+
+```bash
+npm install -g @swt-labs/cli@0.1.0-alpha
+swt --version
+# 0.1.0-alpha
+```
+
+If you're coming from VBW, see the [migration guide](/migration/from-vbw) — `mv .vbw-planning .swt-planning` is most of the work.
+
+## What we want you to test
+
+Five scenarios. You don't have to hit all five, but the mix surfaces different parts of the runtime:
+
+1. **Greenfield bootstrap** — `mkdir test-project && cd test-project && swt init && swt vibe`. Walk a project from no-state to shipped milestone via the Discussion Engine + Scope + Plan + Execute loop.
+2. **Brownfield init** — point `swt init` at an existing repo. Watch codebase mapping run, then bootstrap with assumptions mode.
+3. **Full-phase shipping** — pick a real (small) feature, let SWT plan + execute it end-to-end.
+4. **Archive flow** — when all phases complete, run `swt vibe --archive`. Confirm the 7-point audit, milestone tagging, and STATE.md reset.
+5. **UAT remediation** — intentionally introduce a bug. Watch the runtime route to remediation, fix the bug across rounds, and chain into re-verification.
+
+The [recipes section](/recipes/greenfield) has detailed walkthroughs for each.
+
+## How to report friction
+
+Friction reports are the single most valuable thing you can give us. Even "I felt like SWT was about to shoot me in the foot" — without an actual bug — is signal worth filing.
+
+**File via the friction template:**
+
+[`github.com/swt-labs/stop-wasting-tokens/issues/new?template=friction.md`](https://github.com/swt-labs/stop-wasting-tokens/issues/new?template=friction.md)
+
+Required fields:
+- What you were trying to do (one sentence)
+- What happened (with command output if relevant)
+- What you expected (the mental model that didn't match)
+- Severity (annoyance / blocker / showstopper)
+- Environment (SWT version, Node, OS, Codex CLI)
+
+If it's an actual bug (crash, data loss, broken state), use the bug template instead. Otherwise, friction is the right place — even subtle "this should be smoother" reports are useful.
+
+## Discord
+
+The closed-beta Discord is `discord.gg/swt-labs-beta` *(placeholder URL — real invite shipped via DM after Discord setup completes)*. Channels:
+
+- `#general` — anything goes
+- `#friction` — quick async friction reports for things not worth filing as issues
+- `#help` — questions
+- `#wins` — show what you shipped
+
+The [Code of Conduct](https://github.com/swt-labs/stop-wasting-tokens/blob/main/CODE_OF_CONDUCT.md) applies in Discord too.
+
+## Telemetry (optional)
+
+SWT can collect anonymous usage signal to surface where the runtime stalls or where users hit dead ends. Opt-in is **off by default** — we genuinely care more about your friction reports than aggregate stats. If you want to help shape the v1.0 release:
+
+```bash
+swt config set telemetry.enabled true
+```
+
+What we track when enabled:
+- Which CLI commands run (`cli.command_invoked`)
+- Phase progress (`vibe.phase_started` / `vibe.phase_completed`)
+- UAT outcomes (`uat.checkpoint`, `uat.remediation_round_started`)
+
+What we **never** track:
+- File paths, repository names, project names
+- Command arguments
+- Free-text content from prompts or artifacts
+- User identities (only an anonymous UUIDv4 generated locally)
+
+Disable anytime with `swt config set telemetry.enabled false`.
+
+## What we'll do with your feedback
+
+- **Friction reports** — triaged within 48 hours during the beta window.
+- **Top-10 friction items** — addressed before v1.0 release (per Phase 13 success criterion).
+- **Telemetry** — currently logs to a no-op sender. Real endpoint lands in v1.5; aggregate signal will inform v1.0 polish.
+- **Wins** — if you ship something interesting with SWT, we'll feature it (with permission) on the docs site and in the v1.0 announcement.
+
+## Quick links
+
+- [Install](/getting-started/install)
+- [First vibe walkthrough](/getting-started/first-vibe)
+- [Migration from VBW](/migration/from-vbw)
+- [Friction template](https://github.com/swt-labs/stop-wasting-tokens/issues/new?template=friction.md)
+- [Code of Conduct](https://github.com/swt-labs/stop-wasting-tokens/blob/main/CODE_OF_CONDUCT.md)
+- [Discord (closed beta)](https://discord.gg/swt-labs-beta)

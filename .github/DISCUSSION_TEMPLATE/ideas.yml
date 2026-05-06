@@ -1,0 +1,20 @@
+title: '[idea] '
+labels: ['idea']
+body:
+  - type: textarea
+    attributes:
+      label: The idea
+      description: One paragraph — what would change?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Why now?
+      description: What recent friction or insight motivated this?
+  - type: textarea
+    attributes:
+      label: Tradeoffs you see
+      description: What does this make worse? What's the cost?
+  - type: input
+    attributes:
+      label: Related issues / discussions (optional)

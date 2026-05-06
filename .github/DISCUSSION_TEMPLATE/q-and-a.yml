@@ -1,0 +1,21 @@
+title: '[question] '
+labels: ['question']
+body:
+  - type: textarea
+    attributes:
+      label: What are you trying to do?
+      description: The end goal — not just the immediate command.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What have you tried?
+      description: Commands you ran, errors you saw, links to docs you read.
+  - type: textarea
+    attributes:
+      label: Environment
+      description: |
+        SWT version (`swt --version`)
+        Node version (`node --version`)
+        OS
+        Codex CLI version

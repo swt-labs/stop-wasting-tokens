@@ -56,7 +56,8 @@
         "recipes/brownfield",
         "recipes/gsd-migration",
         "recipes/uat-remediation",
-        "recipes/custom-hooks"
+        "recipes/custom-hooks",
+        "recipes/beta-feedback"
       ]
     },
     {

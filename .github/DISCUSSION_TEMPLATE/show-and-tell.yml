@@ -1,0 +1,16 @@
+title: '[show] '
+labels: ['show-and-tell']
+body:
+  - type: textarea
+    attributes:
+      label: What did you ship with SWT?
+      description: One paragraph — what was the milestone or feature?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Lessons learned
+      description: What surprised you? What worked well? What would you do differently?
+  - type: input
+    attributes:
+      label: Repo or screenshot link (optional)

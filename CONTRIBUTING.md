@@ -6,6 +6,17 @@ Thanks for considering a contribution. The project is in early alpha and the sur
 
 All participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Beta tester
+
+The v0.1.0-alpha closed beta is live. If you want to help shape v1.0:
+
+- Read the [beta tester guide](https://docs.stopwastingtokens.dev/recipes/beta-feedback) — it covers install, what to test, and how to report what you find.
+- File [friction reports](.github/ISSUE_TEMPLATE/friction.md) — even subtle "this should be smoother" feedback is signal.
+- Join the closed-beta Discord (invite via DM during the beta window).
+- Optionally enable anonymous telemetry: `swt config set telemetry.enabled true`.
+
+Top-10 friction items will be addressed before v1.0 release.
+
 ## Reporting issues
 
 - **Bug:** use the bug template under `.github/ISSUE_TEMPLATE/`. Include reproduction steps, expected vs actual behaviour, your Node version, OS, and Codex CLI version.
