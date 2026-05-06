@@ -45,3 +45,21 @@ export function buildStubRegistry(): ModeRegistry {
   }
   return registry;
 }
+
+/**
+ * Build a vibe registry where the supplied real handlers win and the stubs
+ * fill in everything else.
+ */
+export function buildVibeRegistry(realHandlers: readonly ModeHandler[] = []): ModeRegistry {
+  const registry = new ModeRegistry();
+  const realKinds = new Set(realHandlers.map((h) => h.kind));
+  for (const handler of realHandlers) {
+    registry.register(handler);
+  }
+  for (const spec of STUB_SPECS) {
+    if (!realKinds.has(spec.kind)) {
+      registry.register(stubHandler(spec));
+    }
+  }
+  return registry;
+}

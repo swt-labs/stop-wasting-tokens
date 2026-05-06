@@ -8,3 +8,4 @@ export * from './state/updater.js';
 export * from './roadmap/editor.js';
 export * from './phases/layout.js';
 export * from './milestones/archive.js';
+export * from './bootstrap/index.js';

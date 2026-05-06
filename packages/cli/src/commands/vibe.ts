@@ -1,9 +1,11 @@
 import {
-  buildStubRegistry,
+  bootstrapHandler,
+  buildVibeRegistry,
   detectPhase,
   NotImplementedError,
   RoutingError,
   routeFromState,
+  scopeHandler,
   type RouteArgs,
   type VibeRoute,
 } from '@swt-labs/methodology';
@@ -43,7 +45,7 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     return EXIT.USAGE_ERROR;
   }
 
-  const registry = buildStubRegistry();
+  const registry = buildVibeRegistry([bootstrapHandler(), scopeHandler()]);
   try {
     const result = await registry.dispatch(route, {
       cwd: io.cwd,
