@@ -5,3 +5,8 @@ export * from './state.js';
 export * from './plan.js';
 export * from './summary.js';
 export * from './research.js';
+export * from './remediation-plan.js';
+export * from './remediation-summary.js';
+export * from './remediation-research.js';
+export * from './debug-session.js';
+export * from './context.js';
