@@ -1,5 +1,4 @@
 {
-  "$schema": "https://docs.codex.example/plugin-manifest.schema.json",
   "name": "stop-wasting-tokens",
   "displayName": "stop-wasting-tokens (SWT)",
   "version": "0.0.0",

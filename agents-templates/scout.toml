@@ -1,5 +1,9 @@
+# SWT agent profile template. Override `model` per role to pin a different
+# Codex-supported model. `allowed_mcp_servers` below lists illustrative
+# identifiers — replace with the real MCP server names registered in your
+# `~/.codex/mcp.json` (or omit servers you don't have configured).
 role = "scout"
-model = "gpt-5.5-pro"
+model = "gpt-5-codex"
 model_reasoning_effort = "balanced"
 sandbox_mode = "read-only"
 allowed_mcp_servers = ["filesystem", "web-fetch", "web-search"]
