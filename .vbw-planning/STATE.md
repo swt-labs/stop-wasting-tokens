@@ -4,7 +4,7 @@
 **Milestone:** Phase 1 — Repo & org setup (artifact Phase 0)
 
 ## Current Phase
-Phase: 14 of 15 (Phase 11 V1 0 Launch)
+Phase: 15 of 15 (Phase 12 Forward Compatibility Prep For V1 5)
 Plans: 0/0
 Progress: 0%
 Status: ready
@@ -23,7 +23,7 @@ Status: ready
 - **Phase 11 (Phase 8 Documentation Site):** Complete
 - **Phase 12 (Phase 9 Distribution):** Complete
 - **Phase 13 (Phase 10 Beta Feedback):** Complete
-- **Phase 14 (Phase 11 V1 0 Launch):** Pending
+- **Phase 14 (Phase 11 V1 0 Launch):** Complete
 - **Phase 15 (Phase 12 Forward Compatibility Prep For V1 5):** Pending
 
 ## Key Decisions

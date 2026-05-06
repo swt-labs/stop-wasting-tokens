@@ -20,7 +20,7 @@
 | 11 | ● Done |
 | 12 | ● Done |
 | 13 | ● Done |
-| 14 | Pending | 0 | 0 | 0 |
+| 14 | ● Done |
 | 15 | Pending | 0 | 0 | 0 |
 
 ---
@@ -39,7 +39,7 @@
 - [x] [Phase 11: Documentation site](#phase-11-documentation-site)
 - [x] [Phase 12: Distribution](#phase-12-distribution)
 - [x] [Phase 13: Beta & feedback](#phase-13-beta--feedback)
-- [ ] [Phase 14: v1.0 launch](#phase-14-v10-launch)
+- [x] [Phase 14: v1.0 launch](#phase-14-v10-launch)
 - [ ] [Phase 15: v1.5 forward-compatibility prep](#phase-15-v15-forward-compatibility-prep)
 
 ---
