@@ -32,6 +32,13 @@ export const ConfigSchema = z.object({
   auto_uat: z.boolean().default(false),
   planning_tracking: z.enum(['manual', 'ignore', 'commit']).default('manual'),
   auto_push: z.enum(['never', 'after_phase', 'always']).default('never'),
+  telemetry: z
+    .object({
+      enabled: z.boolean().default(false),
+      anonymous_id: z.string().uuid().optional(),
+      opted_in_at: z.string().optional(),
+    })
+    .default({ enabled: false }),
 });
 
 export type SwtConfig = z.infer<typeof ConfigSchema>;
