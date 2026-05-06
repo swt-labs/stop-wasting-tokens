@@ -1,0 +1,17 @@
+{
+  "name": "@swt-labs/codex-driver",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Codex backend driver: TOML agent emitter, hooks.json writer, codex exec spawn wrapper, skill installer.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@swt-labs/core": "workspace:*",
+    "execa": "^9.5.1"
+  }
+}

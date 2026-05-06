@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+coverage
+.changeset
+pnpm-lock.yaml
+.vbw-planning/research

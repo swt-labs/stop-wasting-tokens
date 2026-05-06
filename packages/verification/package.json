@@ -1,0 +1,16 @@
+{
+  "name": "@swt-labs/verification",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Goal-backward QA pipeline with three tiers (quick / standard / deep) and traceability checks.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@swt-labs/core": "workspace:*"
+  }
+}

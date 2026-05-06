@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../codex-driver" },
+    { "path": "../methodology" },
+    { "path": "../artifacts" },
+    { "path": "../verification" },
+    { "path": "../telemetry" }
+  ]
+}

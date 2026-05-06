@@ -1,0 +1,80 @@
+{
+  "name": "stop-wasting-tokens",
+  "version": "0.0.0",
+  "description": "Token-disciplined, methodology-first SDLC for the OpenAI Codex CLI.",
+  "license": "MIT",
+  "author": "Tiago Serôdio (@yidakee)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swt-labs/stop-wasting-tokens.git"
+  },
+  "bugs": {
+    "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
+  },
+  "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
+  "keywords": [
+    "cli",
+    "codex",
+    "methodology",
+    "agents",
+    "vibe-coding",
+    "typescript"
+  ],
+  "type": "module",
+  "bin": {
+    "swt": "./dist/cli.mjs"
+  },
+  "main": "./dist/cli.cjs",
+  "module": "./dist/cli.mjs",
+  "types": "./dist/cli.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/cli.mjs",
+      "require": "./dist/cli.cjs",
+      "types": "./dist/cli.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=20.18"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "prepublishOnly": "pnpm build"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.9",
+    "@types/node": "^22.7.4",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.10.0",
+    "@vitest/coverage-v8": "^2.1.3",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "prettier": "^3.3.3",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

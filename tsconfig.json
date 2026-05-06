@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/codex-driver" },
+    { "path": "./packages/methodology" },
+    { "path": "./packages/artifacts" },
+    { "path": "./packages/verification" },
+    { "path": "./packages/telemetry" }
+  ]
+}
