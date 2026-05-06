@@ -1,0 +1,57 @@
+name: vale
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/vale.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/vale.yml'
+
+jobs:
+  vale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Vale
+        run: |
+          VALE_VERSION="3.7.0"
+          curl -sL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+            | sudo tar -xzC /usr/local/bin vale
+          vale --version
+
+      - name: Sync Vale style packages
+        run: |
+          cd docs
+          # If styles/Microsoft and styles/write-good are not committed,
+          # vale sync downloads them. If they are, this is a no-op.
+          if [ ! -d styles/Microsoft ] || [ ! -d styles/write-good ]; then
+            vale sync
+          fi
+
+      - name: Lint docs prose
+        run: |
+          cd docs
+          vale --output=line .
+
+      - name: Build docs site (Mintlify)
+        run: pnpm --filter @swt-labs/docs build || \
+          echo "::warning::Mintlify build is best-effort in CI until live deployment lands; non-fatal for v1.0."
+
+      - name: Run docs structure tests
+        run: pnpm --filter @swt-labs/docs test

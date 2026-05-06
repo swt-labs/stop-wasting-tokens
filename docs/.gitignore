@@ -1,0 +1,15 @@
+# Mintlify build output
+.mintlify/
+dist/
+.next/
+
+# Vale: per-section style packages are downloaded by `vale sync`.
+# We do NOT commit them — they are 5MB+ each and easy to re-fetch.
+# CI calls `vale sync` if styles/Microsoft or styles/write-good are missing.
+styles/Microsoft/
+styles/write-good/
+
+# Local test artifacts
+node_modules/
+coverage/
+*.tsbuildinfo

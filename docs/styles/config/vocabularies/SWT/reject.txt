@@ -1,0 +1,2 @@
+# Project-specific terms Vale should flag if they slip into prose.
+# Empty for v1.0 — populate as we identify common drift terms.
