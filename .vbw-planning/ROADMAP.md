@@ -18,7 +18,7 @@
 | 09 | ● Done |
 | 10 | ● Done |
 | 11 | ● Done |
-| 12 | Pending | 0 | 0 | 0 |
+| 12 | ● Done |
 | 13 | Pending | 0 | 0 | 0 |
 | 14 | Pending | 0 | 0 | 0 |
 | 15 | Pending | 0 | 0 | 0 |
@@ -37,7 +37,7 @@
 - [x] [Phase 9: Methodology runtime (retrofit)](#phase-9-methodology-runtime-retrofit)
 - [x] [Phase 10: Template fidelity (retrofit)](#phase-10-template-fidelity-retrofit)
 - [x] [Phase 11: Documentation site](#phase-11-documentation-site)
-- [ ] [Phase 12: Distribution](#phase-12-distribution)
+- [x] [Phase 12: Distribution](#phase-12-distribution)
 - [ ] [Phase 13: Beta & feedback](#phase-13-beta--feedback)
 - [ ] [Phase 14: v1.0 launch](#phase-14-v10-launch)
 - [ ] [Phase 15: v1.5 forward-compatibility prep](#phase-15-v15-forward-compatibility-prep)
