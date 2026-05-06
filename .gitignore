@@ -55,3 +55,6 @@ pnpm-debug.log*
 
 # Local research artefact (kept out of git unless intentionally added)
 compass_artifact_*.md
+
+# Local working copy of VBW (out of git; not part of SWT)
+vibe-better-with-claude-code-vbw-main/
