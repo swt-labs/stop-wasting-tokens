@@ -5,8 +5,8 @@
 
 ## Current Phase
 Phase: 11 of 15 (Phase 8 Documentation Site)
-Plans: 1/3
-Progress: 33%
+Plans: 2/3
+Progress: 66%
 Status: active
 
 ## Phase Status
