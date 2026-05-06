@@ -1,0 +1,89 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "stop-wasting-tokens",
+  "theme": "mint",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#2563eb",
+    "light": "#3b82f6",
+    "dark": "#1d4ed8"
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/swt-labs/stop-wasting-tokens"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Install",
+    "url": "/getting-started/install"
+  },
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "getting-started/install",
+        "getting-started/init",
+        "getting-started/first-vibe"
+      ]
+    },
+    {
+      "group": "Concepts",
+      "pages": [
+        "concepts/methodology",
+        "concepts/phases-plans-summaries",
+        "concepts/lifecycle-states",
+        "concepts/autonomy-levels",
+        "concepts/effort-levels"
+      ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "reference/cli",
+        "reference/config",
+        "reference/artifacts"
+      ]
+    },
+    {
+      "group": "Recipes",
+      "pages": [
+        "recipes/greenfield",
+        "recipes/brownfield",
+        "recipes/gsd-migration",
+        "recipes/uat-remediation",
+        "recipes/custom-hooks"
+      ]
+    },
+    {
+      "group": "Migration",
+      "pages": [
+        "migration/from-vbw",
+        "migration/step-by-step",
+        "migration/breaking-changes"
+      ]
+    },
+    {
+      "group": "v1.5 Roadmap",
+      "pages": [
+        "v1-5-roadmap/index"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/swt-labs/stop-wasting-tokens"
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true
+  },
+  "analytics": {
+    "ga4": {
+      "measurementId": "$MINTLIFY_ANALYTICS_TOKEN"
+    }
+  }
+}

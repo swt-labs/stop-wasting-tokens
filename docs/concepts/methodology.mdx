@@ -1,0 +1,64 @@
+---
+title: Methodology
+description: Why a token-disciplined SDLC, and how SWT structures it.
+---
+
+# Methodology
+
+SWT exists because Codex is excellent at small tasks and unpredictable on large ones. Without structure, multi-week projects burn tokens on rework: the model re-reads files it already saw, reinvents abstractions every session, and conflates verification with implementation.
+
+SWT structures the work so that token spend goes toward _new_ progress, not toward re-explaining context.
+
+## Three core ideas
+
+### 1. Phases, plans, summaries
+
+Every project is decomposed into **phases** (independently shippable units of value). Each phase has one or more **plans** (a tight, ordered task list). Each plan, when executed, writes a **summary** capturing what shipped — must-haves, files modified, deviations, commit hashes.
+
+These three artifacts are the load-bearing contract. The runtime reads them to know where you are; future agents read them to inherit context without re-reading the whole repo.
+
+### 2. Routing is deterministic
+
+`swt detect-phase` returns one of 11 lifecycle states based purely on disk state. The routing table in `swt vibe` maps each state to a mode (Plan, Execute, Verify, Archive, etc.). There is no fuzzy reasoning — you can run `swt detect-phase --json` and predict exactly what the next `swt vibe` will do.
+
+This is the inversion of "let the model figure out what to do next." The state machine figures it out; the model executes the chosen mode.
+
+### 3. Verification is a separate stage
+
+Most LLM workflows treat verification as part of execution: "implement and test." That conflation is where bugs hide.
+
+SWT splits **execution** (Dev writes code, runs unit tests) from **verification** (a separate QA agent re-checks against plan acceptance criteria, then UAT runs interactively against the user). Each verification artifact is a row-by-row table — every must-have either PASSes or FAILs with named evidence. FAILs route into a remediation loop with deterministic round caps.
+
+You cannot accidentally skip verification. The state machine knows.
+
+## What SWT is not
+
+- **Not a code generator.** SWT does not write your code. It tells Codex what to write, when to write it, and how to verify it.
+- **Not an agent framework.** No graph of nodes, no orchestrator-of-orchestrators. The CLI is stateless; state is on disk.
+- **Not opinionated about your stack.** SWT is language-agnostic — TypeScript, Rust, Python, Go all work the same way. The methodology cares about phases, not file extensions.
+
+## Compared to ad-hoc Codex
+
+| Concern             | Ad-hoc                                      | SWT                                                                  |
+|--------------------|---------------------------------------------|----------------------------------------------------------------------|
+| Long-term context  | Stuffed into prompt every session           | Persisted in `STATE.md`, loaded selectively per stage                |
+| Plan drift         | Plans live in chat, evaporate on `/clear`   | `PLAN.md` on disk; deviations recorded in `SUMMARY.md`               |
+| Verification       | "Looks good, ship it"                       | Row-by-row QA + interactive UAT, with a remediation loop             |
+| Resume after break | Re-explain everything                       | `swt vibe` reads disk and routes to the exact next step              |
+| Cost               | Pay for re-reading and re-deciding          | Pay for new work; reading is bounded by `compile-context.sh`         |
+
+## Compared to VBW
+
+VBW (Vibe Better with Claude Code) is the methodology SWT is based on. They share the same artifact shapes, lifecycle states, and routing logic — by design, so VBW projects can migrate to SWT in place.
+
+The differences:
+
+- **VBW** is a Claude Code plugin: bash scripts + Claude commands. Runs only inside Claude Code.
+- **SWT** is a portable npm-distributed CLI: TypeScript, runs against Codex CLI. Plugins for Claude Code and Ollama land in v1.5.
+
+If you're already running VBW, see the [migration guide](/migration/from-vbw).
+
+## Next
+
+- [Phases, plans, summaries](/concepts/phases-plans-summaries) — the artifact taxonomy
+- [Lifecycle states](/concepts/lifecycle-states) — what `swt detect-phase` returns and why

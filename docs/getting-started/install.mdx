@@ -1,0 +1,63 @@
+---
+title: Install
+description: Install the SWT CLI globally via npm, pnpm, or bun.
+---
+
+# Install
+
+SWT ships as a single CLI: `@swt-labs/cli`. Install globally to make `swt` available on your PATH.
+
+## Requirements
+
+- **Node.js 20.x or 22.x** — SWT targets the active LTS lines. Older Node may work but is not supported.
+- **A Codex CLI install** — SWT is the methodology layer; the [Codex CLI](https://github.com/openai/codex) executes the actual work.
+- **`jq`** — used by some helper scripts. macOS: `brew install jq`. Linux: `apt install jq`.
+
+## Install
+
+<CodeGroup>
+
+```bash npm
+npm install -g @swt-labs/cli
+```
+
+```bash pnpm
+pnpm add -g @swt-labs/cli
+```
+
+```bash bun
+bun add -g @swt-labs/cli
+```
+
+</CodeGroup>
+
+## Verify
+
+```bash
+swt --version
+# 1.0.0
+swt --help
+# Usage: swt <command> [...flags]
+```
+
+If `swt: command not found`, your global npm bin is not on PATH. Add the output of `npm config get prefix`/`bin` to PATH, or use `npx @swt-labs/cli` instead.
+
+## What gets installed
+
+The `@swt-labs/cli` package bundles seven workspace packages into a single binary:
+
+| Package                       | Role                                              |
+|------------------------------|---------------------------------------------------|
+| `@swt-labs/cli`              | Argument parsing, routing                         |
+| `@swt-labs/core`             | Config, abstractions (HookHost, AgentSpawner)     |
+| `@swt-labs/methodology`      | Phase detection, route dispatch, handlers         |
+| `@swt-labs/artifacts`        | Zod schemas for every artifact kind               |
+| `@swt-labs/codex-driver`     | Codex CLI integration (live work)                 |
+| `@swt-labs/test-utils`       | ScriptedPrompter / mock driver for hermetic tests |
+| `@swt-labs/templates`        | Project scaffolds                                 |
+
+Nothing runs in the background; `swt` is a stateless CLI. State lives on disk under `.swt-planning/`.
+
+## Next
+
+[Run `swt init`](/getting-started/init) to bootstrap a project.

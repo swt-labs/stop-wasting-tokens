@@ -1,0 +1,49 @@
+---
+title: stop-wasting-tokens
+description: Token-disciplined SDLC for the Codex CLI
+---
+
+# stop-wasting-tokens
+
+A token-disciplined methodology runtime for the Codex CLI. Plan, execute, and verify multi-week projects without burning tokens on rework.
+
+## Why SWT
+
+Codex is excellent at implementing tightly-scoped tasks but tends to drift on multi-week projects: requirements get forgotten, plans become stale, and verification gets hand-waved. The cost — measured in re-explained context, regenerated tests, and abandoned half-shipped features — is real.
+
+SWT ports the [Vibe Better with Claude Code](https://github.com/Hesreallyhim/awesome-claude-code) (VBW) methodology to Codex. Every project is broken into **phases**, every phase into **plans**, every plan into **tasks**. Each step persists to disk as YAML-frontmatter markdown. The runtime knows where you left off and routes you to the next step — even after a session restart.
+
+Built for Codex CLI power users and teams shipping features that span weeks, not hours.
+
+## Install
+
+```bash
+npm install -g @swt-labs/cli
+```
+
+## Three-step quickstart
+
+```bash
+swt init        # bootstrap a project
+swt vibe        # plan + execute the next phase
+swt vibe --archive    # ship a milestone
+```
+
+That's it. The runtime handles routing — `swt vibe` figures out whether you need to discuss, plan, execute, verify, or archive.
+
+## Where to next
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="rocket" href="/getting-started/install">
+    Install, init, and ship your first phase.
+  </Card>
+  <Card title="Concepts" icon="lightbulb" href="/concepts/methodology">
+    The methodology, the artifacts, the lifecycle.
+  </Card>
+  <Card title="Reference" icon="book" href="/reference/cli">
+    Every command, every config key, every artifact schema.
+  </Card>
+  <Card title="Migration" icon="arrows-right-left" href="/migration/from-vbw">
+    Coming from VBW? Start here.
+  </Card>
+</CardGroup>

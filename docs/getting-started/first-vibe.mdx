@@ -1,0 +1,119 @@
+---
+title: Your first vibe
+description: A complete walkthrough — bootstrap → scope → plan → execute → verify → archive — on a toy TODO CLI.
+---
+
+# Your first vibe
+
+This walkthrough ships a complete milestone — a toy TODO CLI — through all six lifecycle stages. Plan to spend ~30 minutes the first time; subsequent runs are faster.
+
+## Setup
+
+```bash
+mkdir todo-cli && cd todo-cli
+swt init
+# planning_tracking: manual
+# auto_push: never
+```
+
+## 1. Bootstrap the project
+
+`swt vibe` (no args) inspects state and routes you to the next step. With nothing yet, it routes to **Bootstrap**:
+
+```bash
+swt vibe
+```
+
+You will be asked:
+- "What is the project name?" → `todo-cli`
+- "Core purpose in one sentence?" → `A minimal TODO CLI that stores todos in a JSON file.`
+
+Then SWT runs the **Discussion Engine**: a calibrated set of questions about scope, decisions, and gray areas. Answer or defer each one — there is no penalty for `Skip`.
+
+Outputs: `PROJECT.md`, `REQUIREMENTS.md`, `discovery.json`, `domain-research.md`.
+
+## 2. Scope into phases
+
+`swt vibe` again — now `phase_count=0`, so it routes to **Scope**:
+
+```bash
+swt vibe
+# What do you want to build?
+> A TODO CLI: add, list, complete, delete commands with JSON storage.
+```
+
+SWT decomposes this into 3 phases:
+
+```
+Phase 1: Storage layer (REQ-01, REQ-02)
+Phase 2: CLI commands (REQ-03)
+Phase 3: Tests + packaging (REQ-04)
+```
+
+Outputs: `ROADMAP.md`, `STATE.md`, three empty phase directories.
+
+## 3. Plan + execute Phase 1
+
+`swt vibe` — `next_phase_state=needs_plan_and_execute`:
+
+```bash
+swt vibe
+# AskUserQuestion: Plan and execute Phase 1?
+> Yes
+```
+
+The runtime spawns a Lead agent to write `01-01-PLAN.md`, then Dev agents to execute each task. You'll see:
+
+```
+Phase 1: Storage layer
+Plans: 1
+  01-01-PLAN.md: TODO storage primitives (wave 1, 4 tasks)
+Effort: thorough
+Model Profile: quality
+
+◆ Executing 01-01-PLAN.md...
+✓ Task P01: createStore
+✓ Task P02: addTodo
+✓ Task P03: listTodos
+✓ Task P04: completeTodo
+✓ QA: PASS (4/4 must-haves)
+```
+
+## 4. Verify (UAT)
+
+With `auto_uat=true` (the default), `swt vibe` chains directly into **Verify**: a CHECKPOINT loop where it asks you to walk through each acceptance criterion and confirm it works:
+
+```
+Test 1: Adding a todo persists to disk
+> Pass / Fail / Skip
+```
+
+Pass: green check, next test. Fail: enter the issue description; SWT writes `01-UAT.md` with `status: issues_found` and routes to UAT remediation on the next `swt vibe`.
+
+## 5. Repeat for Phases 2 & 3
+
+`swt vibe` — `next_phase_state=needs_plan_and_execute` for Phase 2. Loop until all phases complete.
+
+## 6. Archive
+
+`swt vibe` — `next_phase_state=all_done`:
+
+```bash
+swt vibe
+# AskUserQuestion: All phases complete. Run audit and archive?
+> Yes
+```
+
+SWT runs the 7-point audit, archives the milestone to `.swt-planning/milestones/01-todo-cli/`, tags `milestone/01-todo-cli`, and resets STATE.md to project-level (Todos, Decisions, Codebase Profile preserved).
+
+You shipped a milestone. The disk now reflects everything: roadmap, every plan, every summary, every verification, and the audit trail.
+
+## What just happened
+
+Six lifecycle states (`bootstrap_required` → `phase_count_zero` → `needs_plan_and_execute` → `needs_verification` → `all_done` → archive). Each transition is deterministic — `swt detect-phase --json` will return the exact same routing every time.
+
+## Next
+
+- [Methodology concepts](/concepts/methodology) — the philosophy
+- [CLI reference](/reference/cli) — every command
+- [Recipes](/recipes/greenfield) — full walkthroughs for common workflows

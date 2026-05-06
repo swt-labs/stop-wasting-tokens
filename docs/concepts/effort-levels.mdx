@@ -1,0 +1,86 @@
+---
+title: Effort levels
+description: Four tiers controlling plan depth, research, and model selection.
+---
+
+# Effort levels
+
+The `effort` config key controls how much work SWT does per phase. Four levels:
+
+| Level       | Research (Scout)  | Plan depth        | Default model  | Use case                                  |
+|-------------|------------------|-------------------|----------------|-------------------------------------------|
+| `turbo`     | Skip              | Single lightweight plan | fast       | Throwaway prototypes, exploration          |
+| `fast`      | If unclear        | 1-2 plans         | fast           | Iterating quickly on known territory       |
+| `balanced`  | Yes, scoped       | 2-3 plans         | balanced       | Default — most projects                    |
+| `thorough`  | Yes, deep         | 3-5+ plans        | quality        | Production work, complex requirements      |
+
+## What changes per level
+
+### Research (Plan mode, step 3)
+
+- `turbo`: Scout never spawns. Lead works from the phase goal alone.
+- `fast` / `balanced` / `thorough`: Scout spawns when no `RESEARCH.md` exists in the phase. Findings are persisted, so re-planning is free.
+
+The Scout output (`{NN}-RESEARCH.md`) feeds Lead's planning prompt. Higher effort = more thorough Scout investigation = better-grounded plans.
+
+### Plan decomposition (Plan mode, step 7)
+
+Lead reads `effort` from config and decides how aggressively to split. `turbo` produces a single plan with everything in it; `thorough` splits more aggressively to get cleaner atomic commits and easier QA.
+
+### Model selection
+
+`effort` is one of the inputs to `resolve-agent-settings.sh`. Combined with the agent role (Scout, Lead, Dev, QA, Architect, Debugger) and the configured `model_profile` (`quality` / `balanced` / `fast`), it picks an actual Codex model and `maxTurns` budget.
+
+```bash
+# Inspect the resolved model for a given role + effort
+bash plugin-root/scripts/resolve-agent-settings.sh dev .swt-planning/config.json \
+  plugin-root/config/model-profiles.json thorough
+# RESOLVED_MODEL=gpt-5-codex-thinking
+# RESOLVED_MAX_TURNS=
+```
+
+You can override per-role via `model_overrides` in `config.json`:
+
+```json
+{
+  "model_overrides": {
+    "dev": "gpt-5-codex-thinking",
+    "qa": "gpt-5-codex"
+  }
+}
+```
+
+## Override on the fly
+
+Pass `--effort` to any `swt vibe` invocation:
+
+```bash
+swt vibe --plan 3 --effort fast
+# Plans Phase 3 with the fast effort profile, regardless of config.
+```
+
+The override applies only to this run; config stays unchanged.
+
+## Combining with autonomy
+
+Effort and autonomy are orthogonal:
+
+| Combo                      | Behavior                                              |
+|---------------------------|-------------------------------------------------------|
+| `pure-vibe` + `turbo`     | Maximum velocity, zero supervision, single-plan phases |
+| `cautious` + `thorough`   | Maximum care: ask before each step, deep planning      |
+| `confident` + `balanced`  | Default for confident solo work                        |
+| `standard` + `thorough`   | Production with checkpoints                           |
+
+There is no "best" combo — pick what matches the work. A throwaway prototype probably wants `pure-vibe + turbo`; a regulated migration probably wants `cautious + thorough`.
+
+## Effort affects QA
+
+`effort` influences QA agent depth too: `thorough` runs the QA matrix more aggressively (more grep patterns, more checks per must-have). `turbo` runs a minimal QA pass.
+
+Verification is never skipped, regardless of effort. The depth of the verification varies — but it always happens.
+
+## Next
+
+- [Reference: config](/reference/config) — every key in `config.json` with defaults
+- [Reference: CLI](/reference/cli) — `--effort` flag on every `swt vibe` mode

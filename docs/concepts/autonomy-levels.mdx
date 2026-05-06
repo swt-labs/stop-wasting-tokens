@@ -1,0 +1,69 @@
+---
+title: Autonomy levels
+description: Four tiers of human-in-the-loop control for `swt vibe`.
+---
+
+# Autonomy levels
+
+The `autonomy` config key controls how often `swt vibe` stops to ask before doing something. Four levels, ordered from most-supervised to least:
+
+| Level         | Confirms before each phase? | Auto-continues across phases? | Use case                                                  |
+|--------------|----------------------------|-------------------------------|----------------------------------------------------------|
+| `cautious`    | Yes, every transition       | No — stops between phases      | Production work, regulated environments, learning SWT    |
+| `standard`    | Most transitions            | No — stops between phases      | Default for solo dev work                                 |
+| `confident`   | Major transitions only      | Yes — auto-chains phases       | Trusted projects, fast iteration                          |
+| `pure-vibe`   | None — flags express intent | Yes, with no per-phase prompt  | Solo dev, mature project, you trust the routing          |
+
+## What "confirm" means
+
+When SWT is about to enter a mode that has side effects (Plan, Execute, Verify, Archive), it can pause and ask via `AskUserQuestion`:
+
+```
+Phase 03 needs planning and execution. Start?
+○ Plan and execute phase 03 (recommended)
+○ Plan only (review before executing)
+○ Start a discussion (explore gray areas before planning)
+```
+
+`cautious` and `standard` always present these. `confident` skips the obvious ones (e.g., "yes, plan the next phase"). `pure-vibe` skips them all and proceeds.
+
+## Auto-continuation between phases
+
+After a phase ships, the next `swt vibe` invocation reads disk and routes to the next phase. With `confident` or `pure-vibe`, the same `swt vibe` invocation chains directly into the next phase's Plan + Execute without exiting. This is the "phase loop":
+
+```bash
+swt vibe   # Phase 1 → Phase 2 → Phase 3 → ... → all_done → archive
+```
+
+`cautious` / `standard` stop after each phase. You re-invoke `swt vibe` to start the next.
+
+## What auto-continuation does NOT skip
+
+Even with `pure-vibe`, certain gates always engage:
+
+- **Hard UAT gate at archive** — if any phase has unresolved UAT issues, archive blocks regardless of autonomy.
+- **State-consistency gate at archive** — if `verify-state-consistency.sh` returns non-zero, archive blocks.
+- **QA remediation cap** — if QA fails repeatedly, you eventually hit the cap and stop.
+- **UAT round cap** — bounded by `max_uat_remediation_rounds` (default unlimited; set to a positive integer to cap).
+
+Autonomy controls polite checkpoints, not safety rails.
+
+## Override on the fly
+
+You can override the configured autonomy per-invocation with flags:
+
+- `--yolo` — temporarily acts like `pure-vibe` for this run, skipping all confirmation gates.
+- `--cautious` — TBD; planned for v1.5.
+
+Most users find that one autonomy level fits the whole project. If you change levels mid-project, expect the prompt cadence to feel different — that's the only effect.
+
+## Which to pick
+
+- **First time using SWT?** `standard` or `cautious`. Watch what each mode does, decide if it matches your expectations.
+- **Solo dev, mature project?** `pure-vibe`. Maximum velocity, minimum prompting.
+- **Working with a team?** `standard` for shared planning context, `confident` once everyone knows the flow.
+- **Regulated work (compliance, audit, paid client)?** `cautious`. Every gate is a deliberate decision.
+
+## Next
+
+- [Effort levels](/concepts/effort-levels) — how `effort` changes plan depth and model selection

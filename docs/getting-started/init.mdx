@@ -1,0 +1,69 @@
+---
+title: Initialize a project
+description: Bootstrap a new project (greenfield or brownfield) with `swt init`.
+---
+
+# Initialize a project
+
+`swt init` scaffolds the planning directory, detects whether you are greenfield or brownfield, and writes the initial config.
+
+## Run it
+
+```bash
+cd my-project    # any directory, including an existing repo
+swt init
+```
+
+You will be prompted for two values:
+
+### `planning_tracking`
+
+How should SWT planning artifacts be tracked in git?
+
+| Value     | Behavior                                                                                            |
+|-----------|------------------------------------------------------------------------------------------------------|
+| `manual`  | (default) `.swt-planning/` is not auto-ignored or auto-committed — you commit when you want.        |
+| `ignore`  | `.swt-planning/` is added to root `.gitignore`.                                                      |
+| `commit`  | `.swt-planning/` and `CLAUDE.md` are auto-committed at planning checkpoints (bootstrap, scope, etc.) |
+
+Most users pick `manual` for full control. Pick `commit` if you want planning history to be co-authored with the team via git.
+
+### `auto_push`
+
+When should SWT push commits?
+
+| Value         | Behavior                                                              |
+|---------------|----------------------------------------------------------------------|
+| `never`       | (default) Never auto-pushes — `git push` stays in your hands.        |
+| `after_phase` | Push after each phase completes (verified + archived).                |
+| `always`      | Push after every commit when an upstream branch exists.               |
+
+## What gets created
+
+```
+my-project/
+  .swt-planning/
+    PROJECT.md           # name + core purpose
+    REQUIREMENTS.md      # uncovered → covered as phases ship
+    ROADMAP.md           # phase decomposition (filled by /swt vibe scope)
+    STATE.md             # current phase, decisions, todos, blockers
+    config.json          # the values above + defaults
+    phases/              # one dir per phase: NN-slug/
+  CLAUDE.md              # tells Claude/Codex about your project
+```
+
+## Greenfield vs brownfield
+
+`swt init` detects whether the working directory is greenfield (empty) or brownfield (existing code). Brownfield bootstraps include a **codebase mapping** step that scans your repo and writes `.swt-planning/codebase/` (architecture, patterns, concerns) — feeding richer context into later discussions and plans.
+
+The detection is: any `git ls-files` output, or any non-`.swt-planning/` non-`node_modules/` source file.
+
+## What `init` does NOT do
+
+- It does **not** create phases — that is the `scope` step (covered next).
+- It does **not** install Codex or the CLI — install those separately.
+- It does **not** push anything to git, regardless of `auto_push`.
+
+## Next
+
+[Plan + execute your first phase with `swt vibe`](/getting-started/first-vibe).
