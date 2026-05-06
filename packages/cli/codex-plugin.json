@@ -1,0 +1,63 @@
+{
+  "$schema": "https://docs.codex.example/plugin-manifest.schema.json",
+  "name": "stop-wasting-tokens",
+  "displayName": "stop-wasting-tokens (SWT)",
+  "version": "0.0.0",
+  "description": "Token-disciplined SDLC for the Codex CLI. Plan, execute, and verify multi-week projects without burning tokens on rework.",
+  "author": "Tiago Serôdio (@yidakee)",
+  "license": "MIT",
+  "repository": "https://github.com/swt-labs/stop-wasting-tokens",
+  "homepage": "https://docs.stopwastingtokens.dev",
+  "install": {
+    "npm": "@swt-labs/cli",
+    "command": "swt"
+  },
+  "commands": [
+    {
+      "name": "swt init",
+      "description": "Bootstrap a new project (greenfield or brownfield)"
+    },
+    {
+      "name": "swt vibe",
+      "description": "Plan, execute, verify, archive — auto-routed via the 11 lifecycle states"
+    },
+    {
+      "name": "swt detect-phase",
+      "description": "Inspect routing state (JSON or VBW-compatible bash format)"
+    },
+    {
+      "name": "swt update",
+      "description": "Check the npm registry for a newer published version"
+    },
+    {
+      "name": "swt config",
+      "description": "Read or update SWT configuration"
+    },
+    {
+      "name": "swt status",
+      "description": "Show current phase and milestone status"
+    },
+    {
+      "name": "swt doctor",
+      "description": "Check that SWT prerequisites are installed"
+    }
+  ],
+  "tags": [
+    "methodology",
+    "vibe-coding",
+    "cli",
+    "agents",
+    "codex",
+    "typescript",
+    "monorepo"
+  ],
+  "categories": [
+    "Development",
+    "Productivity"
+  ],
+  "screenshots": [
+    "screenshots/quickstart.png",
+    "screenshots/lifecycle.png",
+    "screenshots/uat-checkpoint.png"
+  ]
+}

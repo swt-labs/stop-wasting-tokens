@@ -1,0 +1,72 @@
+name: install-smoke
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published version to verify (without leading v)'
+        required: true
+        default: '0.1.0-alpha'
+
+jobs:
+  smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        manager: [npm, pnpm, bun]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve version under test
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            REF="${{ github.ref_name }}"
+            VERSION="${REF#v}"
+          else
+            # Triggered by Release workflow — read root package.json
+            VERSION=$(node -e "console.log(require('./package.json').version)")
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Verifying v${VERSION}"
+
+      - name: Install via ${{ matrix.manager }}
+        shell: bash
+        run: |
+          case "${{ matrix.manager }}" in
+            npm)
+              npm install -g @swt-labs/cli@${{ steps.version.outputs.version }}
+              ;;
+            pnpm)
+              npm install -g pnpm
+              pnpm add -g @swt-labs/cli@${{ steps.version.outputs.version }}
+              echo "$(pnpm bin -g)" >> "$GITHUB_PATH"
+              ;;
+            bun)
+              curl -fsSL https://bun.sh/install | bash
+              echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+              "$HOME/.bun/bin/bun" add -g @swt-labs/cli@${{ steps.version.outputs.version }}
+              ;;
+          esac
+
+      - name: Verify install
+        shell: bash
+        run: bash scripts/verify-install.sh ${{ steps.version.outputs.version }}
