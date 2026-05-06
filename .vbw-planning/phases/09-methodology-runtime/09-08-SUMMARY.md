@@ -1,7 +1,7 @@
 ---
 phase: 09
-plan: 03b
-title: Discussion engine — calibrate, gray-area, capture protocol; interactive bootstrap + scope (Phase 9 / PLAN 03b)
+plan: "08"
+title: Discussion engine — calibrate, gray-area, capture protocol; interactive bootstrap + scope (formerly tracked as 03b; Phase 9 / PLAN 08)
 status: complete
 completed: 2026-05-06
 tasks_completed: 9
