@@ -78,4 +78,40 @@ describe('reVerifyHandler', () => {
     );
     expect(state.round).toBe(1);
   });
+
+  it('surfaces the cap banner and does not bump round when cap is reached', async () => {
+    // Bump remediation state to round 3, then enforce a max of 3.
+    await writeFile(
+      join(phaseDir, '.uat-remediation-stage'),
+      JSON.stringify(
+        {
+          version: 1,
+          round: 3,
+          layout: 'round-dir',
+          severity: 'major',
+          started: '2026-05-06T00:00:00.000Z',
+          last_stage: 'none',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await writeFile(join(phaseDir, '01-UAT.md'), '---\nphase: "01"\n---\n# u\n', 'utf8');
+
+    const handler = reVerifyHandler({
+      resolveMaxRounds: async () => 3,
+    });
+    const { io, stdout } = makeIO();
+    const result = await handler.run(route, io);
+    expect(result.exit).toBe(0);
+    expect(stdout.text()).toContain('Reached maximum UAT remediation rounds (3)');
+    // UAT.md not archived; round not bumped.
+    const stillExists = await readFile(join(phaseDir, '01-UAT.md'), 'utf8');
+    expect(stillExists).toContain('# u');
+    const state = JSON.parse(
+      await readFile(join(phaseDir, '.uat-remediation-stage'), 'utf8'),
+    );
+    expect(state.round).toBe(3);
+  });
 });

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { verifyHandler } from '../../../src/vibe/handlers/verify.js';
 import type { VibeRoute } from '../../../src/vibe/route.js';
+import { ScriptedPrompter } from '../../../../core/test/mock-driver.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
@@ -85,5 +86,54 @@ describe('verifyHandler', () => {
     const handler = verifyHandler({ today: () => '2026-05-06' });
     const { io } = makeIO();
     await expect(handler.run(route, io)).rejects.toThrow(/no PLAN\.md/);
+  });
+
+  it('runs the inline checkpoint loop with a scripted prompter (all pass)', async () => {
+    await seedPlan('01', ['A', 'B']);
+    const prompter = new ScriptedPrompter([
+      { kind: 'choice', value: 'pass' },
+      { kind: 'choice', value: 'pass' },
+    ]);
+    const handler = verifyHandler({ today: () => '2026-05-06', prompter });
+    const { io } = makeIO();
+    const result = await handler.run(route, io);
+    expect(result.exit).toBe(0);
+    const raw = await readFile(join(phaseDir, '01-UAT.md'), 'utf8');
+    expect(raw).toContain('passed: 2');
+    expect(raw).toContain('issues: 0');
+    expect(raw).toContain('| P01-MH01 | A | PASS');
+    expect(prompter.remaining()).toBe(0);
+  });
+
+  it('captures issue records on FAIL with severity prompt', async () => {
+    await seedPlan('01', ['Login works']);
+    const prompter = new ScriptedPrompter([
+      { kind: 'choice', value: 'fail' },
+      { kind: 'text', value: '500 error on submit' },
+      { kind: 'choice', value: 'major' },
+    ]);
+    const handler = verifyHandler({ today: () => '2026-05-06', prompter });
+    const { io } = makeIO();
+    const result = await handler.run(route, io);
+    expect(result.exit).toBe(1);
+    const raw = await readFile(join(phaseDir, '01-UAT.md'), 'utf8');
+    expect(raw).toContain('issues: 1');
+    expect(raw).toContain('### I-01-P01-MH01 — MAJOR');
+    expect(raw).toContain('500 error on submit');
+    expect(raw).toContain('FAILED');
+  });
+
+  it('pure-vibe autonomy short-circuits the prompter', async () => {
+    await seedPlan('01', ['Test row']);
+    const prompter = new ScriptedPrompter([]); // would throw if asked
+    const handler = verifyHandler({
+      today: () => '2026-05-06',
+      prompter,
+      autonomy: 'pure-vibe',
+    });
+    const { io } = makeIO();
+    const result = await handler.run(route, io);
+    expect(result.exit).toBe(0);
+    expect(prompter.remaining()).toBe(0);
   });
 });

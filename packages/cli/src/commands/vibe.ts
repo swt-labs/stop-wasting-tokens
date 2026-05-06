@@ -3,6 +3,7 @@ import {
   buildVibeRegistry,
   detectPhase,
   executeHandler,
+  milestoneUatRecoveryHandler,
   NotImplementedError,
   planAndExecuteHandler,
   qaHandler,
@@ -16,6 +17,7 @@ import {
 } from '@swt-labs/methodology';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
+import { ReadlinePrompter } from '../prompters/readline.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
 export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promise<ExitCode> => {
@@ -50,14 +52,28 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     return EXIT.USAGE_ERROR;
   }
 
+  const isInteractive = Boolean(
+    (process.stdin as unknown as { isTTY?: boolean }).isTTY,
+  );
+  const prompter = isInteractive && args.yolo !== true ? new ReadlinePrompter() : undefined;
+
+  const verifyOpts = prompter !== undefined ? { prompter } : {};
+  const milestoneOpts =
+    prompter !== undefined
+      ? { prompter }
+      : args.yolo === true
+        ? { forceDecision: 'create-remediation' as const }
+        : {};
+
   const registry = buildVibeRegistry([
     bootstrapHandler(),
     scopeHandler(),
     planAndExecuteHandler(),
     executeHandler(),
     qaHandler(),
-    verifyHandler(),
+    verifyHandler(verifyOpts),
     reVerifyHandler(),
+    milestoneUatRecoveryHandler(milestoneOpts),
   ]);
   try {
     const result = await registry.dispatch(route, {

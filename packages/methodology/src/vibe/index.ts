@@ -9,4 +9,5 @@ export * from './handlers/plan-and-execute.js';
 export * from './handlers/qa.js';
 export * from './handlers/verify.js';
 export * from './handlers/re-verify.js';
+export * from './handlers/milestone-uat-recovery.js';
 export * from './orchestration/index.js';

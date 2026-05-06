@@ -1,6 +1,9 @@
 import type {
   AgentSpawner,
   AgentSpec,
+  AskChoiceInput,
+  AskConfirmInput,
+  AskTextInput,
   HookContext,
   HookEvent,
   HookHandler,
@@ -14,6 +17,7 @@ import type {
   PermissionGate,
   PermissionProfile,
   PermissionRequest,
+  Prompter,
   SpawnRequest,
   SpawnResult,
 } from '../src/abstractions/index.js';
@@ -129,5 +133,59 @@ export class MockMemoryStore implements MemoryStore {
 
   async compact(): Promise<void> {
     /* no-op for in-memory mock */
+  }
+}
+
+export type ScriptedAnswer =
+  | { kind: 'choice'; value: string }
+  | { kind: 'text'; value: string }
+  | { kind: 'confirm'; value: boolean };
+
+export class ScriptedPrompter implements Prompter {
+  public readonly seen: { kind: ScriptedAnswer['kind']; prompt: string }[] = [];
+  private readonly queue: ScriptedAnswer[];
+
+  constructor(queue: readonly ScriptedAnswer[]) {
+    this.queue = [...queue];
+  }
+
+  async askChoice<T extends string>(input: AskChoiceInput<T>): Promise<T> {
+    this.seen.push({ kind: 'choice', prompt: input.prompt });
+    const next = this.queue.shift();
+    if (next === undefined) {
+      throw new Error(`ScriptedPrompter exhausted at askChoice: ${input.prompt}`);
+    }
+    if (next.kind !== 'choice') {
+      throw new Error(`ScriptedPrompter expected ${next.kind} but got askChoice`);
+    }
+    return next.value as T;
+  }
+
+  async askText(input: AskTextInput): Promise<string> {
+    this.seen.push({ kind: 'text', prompt: input.prompt });
+    const next = this.queue.shift();
+    if (next === undefined) {
+      throw new Error(`ScriptedPrompter exhausted at askText: ${input.prompt}`);
+    }
+    if (next.kind !== 'text') {
+      throw new Error(`ScriptedPrompter expected ${next.kind} but got askText`);
+    }
+    return next.value;
+  }
+
+  async askConfirm(input: AskConfirmInput): Promise<boolean> {
+    this.seen.push({ kind: 'confirm', prompt: input.prompt });
+    const next = this.queue.shift();
+    if (next === undefined) {
+      throw new Error(`ScriptedPrompter exhausted at askConfirm: ${input.prompt}`);
+    }
+    if (next.kind !== 'confirm') {
+      throw new Error(`ScriptedPrompter expected ${next.kind} but got askConfirm`);
+    }
+    return next.value;
+  }
+
+  remaining(): number {
+    return this.queue.length;
   }
 }
