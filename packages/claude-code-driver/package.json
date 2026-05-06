@@ -1,0 +1,29 @@
+{
+  "name": "@swt-labs/claude-code-driver",
+  "version": "0.0.0",
+  "description": "Claude Code backend driver for stop-wasting-tokens. v1.0 stub; full implementation in v1.5.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@swt-labs/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swt-labs/stop-wasting-tokens.git",
+    "directory": "packages/claude-code-driver"
+  },
+  "bugs": {
+    "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
+  },
+  "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
+  "license": "MIT",
+  "author": "Tiago Serôdio (@yidakee)"
+}

@@ -21,7 +21,7 @@
 | 12 | ● Done |
 | 13 | ● Done |
 | 14 | ● Done |
-| 15 | Pending | 0 | 0 | 0 |
+| 15 | ○ Planned |
 
 ---
 

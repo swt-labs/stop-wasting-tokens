@@ -12,6 +12,8 @@ const PACKAGES = [
   'artifacts',
   'verification',
   'telemetry',
+  'claude-code-driver',
+  'ollama-driver',
 ] as const;
 
 describe('publishConfig parity', () => {

@@ -15,10 +15,11 @@ NEW_VERSION="${1:?usage: bump-version.sh <semver> [--dry-run]}"
 DRY_RUN="${2:-}"
 
 ROOT="$(git rev-parse --show-toplevel)"
-PACKAGES=(core cli codex-driver methodology artifacts verification telemetry)
+PACKAGES=(core cli codex-driver methodology artifacts verification telemetry claude-code-driver ollama-driver)
 
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "Would bump root + ${#PACKAGES[@]} packages to v${NEW_VERSION}"
+  echo "(packages: ${PACKAGES[*]})"
   for p in "${PACKAGES[@]}"; do
     echo "  - packages/$p/package.json"
   done
@@ -49,7 +50,7 @@ node -e "
 echo "  ✓ package.json (root)"
 
 echo ""
-echo "✓ All 8 manifests at v${NEW_VERSION}"
+echo "✓ All 10 manifests at v${NEW_VERSION}"
 echo ""
 echo "Next steps (user-driven):"
 echo "  1. git diff                                 # review"

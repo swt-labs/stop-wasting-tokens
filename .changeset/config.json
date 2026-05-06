@@ -11,7 +11,9 @@
       "@swt-labs/methodology",
       "@swt-labs/artifacts",
       "@swt-labs/verification",
-      "@swt-labs/telemetry"
+      "@swt-labs/telemetry",
+      "@swt-labs/claude-code-driver",
+      "@swt-labs/ollama-driver"
     ]
   ],
   "access": "public",
