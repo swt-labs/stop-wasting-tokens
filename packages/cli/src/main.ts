@@ -3,6 +3,7 @@ import { configHandler } from './commands/config.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { statusHandler } from './commands/status.js';
+import { vibeHandler } from './commands/vibe.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
 import { EXIT, type ExitCode } from './exit-codes.js';
@@ -51,6 +52,12 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[--bash-format]',
     description: 'Print the computed phase-detection state (JSON by default)',
     handler: detectPhaseHandler,
+  });
+  registry.register({
+    name: 'vibe',
+    usage: '[N] [--effort=level] [--yolo] [--skip-qa] [--plan=NN]',
+    description: 'Detect project state and route into the right SDLC mode',
+    handler: vibeHandler,
   });
 
   for (const spec of STUB_SPECS) {
