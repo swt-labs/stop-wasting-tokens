@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@swt-labs/artifacts": "workspace:*",
+    "@swt-labs/codex-driver": "workspace:*",
     "@swt-labs/core": "workspace:*"
   },
   "publishConfig": {

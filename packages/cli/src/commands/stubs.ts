@@ -17,7 +17,7 @@ export function stubCommand(spec: StubSpec): CommandHandler {
       `swt ${spec.name}: not yet implemented in this build.\n` +
         `  ${spec.description}\n` +
         `  Roadmap: ${spec.roadmap_phase}.\n` +
-        `  See .vbw-planning/ROADMAP.md for the full plan.\n`,
+        `  See .swt-planning/ROADMAP.md for the full plan.\n`,
     );
     return EXIT.NOT_IMPLEMENTED;
   };

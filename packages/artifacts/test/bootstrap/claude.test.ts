@@ -30,9 +30,44 @@ describe('writeOrUpdateClaudeMd', () => {
     expect(raw).toContain('# swt');
     expect(raw).toContain('**Core value:** discipline');
     expect(raw).toContain('## Active Context');
-    expect(raw).toContain('## VBW Rules');
+    expect(raw).toContain('## SWT Rules');
+    expect(raw).not.toContain('## VBW Rules');
     expect(raw).toContain('## Plugin Isolation');
     expect(raw).toContain('## Code Intelligence');
+  });
+
+  it('migrates a legacy `## VBW Rules` heading to `## SWT Rules` on refresh', async () => {
+    const path = join(dir, 'CLAUDE.md');
+    await writeFile(
+      path,
+      [
+        '# legacy-project',
+        '',
+        '## Active Context',
+        '',
+        'old context',
+        '',
+        '## VBW Rules',
+        '',
+        '- some rule',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    await writeOrUpdateClaudeMd({
+      path,
+      project_name: 'legacy-project',
+      core_value: 'continuity',
+      preserve_existing: true,
+    });
+
+    const raw = await readFile(path, 'utf8');
+    expect(raw).toContain('## SWT Rules');
+    expect(raw).not.toContain('## VBW Rules');
+    // The legacy section's body must be replaced with the canonical SWT-Rules
+    // body, not retained as orphan content.
+    expect(raw).not.toContain('- some rule');
   });
 
   it('preserves user content and only refreshes canonical sections', async () => {

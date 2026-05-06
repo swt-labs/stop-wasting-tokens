@@ -3,7 +3,9 @@ import { join } from 'node:path';
 
 import {
   EMPTY_DISCOVERY,
+  buildSwtProjectDocBody,
   readDiscovery,
+  writeAtomically,
   writeDiscovery,
   writeOrUpdateClaudeMd,
   writeProject,
@@ -11,6 +13,7 @@ import {
   writeRoadmap,
   writeState,
 } from '@swt-labs/artifacts';
+import { writeAgentsMdBlock } from '@swt-labs/codex-driver';
 import type { Prompter } from '@swt-labs/core';
 
 import { runDiscussionEngine } from '../../discussion/engine.js';
@@ -113,14 +116,25 @@ export function bootstrapHandler(
         project_name: input.project_name,
         phase_count: 0,
       });
-      const claudeMdPath = join(io.cwd, 'CLAUDE.md');
-      const claudeExists = await fileExists(claudeMdPath);
-      await writeOrUpdateClaudeMd({
-        path: claudeMdPath,
+      const agentsMdPath = join(io.cwd, 'AGENTS.md');
+      const swtBody = buildSwtProjectDocBody({
         project_name: input.project_name,
         core_value: coreValue,
-        preserve_existing: claudeExists,
       });
+      let existingAgentsMd = '';
+      try {
+        existingAgentsMd = await readFile(agentsMdPath, 'utf8');
+      } catch (err) {
+        if (
+          typeof err !== 'object' ||
+          err === null ||
+          (err as { code?: string }).code !== 'ENOENT'
+        ) {
+          throw err;
+        }
+      }
+      const { content: agentsMdContent } = writeAgentsMdBlock(existingAgentsMd, swtBody);
+      await writeAtomically(agentsMdPath, agentsMdContent);
 
       io.stdout.write(
         [
@@ -129,7 +143,7 @@ export function bootstrapHandler(
           `  REQUIREMENTS.md: ${requirementsPath}`,
           `  ROADMAP.md: ${roadmapPath}`,
           `  STATE.md: ${statePath}`,
-          `  CLAUDE.md: ${claudeMdPath}`,
+          `  AGENTS.md: ${agentsMdPath}`,
           '',
           'Next: run `swt vibe` again to scope the milestone (place a phases payload at .swt-planning/phases.json or wait for PLAN 03b interactive scope).',
           '',

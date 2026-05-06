@@ -65,23 +65,36 @@ describe('bootstrapHandler', () => {
     expect((await readFile(join(planning, 'REQUIREMENTS.md'), 'utf8')).toString()).toContain('# swt-test Requirements');
     expect((await readFile(join(planning, 'ROADMAP.md'), 'utf8')).toString()).toContain('# swt-test Roadmap');
     expect((await readFile(join(planning, 'STATE.md'), 'utf8')).toString()).toContain('**Project:** swt-test');
-    expect((await readFile(join(cwd, 'CLAUDE.md'), 'utf8')).toString()).toContain('# swt-test');
+    const agentsMd = (await readFile(join(cwd, 'AGENTS.md'), 'utf8')).toString();
+    expect(agentsMd).toContain('<!-- SWT BEGIN -->');
+    expect(agentsMd).toContain('<!-- SWT END -->');
+    expect(agentsMd).toContain('**Core value:** Stop wasting tokens');
+    expect(agentsMd).toContain('## Active Context');
+    expect(agentsMd).toContain('## SWT Rules');
+    expect(agentsMd).not.toContain('## VBW Rules');
   });
 
-  it('preserves an existing CLAUDE.md', async () => {
+  it('preserves user content outside the SWT fence in an existing AGENTS.md', async () => {
     await mkdir(join(cwd, '.swt-planning'), { recursive: true });
     await import('node:fs/promises').then(({ writeFile }) =>
-      writeFile(join(cwd, 'CLAUDE.md'), '# my-project\n\n## Build commands\n\npnpm install\n', 'utf8'),
+      writeFile(
+        join(cwd, 'AGENTS.md'),
+        '# my-project\n\n## Build commands\n\npnpm install\n',
+        'utf8',
+      ),
     );
     const handler = bootstrapHandler({
       resolve: async () => ({ project_name: 'my-project', description: 'desc' }),
     });
     const { io } = makeIO();
     await handler.run({ kind: 'bootstrap', requires_confirmation: true }, io);
-    const raw = await readFile(join(cwd, 'CLAUDE.md'), 'utf8');
+    const raw = await readFile(join(cwd, 'AGENTS.md'), 'utf8');
+    expect(raw).toContain('# my-project');
     expect(raw).toContain('## Build commands');
     expect(raw).toContain('pnpm install');
-    expect(raw).toContain('## Active Context');
+    expect(raw).toContain('<!-- SWT BEGIN -->');
+    expect(raw).toContain('<!-- SWT END -->');
+    expect(raw).toContain('## SWT Rules');
   });
 
   it('does not throw when discovery.json is absent and creates an empty one', async () => {

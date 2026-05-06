@@ -10,23 +10,30 @@ export interface WriteClaudeMdOptions {
   readonly preserve_existing?: boolean;
 }
 
-const VBW_OWNED_SECTIONS = new Set(['Active Context', 'VBW Rules', 'Plugin Isolation', 'Code Intelligence']);
+export interface BuildSwtProjectDocBodyOptions {
+  readonly project_name: string;
+  readonly core_value: string;
+}
 
-const ACTIVE_CONTEXT_BLOCK = (project_name: string, core_value: string): string =>
-  [
-    `# ${project_name}`,
-    '',
-    `**Core value:** ${core_value}`,
-    '',
-    '## Active Context',
-    '',
-    '**Work:** No active milestone',
-    '**Last shipped:** _(none yet)_',
-    '**Next action:** Run `swt vibe` to start a new milestone, or `swt status` to review progress',
-    '',
-  ].join('\n');
+const SWT_OWNED_SECTIONS = new Set([
+  'Active Context',
+  'SWT Rules',
+  'Plugin Isolation',
+  'Code Intelligence',
+]);
 
-const VBW_RULES_BLOCK = `## VBW Rules
+const LEGACY_HEADING_MIGRATIONS = new Map<string, string>([
+  ['VBW Rules', 'SWT Rules'],
+]);
+
+const ACTIVE_CONTEXT_SECTION = `## Active Context
+
+**Work:** No active milestone
+**Last shipped:** _(none yet)_
+**Next action:** Run \`swt vibe\` to start a new milestone, or \`swt status\` to review progress
+`;
+
+const SWT_RULES_BLOCK = `## SWT Rules
 
 - **Always use SWT commands** for project work. Do not manually edit files in \`.swt-planning/\`.
 - **Commit format:** \`{type}({scope}): {description}\` — types: feat, fix, test, refactor, perf, docs, style, chore.
@@ -67,6 +74,27 @@ Use Search/Grep/Glob for non-semantic lookups: literal strings, comments, config
 After writing or editing code, check LSP diagnostics before moving on. Fix any type errors or missing imports immediately.
 `;
 
+/**
+ * Compose the SWT-managed body that lives inside the `<!-- SWT BEGIN -->` /
+ * `<!-- SWT END -->` fences in AGENTS.md, and as the SWT-owned sections of a
+ * fresh CLAUDE.md. Includes core_value (SWT-managed metadata) but no H1 —
+ * the caller adds the H1 outside the fence (CLAUDE.md case).
+ */
+export function buildSwtProjectDocBody(opts: BuildSwtProjectDocBodyOptions): string {
+  return [
+    `**Core value:** ${opts.core_value}`,
+    '',
+    ACTIVE_CONTEXT_SECTION.trimEnd(),
+    '',
+    SWT_RULES_BLOCK.trimEnd(),
+    '',
+    CODE_INTELLIGENCE_BLOCK.trimEnd(),
+    '',
+    PLUGIN_ISOLATION_BLOCK.trimEnd(),
+    '',
+  ].join('\n');
+}
+
 interface ParsedSection {
   heading: string;
   body: string;
@@ -81,7 +109,9 @@ function parseSections(source: string): ParsedSection[] {
       if (current !== undefined) {
         sections.push({ heading: current.heading, body: current.lines.join('\n') });
       }
-      current = { heading: m[1] ?? '', lines: [] };
+      const rawHeading = m[1] ?? '';
+      const heading = LEGACY_HEADING_MIGRATIONS.get(rawHeading) ?? rawHeading;
+      current = { heading, lines: [] };
       continue;
     }
     if (current !== undefined) current.lines.push(line);
@@ -114,20 +144,24 @@ export async function writeOrUpdateClaudeMd(opts: WriteClaudeMdOptions): Promise
 
   if (existing === undefined) {
     const fresh = [
-      ACTIVE_CONTEXT_BLOCK(opts.project_name, opts.core_value),
-      VBW_RULES_BLOCK,
-      CODE_INTELLIGENCE_BLOCK,
-      PLUGIN_ISOLATION_BLOCK,
+      `# ${opts.project_name}`,
+      '',
+      buildSwtProjectDocBody({
+        project_name: opts.project_name,
+        core_value: opts.core_value,
+      }),
     ].join('\n');
     await writeAtomically(opts.path, fresh);
     return opts.path;
   }
 
   // Refresh canonical sections in-place; preserve everything else verbatim.
+  // parseSections also rewrites legacy `VBW Rules` headings to `SWT Rules`,
+  // so older docs migrate cleanly without losing user-authored prose.
   const sections = parseSections(existing);
   const refreshed = new Map<string, string>([
-    ['Active Context', sliceBody(ACTIVE_CONTEXT_BLOCK(opts.project_name, opts.core_value), 'Active Context')],
-    ['VBW Rules', sliceBody(VBW_RULES_BLOCK, 'VBW Rules')],
+    ['Active Context', sliceBody(ACTIVE_CONTEXT_SECTION, 'Active Context')],
+    ['SWT Rules', sliceBody(SWT_RULES_BLOCK, 'SWT Rules')],
     ['Plugin Isolation', sliceBody(PLUGIN_ISOLATION_BLOCK, 'Plugin Isolation')],
   ]);
   if (!hasCodeIntelligenceGuidance(existing)) {
@@ -149,7 +183,7 @@ export async function writeOrUpdateClaudeMd(opts: WriteClaudeMdOptions): Promise
       out.push(`## ${sec.heading}`);
       out.push(refreshed.get(sec.heading) ?? sec.body);
       refreshed.delete(sec.heading);
-    } else if (VBW_OWNED_SECTIONS.has(sec.heading)) {
+    } else if (SWT_OWNED_SECTIONS.has(sec.heading)) {
       // Owned section we don't have refreshed content for — drop the old body.
       continue;
     } else {
