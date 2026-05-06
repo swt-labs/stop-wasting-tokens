@@ -21,7 +21,7 @@
 | 12 | ● Done |
 | 13 | ● Done |
 | 14 | ● Done |
-| 15 | ○ Planned |
+| 15 | ● Done |
 
 ---
 
@@ -40,7 +40,7 @@
 - [x] [Phase 12: Distribution](#phase-12-distribution)
 - [x] [Phase 13: Beta & feedback](#phase-13-beta--feedback)
 - [x] [Phase 14: v1.0 launch](#phase-14-v10-launch)
-- [ ] [Phase 15: v1.5 forward-compatibility prep](#phase-15-v15-forward-compatibility-prep)
+- [x] [Phase 15: v1.5 forward-compatibility prep](#phase-15-v15-forward-compatibility-prep)
 
 ---
 
