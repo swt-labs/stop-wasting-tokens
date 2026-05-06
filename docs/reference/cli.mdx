@@ -117,6 +117,49 @@ swt detect-phase --planning-dir .swt-planning/milestones/01-todo-cli
 
 The JSON shape mirrors the `PhaseDetectResult` type from `@swt-labs/methodology` — see [artifact reference](/reference/artifacts) for the full schema.
 
+## `swt update`
+
+Check the npm registry for a newer published version. Read-only — does not auto-install.
+
+```bash
+swt update [--json] [--strict] [--registry <url>] [--no-cache]
+```
+
+| Flag           | Type    | Default                     | Description                                                          |
+|---------------|---------|-----------------------------|----------------------------------------------------------------------|
+| `--json`       | boolean | false                       | Machine-readable output                                              |
+| `--strict`     | boolean | false                       | Exit 1 if registry unreachable (default: warn-only)                  |
+| `--registry`   | string  | `https://registry.npmjs.org`| Override npm registry URL                                            |
+| `--no-cache`   | boolean | false                       | Bypass the 24h cache at `~/.swt/update-cache.json`                   |
+
+**Examples**
+
+```bash
+# Default — human-readable
+swt update
+
+# CI usage
+swt update --json --strict | jq .latest
+
+# Behind a corporate registry mirror
+swt update --registry https://npm.internal.example.com
+```
+
+When up-to-date:
+```
+✓ swt is up-to-date (v0.1.0)
+```
+
+When outdated:
+```
+↑ Update available: v0.1.0 → v0.2.0
+
+Upgrade with one of:
+  npm install -g @swt-labs/cli@latest
+  pnpm add -g @swt-labs/cli@latest
+  bun add -g @swt-labs/cli@latest
+```
+
 ## Exit codes
 
 | Code | Meaning                                                                        |

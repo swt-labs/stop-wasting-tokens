@@ -5,6 +5,7 @@ import { doctorHandler } from './commands/doctor.js';
 import { statusHandler } from './commands/status.js';
 import { vibeHandler } from './commands/vibe.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
+import { updateHandler } from './commands/update.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
 import { EXIT, type ExitCode } from './exit-codes.js';
 import { helpHandler, renderHelp } from './help.js';
@@ -58,6 +59,12 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[N] [--effort=level] [--yolo] [--skip-qa] [--plan=NN]',
     description: 'Detect project state and route into the right SDLC mode',
     handler: vibeHandler,
+  });
+  registry.register({
+    name: 'update',
+    usage: '[--json] [--strict] [--registry=<url>] [--no-cache]',
+    description: 'Check the npm registry for a newer published version',
+    handler: updateHandler({ currentVersion: version }),
   });
 
   for (const spec of STUB_SPECS) {
