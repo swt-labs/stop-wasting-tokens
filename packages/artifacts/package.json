@@ -2,7 +2,7 @@
   "name": "@swt-labs/artifacts",
   "version": "0.0.0",
   "private": true,
-  "description": "PROJECT/REQUIREMENTS/ROADMAP/STATE artefact engine plus per-phase PLAN/SUMMARY/VERIFICATION generation.",
+  "description": "PROJECT/REQUIREMENTS/ROADMAP/STATE artefact engine plus phase directory and milestone archive helpers.",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "@swt-labs/core": "workspace:*",
-    "gray-matter": "^4.0.3"
+    "zod": "^3.23.8"
   }
 }
