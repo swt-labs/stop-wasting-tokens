@@ -4,9 +4,9 @@
 **Milestone:** Phase 1 — Repo & org setup (artifact Phase 0)
 
 ## Current Phase
-Phase: 9 of 15 (Methodology Runtime)
-Plans: 8/8
-Progress: 100%
+Phase: 11 of 15 (Phase 8 Documentation Site)
+Plans: 1/3
+Progress: 33%
 Status: active
 
 ## Phase Status
@@ -18,9 +18,9 @@ Status: active
 - **Phase 6 (Phase 5 Commands):** Complete
 - **Phase 7 (Phase 6 Artifacts Engine):** Complete
 - **Phase 8 (Phase 7 Verification Qa):** Complete
-- **Phase 9 (Methodology Runtime):** In progress
+- **Phase 9 (Methodology Runtime):** Complete
 - **Phase 10 (Template Fidelity):** Complete
-- **Phase 11 (Phase 8 Documentation Site):** Pending
+- **Phase 11 (Phase 8 Documentation Site):** In progress
 - **Phase 12 (Phase 9 Distribution):** Pending
 - **Phase 13 (Phase 10 Beta Feedback):** Pending
 - **Phase 14 (Phase 11 V1 0 Launch):** Pending
@@ -53,3 +53,4 @@ _(none)_
 - 2026-05-05: Bootstrapped 13-phase roadmap from compass research artifact
 - 2026-05-06: Phases 1–8 shipped via 8 atomic commits (3f67467, feb4035, 13dffea, 9d3086e, 7457d4a, 16de437, 7180194, 1a9095f)
 - 2026-05-06: VBW gap analysis completed (`.vbw-planning/research/swt-vs-vbw-gap-analysis.md`); 15-phase roadmap adopted (Phases 9 + 10 inserted as retrofits)
+- 2026-05-06: Phase 11 planned (3 plans: Mintlify scaffold + getting-started/concepts, reference + recipes + migration + v1.5, Vale prose linting + CI)
