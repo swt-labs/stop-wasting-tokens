@@ -185,6 +185,23 @@ Hide token/context limit lines from the statusline.
 - **Type:** `boolean`
 - **Default:** `false`
 
+## Telemetry
+
+### `telemetry`
+
+Opt-in anonymous usage telemetry.
+
+- **Type:** `{enabled: boolean, anonymous_id?: string, opted_in_at?: string}`
+- **Default:** `{enabled: false}` — privacy-by-default
+- **When to override:** Set `telemetry.enabled = true` to help shape v1.0 polish during the closed beta. PII is never collected (no file paths, repo names, user identities) — only event names, anonymous UUIDv4, and per-event allowlisted properties.
+
+```bash
+swt config set telemetry.enabled true   # opt in
+swt config set telemetry.enabled false  # opt out anytime
+```
+
+See [the beta tester guide](/recipes/beta-feedback) for the full privacy contract.
+
 ## Hooks
 
 ### `hooks.post_archive`
