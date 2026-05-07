@@ -1,9 +1,22 @@
+import { z } from 'zod';
+
 import { HandoffEnvelopeSchema } from '@swt-labs/core';
+
+const UsageChunkSchema = z.object({
+  type: z.literal('usage'),
+  usage: z.object({
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+  }),
+});
+
+export type UsageChunk = z.infer<typeof UsageChunkSchema>['usage'];
 
 export interface ParsedLine {
   readonly line: string;
   readonly handoff?: Readonly<Record<string, unknown>>;
   readonly text?: string;
+  readonly usage?: UsageChunk;
   readonly error?: string;
 }
 
@@ -33,6 +46,11 @@ export function parseLine(line: string): ParsedLine {
   const envelopeAttempt = HandoffEnvelopeSchema.safeParse(obj);
   if (envelopeAttempt.success) {
     return { line, handoff: envelopeAttempt.data };
+  }
+
+  const usageAttempt = UsageChunkSchema.safeParse(obj);
+  if (usageAttempt.success) {
+    return { line, usage: usageAttempt.data.usage };
   }
 
   if (typeof obj.text === 'string') {

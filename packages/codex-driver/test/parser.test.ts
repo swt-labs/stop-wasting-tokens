@@ -51,4 +51,39 @@ describe('NDJSON parser', () => {
     const handoffLine = lines.find((l) => l.handoff !== undefined);
     expect(handoffLine).toBeDefined();
   });
+
+  it('parses a usage chunk', () => {
+    const result = parseLine(
+      JSON.stringify({ type: 'usage', usage: { input_tokens: 4218, output_tokens: 312 } }),
+    );
+    expect(result.usage).toEqual({ input_tokens: 4218, output_tokens: 312 });
+    expect(result.text).toBeUndefined();
+    expect(result.handoff).toBeUndefined();
+  });
+
+  it('rejects a usage chunk with non-numeric token counts', () => {
+    const result = parseLine(
+      JSON.stringify({ type: 'usage', usage: { input_tokens: 'lots', output_tokens: 312 } }),
+    );
+    expect(result.usage).toBeUndefined();
+  });
+
+  it('rejects a usage chunk with negative token counts', () => {
+    const result = parseLine(
+      JSON.stringify({ type: 'usage', usage: { input_tokens: -1, output_tokens: 0 } }),
+    );
+    expect(result.usage).toBeUndefined();
+  });
+
+  it('parseStream surfaces usage chunks alongside text + handoff', () => {
+    const buffer = [
+      JSON.stringify({ text: 'a ' }),
+      JSON.stringify(VALID_ENVELOPE),
+      JSON.stringify({ type: 'usage', usage: { input_tokens: 100, output_tokens: 25 } }),
+      JSON.stringify({ text: 'b' }),
+    ].join('\n');
+    const lines = parseStream(buffer);
+    const usageLine = lines.find((l) => l.usage !== undefined);
+    expect(usageLine?.usage).toEqual({ input_tokens: 100, output_tokens: 25 });
+  });
 });

@@ -1,0 +1,5 @@
+{"text":"Investigating "}
+{"text":"the auth module."}
+{"from":"lead","to":"dev","kind":"lead-plan","payload":{"phase":"04","plan":"01","title":"wire codex driver","must_haves":["emitter works"],"tasks":[{"id":"T1","description":"do","acceptance_criteria":["done"]}]},"metadata":{"created_at":"2026-05-07T00:00:00Z"}}
+{"type":"usage","usage":{"input_tokens":4218,"output_tokens":312}}
+{"text":"\nDone."}

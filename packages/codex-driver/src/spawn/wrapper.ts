@@ -2,7 +2,7 @@ import { execa, type ExecaError } from 'execa';
 
 import { BackendError, type SpawnRequest, type SpawnResult } from '@swt-labs/core';
 
-import { parseStream } from './parser.js';
+import { parseStream, type UsageChunk } from './parser.js';
 
 export interface SpawnFlags {
   /** Overrides --profile (defaults to the spec's role). */
@@ -46,8 +46,12 @@ export async function spawnCodex(
     const lines = parseStream(result.stdout);
     let text: string | undefined;
     let handoff: Readonly<Record<string, unknown>> | undefined;
+    // Last-write-wins: Codex may emit multiple usage chunks during a session;
+    // the final chunk reflects the canonical session tally.
+    let usage: UsageChunk | undefined;
     for (const parsed of lines) {
       if (parsed.handoff !== undefined) handoff = parsed.handoff;
+      if (parsed.usage !== undefined) usage = parsed.usage;
       if (parsed.text !== undefined) {
         text = text === undefined ? parsed.text : `${text}${parsed.text}`;
       }
@@ -59,6 +63,7 @@ export async function spawnCodex(
         success: false,
         ...(text !== undefined ? { text } : {}),
         ...(handoff !== undefined ? { handoff } : {}),
+        ...(usage !== undefined ? { usage } : {}),
         error: result.stderr.trim() || `codex exited with status ${result.exitCode ?? -1}`,
       };
     }
@@ -68,6 +73,7 @@ export async function spawnCodex(
       success: true,
       ...(text !== undefined ? { text } : {}),
       ...(handoff !== undefined ? { handoff } : {}),
+      ...(usage !== undefined ? { usage } : {}),
     };
   } catch (cause) {
     const err = cause as ExecaError;
