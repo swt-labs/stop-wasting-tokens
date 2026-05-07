@@ -4,16 +4,16 @@
 **Milestone:** v1.5 Cleanup + Codex Compliance
 
 ## Current Phase
-Phase: 3 of 5 (Multi Backend Drivers)
-Plans: 0/5
+Phase: 4 of 5 (User Surfaces)
+Plans: 0/3
 Progress: 0%
 Status: ready
 
 ## Phase Status
 - **Phase 1 (Launch Hardening):** Complete
 - **Phase 2 (Codex Spawner):** Complete
-- **Phase 3 (Multi Backend Drivers):** Planned
-- **Phase 4 (User Surfaces):** Pending
+- **Phase 3 (Multi Backend Drivers):** Complete
+- **Phase 4 (User Surfaces):** Planned
 - **Phase 5 (Methodology Infra):** Pending
 
 ## Key Decisions
