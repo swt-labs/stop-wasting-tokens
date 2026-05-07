@@ -6,6 +6,7 @@ import type {
   SpawnResult,
 } from '@swt-labs/core';
 
+import { applySandboxToPrompt } from '../sandbox/wrapper.js';
 import { spawnOllama, OLLAMA_HOST_DEFAULT, type SpawnFlags } from '../spawn/wrapper.js';
 
 export interface OllamaAgentSpawnerOptions {
@@ -38,11 +39,18 @@ export class OllamaAgentSpawner implements AgentSpawner {
 
   async spawn(request: SpawnRequest): Promise<SpawnResult> {
     const installed = this.#installed.get(request.spec.role);
+    const effectiveSpec = installed ?? request.spec;
     const effectiveRequest: SpawnRequest =
       installed !== undefined ? { ...request, spec: installed } : request;
+    const wrappedSystemPrompt = applySandboxToPrompt(
+      effectiveSpec.developer_instructions,
+      effectiveSpec.sandbox_mode,
+      request.cwd,
+    );
     const flags: SpawnFlags = {
       ollama_host: this.#ollama_host,
       fetch: this.#fetch,
+      system_prompt_override: wrappedSystemPrompt,
     };
     return spawnOllama(effectiveRequest, flags);
   }

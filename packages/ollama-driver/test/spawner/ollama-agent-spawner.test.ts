@@ -60,9 +60,11 @@ describe('OllamaAgentSpawner', () => {
     const callArgs = (fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
     const init = callArgs?.[1] as { body: string };
     const body = JSON.parse(init.body);
-    // Installed spec wins: model is llama3.2, system content is the installed prompt.
+    // Installed spec wins: model is llama3.2, system content includes the installed
+    // prompt (now wrapped with a sandbox preamble — Plan 03-04 added this layer).
     expect(body.model).toBe('llama3.2');
-    expect(body.messages[0].content).toBe('You are the installed Scout.');
+    expect(body.messages[0].content).toContain('You are the installed Scout.');
+    expect(body.messages[0].content).toContain('SANDBOX MODE: read-only');
   });
 
   it('installAgent overwrites an existing entry for the same role', async () => {
