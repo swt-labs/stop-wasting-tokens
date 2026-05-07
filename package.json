@@ -1,6 +1,6 @@
 {
   "name": "stop-wasting-tokens",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Token-disciplined, methodology-first SDLC for the OpenAI Codex CLI.",
   "license": "MIT",
   "author": "Tiago Serôdio (@yidakee)",
