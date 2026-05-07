@@ -1,0 +1,4 @@
+{"model":"llama3.2","created_at":"2026-05-07T01:00:00Z","message":{"role":"assistant","content":"Investigating "},"done":false}
+{"model":"llama3.2","created_at":"2026-05-07T01:00:01Z","message":{"role":"assistant","content":"the auth "},"done":false}
+{"model":"llama3.2","created_at":"2026-05-07T01:00:02Z","message":{"role":"assistant","content":"module."},"done":false}
+{"model":"llama3.2","created_at":"2026-05-07T01:00:03Z","message":{"role":"assistant","content":""},"done":true,"total_duration":1234567,"prompt_eval_count":2104,"eval_count":156}
