@@ -7,9 +7,9 @@ import TOML from '@iarna/toml';
 import {
   type AgentRole,
   type AgentSpec,
+  CODEX_REASONING_EFFORTS,
+  type CodexReasoningEffort,
   ConfigError,
-  type Effort,
-  EFFORTS,
   isAgentRole,
   type SwtConfig,
 } from '@swt-labs/core';
@@ -23,6 +23,8 @@ export interface AgentSpecResolverOptions {
 
 interface RawTemplate {
   readonly role?: unknown;
+  readonly name?: unknown;
+  readonly description?: unknown;
   readonly model?: unknown;
   readonly model_reasoning_effort?: unknown;
   readonly developer_instructions?: unknown;
@@ -135,13 +137,13 @@ export function getBundledAgentTemplatesDir(): URL {
   return new URL('../../../templates/agents/', import.meta.url);
 }
 
-function resolveReasoningEffort(value: unknown, tomlPath: string): Effort {
-  if (value === undefined) return 'balanced';
-  if (typeof value === 'string' && (EFFORTS as readonly string[]).includes(value)) {
-    return value as Effort;
+function resolveReasoningEffort(value: unknown, tomlPath: string): CodexReasoningEffort {
+  if (value === undefined) return 'medium';
+  if (typeof value === 'string' && (CODEX_REASONING_EFFORTS as readonly string[]).includes(value)) {
+    return value as CodexReasoningEffort;
   }
   throw new ConfigError(
-    `${tomlPath} has invalid model_reasoning_effort: ${String(value)} (expected one of ${EFFORTS.join(', ')})`,
+    `${tomlPath} has invalid model_reasoning_effort: ${String(value)} (expected one of ${CODEX_REASONING_EFFORTS.join(', ')})`,
   );
 }
 

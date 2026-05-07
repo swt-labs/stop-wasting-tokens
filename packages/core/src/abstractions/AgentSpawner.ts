@@ -1,10 +1,10 @@
 import type { AgentRole } from '../types/agent-role.js';
-import type { Effort } from '../types/effort.js';
+import type { CodexReasoningEffort } from '../types/codex-reasoning-effort.js';
 
 export interface AgentSpec {
   readonly role: AgentRole;
   readonly model: string;
-  readonly reasoning_effort: Effort;
+  readonly reasoning_effort: CodexReasoningEffort;
   readonly developer_instructions: string;
   readonly allowed_mcp_servers: readonly string[];
   readonly sandbox_mode?: 'read-only' | 'workspace-write' | 'danger-full-access';
