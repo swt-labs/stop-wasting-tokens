@@ -53,5 +53,28 @@ export default [
       'import/no-default-export': 'off',
     },
   },
+  {
+    // Test files use mock values typed `any` and intentionally-loose async
+    // signatures by convention. The type-checked rules below add cost without
+    // catching real bugs in tests. They stay strict in `src/`.
+    files: [
+      '**/test/**/*.ts',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      'docs/test/**/*.ts',
+      'test/**/*.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-base-to-string': 'off',
+    },
+  },
   prettier,
 ];
