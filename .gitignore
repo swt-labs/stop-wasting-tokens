@@ -63,3 +63,4 @@ vibe-better-with-claude-code-vbw-main/
 # milestones in .vbw-planning/milestones/ remain in repo history; new
 # planning work for future milestones stays local only)
 .vbw-planning/
+.claude/
