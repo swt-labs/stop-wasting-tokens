@@ -44,5 +44,5 @@ export function parseLeadHandoff(input: unknown): LeadHandoff {
       context: { kind: 'lead-plan' },
     });
   }
-  return result.data as LeadHandoff;
+  return result.data;
 }

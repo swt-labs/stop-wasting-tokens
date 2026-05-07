@@ -2,8 +2,6 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import {
   CODEX_REASONING_EFFORTS,
   ConfigError,
@@ -12,6 +10,8 @@ import {
   type AgentRole,
   type SwtConfig,
 } from '@swt-labs/core';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 
 import {
   getBundledAgentTemplatesDir,

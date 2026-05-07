@@ -1,5 +1,3 @@
-import { describe, expect, it, vi } from 'vitest';
-
 import type {
   AgentRole,
   AgentSpec,
@@ -7,6 +5,8 @@ import type {
   SpawnRequest,
   SpawnResult,
 } from '@swt-labs/core';
+import { describe, expect, it, vi } from 'vitest';
+
 
 import { LazyInstallSpawner } from '../../../src/vibe/orchestration/lazy-install-spawner.js';
 

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
 
 const DOCS_ROOT = join(__dirname, '..');
 

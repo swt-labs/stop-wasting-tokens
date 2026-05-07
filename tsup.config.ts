@@ -28,7 +28,7 @@ export default defineConfig({
   target: 'node20',
   platform: 'node',
   shims: true,
-  esbuildPlugins: [stubDevDeps as never],
+  esbuildPlugins: [stubDevDeps],
   outExtension({ format }) {
     return { js: format === 'esm' ? '.mjs' : '.cjs' };
   },

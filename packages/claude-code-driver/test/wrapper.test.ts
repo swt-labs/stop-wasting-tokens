@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { SpawnRequest } from '@swt-labs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { SpawnRequest } from '@swt-labs/core';
 
 const sampleRequest: SpawnRequest = {
   spec: {

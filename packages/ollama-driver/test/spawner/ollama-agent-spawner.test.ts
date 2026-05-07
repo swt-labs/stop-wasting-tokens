@@ -1,6 +1,6 @@
+import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 
 import { OllamaAgentSpawner } from '../../src/spawner/ollama-agent-spawner.js';
 
@@ -44,7 +44,7 @@ function fetchReturning(body: string): typeof globalThis.fetch {
     status: 200,
     statusText: 'OK',
     text: () => Promise.resolve(body),
-  } as unknown as Response) as typeof globalThis.fetch;
+  }) as typeof globalThis.fetch;
 }
 
 describe('OllamaAgentSpawner', () => {

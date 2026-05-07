@@ -17,7 +17,7 @@ function fetchReturning(status: number): typeof globalThis.fetch {
     ok: status >= 200 && status < 300,
     status,
     statusText: `HTTP ${status}`,
-  } as unknown as Response) as typeof globalThis.fetch;
+  }) as typeof globalThis.fetch;
 }
 
 function makeSender(opts: Partial<{
@@ -59,8 +59,8 @@ describe('HttpSender', () => {
   it('5xx + retry succeeds: first 503, second 200 → resolves; fetch called twice', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 503, statusText: '503' } as unknown as Response)
-      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' } as unknown as Response);
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: '503' })
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
     const sender = makeSender({ fetchImpl: fetchMock as unknown as typeof globalThis.fetch });
 
     await sender.send([event]);
@@ -71,7 +71,7 @@ describe('HttpSender', () => {
   it('5xx + retry fails: both 503 → resolves silently; onWarning called twice', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue({ ok: false, status: 503, statusText: '503' } as unknown as Response);
+      .mockResolvedValue({ ok: false, status: 503, statusText: '503' });
     const onWarning = vi.fn();
     const sender = makeSender({
       fetchImpl: fetchMock as unknown as typeof globalThis.fetch,
@@ -100,7 +100,7 @@ describe('HttpSender', () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new TypeError('network unreachable'))
-      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' } as unknown as Response);
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
     const sender = makeSender({ fetchImpl: fetchMock as unknown as typeof globalThis.fetch });
 
     await sender.send([event]);

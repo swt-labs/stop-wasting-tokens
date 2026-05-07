@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
 
 const DOCS_ROOT = join(__dirname, '..');
 const config = JSON.parse(readFileSync(join(DOCS_ROOT, 'docs.json'), 'utf8'));

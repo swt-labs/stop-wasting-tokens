@@ -70,7 +70,7 @@ function emitTable(prefix: string, table: Record<string, TomlValue>): string[] {
       Object.values(value).some((v) => isInlineTable(v) || Array.isArray(v))
     ) {
       // Promote complex sub-objects to nested table headers.
-      subTables.push([key, value as Record<string, TomlValue>]);
+      subTables.push([key, value]);
       continue;
     }
     lines.push(`${emitKey(key)} = ${emitInlineValue(value)}`);

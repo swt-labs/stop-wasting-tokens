@@ -8,6 +8,7 @@ export { EXIT } from './exit-codes.js';
 
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
 import { main } from './main.js';
 
 // Detect direct invocation (`node dist/cli.mjs`, `swt` via bin symlink) vs

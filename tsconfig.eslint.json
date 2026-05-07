@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "rootDir": ".",
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "packages/*/test/**/*",
+    "docs/test/**/*",
+    "test/**/*",
+    "scripts/**/*.ts",
+    "tsup.config.ts",
+    "vitest.config.ts",
+    "eslint.config.mjs"
+  ],
+  "exclude": ["**/dist/**", "**/build/**", "**/coverage/**", "**/node_modules/**"]
+}

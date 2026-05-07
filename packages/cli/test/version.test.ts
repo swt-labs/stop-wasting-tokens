@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { EXIT } from '../src/exit-codes.js';
 import { versionHandler } from '../src/commands/version.js';
+import { EXIT } from '../src/exit-codes.js';
 import type { CommandIO } from '../src/router.js';
 
 import { StringStream } from './_helpers.js';

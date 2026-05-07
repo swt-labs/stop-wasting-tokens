@@ -167,7 +167,7 @@ export function scopeHandler(
         planningDir,
         project_name: input.project_name,
         goal: input.milestone_name,
-        phases: input.phases as readonly PhaseEntry[],
+        phases: input.phases,
       });
 
       const statePath = await writeState({

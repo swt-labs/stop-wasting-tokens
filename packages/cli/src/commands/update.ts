@@ -1,12 +1,12 @@
 import { loadSwtConfig } from '@swt-labs/methodology';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
-import { queryLatestVersion, type QueryOptions } from '../lib/npm-registry.js';
 import {
   queryMarketplaceVersion,
   MarketplaceQueryError,
   type MarketplaceVersion,
 } from '../lib/marketplace-registry.js';
+import { queryLatestVersion, type QueryOptions } from '../lib/npm-registry.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
 import { CURRENT_VERSION } from './version.js';

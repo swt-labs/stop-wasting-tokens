@@ -43,5 +43,5 @@ export function parseDevHandoff(input: unknown): DevHandoff {
       context: { kind: 'dev-summary' },
     });
   }
-  return result.data as DevHandoff;
+  return result.data;
 }

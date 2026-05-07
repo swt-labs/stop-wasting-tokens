@@ -33,11 +33,11 @@ describe('resolveUatRemediationRoundLimit', () => {
 
   it('treats invalid numeric values as unlimited', () => {
     expect(
-      resolveUatRemediationRoundLimit({ maxRounds: 0 as unknown as number, currentRound: 1 })
+      resolveUatRemediationRoundLimit({ maxRounds: 0, currentRound: 1 })
         .maxRounds,
     ).toBe('unlimited');
     expect(
-      resolveUatRemediationRoundLimit({ maxRounds: -2 as unknown as number, currentRound: 1 })
+      resolveUatRemediationRoundLimit({ maxRounds: -2, currentRound: 1 })
         .maxRounds,
     ).toBe('unlimited');
   });

@@ -15,10 +15,6 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { z, type ZodTypeAny } from 'zod';
-
-import { ConfigSchema } from '@swt-labs/core';
-import { buildRegistry } from '@swt-labs/cli';
 import {
   PlanFrontmatterSchema,
   SummaryFrontmatterSchema,
@@ -28,6 +24,10 @@ import {
   RemediationSummaryFrontmatterSchema,
   ProjectFrontmatterSchema,
 } from '@swt-labs/artifacts';
+import { buildRegistry } from '@swt-labs/cli';
+import { ConfigSchema } from '@swt-labs/core';
+import { z, type ZodTypeAny } from 'zod';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -207,13 +207,13 @@ export function generateArtifactsMdx(): string {
   lines.push('');
 
   const schemas: Array<{ name: string; schema: z.ZodObject<z.ZodRawShape> }> = [
-    { name: 'ProjectFrontmatterSchema', schema: ProjectFrontmatterSchema as unknown as z.ZodObject<z.ZodRawShape> },
-    { name: 'RoadmapSchema', schema: RoadmapSchema as unknown as z.ZodObject<z.ZodRawShape> },
-    { name: 'PlanFrontmatterSchema', schema: PlanFrontmatterSchema as unknown as z.ZodObject<z.ZodRawShape> },
-    { name: 'SummaryFrontmatterSchema', schema: SummaryFrontmatterSchema as unknown as z.ZodObject<z.ZodRawShape> },
-    { name: 'ResearchFrontmatterSchema', schema: ResearchFrontmatterSchema as unknown as z.ZodObject<z.ZodRawShape> },
-    { name: 'RemediationPlanFrontmatterSchema', schema: RemediationPlanFrontmatterSchema as unknown as z.ZodObject<z.ZodRawShape> },
-    { name: 'RemediationSummaryFrontmatterSchema', schema: RemediationSummaryFrontmatterSchema as unknown as z.ZodObject<z.ZodRawShape> },
+    { name: 'ProjectFrontmatterSchema', schema: ProjectFrontmatterSchema },
+    { name: 'RoadmapSchema', schema: RoadmapSchema },
+    { name: 'PlanFrontmatterSchema', schema: PlanFrontmatterSchema },
+    { name: 'SummaryFrontmatterSchema', schema: SummaryFrontmatterSchema },
+    { name: 'ResearchFrontmatterSchema', schema: ResearchFrontmatterSchema },
+    { name: 'RemediationPlanFrontmatterSchema', schema: RemediationPlanFrontmatterSchema },
+    { name: 'RemediationSummaryFrontmatterSchema', schema: RemediationSummaryFrontmatterSchema },
   ];
 
   for (const { name, schema } of schemas) {

@@ -1,6 +1,6 @@
+import { DEFAULT_CONFIG } from '@swt-labs/core';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_CONFIG } from '@swt-labs/core';
 
 import { buildPrompt, hashPrefix } from '../src/prompt-builder/index.js';
 

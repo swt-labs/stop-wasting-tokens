@@ -5,11 +5,11 @@ export * from './lead.js';
 export * from './dev.js';
 export * from './qa.js';
 
-import type { ScoutHandoff } from './scout.js';
 import type { ArchitectHandoff } from './architect.js';
-import type { LeadHandoff } from './lead.js';
 import type { DevHandoff } from './dev.js';
+import type { LeadHandoff } from './lead.js';
 import type { QaHandoff } from './qa.js';
+import type { ScoutHandoff } from './scout.js';
 
 /**
  * Discriminated union of every concrete handoff type. Routers narrow on

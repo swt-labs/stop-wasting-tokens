@@ -1,6 +1,6 @@
+import type { HookContext } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { HookContext } from '@swt-labs/core';
 
 import { ClaudeCodeHookHost } from '../../src/hooks/host.js';
 

@@ -1,8 +1,9 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
+
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { updateHandler } from '../../src/commands/update.js';
 
@@ -21,10 +22,10 @@ interface FetchResponse {
 }
 
 function makeFetch(responseOrError: FetchResponse | Error): typeof fetch {
-  return (async () => {
+  return async () => {
     if (responseOrError instanceof Error) throw responseOrError;
     return responseOrError as unknown as Response;
-  }) as unknown as typeof fetch;
+  };
 }
 
 let tempDir: string;

@@ -42,5 +42,5 @@ export function parseQaHandoff(input: unknown): QaHandoff {
       context: { kind: 'qa-verification' },
     });
   }
-  return result.data as QaHandoff;
+  return result.data;
 }

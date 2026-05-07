@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(__dirname, '..', '..', '..');
 const REVIEW_PATH = join(REPO_ROOT, 'SECURITY-REVIEW-v1.0.md');
