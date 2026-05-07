@@ -22,9 +22,15 @@ export const HandoffMetadataSchema = z.object({
   /** Optional opaque session id propagated by the orchestrator. */
   session_id: z.string().min(1).optional(),
   /** Optional phase number this handoff is scoped to. */
-  phase: z.string().regex(/^\d{2}$/).optional(),
+  phase: z
+    .string()
+    .regex(/^\d{2}$/)
+    .optional(),
   /** Optional plan number this handoff is scoped to. */
-  plan: z.string().regex(/^\d{2}$/).optional(),
+  plan: z
+    .string()
+    .regex(/^\d{2}$/)
+    .optional(),
 });
 
 export type HandoffMetadata = z.infer<typeof HandoffMetadataSchema>;

@@ -82,7 +82,9 @@ describe('emitCodexHooksJson (Codex schema translation per developers.openai.com
       pre_tool_use: [{ command: 'bash hooks/file-guard.sh' }],
     });
     const parsed = JSON.parse(out) as {
-      hooks: { PreToolUse: Array<{ hooks: Array<{ type: string; command: string; timeout: number }> }> };
+      hooks: {
+        PreToolUse: Array<{ hooks: Array<{ type: string; command: string; timeout: number }> }>;
+      };
     };
     const entry = parsed.hooks.PreToolUse[0];
     expect(entry).toBeDefined();

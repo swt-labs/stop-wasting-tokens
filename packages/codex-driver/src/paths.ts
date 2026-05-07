@@ -15,9 +15,7 @@ export type Scope = 'user' | 'project';
 
 export function resolveCodexPaths(scope: Scope, projectRoot?: string): CodexPaths {
   const root =
-    scope === 'user'
-      ? join(homedir(), '.codex')
-      : join(projectRoot ?? process.cwd(), '.codex');
+    scope === 'user' ? join(homedir(), '.codex') : join(projectRoot ?? process.cwd(), '.codex');
   return {
     root,
     agentsDir: join(root, 'agents'),

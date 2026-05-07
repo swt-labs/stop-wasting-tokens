@@ -14,7 +14,5 @@ export const VERIFICATION_TIERS: readonly VerificationTier[] = [
 ] as const;
 
 export function isVerificationTier(value: unknown): value is VerificationTier {
-  return (
-    typeof value === 'string' && (VERIFICATION_TIERS as readonly string[]).includes(value)
-  );
+  return typeof value === 'string' && (VERIFICATION_TIERS as readonly string[]).includes(value);
 }

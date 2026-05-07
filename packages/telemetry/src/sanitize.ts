@@ -22,9 +22,7 @@ export function sanitize<E extends EventName>(
   }
 
   if (stripped.length > 0 && opts.onWarning) {
-    opts.onWarning(
-      `telemetry: stripped disallowed keys from ${name}: ${stripped.join(', ')}`,
-    );
+    opts.onWarning(`telemetry: stripped disallowed keys from ${name}: ${stripped.join(', ')}`);
   }
 
   return out;

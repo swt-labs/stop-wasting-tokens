@@ -11,19 +11,19 @@ The state machine is deterministic — given the same disk state, you always get
 
 ## The 11 states
 
-| State                         | Meaning                                                                           | `swt vibe` routes to    |
-|------------------------------|-----------------------------------------------------------------------------------|------------------------|
-| `init_required`               | `.swt-planning/` does not exist                                                   | (redirect to `swt init`)|
-| `bootstrap_required`          | `.swt-planning/` exists but no `PROJECT.md`                                        | Bootstrap mode          |
-| `phase_count_zero`            | `PROJECT.md` exists but no phases yet                                              | Scope mode              |
-| `needs_discussion`            | Phase exists, `require_phase_discussion=true`, no `NN-CONTEXT.md`                  | Discuss mode            |
-| `needs_plan_and_execute`      | Phase exists with no `PLAN.md`                                                     | Plan + Execute mode     |
-| `needs_execute`               | Phase has `PLAN.md` but missing `SUMMARY.md` for one or more plans                 | Execute mode            |
-| `needs_verification`          | All plans complete, no `VERIFICATION.md` (or stale)                                | Verify mode (with QA)   |
-| `needs_qa_remediation`        | `VERIFICATION.md` has FAIL rows or unresolved tracked known issues                 | QA Remediation mode     |
-| `needs_uat_remediation`       | `UAT.md` has `status: issues_found`                                                | UAT Remediation mode    |
-| `needs_reverification`        | A remediation round just shipped — re-run UAT                                       | Re-verify mode          |
-| `all_done`                    | All phases verified and PASS — ready to archive                                     | Archive mode            |
+| State                    | Meaning                                                            | `swt vibe` routes to     |
+| ------------------------ | ------------------------------------------------------------------ | ------------------------ |
+| `init_required`          | `.swt-planning/` does not exist                                    | (redirect to `swt init`) |
+| `bootstrap_required`     | `.swt-planning/` exists but no `PROJECT.md`                        | Bootstrap mode           |
+| `phase_count_zero`       | `PROJECT.md` exists but no phases yet                              | Scope mode               |
+| `needs_discussion`       | Phase exists, `require_phase_discussion=true`, no `NN-CONTEXT.md`  | Discuss mode             |
+| `needs_plan_and_execute` | Phase exists with no `PLAN.md`                                     | Plan + Execute mode      |
+| `needs_execute`          | Phase has `PLAN.md` but missing `SUMMARY.md` for one or more plans | Execute mode             |
+| `needs_verification`     | All plans complete, no `VERIFICATION.md` (or stale)                | Verify mode (with QA)    |
+| `needs_qa_remediation`   | `VERIFICATION.md` has FAIL rows or unresolved tracked known issues | QA Remediation mode      |
+| `needs_uat_remediation`  | `UAT.md` has `status: issues_found`                                | UAT Remediation mode     |
+| `needs_reverification`   | A remediation round just shipped — re-run UAT                      | Re-verify mode           |
+| `all_done`               | All phases verified and PASS — ready to archive                    | Archive mode             |
 
 ## Two attention flags
 

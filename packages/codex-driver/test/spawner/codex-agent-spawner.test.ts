@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-
 import { CodexAgentSpawner } from '../../src/spawner/codex-agent-spawner.js';
 
 const sampleSpec: AgentSpec = {
@@ -70,9 +69,8 @@ describe('CodexAgentSpawner', () => {
       vi.doMock('execa', () => ({ execa: execaMock }));
       // Re-import after mock so spawnCodex picks up the stub.
       vi.resetModules();
-      const { CodexAgentSpawner: SpawnerWithMock } = await import(
-        '../../src/spawner/codex-agent-spawner.js'
-      );
+      const { CodexAgentSpawner: SpawnerWithMock } =
+        await import('../../src/spawner/codex-agent-spawner.js');
       const spawner = new SpawnerWithMock({
         codex_home: codexHome,
         bin: '/opt/codex/bin/codex',

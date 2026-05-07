@@ -75,10 +75,10 @@ When Lead writes `01-01-PLAN.md`, it includes brownfield-specific must-haves:
 
 ```yaml
 must_haves:
-  - "All /api/v1/ routes wrapped in zodValidate middleware"
-  - "Existing /api/v2/ routes left untouched (per Phase 1 scope)"
-  - "100% test coverage on validate() error paths"
-  - "Migration script for downstream consumers (if any)"
+  - 'All /api/v1/ routes wrapped in zodValidate middleware'
+  - 'Existing /api/v2/ routes left untouched (per Phase 1 scope)'
+  - '100% test coverage on validate() error paths'
+  - 'Migration script for downstream consumers (if any)'
 ```
 
 The Dev agent reads `PATTERNS.md` to follow your project's conventions (naming, error handling, test framework). Compiled context (`.context-dev.md`) bundles the relevant codebase intel + the plan + the slice of existing source files.
@@ -105,19 +105,20 @@ Brownfield UAT is critical — it catches regressions in untouched paths.
 
 ## What's different from greenfield
 
-| Aspect              | Greenfield                    | Brownfield                                              |
-|--------------------|-------------------------------|--------------------------------------------------------|
-| Codebase mapping    | Skipped                        | Run on `swt init` (~2-4 min for 50-200kloc)            |
-| Discussion mode     | Open questions                  | Assumptions (codebase-derived)                          |
-| First phases        | Build new features              | Often remediate existing concerns                       |
-| Dev context         | Plan + research                 | Plan + research + codebase intel slice                  |
-| UAT focus           | New behavior works              | New behavior works **and** old behavior unchanged      |
-| Codebase Profile    | Empty until first phase ships   | Populated by Scout immediately                          |
+| Aspect           | Greenfield                    | Brownfield                                        |
+| ---------------- | ----------------------------- | ------------------------------------------------- |
+| Codebase mapping | Skipped                       | Run on `swt init` (~2-4 min for 50-200kloc)       |
+| Discussion mode  | Open questions                | Assumptions (codebase-derived)                    |
+| First phases     | Build new features            | Often remediate existing concerns                 |
+| Dev context      | Plan + research               | Plan + research + codebase intel slice            |
+| UAT focus        | New behavior works            | New behavior works **and** old behavior unchanged |
+| Codebase Profile | Empty until first phase ships | Populated by Scout immediately                    |
 
 ## STATE.md after init
 
 ```markdown
 ## Codebase Profile
+
 - Source files: 1,247
 - Tech stack: TypeScript / Express / Postgres / Vitest
 - Tests: 89 vitest suites, 412 cases

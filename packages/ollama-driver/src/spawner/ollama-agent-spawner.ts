@@ -1,10 +1,4 @@
-import type {
-  AgentRole,
-  AgentSpawner,
-  AgentSpec,
-  SpawnRequest,
-  SpawnResult,
-} from '@swt-labs/core';
+import type { AgentRole, AgentSpawner, AgentSpec, SpawnRequest, SpawnResult } from '@swt-labs/core';
 
 import { applySandboxToPrompt } from '../sandbox/wrapper.js';
 import { spawnOllama, OLLAMA_HOST_DEFAULT, type SpawnFlags } from '../spawn/wrapper.js';

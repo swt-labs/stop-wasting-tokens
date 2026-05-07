@@ -31,11 +31,7 @@ export async function getOrInitRemediationState(
     const raw = await readFile(path, 'utf8');
     return RemediationStateSchema.parse(JSON.parse(raw));
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       const fresh: RemediationState = {
         version: 1,
         round: 1,
@@ -78,11 +74,7 @@ async function readRemediationState(phaseDir: string): Promise<RemediationState 
     const raw = await readFile(path, 'utf8');
     return RemediationStateSchema.parse(JSON.parse(raw));
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       return undefined;
     }
     throw err;

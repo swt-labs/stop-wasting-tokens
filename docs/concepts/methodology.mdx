@@ -39,13 +39,13 @@ You cannot accidentally skip verification. The state machine knows.
 
 ## Compared to ad-hoc Codex
 
-| Concern             | Ad-hoc                                      | SWT                                                                  |
-|--------------------|---------------------------------------------|----------------------------------------------------------------------|
-| Long-term context  | Stuffed into prompt every session           | Persisted in `STATE.md`, loaded selectively per stage                |
-| Plan drift         | Plans live in chat, evaporate on `/clear`   | `PLAN.md` on disk; deviations recorded in `SUMMARY.md`               |
-| Verification       | "Looks good, ship it"                       | Row-by-row QA + interactive UAT, with a remediation loop             |
-| Resume after break | Re-explain everything                       | `swt vibe` reads disk and routes to the exact next step              |
-| Cost               | Pay for re-reading and re-deciding          | Pay for new work; reading is bounded by `compile-context.sh`         |
+| Concern            | Ad-hoc                                    | SWT                                                          |
+| ------------------ | ----------------------------------------- | ------------------------------------------------------------ |
+| Long-term context  | Stuffed into prompt every session         | Persisted in `STATE.md`, loaded selectively per stage        |
+| Plan drift         | Plans live in chat, evaporate on `/clear` | `PLAN.md` on disk; deviations recorded in `SUMMARY.md`       |
+| Verification       | "Looks good, ship it"                     | Row-by-row QA + interactive UAT, with a remediation loop     |
+| Resume after break | Re-explain everything                     | `swt vibe` reads disk and routes to the exact next step      |
+| Cost               | Pay for re-reading and re-deciding        | Pay for new work; reading is bounded by `compile-context.sh` |
 
 ## Compared to VBW
 

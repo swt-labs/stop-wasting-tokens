@@ -15,15 +15,14 @@ After Verify mode runs, `01-UAT.md` is written:
 
 ```yaml
 ---
-phase: "03"
+phase: '03'
 status: issues_found
 total_tests: 5
 passed: 3
 skipped: 0
 issues: 2
-severity_counts: {minor: 1, major: 1, critical: 0}
+severity_counts: { minor: 1, major: 1, critical: 0 }
 ---
-
 ## Issues
 
 ### UAT-1 (major) — POST /shorten with malformed JSON returns 500
@@ -60,15 +59,18 @@ Scout reads `src/routes/shorten.ts`, `src/middleware/`, traces the JSON-parse er
 
 ```markdown
 ## UAT-1 root cause
+
 Express body-parser throws on malformed JSON before reaching the route handler.
 No global error handler catches it, so the default Express handler returns 500
 with a stacktrace.
 
 ## UAT-2 root cause
+
 The createShortlink function checks if (!existing) but does not return the
 existing slug when one is found — it silently returns 200 with original URL.
 
 ## Recommended fix
+
 1. Add an error-handling middleware that converts SyntaxError → 422.
 2. Update createShortlink to return 409 with { existing_slug } on collision.
 ```
@@ -199,7 +201,11 @@ If a recurring issue cannot be resolved (genuine architectural deadlock), classi
 
 ```yaml
 fail_classifications:
-  - {"id":"UAT-2","type":"process-exception","rationale":"Race condition in upstream library; fix requires major refactor outside this phase's scope. Filed as Phase 4 follow-up."}
+  - {
+      'id': 'UAT-2',
+      'type': 'process-exception',
+      'rationale': "Race condition in upstream library; fix requires major refactor outside this phase's scope. Filed as Phase 4 follow-up.",
+    }
 ```
 
 Then Verify mode accepts the exception (assuming QA agrees the rationale is credible). The issue lands in `STATE.md ## Todos` for future remediation.

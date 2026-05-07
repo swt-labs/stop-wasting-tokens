@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type {
-  SwtError} from '../src/errors/SwtError.js';
+import type { SwtError } from '../src/errors/SwtError.js';
 import {
   BackendError,
   ConfigError,

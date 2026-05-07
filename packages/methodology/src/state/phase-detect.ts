@@ -54,7 +54,8 @@ export async function detectPhase(opts: DetectPhaseOptions = {}): Promise<PhaseD
     : { issues: [], major_or_higher: false };
 
   // Compute classifications for each phase.
-  const classifications: { snapshot: PhaseSnapshot; state: ReturnType<typeof classifyPhase> }[] = [];
+  const classifications: { snapshot: PhaseSnapshot; state: ReturnType<typeof classifyPhase> }[] =
+    [];
   for (const snapshot of phases) {
     const freshness: QaFreshnessResult = await checkQaFreshness({
       verification: snapshot.verification,
@@ -66,7 +67,8 @@ export async function detectPhase(opts: DetectPhaseOptions = {}): Promise<PhaseD
       snapshot,
       state: classifyPhase({
         snapshot,
-        requirePhaseDiscussion: config.autonomy === 'cautious' || readFlag(config, 'require_phase_discussion'),
+        requirePhaseDiscussion:
+          config.autonomy === 'cautious' || readFlag(config, 'require_phase_discussion'),
         autoUat: config.auto_uat,
         qaFreshness: freshness,
       }),
@@ -83,7 +85,9 @@ export async function detectPhase(opts: DetectPhaseOptions = {}): Promise<PhaseD
   );
   const firstQaAttention = classifications.find(
     ({ state }) =>
-      state.qaStatus === 'pending' || state.qaStatus === 'failed' || state.qaStatus === 'remediating',
+      state.qaStatus === 'pending' ||
+      state.qaStatus === 'failed' ||
+      state.qaStatus === 'remediating',
   );
 
   // Resolve aggregate next_phase_state.
@@ -117,7 +121,8 @@ export async function detectPhase(opts: DetectPhaseOptions = {}): Promise<PhaseD
     planning_dir_exists: planningDirExists,
     project_exists: projectExists,
     phases_dir: phasesDir,
-    has_shipped_milestones: milestoneScan.issues.length > 0 || (await hasShippedMilestones(planningDir)),
+    has_shipped_milestones:
+      milestoneScan.issues.length > 0 || (await hasShippedMilestones(planningDir)),
     needs_milestone_rename: false,
     phase_count: phases.length,
     next_phase: nextSnapshot?.position,

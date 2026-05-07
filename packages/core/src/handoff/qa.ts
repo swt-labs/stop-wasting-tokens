@@ -2,11 +2,7 @@ import { z } from 'zod';
 
 import { HandoffError } from '../errors/SwtError.js';
 
-import {
-  HandoffEnvelopeSchema,
-  HandoffMetadataSchema,
-  type HandoffEnvelope,
-} from './envelope.js';
+import { HandoffEnvelopeSchema, HandoffMetadataSchema, type HandoffEnvelope } from './envelope.js';
 
 const CheckSchema = z.object({
   id: z.string().min(1),

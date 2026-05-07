@@ -18,9 +18,10 @@ import type { VibeRoute } from '../route.js';
 import type { HandlerResult, ModeHandler, ModeIO } from './index.js';
 
 export interface ReVerifyHandlerOptions {
-  readonly resolveTarget?: (route: VibeRoute, io: ModeIO) =>
-    | { phase: string; slug: string }
-    | undefined;
+  readonly resolveTarget?: (
+    route: VibeRoute,
+    io: ModeIO,
+  ) => { phase: string; slug: string } | undefined;
   readonly planningDirName?: string;
   readonly severity?: 'critical' | 'major' | 'minor' | 'cosmetic';
   /** Override max_uat_remediation_rounds resolution (default: read from config.json). */
@@ -84,10 +85,14 @@ export function reVerifyHandler(opts: ReVerifyHandlerOptions = {}): ModeHandler 
   };
 }
 
-async function defaultResolveMaxRounds(planningDir: string): Promise<MaxUatRemediationRoundsConfig> {
+async function defaultResolveMaxRounds(
+  planningDir: string,
+): Promise<MaxUatRemediationRoundsConfig> {
   try {
     const raw = await readFile(join(planningDir, 'config.json'), 'utf8');
-    const parsed = JSON.parse(raw) as { max_uat_remediation_rounds?: MaxUatRemediationRoundsConfig };
+    const parsed = JSON.parse(raw) as {
+      max_uat_remediation_rounds?: MaxUatRemediationRoundsConfig;
+    };
     return parsed.max_uat_remediation_rounds;
   } catch {
     return false;

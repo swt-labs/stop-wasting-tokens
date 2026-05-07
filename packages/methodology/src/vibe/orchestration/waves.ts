@@ -60,10 +60,10 @@ export function validateDependencyOrder(plans: readonly PlanRecord[]): void {
     for (const dep of plan.depends_on) {
       const depWave = waveOf.get(dep);
       if (depWave === undefined) {
-        throw new RoutingError(
-          `Plan ${plan.plan} depends on unknown plan "${dep}"`,
-          { plan: plan.plan, depends_on: dep },
-        );
+        throw new RoutingError(`Plan ${plan.plan} depends on unknown plan "${dep}"`, {
+          plan: plan.plan,
+          depends_on: dep,
+        });
       }
       if (depWave >= plan.wave) {
         throw new RoutingError(

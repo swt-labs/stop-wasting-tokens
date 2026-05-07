@@ -10,9 +10,7 @@ export interface PlanAndExecuteHandlerOptions {
   readonly execute?: ExecuteHandlerOptions;
 }
 
-export function planAndExecuteHandler(
-  opts: PlanAndExecuteHandlerOptions = {},
-): ModeHandler {
+export function planAndExecuteHandler(opts: PlanAndExecuteHandlerOptions = {}): ModeHandler {
   const planMode = planHandler(opts.plan);
   const executeMode = executeHandler(opts.execute);
   return {

@@ -25,9 +25,10 @@ import type { HandlerResult, ModeHandler, ModeIO } from './index.js';
 const execFileP = promisify(execFile);
 
 export interface QaHandlerOptions {
-  readonly resolveTarget?: (route: VibeRoute, io: ModeIO) =>
-    | { phase: string; slug: string }
-    | undefined;
+  readonly resolveTarget?: (
+    route: VibeRoute,
+    io: ModeIO,
+  ) => { phase: string; slug: string } | undefined;
   readonly planningDirName?: string;
   readonly spawner?: AgentSpawner;
   readonly qaSpec?: AgentSpec;
@@ -188,4 +189,3 @@ function defaultResolveTarget(
   if (m === null) return { phase: route.phase, slug: '' };
   return { phase: m[1] ?? route.phase, slug: m[2] ?? '' };
 }
-

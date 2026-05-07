@@ -13,11 +13,7 @@ export const statusHandler: CommandHandler = async (_parsed, io: CommandIO) => {
     io.stdout.write(`${raw.trim()}\n`);
     return EXIT.SUCCESS;
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       io.stderr.write(
         `No SWT project here. Run \`swt init\` to bootstrap (.swt-planning/STATE.md is missing).\n`,
       );

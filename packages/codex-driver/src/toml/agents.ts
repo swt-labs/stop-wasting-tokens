@@ -30,9 +30,7 @@ export function emitAgentToml(spec: AgentSpec): string {
   return emitToml(table);
 }
 
-export function emitAgentsGlobalToml(
-  config: Partial<AgentsGlobalConfig> = {},
-): string {
+export function emitAgentsGlobalToml(config: Partial<AgentsGlobalConfig> = {}): string {
   const merged: AgentsGlobalConfig = {
     max_threads: config.max_threads ?? DEFAULT_GLOBAL.max_threads,
     max_depth: config.max_depth ?? DEFAULT_GLOBAL.max_depth,

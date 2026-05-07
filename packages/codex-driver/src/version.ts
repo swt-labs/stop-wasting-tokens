@@ -24,9 +24,7 @@ export function parseCodexVersion(stdout: string): CodexVersion | undefined {
   };
 }
 
-export async function detectCodexVersion(
-  bin: string = 'codex',
-): Promise<CodexVersion | undefined> {
+export async function detectCodexVersion(bin: string = 'codex'): Promise<CodexVersion | undefined> {
   try {
     const result = await execa(bin, ['--version'], { reject: false });
     if (result.exitCode !== 0) return undefined;

@@ -17,10 +17,7 @@ export async function installPrompt(opts: PromptInstallOptions): Promise<string>
   return target;
 }
 
-export async function uninstallPrompt(
-  promptsDir: string,
-  filename: string,
-): Promise<boolean> {
+export async function uninstallPrompt(promptsDir: string, filename: string): Promise<boolean> {
   const target = join(promptsDir, filename);
   try {
     await rm(target, { force: false });

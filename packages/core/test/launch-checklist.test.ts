@@ -52,12 +52,7 @@ describe('LAUNCH-CHECKLIST.md', () => {
 });
 
 describe('vbw-deprecation-notice.md', () => {
-  const path = join(
-    REPO_ROOT,
-    '.vbw-planning',
-    'announcements',
-    'vbw-deprecation-notice.md',
-  );
+  const path = join(REPO_ROOT, '.vbw-planning', 'announcements', 'vbw-deprecation-notice.md');
 
   it('exists', () => {
     expect(existsSync(path)).toBe(true);
@@ -72,12 +67,7 @@ describe('vbw-deprecation-notice.md', () => {
 });
 
 describe('demo-video-script.md', () => {
-  const path = join(
-    REPO_ROOT,
-    '.vbw-planning',
-    'announcements',
-    'demo-video-script.md',
-  );
+  const path = join(REPO_ROOT, '.vbw-planning', 'announcements', 'demo-video-script.md');
 
   it('exists', () => {
     expect(existsSync(path)).toBe(true);

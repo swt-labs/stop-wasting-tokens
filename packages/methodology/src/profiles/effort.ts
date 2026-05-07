@@ -1,8 +1,4 @@
-import {
-  EFFORT_TURN_SCALAR,
-  type Effort,
-  type AgentRole,
-} from '@swt-labs/core';
+import { EFFORT_TURN_SCALAR, type Effort, type AgentRole } from '@swt-labs/core';
 
 export interface EffortProfile {
   /** Whether to spawn the Scout for research before planning. */

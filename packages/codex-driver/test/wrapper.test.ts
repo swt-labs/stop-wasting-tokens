@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import type { SpawnRequest } from '@swt-labs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-
 const sampleRequest: SpawnRequest = {
   spec: {
     role: 'scout',
@@ -26,11 +25,7 @@ afterEach(() => {
 
 describe('spawnCodex usage round-trip', () => {
   it('populates SpawnResult.usage when the stream contains a usage chunk', async () => {
-    const fixturePath = join(
-      __dirname,
-      'fixtures',
-      'codex-stream-with-usage.ndjson',
-    );
+    const fixturePath = join(__dirname, 'fixtures', 'codex-stream-with-usage.ndjson');
     const stdout = await readFile(fixturePath, 'utf8');
     const execaMock = vi.fn().mockResolvedValue({ stdout, stderr: '', exitCode: 0 });
     vi.doMock('execa', () => ({ execa: execaMock }));
@@ -74,5 +69,4 @@ describe('spawnCodex usage round-trip', () => {
     // Final chunk is canonical
     expect(result.usage).toEqual({ input_tokens: 250, output_tokens: 42 });
   });
-
 });

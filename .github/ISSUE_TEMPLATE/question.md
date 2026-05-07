@@ -1,7 +1,7 @@
 ---
 name: Question
 about: Ask a question about using SWT
-title: "[question] "
+title: '[question] '
 labels: question, triage
 assignees: ''
 ---

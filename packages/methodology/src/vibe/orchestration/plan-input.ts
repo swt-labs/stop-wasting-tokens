@@ -28,9 +28,7 @@ export interface ResolvePlanInputOptions {
  * Read everything Plan mode needs to construct a plan: the per-phase CONTEXT,
  * RESEARCH, and the existing PLAN.md files (so re-runs are idempotent).
  */
-export async function resolvePlanInput(
-  opts: ResolvePlanInputOptions,
-): Promise<PlanInput> {
+export async function resolvePlanInput(opts: ResolvePlanInputOptions): Promise<PlanInput> {
   const phaseDir = join(opts.planningDir, 'phases', `${opts.phase}-${opts.slug}`);
   const goalFromContext = await tryReadPhaseGoal(phaseDir, opts.phase);
   const research = await tryRead(join(phaseDir, `${opts.phase}-RESEARCH.md`));

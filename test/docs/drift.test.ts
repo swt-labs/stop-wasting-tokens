@@ -4,11 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  generateCliMdx,
-  generateConfigMdx,
-  generateArtifactsMdx,
-} from '../../scripts/docs-gen.js';
+import { generateCliMdx, generateConfigMdx, generateArtifactsMdx } from '../../scripts/docs-gen.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,7 +29,7 @@ describe('docs drift', () => {
       if (actual !== expected) {
         throw new Error(
           `docs/reference/${file} is out of sync with scripts/docs-gen.ts. ` +
-          `Run 'pnpm docs:gen' to regenerate.`,
+            `Run 'pnpm docs:gen' to regenerate.`,
         );
       }
       expect(actual).toBe(expected);

@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
 
-
 import type { AgentSpawner, AgentSpec, SpawnRequest, SpawnResult } from '@swt-labs/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -12,7 +11,11 @@ import type { VibeRoute } from '../../../src/vibe/route.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }
@@ -130,9 +133,7 @@ describe('qaHandler', () => {
         phase: '01',
         plans_verified: ['01'],
         result: 'fail',
-        checks: [
-          { id: 'AC1', must_have: 'all good', status: 'fail', evidence: 'broken' },
-        ],
+        checks: [{ id: 'AC1', must_have: 'all good', status: 'fail', evidence: 'broken' }],
         pre_existing_issues: [],
       },
       metadata: { created_at: '2026-05-06T00:00:00.000Z' },

@@ -1,14 +1,7 @@
 /**
  * The six methodology agents plus the orchestrator that drives them.
  */
-export type AgentRole =
-  | 'orchestrator'
-  | 'scout'
-  | 'architect'
-  | 'lead'
-  | 'dev'
-  | 'qa'
-  | 'debugger';
+export type AgentRole = 'orchestrator' | 'scout' | 'architect' | 'lead' | 'dev' | 'qa' | 'debugger';
 
 export const AGENT_ROLES: readonly AgentRole[] = [
   'orchestrator',

@@ -17,9 +17,7 @@ export interface UatGuardResult {
  * milestone (excluding `.remediated` markers) and fails when any UAT.md
  * has `status: issues_found` or unresolved issues. Non-bypassable.
  */
-export async function runArchiveUatGuard(
-  opts: RunArchiveUatGuardOptions,
-): Promise<UatGuardResult> {
+export async function runArchiveUatGuard(opts: RunArchiveUatGuardOptions): Promise<UatGuardResult> {
   const failures: string[] = [];
 
   const activePhasesDir = join(opts.planningDir, 'phases');

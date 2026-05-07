@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
 
-
 import type { AgentSpec } from '@swt-labs/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -13,7 +12,11 @@ import type { VibeRoute } from '../../../src/vibe/route.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }
@@ -56,7 +59,10 @@ const devSpec: AgentSpec = {
   allowed_mcp_servers: [],
 };
 
-async function seedPlan(plan: string, opts: { wave?: number; files?: string[] } = {}): Promise<void> {
+async function seedPlan(
+  plan: string,
+  opts: { wave?: number; files?: string[] } = {},
+): Promise<void> {
   const lines: string[] = [];
   lines.push('---');
   lines.push('phase: "01"');

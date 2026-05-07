@@ -13,9 +13,7 @@ describe('artefact schemas', () => {
   });
 
   it('requirements parse with an empty list', () => {
-    expect(() =>
-      RequirementsFrontmatterSchema.parse({ defined: '2026-05-06' }),
-    ).not.toThrow();
+    expect(() => RequirementsFrontmatterSchema.parse({ defined: '2026-05-06' })).not.toThrow();
   });
 
   it('phase entry rejects an invalid position', () => {

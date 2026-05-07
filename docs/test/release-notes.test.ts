@@ -29,9 +29,7 @@ describe('RELEASE-NOTES-v1.0', () => {
       'Distribution',
       'Beta',
     ];
-    const missing = phaseTokens.filter(
-      (token) => !new RegExp(token, 'i').test(notes),
-    );
+    const missing = phaseTokens.filter((token) => !new RegExp(token, 'i').test(notes));
     expect(missing, `missing phase tokens: ${missing.join(', ')}`).toEqual([]);
   });
 

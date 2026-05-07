@@ -10,9 +10,10 @@ import type { VibeRoute } from '../route.js';
 import type { HandlerResult, ModeHandler, ModeIO } from './index.js';
 
 export interface VerifyHandlerOptions {
-  readonly resolveTarget?: (route: VibeRoute, io: ModeIO) =>
-    | { phase: string; slug: string }
-    | undefined;
+  readonly resolveTarget?: (
+    route: VibeRoute,
+    io: ModeIO,
+  ) => { phase: string; slug: string } | undefined;
   readonly planningDirName?: string;
   /** Override 'today' for deterministic tests. */
   readonly today?: () => string;
@@ -58,14 +59,13 @@ export function verifyHandler(opts: VerifyHandlerOptions = {}): ModeHandler {
         defaultStatus: fallbackStatus,
       });
       if (plans.length === 0) {
-        throw new RoutingError(
-          `Phase ${target.phase} has no PLAN.md files — nothing to verify`,
-          { phase: target.phase, slug: target.slug },
-        );
+        throw new RoutingError(`Phase ${target.phase} has no PLAN.md files — nothing to verify`, {
+          phase: target.phase,
+          slug: target.slug,
+        });
       }
 
-      const useInteractive =
-        opts.prompter !== undefined && opts.autonomy !== 'pure-vibe';
+      const useInteractive = opts.prompter !== undefined && opts.autonomy !== 'pure-vibe';
 
       let tests: UatTest[];
       const issueRecords: UatIssue[] = [];

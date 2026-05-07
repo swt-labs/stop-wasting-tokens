@@ -36,10 +36,7 @@ export function readRemediationPlanFrontmatter(raw: string): ParsedRemediationPl
   };
 }
 
-export function writeRemediationPlanFrontmatter(
-  fm: RemediationPlanFrontmatter,
-  body = '',
-): string {
+export function writeRemediationPlanFrontmatter(fm: RemediationPlanFrontmatter, body = ''): string {
   const ordered: Record<string, unknown> = {
     phase: fm.phase,
     round: fm.round,

@@ -47,13 +47,13 @@ export function computeWatchState(snapshot: WatchSnapshot): WatchViewModel {
   const phaseSlug = pd.next_phase_slug ?? '';
   const phaseState = pd.phase_count === 0 ? 'pending' : pd.next_phase_state;
 
-  const qa: WatchViewModel['qa'] = pd.qa_round !== '00'
-    ? { status: pd.qa_status, round: pd.qa_round }
-    : { status: pd.qa_status };
+  const qa: WatchViewModel['qa'] =
+    pd.qa_round !== '00' ? { status: pd.qa_status, round: pd.qa_round } : { status: pd.qa_status };
 
-  const uat: WatchViewModel['uat'] = pd.uat_file !== '' && pd.uat_file !== 'none'
-    ? { file: pd.uat_file, issues: pd.uat_issues_count }
-    : { issues: pd.uat_issues_count };
+  const uat: WatchViewModel['uat'] =
+    pd.uat_file !== '' && pd.uat_file !== 'none'
+      ? { file: pd.uat_file, issues: pd.uat_issues_count }
+      : { issues: pd.uat_issues_count };
 
   return {
     project: snapshot.project,

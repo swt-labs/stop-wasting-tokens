@@ -14,11 +14,7 @@ async function loadConfig(cwd: string): Promise<SwtConfig> {
   try {
     raw = await readFile(path, 'utf8');
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       return DEFAULT_CONFIG;
     }
     throw err;
@@ -80,11 +76,7 @@ export const configHandler: CommandHandler = async (parsed, io: CommandIO) => {
     return EXIT.SUCCESS;
   }
 
-  async function setConfigKey(
-    out: CommandIO,
-    key: string,
-    rawValue: string,
-  ): Promise<ExitCode> {
+  async function setConfigKey(out: CommandIO, key: string, rawValue: string): Promise<ExitCode> {
     const config = await loadConfig(out.cwd);
     const next = { ...config, [key]: coerceValue(rawValue) } as Record<string, unknown>;
     let validated: SwtConfig;

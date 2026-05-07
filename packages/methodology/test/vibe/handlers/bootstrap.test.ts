@@ -11,7 +11,11 @@ import { bootstrapHandler } from '../../../src/vibe/handlers/bootstrap.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }
@@ -61,10 +65,18 @@ describe('bootstrapHandler', () => {
     expect(stdout.text()).toContain('✓ Bootstrap complete');
 
     const planning = join(cwd, '.swt-planning');
-    expect((await readFile(join(planning, 'PROJECT.md'), 'utf8')).toString()).toContain('# swt-test');
-    expect((await readFile(join(planning, 'REQUIREMENTS.md'), 'utf8')).toString()).toContain('# swt-test Requirements');
-    expect((await readFile(join(planning, 'ROADMAP.md'), 'utf8')).toString()).toContain('# swt-test Roadmap');
-    expect((await readFile(join(planning, 'STATE.md'), 'utf8')).toString()).toContain('**Project:** swt-test');
+    expect((await readFile(join(planning, 'PROJECT.md'), 'utf8')).toString()).toContain(
+      '# swt-test',
+    );
+    expect((await readFile(join(planning, 'REQUIREMENTS.md'), 'utf8')).toString()).toContain(
+      '# swt-test Requirements',
+    );
+    expect((await readFile(join(planning, 'ROADMAP.md'), 'utf8')).toString()).toContain(
+      '# swt-test Roadmap',
+    );
+    expect((await readFile(join(planning, 'STATE.md'), 'utf8')).toString()).toContain(
+      '**Project:** swt-test',
+    );
     const agentsMd = (await readFile(join(cwd, 'AGENTS.md'), 'utf8')).toString();
     expect(agentsMd).toContain('<!-- SWT BEGIN -->');
     expect(agentsMd).toContain('<!-- SWT END -->');

@@ -56,7 +56,11 @@ function parsedFlags(flags: Record<string, string | boolean | undefined>) {
 
 describe('updateCommand', () => {
   it('reports up-to-date when current matches latest', async () => {
-    const fetchImpl = makeFetch({ ok: true, status: 200, json: async () => ({ version: '0.1.0' }) });
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.1.0' }),
+    });
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
     const { stdout, io } = makeIO();
     const exit = await handler(parsedFlags({}), io);
@@ -66,7 +70,11 @@ describe('updateCommand', () => {
   });
 
   it('reports outdated with all three upgrade commands when current < latest', async () => {
-    const fetchImpl = makeFetch({ ok: true, status: 200, json: async () => ({ version: '0.2.0' }) });
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.2.0' }),
+    });
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
     const { stdout, io } = makeIO();
     const exit = await handler(parsedFlags({}), io);
@@ -98,7 +106,11 @@ describe('updateCommand', () => {
   });
 
   it('emits stable JSON shape with --json for outdated', async () => {
-    const fetchImpl = makeFetch({ ok: true, status: 200, json: async () => ({ version: '0.2.0' }) });
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.2.0' }),
+    });
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
     const { stdout, io } = makeIO();
     await handler(parsedFlags({ json: true }), io);
@@ -156,7 +168,11 @@ describe('updateCommand', () => {
   });
 
   it('persists cache on first network call', async () => {
-    const fetchImpl = makeFetch({ ok: true, status: 200, json: async () => ({ version: '0.3.0' }) });
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.3.0' }),
+    });
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
     await handler(parsedFlags({ json: true }), makeIO().io);
     const cache = JSON.parse(readFileSync(cachePath, 'utf8'));

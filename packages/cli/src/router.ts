@@ -8,10 +8,7 @@ export interface CommandIO {
   readonly cwd: string;
 }
 
-export type CommandHandler = (
-  parsed: ParsedArgv,
-  io: CommandIO,
-) => Promise<ExitCode> | ExitCode;
+export type CommandHandler = (parsed: ParsedArgv, io: CommandIO) => Promise<ExitCode> | ExitCode;
 
 export interface CommandSpec {
   readonly name: string;

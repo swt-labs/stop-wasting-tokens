@@ -41,9 +41,7 @@ export function insertPhase(
   newPhase: Omit<PhaseEntry, 'position' | 'status'> & { status?: PhaseEntry['status'] },
 ): RoadmapMutation {
   if (position < 1 || position > phases.length + 1) {
-    throw new RangeError(
-      `Insert position ${position} out of range (1..${phases.length + 1})`,
-    );
+    throw new RangeError(`Insert position ${position} out of range (1..${phases.length + 1})`);
   }
   const stub: PhaseEntry = {
     ...newPhase,
@@ -69,10 +67,7 @@ export function insertPhase(
   return { phases: repositioned, renames };
 }
 
-export function removePhase(
-  phases: readonly PhaseEntry[],
-  position: number,
-): RoadmapMutation {
+export function removePhase(phases: readonly PhaseEntry[], position: number): RoadmapMutation {
   if (position < 1 || position > phases.length) {
     throw new RangeError(`Remove position ${position} out of range (1..${phases.length})`);
   }

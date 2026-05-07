@@ -2,11 +2,7 @@ import { z } from 'zod';
 
 import { HandoffError } from '../errors/SwtError.js';
 
-import {
-  HandoffEnvelopeSchema,
-  HandoffMetadataSchema,
-  type HandoffEnvelope,
-} from './envelope.js';
+import { HandoffEnvelopeSchema, HandoffMetadataSchema, type HandoffEnvelope } from './envelope.js';
 
 export const ArchitectDesignPayloadSchema = z.object({
   goal: z.string().min(1),

@@ -37,21 +37,17 @@ describe('checkBashCommand', () => {
 
 describe('checkWritePath', () => {
   it('allows paths inside a writable root', () => {
-    expect(
-      checkWritePath('/repo/src/foo.ts', { writable_roots: ['/repo/src'] }).decision,
-    ).toBe('allow');
+    expect(checkWritePath('/repo/src/foo.ts', { writable_roots: ['/repo/src'] }).decision).toBe(
+      'allow',
+    );
   });
 
   it('blocks paths outside every writable root', () => {
-    expect(
-      checkWritePath('/etc/passwd', { writable_roots: ['/repo/src'] }).decision,
-    ).toBe('block');
+    expect(checkWritePath('/etc/passwd', { writable_roots: ['/repo/src'] }).decision).toBe('block');
   });
 
   it('matches the root itself, not just descendants', () => {
-    expect(
-      checkWritePath('/repo/src', { writable_roots: ['/repo/src'] }).decision,
-    ).toBe('allow');
+    expect(checkWritePath('/repo/src', { writable_roots: ['/repo/src'] }).decision).toBe('allow');
   });
 });
 

@@ -38,11 +38,7 @@ function isTomlArray(value: TomlValue): value is readonly TomlValue[] {
 }
 
 function isInlineTable(value: TomlValue): value is { readonly [key: string]: TomlValue } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function emitInlineValue(value: TomlValue): string {
@@ -50,9 +46,7 @@ function emitInlineValue(value: TomlValue): string {
     return `[${value.map((v) => emitInlineValue(v)).join(', ')}]`;
   }
   if (isInlineTable(value)) {
-    const entries = Object.entries(value).map(
-      ([k, v]) => `${emitKey(k)} = ${emitInlineValue(v)}`,
-    );
+    const entries = Object.entries(value).map(([k, v]) => `${emitKey(k)} = ${emitInlineValue(v)}`);
     return `{ ${entries.join(', ')} }`;
   }
   return emitScalar(value);

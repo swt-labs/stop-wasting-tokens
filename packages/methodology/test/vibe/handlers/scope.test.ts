@@ -11,7 +11,11 @@ import { scopeHandler } from '../../../src/vibe/handlers/scope.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }
@@ -102,9 +106,7 @@ describe('scopeHandler', () => {
         ({ project_name: 'x' }),
     });
     const { io } = makeIO();
-    await expect(
-      handler.run({ kind: 'scope', requires_confirmation: true }, io),
-    ).rejects.toThrow();
+    await expect(handler.run({ kind: 'scope', requires_confirmation: true }, io)).rejects.toThrow();
   });
 
   it('runs the discussion engine when no JSON input + a prompter is supplied', async () => {

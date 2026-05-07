@@ -5,12 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const ROADMAP = join(REPO_ROOT, 'docs', 'roadmap', 'v1.5.md');
-const TRADEOFFS = join(
-  REPO_ROOT,
-  '.vbw-planning',
-  'research',
-  'ui-dashboard-tradeoffs.md',
-);
+const TRADEOFFS = join(REPO_ROOT, '.vbw-planning', 'research', 'ui-dashboard-tradeoffs.md');
 
 describe('docs/roadmap/v1.5.md', () => {
   it('exists', () => {

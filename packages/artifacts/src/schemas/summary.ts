@@ -78,10 +78,7 @@ export function readSummaryFrontmatter(raw: string): ParsedSummary {
   };
 }
 
-export function writeSummaryFrontmatter(
-  fm: SummaryFrontmatter,
-  body = '',
-): string {
+export function writeSummaryFrontmatter(fm: SummaryFrontmatter, body = ''): string {
   const ordered: Record<string, unknown> = {
     phase: fm.phase,
     plan: fm.plan,

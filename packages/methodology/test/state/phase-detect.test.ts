@@ -17,7 +17,10 @@ afterEach(async () => {
   await rm(cwd, { recursive: true, force: true });
 });
 
-async function seedConfig(planningDir: string, overrides: Record<string, unknown> = {}): Promise<void> {
+async function seedConfig(
+  planningDir: string,
+  overrides: Record<string, unknown> = {},
+): Promise<void> {
   await mkdir(planningDir, { recursive: true });
   await writeFile(join(planningDir, 'config.json'), JSON.stringify(overrides), 'utf8');
 }

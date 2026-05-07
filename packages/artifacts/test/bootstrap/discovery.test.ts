@@ -42,7 +42,11 @@ describe('discovery.json', () => {
   });
 
   it('rejects malformed payloads on read', async () => {
-    await writeFile(join(dir, 'discovery.json'), JSON.stringify({ answered: 'not-an-array' }), 'utf8');
+    await writeFile(
+      join(dir, 'discovery.json'),
+      JSON.stringify({ answered: 'not-an-array' }),
+      'utf8',
+    );
     await expect(readDiscovery(dir)).rejects.toThrow();
   });
 });

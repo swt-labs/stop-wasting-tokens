@@ -9,9 +9,7 @@ export interface VerificationProfile {
   readonly enforce_traceability: boolean;
 }
 
-export const VERIFICATION_PROFILES: Readonly<
-  Record<VerificationTier, VerificationProfile>
-> = {
+export const VERIFICATION_PROFILES: Readonly<Record<VerificationTier, VerificationProfile>> = {
   quick: {
     run_typecheck: true,
     run_lint: true,
@@ -38,8 +36,6 @@ export const VERIFICATION_PROFILES: Readonly<
   },
 };
 
-export function resolveVerificationProfile(
-  tier: VerificationTier,
-): VerificationProfile {
+export function resolveVerificationProfile(tier: VerificationTier): VerificationProfile {
   return VERIFICATION_PROFILES[tier];
 }

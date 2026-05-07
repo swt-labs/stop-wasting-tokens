@@ -3,13 +3,7 @@ import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import type {
-  AgentRole,
-  AgentSpawner,
-  AgentSpec,
-  SpawnRequest,
-  SpawnResult,
-} from '@swt-labs/core';
+import type { AgentRole, AgentSpawner, AgentSpec, SpawnRequest, SpawnResult } from '@swt-labs/core';
 
 import { spawnCodex } from '../spawn/wrapper.js';
 import { emitAgentToml } from '../toml/agents.js';
@@ -41,8 +35,7 @@ export class CodexAgentSpawner implements AgentSpawner {
   readonly #env?: NodeJS.ProcessEnv;
 
   constructor(opts: CodexAgentSpawnerOptions = {}) {
-    this.#codex_home =
-      opts.codex_home ?? process.env['CODEX_HOME'] ?? join(homedir(), '.codex');
+    this.#codex_home = opts.codex_home ?? process.env['CODEX_HOME'] ?? join(homedir(), '.codex');
     this.#bin = opts.bin ?? 'codex';
     if (opts.env !== undefined) this.#env = opts.env;
   }
@@ -68,11 +61,7 @@ export class CodexAgentSpawner implements AgentSpawner {
     try {
       await unlink(target);
     } catch (err) {
-      if (
-        typeof err !== 'object' ||
-        err === null ||
-        (err as { code?: string }).code !== 'ENOENT'
-      ) {
+      if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'ENOENT') {
         throw err;
       }
     }

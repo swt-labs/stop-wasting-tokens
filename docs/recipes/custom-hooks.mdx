@@ -35,9 +35,9 @@ chmod +x .swt-planning/hooks/post-archive.sh
 .swt-planning/hooks/post-archive.sh "$MILESTONE_SLUG" "$ARCHIVE_PATH" "$TAG"
 ```
 
-| `$1` | `$MILESTONE_SLUG` | e.g., `01-todo-cli`                                 |
-| `$2` | `$ARCHIVE_PATH`    | e.g., `.swt-planning/milestones/01-todo-cli`        |
-| `$3` | `$TAG`             | e.g., `milestone/01-todo-cli` (empty if `--no-tag`) |
+| `$1` | `$MILESTONE_SLUG` | e.g., `01-todo-cli` |
+| `$2` | `$ARCHIVE_PATH` | e.g., `.swt-planning/milestones/01-todo-cli` |
+| `$3` | `$TAG` | e.g., `milestone/01-todo-cli` (empty if `--no-tag`) |
 
 The hook runs **after** all archive steps succeed: directories moved, git tag created (if requested), root STATE.md reset. Failure of the hook **does not** roll back the archive — it's reported as a warning only.
 
@@ -155,12 +155,12 @@ swt vibe --archive --no-hook=post_archive
 
 ## Other hook events (planned)
 
-| Event           | Status      | Trigger                                          |
-|----------------|-------------|--------------------------------------------------|
-| `post_archive`  | ✅ v1.0     | After `swt vibe --archive` succeeds              |
-| `post_phase`    | 📋 v1.5     | After each phase ships (verified clean)         |
-| `pre_archive`   | 📋 v1.5     | Before audit runs                                |
-| `post_uat_fail` | 📋 v1.5     | Each time UAT records `issues_found`             |
+| Event           | Status  | Trigger                                 |
+| --------------- | ------- | --------------------------------------- |
+| `post_archive`  | ✅ v1.0 | After `swt vibe --archive` succeeds     |
+| `post_phase`    | 📋 v1.5 | After each phase ships (verified clean) |
+| `pre_archive`   | 📋 v1.5 | Before audit runs                       |
+| `post_uat_fail` | 📋 v1.5 | Each time UAT records `issues_found`    |
 
 `post_phase` and `pre_archive` are the most-requested. Track in [v1.5 roadmap](/v1-5-roadmap/index).
 

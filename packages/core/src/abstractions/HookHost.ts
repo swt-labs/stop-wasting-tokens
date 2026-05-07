@@ -58,9 +58,7 @@ export type HookOutcome =
   | { decision: 'block'; reason: string }
   | { decision: 'observe' };
 
-export type HookHandler = (
-  context: HookContext,
-) => HookOutcome | Promise<HookOutcome>;
+export type HookHandler = (context: HookContext) => HookOutcome | Promise<HookOutcome>;
 
 export interface HookSubscription {
   /** Detach this subscription. Idempotent. */
@@ -117,27 +115,19 @@ export function isPermissionRequestEvent(
   return ctx.event === 'permission_request';
 }
 
-export function isStopEvent(
-  ctx: HookContext,
-): ctx is HookContext & { event: 'stop' } {
+export function isStopEvent(ctx: HookContext): ctx is HookContext & { event: 'stop' } {
   return ctx.event === 'stop';
 }
 
-export function isPreArchiveEvent(
-  ctx: HookContext,
-): ctx is HookContext & { event: 'pre_archive' } {
+export function isPreArchiveEvent(ctx: HookContext): ctx is HookContext & { event: 'pre_archive' } {
   return ctx.event === 'pre_archive';
 }
 
-export function isPostPhaseEvent(
-  ctx: HookContext,
-): ctx is HookContext & { event: 'post_phase' } {
+export function isPostPhaseEvent(ctx: HookContext): ctx is HookContext & { event: 'post_phase' } {
   return ctx.event === 'post_phase';
 }
 
-export function isPrePhaseEvent(
-  ctx: HookContext,
-): ctx is HookContext & { event: 'pre_phase' } {
+export function isPrePhaseEvent(ctx: HookContext): ctx is HookContext & { event: 'pre_phase' } {
   return ctx.event === 'pre_phase';
 }
 
@@ -147,14 +137,10 @@ export function isPostUatFailEvent(
   return ctx.event === 'post_uat_fail';
 }
 
-export function isPreQaEvent(
-  ctx: HookContext,
-): ctx is HookContext & { event: 'pre_qa' } {
+export function isPreQaEvent(ctx: HookContext): ctx is HookContext & { event: 'pre_qa' } {
   return ctx.event === 'pre_qa';
 }
 
-export function isPostQaEvent(
-  ctx: HookContext,
-): ctx is HookContext & { event: 'post_qa' } {
+export function isPostQaEvent(ctx: HookContext): ctx is HookContext & { event: 'post_qa' } {
   return ctx.event === 'post_qa';
 }

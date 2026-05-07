@@ -1,15 +1,16 @@
-{/*
- * Hand-authored "When to override" prose for `config.json` keys.
- *
- * Each block is identified by a marker comment in the form
- * `PROSE:override-config-<key>`. The codegen at scripts/docs-gen.ts
- * inlines these blocks into docs/reference/config.mdx at matching
- * marker locations. Keys without a block here render as
- * `_(no override guidance documented)_` in the generated output.
- *
- * To add prose for a new key, append a new PROSE block keyed by the
- * key name. Run `pnpm docs:gen` to regenerate.
- */}
+{/\*
+
+- Hand-authored "When to override" prose for `config.json` keys.
+-
+- Each block is identified by a marker comment in the form
+- `PROSE:override-config-<key>`. The codegen at scripts/docs-gen.ts
+- inlines these blocks into docs/reference/config.mdx at matching
+- marker locations. Keys without a block here render as
+- `_(no override guidance documented)_` in the generated output.
+-
+- To add prose for a new key, append a new PROSE block keyed by the
+- key name. Run `pnpm docs:gen` to regenerate.
+  \*/}
 
 {/* PROSE:override-config-effort */}
 `turbo` for prototypes, `thorough` for production. See [effort levels](/concepts/effort-levels).

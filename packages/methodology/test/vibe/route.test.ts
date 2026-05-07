@@ -123,7 +123,9 @@ describe('routeFromState — priority table', () => {
   });
 
   it('priority 7: needs_verification → verify with qa_pending=false when status is passed', () => {
-    const r = routeFromState(baseState({ next_phase_state: 'needs_verification', qa_status: 'passed' }));
+    const r = routeFromState(
+      baseState({ next_phase_state: 'needs_verification', qa_status: 'passed' }),
+    );
     expect(r.kind).toBe('verify');
     if (r.kind === 'verify') expect(r.qa_pending).toBe(false);
   });

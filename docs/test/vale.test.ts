@@ -34,7 +34,10 @@ describe.skipIf(!haveVale && !isCI)('vale prose lint', () => {
       return;
     }
 
-    const json = JSON.parse(stdout) as Record<string, Array<{ Severity: string; Check: string; Match: string }>>;
+    const json = JSON.parse(stdout) as Record<
+      string,
+      Array<{ Severity: string; Check: string; Match: string }>
+    >;
     const errors: Array<{ file: string; check: string; match: string }> = [];
 
     for (const [file, violations] of Object.entries(json)) {
@@ -47,7 +50,7 @@ describe.skipIf(!haveVale && !isCI)('vale prose lint', () => {
 
     expect(
       errors,
-      `vale errors found:\n${errors.map((e) => `  ${e.file}: ${e.check} (${e.match})`).join('\n')}`
+      `vale errors found:\n${errors.map((e) => `  ${e.file}: ${e.check} (${e.match})`).join('\n')}`,
     ).toEqual([]);
   });
 });

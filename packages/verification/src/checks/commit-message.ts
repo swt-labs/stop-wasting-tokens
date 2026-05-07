@@ -14,9 +14,7 @@ export const CONVENTIONAL_TYPES = [
   'revert',
 ] as const;
 
-const HEADER_RE = new RegExp(
-  `^(${CONVENTIONAL_TYPES.join('|')})(\\([\\w./-]+\\))?(!)?: .+`,
-);
+const HEADER_RE = new RegExp(`^(${CONVENTIONAL_TYPES.join('|')})(\\([\\w./-]+\\))?(!)?: .+`);
 
 export function checkCommitMessage(message: string): CheckResult {
   const reasons: string[] = [];

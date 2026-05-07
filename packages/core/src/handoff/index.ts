@@ -15,9 +15,4 @@ import type { ScoutHandoff } from './scout.js';
  * Discriminated union of every concrete handoff type. Routers narrow on
  * `kind` to handle each shape.
  */
-export type SwtHandoff =
-  | ScoutHandoff
-  | ArchitectHandoff
-  | LeadHandoff
-  | DevHandoff
-  | QaHandoff;
+export type SwtHandoff = ScoutHandoff | ArchitectHandoff | LeadHandoff | DevHandoff | QaHandoff;

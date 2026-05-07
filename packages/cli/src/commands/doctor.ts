@@ -20,10 +20,7 @@ export interface DoctorDeps {
 
 const REQUIRED_NODE_MAJOR = 20;
 
-export async function buildDoctorReport(
-  cwd: string,
-  deps: DoctorDeps = {},
-): Promise<DoctorReport> {
+export async function buildDoctorReport(cwd: string, deps: DoctorDeps = {}): Promise<DoctorReport> {
   const nodeFn = deps.node ?? ((): string => process.versions.node);
   const codexFn = deps.codex ?? ((): Promise<CodexVersion | undefined> => detectCodexVersion());
   const statFn = deps.stat ?? ((p: string): Promise<unknown> => stat(p));

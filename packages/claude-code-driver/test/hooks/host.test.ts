@@ -1,7 +1,6 @@
 import type { HookContext } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-
 import { ClaudeCodeHookHost } from '../../src/hooks/host.js';
 
 const baseContext = (event: HookContext['event']): HookContext => ({

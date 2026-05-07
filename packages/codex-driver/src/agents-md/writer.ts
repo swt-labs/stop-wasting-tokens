@@ -13,10 +13,7 @@ export interface AgentsMdWriteResult {
  * block exists yet, the new block is appended (separated by a blank line).
  * The method is pure — callers persist the result themselves.
  */
-export function writeAgentsMdBlock(
-  existing: string,
-  swtBody: string,
-): AgentsMdWriteResult {
+export function writeAgentsMdBlock(existing: string, swtBody: string): AgentsMdWriteResult {
   const fenced = `${SWT_BEGIN_FENCE}\n${swtBody.trim()}\n${SWT_END_FENCE}`;
 
   let next: string;

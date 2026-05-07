@@ -1,8 +1,8 @@
 ---
 name: Beta friction report
 about: Capture confusion, surprise, or "this should be smoother" from real usage
-title: "[friction] "
-labels: ["friction", "beta"]
+title: '[friction] '
+labels: ['friction', 'beta']
 assignees: []
 ---
 

@@ -19,11 +19,7 @@ export async function deriveMilestoneSlug(opts: DeriveSlugOptions): Promise<stri
   try {
     raw = await readFile(join(opts.planningDir, 'ROADMAP.md'), 'utf8');
   } catch (err) {
-    if (
-      typeof err !== 'object' ||
-      err === null ||
-      (err as { code?: string }).code !== 'ENOENT'
-    ) {
+    if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'ENOENT') {
       throw err;
     }
     return `milestone-${today}`;
@@ -35,7 +31,10 @@ export async function deriveMilestoneSlug(opts: DeriveSlugOptions): Promise<stri
   }
 
   const milestoneIndex = await nextMilestoneIndex(opts.planningDir);
-  const slugBody = phases.map(kebab).filter((s) => s.length > 0).join('-');
+  const slugBody = phases
+    .map(kebab)
+    .filter((s) => s.length > 0)
+    .join('-');
   const truncated = truncate(slugBody, 60);
   const indexPrefix = milestoneIndex.toString().padStart(2, '0');
   return truncated.length > 0 ? `${indexPrefix}-${truncated}` : `${indexPrefix}-milestone`;

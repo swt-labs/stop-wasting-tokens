@@ -25,11 +25,7 @@
   "navigation": [
     {
       "group": "Getting Started",
-      "pages": [
-        "getting-started/install",
-        "getting-started/init",
-        "getting-started/first-vibe"
-      ]
+      "pages": ["getting-started/install", "getting-started/init", "getting-started/first-vibe"]
     },
     {
       "group": "Concepts",
@@ -43,11 +39,7 @@
     },
     {
       "group": "Reference",
-      "pages": [
-        "reference/cli",
-        "reference/config",
-        "reference/artifacts"
-      ]
+      "pages": ["reference/cli", "reference/config", "reference/artifacts"]
     },
     {
       "group": "Recipes",
@@ -62,23 +54,15 @@
     },
     {
       "group": "Migration",
-      "pages": [
-        "migration/from-vbw",
-        "migration/step-by-step",
-        "migration/breaking-changes"
-      ]
+      "pages": ["migration/from-vbw", "migration/step-by-step", "migration/breaking-changes"]
     },
     {
       "group": "Blog",
-      "pages": [
-        "blog/v1-0-launch"
-      ]
+      "pages": ["blog/v1-0-launch"]
     },
     {
       "group": "v1.5 Roadmap",
-      "pages": [
-        "v1-5-roadmap/index"
-      ]
+      "pages": ["v1-5-roadmap/index"]
     }
   ],
   "footerSocials": {

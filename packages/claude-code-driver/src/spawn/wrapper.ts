@@ -1,7 +1,6 @@
 import { BackendError, type SpawnRequest, type SpawnResult } from '@swt-labs/core';
 import { execa, type ExecaError } from 'execa';
 
-
 import { parseStream, type UsageChunk } from './parser.js';
 
 export interface SpawnFlags {

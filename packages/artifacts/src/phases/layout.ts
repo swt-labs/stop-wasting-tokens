@@ -35,11 +35,7 @@ export async function createPhaseDir(opts: CreatePhaseDirOptions): Promise<Phase
     );
     created = true;
   } catch (err) {
-    if (
-      typeof err !== 'object' ||
-      err === null ||
-      (err as { code?: string }).code !== 'EEXIST'
-    ) {
+    if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'EEXIST') {
       throw err;
     }
   }

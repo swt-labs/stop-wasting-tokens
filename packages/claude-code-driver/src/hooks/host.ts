@@ -39,9 +39,7 @@ export type ClaudeCodeHookEvent =
  * emits a permission decision request envelope (handled outside this map by
  * the spawn-stream parser).
  */
-export const CC_TO_SWT_EVENT_MAP: Readonly<
-  Partial<Record<ClaudeCodeHookEvent, HookEvent>>
-> = {
+export const CC_TO_SWT_EVENT_MAP: Readonly<Partial<Record<ClaudeCodeHookEvent, HookEvent>>> = {
   SessionStart: 'session_start',
   UserPromptSubmit: 'user_prompt_submit',
   PreToolUse: 'pre_tool_use',

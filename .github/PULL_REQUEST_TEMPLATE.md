@@ -13,12 +13,12 @@ have everything they need.
 
 ## Changes
 
-<!-- Bullet list of the actual changes. -->
--
+## <!-- Bullet list of the actual changes. -->
 
 ## Testing
 
 <!-- How did you test this? Include commands and key output where helpful. -->
+
 - [ ] `pnpm typecheck`
 - [ ] `pnpm lint`
 - [ ] `pnpm test`

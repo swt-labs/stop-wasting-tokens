@@ -20,11 +20,13 @@ function fetchReturning(status: number): typeof globalThis.fetch {
   }) as typeof globalThis.fetch;
 }
 
-function makeSender(opts: Partial<{
-  fetchImpl: typeof globalThis.fetch;
-  onWarning: (msg: string) => void;
-  retryDelayMs: number;
-}> = {}): HttpSender {
+function makeSender(
+  opts: Partial<{
+    fetchImpl: typeof globalThis.fetch;
+    onWarning: (msg: string) => void;
+    retryDelayMs: number;
+  }> = {},
+): HttpSender {
   return new HttpSender({
     endpoint: ENDPOINT,
     fetchImpl: opts.fetchImpl ?? fetchReturning(200),
@@ -69,9 +71,7 @@ describe('HttpSender', () => {
   });
 
   it('5xx + retry fails: both 503 → resolves silently; onWarning called twice', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: false, status: 503, statusText: '503' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503, statusText: '503' });
     const onWarning = vi.fn();
     const sender = makeSender({
       fetchImpl: fetchMock as unknown as typeof globalThis.fetch,

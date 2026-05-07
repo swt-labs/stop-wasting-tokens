@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Something is broken or behaves unexpectedly
-title: "[bug] "
+title: '[bug] '
 labels: bug, triage
 assignees: ''
 ---

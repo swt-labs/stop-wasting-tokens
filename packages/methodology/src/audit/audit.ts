@@ -24,9 +24,7 @@ export interface RunArchiveAuditOptions {
 
 const REQ_ID_RE = /^REQ-\d{2,}$/;
 
-export async function runArchiveAudit(
-  opts: RunArchiveAuditOptions,
-): Promise<AuditResult> {
+export async function runArchiveAudit(opts: RunArchiveAuditOptions): Promise<AuditResult> {
   const checks: AuditCheck[] = [];
 
   const roadmap = await tryRead(join(opts.planningDir, 'ROADMAP.md'));
@@ -205,10 +203,7 @@ async function auditVerification(
   };
 }
 
-async function auditUatStatus(
-  phasesDir: string,
-  phases: readonly string[],
-): Promise<AuditCheck> {
+async function auditUatStatus(phasesDir: string, phases: readonly string[]): Promise<AuditCheck> {
   const failures: string[] = [];
   for (const p of phases) {
     const dir = join(phasesDir, p);
@@ -270,7 +265,8 @@ function splitPhaseSections(raw: string): { heading: string; body: string }[] {
   for (const line of lines) {
     const m = /^##\s+Phase\s+\d+:.*/.exec(line);
     if (m !== null) {
-      if (current !== undefined) out.push({ heading: current.heading, body: current.body.join('\n') });
+      if (current !== undefined)
+        out.push({ heading: current.heading, body: current.body.join('\n') });
       current = { heading: line.replace(/^##\s+/, '').trim(), body: [] };
       continue;
     }

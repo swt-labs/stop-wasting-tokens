@@ -10,7 +10,11 @@ import type { VibeRoute } from '../../../src/vibe/route.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }
@@ -73,9 +77,7 @@ describe('reVerifyHandler', () => {
     expect(result.exit).toBe(0);
     expect(stdout.text()).toContain('no prior UAT to archive');
 
-    const state = JSON.parse(
-      await readFile(join(phaseDir, '.uat-remediation-stage'), 'utf8'),
-    );
+    const state = JSON.parse(await readFile(join(phaseDir, '.uat-remediation-stage'), 'utf8'));
     expect(state.round).toBe(1);
   });
 
@@ -109,9 +111,7 @@ describe('reVerifyHandler', () => {
     // UAT.md not archived; round not bumped.
     const stillExists = await readFile(join(phaseDir, '01-UAT.md'), 'utf8');
     expect(stillExists).toContain('# u');
-    const state = JSON.parse(
-      await readFile(join(phaseDir, '.uat-remediation-stage'), 'utf8'),
-    );
+    const state = JSON.parse(await readFile(join(phaseDir, '.uat-remediation-stage'), 'utf8'));
     expect(state.round).toBe(3);
   });
 });
