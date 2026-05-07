@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { EXIT, type ExitCode } from '../exit-codes.js';
+import { EXIT } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
 const STATE_PATH_RELATIVE = '.swt-planning/STATE.md';
