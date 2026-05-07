@@ -6,10 +6,13 @@ import { AUTONOMY_TIERS } from '../types/autonomy.js';
 import { EFFORTS } from '../types/effort.js';
 import { VERIFICATION_TIERS } from '../types/verification.js';
 
-const AgentMaxTurnsSchema = z.record(
-  z.enum(AGENT_ROLES as unknown as [AgentRole, ...AgentRole[]]),
-  z.number().int().positive(),
-);
+const AgentRoleEnum = z.enum(AGENT_ROLES as unknown as [AgentRole, ...AgentRole[]]);
+
+const AgentMaxTurnsSchema = z.record(AgentRoleEnum, z.number().int().positive());
+
+const AgentModelOverridesSchema = z.record(AgentRoleEnum, z.string().min(1));
+
+const AgentMcpOverridesSchema = z.record(AgentRoleEnum, z.array(z.string().min(1)));
 
 export const ConfigSchema = z.object({
   effort: z.enum(EFFORTS as unknown as [string, ...string[]]).default('balanced'),
@@ -29,6 +32,8 @@ export const ConfigSchema = z.object({
     lead: 50,
     dev: 75,
   }),
+  model_overrides: AgentModelOverridesSchema.default({}),
+  mcp_overrides: AgentMcpOverridesSchema.default({}),
   auto_uat: z.boolean().default(false),
   planning_tracking: z.enum(['manual', 'ignore', 'commit']).default('manual'),
   auto_push: z.enum(['never', 'after_phase', 'always']).default('never'),
