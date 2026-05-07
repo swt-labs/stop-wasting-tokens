@@ -1,0 +1,30 @@
+{
+  "name": "stop-wasting-tokens",
+  "version": "0.0.0",
+  "description": "Token-disciplined SDLC for the Codex CLI. Plan, execute, and verify multi-week projects without burning tokens on rework.",
+  "author": {
+    "name": "Tiago Serôdio",
+    "url": "https://github.com/yidakee"
+  },
+  "license": "MIT",
+  "homepage": "https://docs.stopwastingtokens.dev",
+  "repository": "https://github.com/swt-labs/stop-wasting-tokens",
+  "keywords": [
+    "methodology",
+    "vibe-coding",
+    "cli",
+    "agents",
+    "codex",
+    "typescript",
+    "monorepo"
+  ],
+  "interface": {
+    "displayName": "stop-wasting-tokens (SWT)",
+    "category": "Development",
+    "screenshots": [
+      "screenshots/quickstart.png",
+      "screenshots/lifecycle.png",
+      "screenshots/uat-checkpoint.png"
+    ]
+  }
+}
