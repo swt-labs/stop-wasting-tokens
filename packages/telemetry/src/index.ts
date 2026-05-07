@@ -1,5 +1,6 @@
 export { TelemetryClient, type TelemetryClientOptions } from './client.js';
 export { type Sender, NoopSender, TestSender } from './sender.js';
+export { HttpSender, type HttpSenderOptions } from './http-sender.js';
 export {
   type EventName,
   type EventProperties,

@@ -43,6 +43,8 @@ export const ConfigSchema = z.object({
       enabled: z.boolean().default(false),
       anonymous_id: z.string().uuid().optional(),
       opted_in_at: z.string().optional(),
+      endpoint: z.string().url().optional(),
+      cache_ttl_hours: z.number().int().positive().default(24),
     })
     .default({ enabled: false }),
   marketplace: z
