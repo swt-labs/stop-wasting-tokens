@@ -4,14 +4,14 @@
 **Milestone:** v1.5 Cleanup + Codex Compliance
 
 ## Current Phase
-Phase: 2 of 5 (Codex Spawner)
-Plans: 2/3
-Progress: 66%
-Status: active
+Phase: 3 of 5 (Multi Backend Drivers)
+Plans: 0/0
+Progress: 0%
+Status: ready
 
 ## Phase Status
 - **Phase 1 (Launch Hardening):** Complete
-- **Phase 2 (Codex Spawner):** In progress
+- **Phase 2 (Codex Spawner):** Complete
 - **Phase 3 (Multi Backend Drivers):** Pending
 - **Phase 4 (User Surfaces):** Pending
 - **Phase 5 (Methodology Infra):** Pending
@@ -39,3 +39,4 @@ _(none)_
 
 ## Activity Log
 - 2026-05-06: Created v1.5 Cleanup + Codex Compliance milestone (5 phases)
+- 2026-05-07: Phase 02 / Plan 02-03 complete — `swt vibe --execute` wires CodexAgentSpawner via LazyInstallSpawner; agent-spec-resolver reads bundled `agents-templates/{role}.toml` with config override precedence.
