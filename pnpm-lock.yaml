@@ -80,6 +80,9 @@ importers:
       '@swt-labs/artifacts':
         specifier: workspace:*
         version: link:../artifacts
+      '@swt-labs/claude-code-driver':
+        specifier: workspace:*
+        version: link:../claude-code-driver
       '@swt-labs/codex-driver':
         specifier: workspace:*
         version: link:../codex-driver
@@ -89,6 +92,9 @@ importers:
       '@swt-labs/methodology':
         specifier: workspace:*
         version: link:../methodology
+      '@swt-labs/ollama-driver':
+        specifier: workspace:*
+        version: link:../ollama-driver
       '@swt-labs/telemetry':
         specifier: workspace:*
         version: link:../telemetry

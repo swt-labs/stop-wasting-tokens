@@ -36,6 +36,25 @@ type SandboxMode = (typeof SANDBOX_MODES)[number];
 
 const FALLBACK_MODEL = 'default';
 
+/**
+ * Resolves an AgentSpec from the bundled agents-templates + config overrides.
+ *
+ * **Cross-backend model gap (v1.5):** the resolved `model` value is treated
+ * literally by the active backend. The bundled agents-templates declare
+ * Codex-specific identifiers like `gpt-5-codex`, which Codex interprets but
+ * Claude Code and Ollama do not. Users on non-Codex backends MUST set
+ * `config.model_overrides[role]` to a backend-appropriate value:
+ *
+ *   - `backend=claude-code`: a Claude alias (`sonnet`, `opus`, `haiku`) or a
+ *     full model id (`claude-sonnet-4-6`).
+ *   - `backend=ollama`: a local Ollama model name (`llama3.2`, `qwen2.5`,
+ *     `mistral`).
+ *
+ * The resolver itself is backend-agnostic — `model_overrides` is the single
+ * documented escape hatch. Cross-backend automatic model resolution is a v2
+ * concern (would require a backend-keyed override map or per-template
+ * model-alias tables; both deferred).
+ */
 export async function resolveAgentSpec(
   opts: AgentSpecResolverOptions,
 ): Promise<AgentSpec> {

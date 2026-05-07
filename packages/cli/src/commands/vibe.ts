@@ -1,7 +1,9 @@
 import { join } from 'node:path';
 
+import { ClaudeCodeAgentSpawner } from '@swt-labs/claude-code-driver';
 import { CodexAgentSpawner } from '@swt-labs/codex-driver';
-import type { AgentRole } from '@swt-labs/core';
+import type { AgentRole, AgentSpawner } from '@swt-labs/core';
+import { OllamaAgentSpawner } from '@swt-labs/ollama-driver';
 import {
   allDoneHandler,
   archiveHandler,
@@ -92,7 +94,20 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
   const planningDir = join(io.cwd, '.swt-planning');
   const config = await loadSwtConfig(planningDir);
   const templatesDir = getBundledAgentTemplatesDir();
-  const baseSpawner = new CodexAgentSpawner();
+  const backend = resolveBackend(parsed.flags.backend, config.backend);
+  let baseSpawner: AgentSpawner;
+  switch (backend) {
+    case 'codex':
+      baseSpawner = new CodexAgentSpawner();
+      break;
+    case 'claude-code':
+      baseSpawner = new ClaudeCodeAgentSpawner();
+      break;
+    case 'ollama':
+      baseSpawner = new OllamaAgentSpawner();
+      break;
+  }
+  io.stdout.write(`◆ Backend: ${backend}\n\n`);
   const spawner = new LazyInstallSpawner(baseSpawner, (role: AgentRole) =>
     resolveAgentSpec({ role, config, templates_dir: templatesDir }),
   );
@@ -182,4 +197,16 @@ function formatRouteBanner(route: VibeRoute): string {
 
 function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+type Backend = 'codex' | 'claude-code' | 'ollama';
+
+function resolveBackend(
+  flag: string | boolean | undefined,
+  configBackend: Backend,
+): Backend {
+  if (typeof flag === 'string' && (flag === 'codex' || flag === 'claude-code' || flag === 'ollama')) {
+    return flag;
+  }
+  return configBackend;
 }

@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@swt-labs/artifacts": "workspace:*",
+    "@swt-labs/claude-code-driver": "workspace:*",
     "@swt-labs/codex-driver": "workspace:*",
     "@swt-labs/core": "workspace:*",
     "@swt-labs/methodology": "workspace:*",
+    "@swt-labs/ollama-driver": "workspace:*",
     "@swt-labs/telemetry": "workspace:*",
     "@swt-labs/verification": "workspace:*"
   },
