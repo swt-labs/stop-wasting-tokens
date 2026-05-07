@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+
+import { CodexAgentSpawner } from '@swt-labs/codex-driver';
+import type { AgentRole } from '@swt-labs/core';
 import {
   allDoneHandler,
   archiveHandler,
@@ -7,10 +11,14 @@ import {
   DEFAULT_SCOPE_RESOLVER,
   detectPhase,
   executeHandler,
+  getBundledAgentTemplatesDir,
+  LazyInstallSpawner,
+  loadSwtConfig,
   milestoneUatRecoveryHandler,
   NotImplementedError,
   planAndExecuteHandler,
   qaHandler,
+  resolveAgentSpec,
   reVerifyHandler,
   RoutingError,
   routeFromState,
@@ -81,11 +89,24 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
       ? { resolve: DEFAULT_SCOPE_RESOLVER, prompter }
       : undefined;
 
+  const planningDir = join(io.cwd, '.swt-planning');
+  const config = await loadSwtConfig(planningDir);
+  const templatesDir = getBundledAgentTemplatesDir();
+  const baseSpawner = new CodexAgentSpawner();
+  const spawner = new LazyInstallSpawner(baseSpawner, (role: AgentRole) =>
+    resolveAgentSpec({ role, config, templates_dir: templatesDir }),
+  );
+  const devSpec = await resolveAgentSpec({
+    role: 'dev',
+    config,
+    templates_dir: templatesDir,
+  });
+
   const registry = buildVibeRegistry([
     bootstrapOpts !== undefined ? bootstrapHandler(bootstrapOpts) : bootstrapHandler(),
     scopeOpts !== undefined ? scopeHandler(scopeOpts) : scopeHandler(),
     planAndExecuteHandler(),
-    executeHandler(),
+    executeHandler({ spawner, devSpec }),
     qaHandler(),
     verifyHandler(verifyOpts),
     reVerifyHandler(),
@@ -110,6 +131,8 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
       return EXIT.NOT_IMPLEMENTED;
     }
     throw err;
+  } finally {
+    await spawner.cleanup();
   }
 };
 
