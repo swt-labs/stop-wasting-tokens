@@ -32,13 +32,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Quality gates marked continue-on-error are pre-existing v1.0 DEV-1D
-      # carryforward (documented in the v1.5.1 archive's pre_existing_issues).
-      # They surface findings in the run log without blocking CI until a
-      # dedicated tech-debt milestone lands. Build is the only required gate
-      # (it validates that the published bundle actually compiles).
+      # Typecheck is a required gate as of v1.5.2 Phase 01.
+      # Lint, Format check, and Test remain advisory until v1.5.2 Phases
+      # 02–03 land — they're pre-existing v1.0 DEV-1D carryforward
+      # (documented in the v1.5.1 archive's pre_existing_issues). Build is
+      # also required (it validates the published bundle compiles).
       - name: Typecheck
-        continue-on-error: true
         run: pnpm typecheck
 
       - name: Lint
