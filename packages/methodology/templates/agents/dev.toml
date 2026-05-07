@@ -1,10 +1,16 @@
-# SWT agent profile template. Override `model` per role to pin a different
-# Codex-supported model. `allowed_mcp_servers` below lists illustrative
-# identifiers — replace with the real MCP server names registered in your
-# `~/.codex/mcp.json` (or omit servers you don't have configured).
+# SWT agent profile template. Override `model` and `model_reasoning_effort`
+# per role; both fields must use Codex-documented values per
+# `developers.openai.com/codex/{models,config-reference}`. Valid models:
+# gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.2.
+# Valid reasoning_effort: minimal | low | medium | high | xhigh.
+# `allowed_mcp_servers` below lists illustrative identifiers — replace with
+# the real MCP server names registered in your `~/.codex/mcp.json` (or omit
+# servers you don't have configured).
+name = "dev"
+description = "Implementation agent. Use to make code/test/config changes per a Lead-authored plan."
 role = "dev"
-model = "gpt-5-codex"
-model_reasoning_effort = "balanced"
+model = "gpt-5.3-codex"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 allowed_mcp_servers = ["filesystem", "shell"]
 max_turns = 75
