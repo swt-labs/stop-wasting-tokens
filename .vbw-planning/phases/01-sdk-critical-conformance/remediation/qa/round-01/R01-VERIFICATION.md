@@ -6,11 +6,14 @@ passed: 7
 failed: 0
 total: 7
 date: 2026-05-07
-verified_at_commit: 70ebd91c569a897bf3c312b82d76e7e6646ea6ff
+verified_at_commit: d40339ad455f3f8e2189ced63811e522ee986c82
 writer: write-verification.sh
 plans_verified:
   - R01
 ---
+
+<!-- Freshness re-verification (2026-05-07): verified_at_commit refreshed from 70ebd91 to d40339a after Phase 03 / F-08 header-comment cleanup. The 6 agent TOMLs were touched by commit 915d39e (Phase 03 task T3) — only the MCP path reference in the header comment block changed (`~/.codex/mcp.json` → `~/.codex/config.toml [mcp_servers.<name>]`), 4 lines per file, 12 insertions/deletions total. Phase 01's must_have field VALUES (model = gpt-5.5/gpt-5.3-codex, model_reasoning_effort ∈ Codex enum, name + description fields) are unchanged byte-identical. All 7 R01 PASS claims still hold at the new product head. -->
+
 
 ## Other Checks
 
