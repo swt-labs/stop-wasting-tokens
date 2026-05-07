@@ -26,5 +26,6 @@
     "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
   },
   "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
-  "author": "Tiago Ser\u00f4dio (@yidakee)"
+  "author": "Tiago Serôdio (@yidakee)",
+  "private": true
 }

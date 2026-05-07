@@ -1,7 +1,7 @@
 {
   "name": "@swt-labs/cli",
   "version": "0.0.0",
-  "description": "The `swt` command surface \u2014 entrypoint for the published stop-wasting-tokens binary.",
+  "description": "The `swt` command surface — entrypoint for the published stop-wasting-tokens binary.",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
@@ -39,5 +39,6 @@
     "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
   },
   "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
-  "author": "Tiago Ser\u00f4dio (@yidakee)"
+  "author": "Tiago Serôdio (@yidakee)",
+  "private": true
 }

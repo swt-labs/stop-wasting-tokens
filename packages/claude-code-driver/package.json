@@ -27,5 +27,6 @@
   },
   "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
   "license": "MIT",
-  "author": "Tiago Serôdio (@yidakee)"
+  "author": "Tiago Serôdio (@yidakee)",
+  "private": true
 }
