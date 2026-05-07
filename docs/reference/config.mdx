@@ -45,6 +45,11 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 - **Default:** `"balanced"`
 - **When to override:** `turbo` for prototypes, `thorough` for production. See [effort levels](/concepts/effort-levels).
 
+### `hooks`
+
+- **Type:** `object (optional)`
+- **When to override:** Wire shell scripts to SDLC lifecycle events. Each event accepts an optional `{ script_path: "..." }` block. The script runs synchronously when the event fires; non-zero exit aborts the lifecycle action (e.g., `pre_archive` exiting 1 aborts the archive). See `templates/hooks/*.sample.sh` for shell script templates.
+
 ### `marketplace`
 
 - **Type:** `object (optional)`

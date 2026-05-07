@@ -14,6 +14,12 @@ const AgentModelOverridesSchema = z.record(AgentRoleEnum, z.string().min(1));
 
 const AgentMcpOverridesSchema = z.record(AgentRoleEnum, z.array(z.string().min(1)));
 
+const HookSubBlockSchema = z
+  .object({
+    script_path: z.string().min(1),
+  })
+  .optional();
+
 export const ConfigSchema = z.object({
   effort: z.enum(EFFORTS as unknown as [string, ...string[]]).default('balanced'),
   autonomy: z
@@ -51,6 +57,22 @@ export const ConfigSchema = z.object({
     .object({
       endpoint: z.string().url().optional(),
       cache_ttl_hours: z.number().int().positive().default(24),
+    })
+    .optional(),
+  hooks: z
+    .object({
+      session_start: HookSubBlockSchema,
+      user_prompt_submit: HookSubBlockSchema,
+      pre_tool_use: HookSubBlockSchema,
+      post_tool_use: HookSubBlockSchema,
+      permission_request: HookSubBlockSchema,
+      stop: HookSubBlockSchema,
+      pre_archive: HookSubBlockSchema,
+      post_phase: HookSubBlockSchema,
+      pre_phase: HookSubBlockSchema,
+      post_uat_fail: HookSubBlockSchema,
+      pre_qa: HookSubBlockSchema,
+      post_qa: HookSubBlockSchema,
     })
     .optional(),
 });
