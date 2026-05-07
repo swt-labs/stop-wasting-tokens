@@ -1,6 +1,18 @@
 # State
 
 **Project:** stop-wasting-tokens
+**Milestone:** v1.5.1 — Codex SDK conformance
+
+## Current Phase
+Phase: 1 of 3
+Plans: 0/0
+Progress: 0%
+Status: ready
+
+## Phase Status
+- **Phase 1:** Pending planning
+- **Phase 2:** Pending
+- **Phase 3:** Pending
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -23,3 +35,5 @@ _(none)_
 - Monorepo: yes — pnpm workspace with 7 packages under `packages/*`
 - Notes: SWT is the SDLC tool itself; the source plan (formerly the compass artifact) lives under `.vbw-planning/research/source-plan.md` and is git-ignored.
 
+## Activity Log
+- 2026-05-07: Created v1.5.1 — Codex SDK conformance milestone (3 phases)
