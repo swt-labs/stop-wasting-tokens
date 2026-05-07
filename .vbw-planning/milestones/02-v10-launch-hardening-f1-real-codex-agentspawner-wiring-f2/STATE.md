@@ -1,6 +1,20 @@
 # State
 
 **Project:** stop-wasting-tokens
+**Milestone:** v1.5 Cleanup + Codex Compliance
+
+## Current Phase
+Phase: 5 of 5 (Methodology Infra)
+Plans: 3/3
+Progress: 100%
+Status: complete
+
+## Phase Status
+- **Phase 1 (Launch Hardening):** Complete
+- **Phase 2 (Codex Spawner):** Complete
+- **Phase 3 (Multi Backend Drivers):** Complete
+- **Phase 4 (User Surfaces):** Complete
+- **Phase 5 (Methodology Infra):** Complete
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -23,3 +37,6 @@ _(none)_
 - Monorepo: yes — pnpm workspace with 7 packages under `packages/*`
 - Notes: SWT is the SDLC tool itself; the source plan (formerly the compass artifact) lives under `.vbw-planning/research/source-plan.md` and is git-ignored.
 
+## Activity Log
+- 2026-05-06: Created v1.5 Cleanup + Codex Compliance milestone (5 phases)
+- 2026-05-07: Phase 02 / Plan 02-03 complete — `swt vibe --execute` wires CodexAgentSpawner via LazyInstallSpawner; agent-spec-resolver reads bundled `agents-templates/{role}.toml` with config override precedence.
