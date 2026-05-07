@@ -9,7 +9,9 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@swt-labs/core": "workspace:*"
+    "@swt-labs/core": "workspace:*",
+    "execa": "^9.5.1",
+    "zod": "^3.23.8"
   },
   "publishConfig": {
     "access": "public",
