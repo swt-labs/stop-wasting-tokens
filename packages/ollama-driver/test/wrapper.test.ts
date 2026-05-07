@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { SpawnRequest } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { SpawnRequest } from '@swt-labs/core';
 
 import { spawnOllama } from '../src/spawn/wrapper.js';
 
@@ -27,7 +27,7 @@ function fetchReturning(body: string, ok = true, status = 200, statusText = 'OK'
     status,
     statusText,
     text: () => Promise.resolve(body),
-  } as unknown as Response) as typeof globalThis.fetch;
+  }) as typeof globalThis.fetch;
 }
 
 describe('spawnOllama wrapper', () => {

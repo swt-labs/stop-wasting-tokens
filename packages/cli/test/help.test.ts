@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { STUB_SPECS } from '../src/commands/stubs.js';
 import { renderHelp } from '../src/help.js';
 import { buildRegistry } from '../src/main.js';
-import { STUB_SPECS } from '../src/commands/stubs.js';
 
 describe('renderHelp', () => {
   const registry = buildRegistry();

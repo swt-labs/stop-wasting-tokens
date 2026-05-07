@@ -1,6 +1,6 @@
+import type { PhaseDetectResult } from '@swt-labs/methodology';
 import { describe, expect, it } from 'vitest';
 
-import type { PhaseDetectResult } from '@swt-labs/methodology';
 
 import { computeWatchState, type WatchSnapshot } from '../../src/watch/state.js';
 
@@ -94,7 +94,7 @@ describe('computeWatchState', () => {
         next_phase_state: 'phase_count_zero',
         next_phase_plans: 0,
         next_phase_summaries: 0,
-      } as PhaseDetectResult,
+      },
       recentActivity: [],
       project: 'fresh',
       milestone: '',
@@ -113,7 +113,7 @@ describe('computeWatchState', () => {
         ...baseSnapshot,
         uat_issues_count: 3,
         uat_file: '04-UAT.md',
-      } as PhaseDetectResult,
+      },
       recentActivity: [],
       project: 'p',
       milestone: 'm',
@@ -131,7 +131,7 @@ describe('computeWatchState', () => {
         ...baseSnapshot,
         qa_status: 'remediating',
         qa_round: '02',
-      } as PhaseDetectResult,
+      },
       recentActivity: [],
       project: 'p',
       milestone: 'm',

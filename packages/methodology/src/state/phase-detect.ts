@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { DEFAULT_CONFIG, parseConfig, type SwtConfig } from '@swt-labs/core';
 
 import { classifyPhase, type QaFreshnessResult } from './classify-phase.js';
-import { checkQaFreshness } from './qa-freshness.js';
 import { scanMilestoneUat } from './milestone-uat.js';
+import { checkQaFreshness } from './qa-freshness.js';
 import { scanPhases } from './scan-phases.js';
 import type {
   ExecutionState,

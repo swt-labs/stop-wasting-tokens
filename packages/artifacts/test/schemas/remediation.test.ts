@@ -7,16 +7,16 @@ import {
   type RemediationPlanFrontmatter,
 } from '../../src/schemas/remediation-plan.js';
 import {
+  RemediationResearchFrontmatterSchema,
+  readRemediationResearchFrontmatter,
+  writeRemediationResearchFrontmatter,
+} from '../../src/schemas/remediation-research.js';
+import {
   RemediationSummaryFrontmatterSchema,
   readRemediationSummaryFrontmatter,
   writeRemediationSummaryFrontmatter,
   type RemediationSummaryFrontmatter,
 } from '../../src/schemas/remediation-summary.js';
-import {
-  RemediationResearchFrontmatterSchema,
-  readRemediationResearchFrontmatter,
-  writeRemediationResearchFrontmatter,
-} from '../../src/schemas/remediation-research.js';
 
 describe('RemediationPlanFrontmatterSchema', () => {
   it('parses fail_classifications and known_issues_input arrays', () => {

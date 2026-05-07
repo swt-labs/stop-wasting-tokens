@@ -72,7 +72,7 @@ export function verifyHandler(opts: VerifyHandlerOptions = {}): ModeHandler {
       if (useInteractive) {
         tests = [];
         for (const row of synthesized) {
-          const decision = await opts.prompter!.askChoice<RowDecision>({
+          const decision = await opts.prompter.askChoice<RowDecision>({
             prompt: `${row.id} — ${row.description}`,
             options: [
               { value: 'pass', label: 'PASS' },
@@ -84,11 +84,11 @@ export function verifyHandler(opts: VerifyHandlerOptions = {}): ModeHandler {
           });
           let notes = row.notes;
           if (decision === 'fail') {
-            const summary = await opts.prompter!.askText({
+            const summary = await opts.prompter.askText({
               prompt: `Describe the failure for ${row.id}`,
               required: true,
             });
-            const severity = await opts.prompter!.askChoice<Severity>({
+            const severity = await opts.prompter.askChoice<Severity>({
               prompt: `Severity for ${row.id}`,
               options: [
                 { value: 'critical', label: 'critical' },

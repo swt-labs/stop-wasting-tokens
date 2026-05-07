@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detectPhase } from '../../src/state/phase-detect.js';
 import { toKeyValueLines } from '../../src/state/encode.js';
+import { detectPhase } from '../../src/state/phase-detect.js';
 
 let cwd: string;
 

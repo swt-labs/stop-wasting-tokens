@@ -2,9 +2,9 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 
 import { ClaudeCodeAgentSpawner } from '../../src/spawner/claude-code-agent-spawner.js';
 

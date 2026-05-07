@@ -44,5 +44,5 @@ export function parseArchitectHandoff(input: unknown): ArchitectHandoff {
       context: { kind: 'architect-design' },
     });
   }
-  return result.data as ArchitectHandoff;
+  return result.data;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { routeFromState } from '../../src/vibe/route.js';
 import type { PhaseDetectResult } from '../../src/state/types.js';
+import { routeFromState } from '../../src/vibe/route.js';
 
 function baseState(overrides: Partial<PhaseDetectResult> = {}): PhaseDetectResult {
   const base: PhaseDetectResult = {

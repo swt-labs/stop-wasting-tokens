@@ -27,7 +27,7 @@ function fetchReturning(body: unknown, ok = true, status = 200): typeof globalTh
     status,
     statusText: ok ? 'OK' : 'Error',
     json: () => Promise.resolve(body),
-  } as unknown as Response) as typeof globalThis.fetch;
+  }) as typeof globalThis.fetch;
 }
 
 describe('queryMarketplaceVersion', () => {
@@ -69,7 +69,7 @@ describe('queryMarketplaceVersion', () => {
     const result = await queryMarketplaceVersion({
       endpoint: 'https://stub.test',
       packageName: 'pkg',
-      fetchImpl: fetchMock2 as unknown as typeof globalThis.fetch,
+      fetchImpl: fetchMock2,
       cachePath,
       now: () => 1500, // within TTL of 24h
     });

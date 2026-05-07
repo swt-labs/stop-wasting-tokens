@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { ClaudeCodeAgentSpawner } from '@swt-labs/claude-code-driver';
 import { CodexAgentSpawner } from '@swt-labs/codex-driver';
 import type { AgentRole, AgentSpawner } from '@swt-labs/core';
-import { OllamaAgentSpawner } from '@swt-labs/ollama-driver';
 import {
   allDoneHandler,
   archiveHandler,
@@ -29,6 +28,7 @@ import {
   type RouteArgs,
   type VibeRoute,
 } from '@swt-labs/methodology';
+import { OllamaAgentSpawner } from '@swt-labs/ollama-driver';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import { ReadlinePrompter } from '../prompters/readline.js';
@@ -135,7 +135,7 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
       stdout: io.stdout,
       stderr: io.stderr,
     });
-    return result.exit as ExitCode;
+    return result.exit;
   } catch (err) {
     if (err instanceof NotImplementedError) {
       io.stderr.write(

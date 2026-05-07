@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { runDiscussionEngine } from '../../src/discussion/engine.js';
 import { ScriptedPrompter } from '../../../core/test/mock-driver.js';
+import { runDiscussionEngine } from '../../src/discussion/engine.js';
 
 describe('runDiscussionEngine', () => {
   it('captures bootstrap answers via a scripted prompter', async () => {

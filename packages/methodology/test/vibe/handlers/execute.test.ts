@@ -1,15 +1,15 @@
-import { Writable } from 'node:stream';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AgentSpec } from '@swt-labs/core';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { MockAgentSpawner } from '../../../../core/test/mock-driver.js';
 import { executeHandler } from '../../../src/vibe/handlers/execute.js';
 import type { VibeRoute } from '../../../src/vibe/route.js';
-import { MockAgentSpawner } from '../../../../core/test/mock-driver.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];

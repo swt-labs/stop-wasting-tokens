@@ -1,6 +1,6 @@
+import { HandoffEnvelopeSchema } from '@swt-labs/core';
 import { z } from 'zod';
 
-import { HandoffEnvelopeSchema } from '@swt-labs/core';
 
 const OllamaChunkSchema = z.object({
   model: z.string(),

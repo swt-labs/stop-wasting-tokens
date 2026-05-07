@@ -1,6 +1,6 @@
+import type { ParsedArgv } from './argv.js';
 import type { ExitCode } from './exit-codes.js';
 import { EXIT } from './exit-codes.js';
-import type { ParsedArgv } from './argv.js';
 
 export interface CommandIO {
   readonly stdout: NodeJS.WritableStream;

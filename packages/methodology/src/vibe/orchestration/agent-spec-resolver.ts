@@ -1,9 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import TOML from '@iarna/toml';
-
 import {
   type AgentRole,
   type AgentSpec,
@@ -76,7 +75,7 @@ export async function resolveAgentSpec(
 
   let parsed: RawTemplate;
   try {
-    parsed = TOML.parse(source) as RawTemplate;
+    parsed = TOML.parse(source);
   } catch (cause) {
     throw new ConfigError(`Failed to parse ${tomlPath} as TOML`, { cause });
   }

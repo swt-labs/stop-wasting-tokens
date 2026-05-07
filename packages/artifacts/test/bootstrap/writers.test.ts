@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { EMPTY_DISCOVERY } from '../../src/bootstrap/discovery.js';
 import {
   writeMilestoneContext,
   writePhaseContext,
@@ -12,7 +13,6 @@ import {
   writeRoadmap,
   writeState,
 } from '../../src/bootstrap/index.js';
-import { EMPTY_DISCOVERY } from '../../src/bootstrap/discovery.js';
 
 let dir: string;
 

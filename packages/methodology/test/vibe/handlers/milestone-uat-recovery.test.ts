@@ -1,13 +1,13 @@
-import { Writable } from 'node:stream';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { ScriptedPrompter } from '../../../../core/test/mock-driver.js';
 import { milestoneUatRecoveryHandler } from '../../../src/vibe/handlers/milestone-uat-recovery.js';
 import type { VibeRoute } from '../../../src/vibe/route.js';
-import { ScriptedPrompter } from '../../../../core/test/mock-driver.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];

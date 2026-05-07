@@ -1,7 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
 
 import type {
   AgentRole,
@@ -11,8 +11,8 @@ import type {
   SpawnResult,
 } from '@swt-labs/core';
 
-import { emitAgentToml } from '../toml/agents.js';
 import { spawnCodex } from '../spawn/wrapper.js';
+import { emitAgentToml } from '../toml/agents.js';
 
 export interface CodexAgentSpawnerOptions {
   /** Override `~/.codex` (or `$CODEX_HOME`). Useful for tests / custom installs. */

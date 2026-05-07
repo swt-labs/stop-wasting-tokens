@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { RoutingError } from '../../../src/vibe/errors.js';
 import {
   groupByWave,
   validateDependencyOrder,
   validateDisjointFiles,
   type PlanRecord,
 } from '../../../src/vibe/orchestration/waves.js';
-import { RoutingError } from '../../../src/vibe/errors.js';
 
 function plan(over: Partial<PlanRecord> & { plan: string }): PlanRecord {
   return {

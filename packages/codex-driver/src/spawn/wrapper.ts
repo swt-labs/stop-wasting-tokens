@@ -1,6 +1,6 @@
+import { BackendError, type SpawnRequest, type SpawnResult } from '@swt-labs/core';
 import { execa, type ExecaError } from 'execa';
 
-import { BackendError, type SpawnRequest, type SpawnResult } from '@swt-labs/core';
 
 import { parseStream, type UsageChunk } from './parser.js';
 

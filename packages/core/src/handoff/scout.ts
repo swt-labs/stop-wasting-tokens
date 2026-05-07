@@ -46,5 +46,5 @@ export function parseScoutHandoff(input: unknown): ScoutHandoff {
       context: { kind: 'scout-findings' },
     });
   }
-  return result.data as ScoutHandoff;
+  return result.data;
 }

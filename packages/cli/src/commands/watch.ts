@@ -2,12 +2,14 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { detectPhase } from '@swt-labs/methodology';
 import chokidar from 'chokidar';
 import { render } from 'ink';
 import React from 'react';
 
-import { detectPhase } from '@swt-labs/methodology';
 
+import { EXIT, type ExitCode } from '../exit-codes.js';
+import type { CommandHandler, CommandIO } from '../router.js';
 import { Dashboard } from '../watch/dashboard.js';
 import {
   computeWatchState,
@@ -15,8 +17,6 @@ import {
   type WatchSnapshot,
   type WatchViewModel,
 } from '../watch/state.js';
-import { EXIT, type ExitCode } from '../exit-codes.js';
-import type { CommandHandler, CommandIO } from '../router.js';
 
 export interface WatchHandle {
   close(): Promise<void>;

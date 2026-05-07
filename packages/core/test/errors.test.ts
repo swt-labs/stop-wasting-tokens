@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import type {
+  SwtError} from '../src/errors/SwtError.js';
 import {
   BackendError,
   ConfigError,
   HandoffError,
   MemoryError,
   PermissionDeniedError,
-  SwtError,
   formatCause,
   isSwtError,
 } from '../src/errors/SwtError.js';

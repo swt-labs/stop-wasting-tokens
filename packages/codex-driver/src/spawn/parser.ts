@@ -1,6 +1,6 @@
+import { HandoffEnvelopeSchema } from '@swt-labs/core';
 import { z } from 'zod';
 
-import { HandoffEnvelopeSchema } from '@swt-labs/core';
 
 const UsageChunkSchema = z.object({
   type: z.literal('usage'),

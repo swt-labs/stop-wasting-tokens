@@ -115,7 +115,7 @@ async function readVerification(path: string): Promise<VerificationSnapshot> {
       filename,
       result:
         result === 'PASS' || result === 'FAIL' || result === 'PARTIAL'
-          ? (result as VerificationSnapshot['result'])
+          ? (result)
           : 'unknown',
       verifiedAtCommit:
         typeof frontmatter.verified_at_commit === 'string'
@@ -139,7 +139,7 @@ async function readUat(path: string): Promise<UatSnapshot> {
         status === 'in_progress' ||
         status === 'complete' ||
         status === 'issues_found'
-          ? (status as UatSnapshot['status'])
+          ? (status)
           : 'unknown',
       major_or_higher:
         Boolean(frontmatter.major_or_higher) ||

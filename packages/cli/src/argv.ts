@@ -39,6 +39,6 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
   return {
     verb,
     positionals: rest,
-    flags: values as Readonly<Record<string, string | boolean | undefined>>,
+    flags: values,
   };
 }
