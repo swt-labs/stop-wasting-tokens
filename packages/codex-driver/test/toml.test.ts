@@ -30,19 +30,20 @@ describe('TOML emitter', () => {
 });
 
 describe('agent TOML', () => {
-  it('serialises an AgentSpec', () => {
+  it('serialises an AgentSpec with Codex-valid reasoning_effort', () => {
     const out = emitAgentToml({
       role: 'lead',
-      model: 'gpt-x',
-      reasoning_effort: 'thorough',
+      model: 'gpt-5.3-codex',
+      reasoning_effort: 'medium',
       developer_instructions: 'Plan thoroughly. Use must_haves.',
       allowed_mcp_servers: ['filesystem'],
       sandbox_mode: 'workspace-write',
       max_turns: 50,
     });
     expect(out).toContain('role = "lead"');
-    expect(out).toContain('model = "gpt-x"');
-    expect(out).toContain('model_reasoning_effort = "thorough"');
+    expect(out).toContain('model = "gpt-5.3-codex"');
+    // F-02 — emitted value is a Codex-documented enum value
+    expect(out).toContain('model_reasoning_effort = "medium"');
     expect(out).toContain('sandbox_mode = "workspace-write"');
     expect(out).toContain('max_turns = 50');
   });
