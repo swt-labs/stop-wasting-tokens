@@ -12,7 +12,7 @@
 
 | Phase | Name | Status | Plans | UAT |
 |-------|------|--------|-------|-----|
-| 01 | SDK Critical Conformance | not started | 0 | — |
+| 01 | ○ Planned |
 | 02 | Plugin Marketplace Prep | not started | 0 | — |
 | 03 | Hook Integration & Drift Cleanup | not started | 0 | — |
 
