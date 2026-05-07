@@ -66,9 +66,7 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     return EXIT.USAGE_ERROR;
   }
 
-  const isInteractive = Boolean(
-    (process.stdin as unknown as { isTTY?: boolean }).isTTY,
-  );
+  const isInteractive = Boolean((process.stdin as unknown as { isTTY?: boolean }).isTTY);
   const prompter = isInteractive && args.yolo !== true ? new ReadlinePrompter() : undefined;
 
   const verifyOpts = prompter !== undefined ? { prompter } : {};
@@ -83,13 +81,9 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
   if (args.skipAudit === true) archiveOpts.skipAudit = true;
 
   const bootstrapOpts =
-    prompter !== undefined
-      ? { resolve: DEFAULT_BOOTSTRAP_RESOLVER, prompter }
-      : undefined;
+    prompter !== undefined ? { resolve: DEFAULT_BOOTSTRAP_RESOLVER, prompter } : undefined;
   const scopeOpts =
-    prompter !== undefined
-      ? { resolve: DEFAULT_SCOPE_RESOLVER, prompter }
-      : undefined;
+    prompter !== undefined ? { resolve: DEFAULT_SCOPE_RESOLVER, prompter } : undefined;
 
   const planningDir = join(io.cwd, '.swt-planning');
   const config = await loadSwtConfig(planningDir);
@@ -201,11 +195,11 @@ function formatError(err: unknown): string {
 
 type Backend = 'codex' | 'claude-code' | 'ollama';
 
-function resolveBackend(
-  flag: string | boolean | undefined,
-  configBackend: Backend,
-): Backend {
-  if (typeof flag === 'string' && (flag === 'codex' || flag === 'claude-code' || flag === 'ollama')) {
+function resolveBackend(flag: string | boolean | undefined, configBackend: Backend): Backend {
+  if (
+    typeof flag === 'string' &&
+    (flag === 'codex' || flag === 'claude-code' || flag === 'ollama')
+  ) {
     return flag;
   }
   return configBackend;

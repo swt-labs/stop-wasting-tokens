@@ -21,6 +21,7 @@
 ## Code Intelligence
 
 Prefer LSP over Search/Grep/Glob/Read for semantic code navigation — it's faster, precise, and avoids reading entire files:
+
 - `goToDefinition` / `goToImplementation` to jump to source
 - `findReferences` to see all usages across the codebase
 - `workspaceSymbol` to find where something is defined

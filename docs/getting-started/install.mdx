@@ -46,15 +46,15 @@ If `swt: command not found`, your global npm bin is not on PATH. Add the output 
 
 The `@swt-labs/cli` package bundles seven workspace packages into a single binary:
 
-| Package                       | Role                                              |
-|------------------------------|---------------------------------------------------|
-| `@swt-labs/cli`              | Argument parsing, routing                         |
-| `@swt-labs/core`             | Config, abstractions (HookHost, AgentSpawner)     |
-| `@swt-labs/methodology`      | Phase detection, route dispatch, handlers         |
-| `@swt-labs/artifacts`        | Zod schemas for every artifact kind               |
-| `@swt-labs/codex-driver`     | Codex CLI integration (live work)                 |
-| `@swt-labs/test-utils`       | ScriptedPrompter / mock driver for hermetic tests |
-| `@swt-labs/templates`        | Project scaffolds                                 |
+| Package                  | Role                                              |
+| ------------------------ | ------------------------------------------------- |
+| `@swt-labs/cli`          | Argument parsing, routing                         |
+| `@swt-labs/core`         | Config, abstractions (HookHost, AgentSpawner)     |
+| `@swt-labs/methodology`  | Phase detection, route dispatch, handlers         |
+| `@swt-labs/artifacts`    | Zod schemas for every artifact kind               |
+| `@swt-labs/codex-driver` | Codex CLI integration (live work)                 |
+| `@swt-labs/test-utils`   | ScriptedPrompter / mock driver for hermetic tests |
+| `@swt-labs/templates`    | Project scaffolds                                 |
 
 Nothing runs in the background; `swt` is a stateless CLI. State lives on disk under `.swt-planning/`.
 

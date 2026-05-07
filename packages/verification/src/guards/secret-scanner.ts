@@ -8,7 +8,10 @@ export interface SecretMatch {
 
 const SECRET_PATTERNS: readonly { readonly label: string; readonly re: RegExp }[] = [
   { label: 'AWS access key', re: /\bAKIA[0-9A-Z]{16}\b/ },
-  { label: 'AWS secret access key', re: /\baws_secret_access_key\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/ },
+  {
+    label: 'AWS secret access key',
+    re: /\baws_secret_access_key\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/,
+  },
   { label: 'GitHub PAT (classic)', re: /\bghp_[A-Za-z0-9]{36}\b/ },
   { label: 'GitHub fine-grained PAT', re: /\bgithub_pat_[A-Za-z0-9_]{82}\b/ },
   { label: 'Slack token', re: /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/ },

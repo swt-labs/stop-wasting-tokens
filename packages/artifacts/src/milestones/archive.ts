@@ -29,18 +29,9 @@ export async function archiveMilestone(
   const milestoneDir = join(opts.planningDir, 'milestones', opts.slug);
   await mkdir(milestoneDir, { recursive: true });
 
-  await renameIfExists(
-    join(opts.planningDir, 'ROADMAP.md'),
-    join(milestoneDir, 'ROADMAP.md'),
-  );
-  await renameIfExists(
-    join(opts.planningDir, 'CONTEXT.md'),
-    join(milestoneDir, 'CONTEXT.md'),
-  );
-  await renameIfExists(
-    join(opts.planningDir, 'phases'),
-    join(milestoneDir, 'phases'),
-  );
+  await renameIfExists(join(opts.planningDir, 'ROADMAP.md'), join(milestoneDir, 'ROADMAP.md'));
+  await renameIfExists(join(opts.planningDir, 'CONTEXT.md'), join(milestoneDir, 'CONTEXT.md'));
+  await renameIfExists(join(opts.planningDir, 'phases'), join(milestoneDir, 'phases'));
 
   // Archive STATE.md to the milestone, then rewrite the root STATE.md
   // preserving project-level sections only.
@@ -63,11 +54,7 @@ export async function archiveMilestone(
       blockers: sectionByHeading(parsed, 'Blockers'),
     };
   } catch (err) {
-    if (
-      typeof err !== 'object' ||
-      err === null ||
-      (err as { code?: string }).code !== 'ENOENT'
-    ) {
+    if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'ENOENT') {
       throw err;
     }
   }
@@ -97,20 +84,13 @@ async function renameIfExists(from: string, to: string): Promise<void> {
   try {
     await rename(from, to);
   } catch (err) {
-    if (
-      typeof err !== 'object' ||
-      err === null ||
-      (err as { code?: string }).code !== 'ENOENT'
-    ) {
+    if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'ENOENT') {
       throw err;
     }
   }
 }
 
-function sectionByHeading(
-  parsed: ReturnType<typeof parseState>,
-  heading: string,
-): string {
+function sectionByHeading(parsed: ReturnType<typeof parseState>, heading: string): string {
   return parsed.sections.find((s) => s.heading === heading)?.body ?? '';
 }
 

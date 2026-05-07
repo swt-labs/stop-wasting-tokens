@@ -6,7 +6,10 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const ResearchFrontmatterSchema = z.object({
   phase: z.string().regex(/^\d{2}$/),
-  plan: z.string().regex(/^\d{2}[a-z]?$/).optional(),
+  plan: z
+    .string()
+    .regex(/^\d{2}[a-z]?$/)
+    .optional(),
   gathered: z.string().regex(ISO_DATE),
   sources_consulted: z.array(z.string()).default([]),
   files_referenced: z.array(z.string()).default([]),

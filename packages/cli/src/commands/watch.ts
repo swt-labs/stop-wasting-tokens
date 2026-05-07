@@ -7,7 +7,6 @@ import chokidar from 'chokidar';
 import { render } from 'ink';
 import React from 'react';
 
-
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 import { Dashboard } from '../watch/dashboard.js';

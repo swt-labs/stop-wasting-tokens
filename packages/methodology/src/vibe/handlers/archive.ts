@@ -93,9 +93,7 @@ export function archiveHandler(opts: ArchiveHandlerOptions = {}): ModeHandler {
   };
 }
 
-function defaultResolveSlug(
-  today?: () => string,
-): (planningDir: string) => Promise<string> {
+function defaultResolveSlug(today?: () => string): (planningDir: string) => Promise<string> {
   return async (planningDir) => {
     const opts = today !== undefined ? { planningDir, today } : { planningDir };
     return deriveMilestoneSlug(opts);

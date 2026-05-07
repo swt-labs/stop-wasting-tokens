@@ -11,45 +11,45 @@ If you have a working VBW project, migrating to SWT is `mv .vbw-planning .swt-pl
 
 ## Feature parity
 
-| Feature                           | VBW         | SWT         |
-|----------------------------------|-------------|-------------|
-| Bootstrap                         | ✅          | ✅          |
-| Scope (phase decomposition)       | ✅          | ✅          |
-| Plan + Execute                    | ✅          | ✅          |
-| Verify (UAT)                      | ✅          | ✅          |
-| Archive                           | ✅          | ✅          |
-| Discussion engine                 | ✅          | ✅          |
-| Add / Insert / Remove phase       | ✅          | ✅          |
-| UAT remediation pipeline          | ✅          | ✅          |
-| QA remediation pipeline           | ✅          | ✅          |
-| 7-point archive audit             | ✅          | ✅          |
-| Hard UAT gate at archive          | ✅          | ✅          |
-| State-consistency verifier        | ✅          | ✅          |
-| Hook event taxonomy               | ✅          | ✅ (post_archive only in v1.0) |
-| Codebase mapping (brownfield)     | ✅          | ✅          |
-| GSD migration import              | ✅          | ✅          |
-| `--bash-format` phase-detect      | ✅          | ✅          |
-| Real Codex AgentSpawner wiring    | n/a (Claude) | ⚠ blocked (v1.5) |
-| Ink TUI dashboard                 | ❌          | 📋 v1.5    |
-| Plugin marketplace listing        | ✅          | 📋 v1.5    |
-| Multi-driver (Claude / Ollama)    | ❌ (Claude only) | 📋 v1.5 |
+| Feature                        | VBW              | SWT                            |
+| ------------------------------ | ---------------- | ------------------------------ |
+| Bootstrap                      | ✅               | ✅                             |
+| Scope (phase decomposition)    | ✅               | ✅                             |
+| Plan + Execute                 | ✅               | ✅                             |
+| Verify (UAT)                   | ✅               | ✅                             |
+| Archive                        | ✅               | ✅                             |
+| Discussion engine              | ✅               | ✅                             |
+| Add / Insert / Remove phase    | ✅               | ✅                             |
+| UAT remediation pipeline       | ✅               | ✅                             |
+| QA remediation pipeline        | ✅               | ✅                             |
+| 7-point archive audit          | ✅               | ✅                             |
+| Hard UAT gate at archive       | ✅               | ✅                             |
+| State-consistency verifier     | ✅               | ✅                             |
+| Hook event taxonomy            | ✅               | ✅ (post_archive only in v1.0) |
+| Codebase mapping (brownfield)  | ✅               | ✅                             |
+| GSD migration import           | ✅               | ✅                             |
+| `--bash-format` phase-detect   | ✅               | ✅                             |
+| Real Codex AgentSpawner wiring | n/a (Claude)     | ⚠ blocked (v1.5)               |
+| Ink TUI dashboard              | ❌               | 📋 v1.5                        |
+| Plugin marketplace listing     | ✅               | 📋 v1.5                        |
+| Multi-driver (Claude / Ollama) | ❌ (Claude only) | 📋 v1.5                        |
 
 ## Frontmatter compatibility
 
 Every VBW frontmatter shape parses cleanly through SWT's Zod schemas. The transforms in `@swt-labs/artifacts/schemas/` accept both shapes:
 
-| Artifact      | VBW shape                                    | SWT shape                                    | Migration |
-|--------------|----------------------------------------------|----------------------------------------------|-----------|
-| `PLAN.md`     | `must_haves: [string]` or `[MustHaveBlock]`  | Same                                          | None      |
-| `SUMMARY.md`  | `ac_results: [{id, must_have, status, evidence}]` | `ac_results: [{id, criterion, verdict, evidence}]` | Auto-normalized on read |
-| `VERIFICATION.md` | Markdown table + frontmatter               | Same shape, Zod-validated                    | None      |
-| `UAT.md`      | YAML + body                                   | Same shape + optional `severity_counts`      | None      |
-| `RESEARCH.md` | Markdown body                                 | Same                                          | None      |
-| `CONTEXT.md`  | YAML + 3-section body                         | Same                                          | None      |
-| `MILESTONE-CONTEXT.md` | YAML + 6-section body               | Same                                          | None      |
-| `REMEDIATION-PLAN.md` | `fail_classifications[]` array       | Same                                          | None      |
-| `REMEDIATION-SUMMARY.md` | `known_issue_outcomes[]` array     | Same                                          | None      |
-| `DEBUG-SESSION.md` | `agent` + structured body                | Same                                          | None      |
+| Artifact                 | VBW shape                                         | SWT shape                                          | Migration               |
+| ------------------------ | ------------------------------------------------- | -------------------------------------------------- | ----------------------- |
+| `PLAN.md`                | `must_haves: [string]` or `[MustHaveBlock]`       | Same                                               | None                    |
+| `SUMMARY.md`             | `ac_results: [{id, must_have, status, evidence}]` | `ac_results: [{id, criterion, verdict, evidence}]` | Auto-normalized on read |
+| `VERIFICATION.md`        | Markdown table + frontmatter                      | Same shape, Zod-validated                          | None                    |
+| `UAT.md`                 | YAML + body                                       | Same shape + optional `severity_counts`            | None                    |
+| `RESEARCH.md`            | Markdown body                                     | Same                                               | None                    |
+| `CONTEXT.md`             | YAML + 3-section body                             | Same                                               | None                    |
+| `MILESTONE-CONTEXT.md`   | YAML + 6-section body                             | Same                                               | None                    |
+| `REMEDIATION-PLAN.md`    | `fail_classifications[]` array                    | Same                                               | None                    |
+| `REMEDIATION-SUMMARY.md` | `known_issue_outcomes[]` array                    | Same                                               | None                    |
+| `DEBUG-SESSION.md`       | `agent` + structured body                         | Same                                               | None                    |
 
 The "Auto-normalized" entry for SUMMARY means: a VBW SUMMARY with `must_have` and `status` keys is parsed and re-rendered as `criterion` and `verdict` on save. The original semantics are preserved.
 

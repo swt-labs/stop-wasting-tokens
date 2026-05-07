@@ -10,9 +10,7 @@ export interface ParsedDoc<T extends Record<string, unknown> = Record<string, un
  * inline arrays, and quoted strings. Multi-line scalars / nested objects
  * are intentionally out of scope — SWT only writes flat frontmatter.
  */
-export function parseFrontmatter<T extends Record<string, unknown>>(
-  source: string,
-): ParsedDoc<T> {
+export function parseFrontmatter<T extends Record<string, unknown>>(source: string): ParsedDoc<T> {
   if (!source.startsWith(`${FENCE}\n`) && !source.startsWith(`${FENCE}\r\n`)) {
     return { frontmatter: {} as T, body: source };
   }
@@ -27,10 +25,7 @@ export function parseFrontmatter<T extends Record<string, unknown>>(
   return { frontmatter: parseScalarYaml(yamlBlock) as T, body };
 }
 
-export function formatFrontmatter(
-  frontmatter: Record<string, unknown>,
-  body: string,
-): string {
+export function formatFrontmatter(frontmatter: Record<string, unknown>, body: string): string {
   const yaml = formatScalarYaml(frontmatter);
   if (yaml.length === 0) return body.endsWith('\n') ? body : `${body}\n`;
   const trimmedBody = body.replace(/^\n+/, '');

@@ -65,7 +65,9 @@ describe('watchHandler', () => {
       render: (state): WatchRenderer => {
         captured = state;
         return {
-          rerender: (s) => { captured = s; },
+          rerender: (s) => {
+            captured = s;
+          },
           unmount: () => undefined,
         };
       },

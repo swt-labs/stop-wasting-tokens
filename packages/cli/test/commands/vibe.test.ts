@@ -180,10 +180,7 @@ describe('vibeHandler — CodexAgentSpawner wiring', () => {
   });
 });
 
-function stagePlanningDir(
-  root: string,
-  configOverrides: Record<string, unknown> = {},
-): void {
+function stagePlanningDir(root: string, configOverrides: Record<string, unknown> = {}): void {
   const planningDir = join(root, '.swt-planning');
   const phaseDir = join(planningDir, 'phases', '01-wire');
   mkdirSync(phaseDir, { recursive: true });
@@ -196,10 +193,7 @@ function stagePlanningDir(
     join(planningDir, 'ROADMAP.md'),
     '# Roadmap\n\n## Phases\n\n- [ ] 01: wire (`01-wire`)\n',
   );
-  writeFileSync(
-    join(planningDir, 'STATE.md'),
-    '# State\n\n## Current Phase\n\n01-wire\n',
-  );
+  writeFileSync(join(planningDir, 'STATE.md'), '# State\n\n## Current Phase\n\n01-wire\n');
   writeFileSync(
     join(phaseDir, '01-01-PLAN.md'),
     `---

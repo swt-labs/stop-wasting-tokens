@@ -12,9 +12,10 @@ import type { HandlerResult, ModeHandler, ModeIO } from './index.js';
 
 export interface PlanHandlerOptions {
   /** Resolve the target phase from the route + io. Defaults to using route.phase + route.phase_slug. */
-  readonly resolveTarget?: (route: VibeRoute, io: ModeIO) =>
-    | { phase: string; slug: string }
-    | undefined;
+  readonly resolveTarget?: (
+    route: VibeRoute,
+    io: ModeIO,
+  ) => { phase: string; slug: string } | undefined;
   readonly planningDirName?: string;
   /** Effort profile override for tests. */
   readonly effort?: Effort;
@@ -63,7 +64,10 @@ export function planHandler(opts: PlanHandlerOptions = {}): ModeHandler {
       io.stdout.write(
         [
           `✓ Plan handler — phase ${input.phase}: ${plans.length} plan(s) written`,
-          ...plans.map((p) => `  ${input.phase}-${p.plan}-PLAN.md — ${p.title} (wave ${p.wave}, ${p.taskCount} tasks)`),
+          ...plans.map(
+            (p) =>
+              `  ${input.phase}-${p.plan}-PLAN.md — ${p.title} (wave ${p.wave}, ${p.taskCount} tasks)`,
+          ),
           '',
           `Effort: ${effort} | Skill profile: ${effortProfile.include_scout ? 'scout+lead' : 'lead-only'}`,
           '',

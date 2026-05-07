@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-
 import { ClaudeCodeAgentSpawner } from '../../src/spawner/claude-code-agent-spawner.js';
 
 const sampleSpec: AgentSpec = {
@@ -75,9 +74,8 @@ describe('ClaudeCodeAgentSpawner', () => {
       });
       vi.doMock('execa', () => ({ execa: execaMock }));
       vi.resetModules();
-      const { ClaudeCodeAgentSpawner: SpawnerWithMock } = await import(
-        '../../src/spawner/claude-code-agent-spawner.js'
-      );
+      const { ClaudeCodeAgentSpawner: SpawnerWithMock } =
+        await import('../../src/spawner/claude-code-agent-spawner.js');
       const spawner = new SpawnerWithMock({
         claude_config_dir: claudeConfigDir,
         bin: '/opt/claude/bin/claude',

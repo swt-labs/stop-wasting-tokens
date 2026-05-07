@@ -19,9 +19,7 @@ export interface PermissionRequest {
   readonly cwd: string;
 }
 
-export type PermissionDecision =
-  | { allow: true }
-  | { allow: false; reason: string };
+export type PermissionDecision = { allow: true } | { allow: false; reason: string };
 
 /**
  * Backend-agnostic permission validator. Wraps the backend's native sandbox

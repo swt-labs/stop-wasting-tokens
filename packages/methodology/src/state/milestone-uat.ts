@@ -71,7 +71,9 @@ export async function scanMilestoneUat(planningDir: string): Promise<MilestoneUa
       try {
         const raw = await readFile(uatPath, 'utf8');
         const { frontmatter } = parseFrontmatter(raw);
-        const status = (typeof frontmatter.status === 'string' ? frontmatter.status : '').toLowerCase();
+        const status = (
+          typeof frontmatter.status === 'string' ? frontmatter.status : ''
+        ).toLowerCase();
         if (status !== 'issues_found') continue;
         const isMajor =
           Boolean(frontmatter.major_or_higher) ||
@@ -96,9 +98,5 @@ export async function scanMilestoneUat(planningDir: string): Promise<MilestoneUa
 }
 
 function isFileNotFound(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    (err as { code?: string }).code === 'ENOENT'
-  );
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT';
 }

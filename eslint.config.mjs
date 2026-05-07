@@ -57,13 +57,7 @@ export default [
     // Test files use mock values typed `any` and intentionally-loose async
     // signatures by convention. The type-checked rules below add cost without
     // catching real bugs in tests. They stay strict in `src/`.
-    files: [
-      '**/test/**/*.ts',
-      '**/*.test.ts',
-      '**/*.spec.ts',
-      'docs/test/**/*.ts',
-      'test/**/*.ts',
-    ],
+    files: ['**/test/**/*.ts', '**/*.test.ts', '**/*.spec.ts', 'docs/test/**/*.ts', 'test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

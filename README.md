@@ -33,13 +33,13 @@ If you've ever watched Codex re-read your codebase three times in one session, h
 
 Token waste in AI coding has five concrete sources. SWT is designed to attack each one:
 
-| Waste source | Without SWT | With SWT |
-|---|---|---|
-| Re-reading project context every turn | Codex re-greps, re-globs, re-reads files it saw 5 minutes ago | Stable cache-prefix prompts; durable `.swt-planning/` artefacts persist between turns |
-| Re-discovering architecture & decisions | Each session starts cold, re-derives constraints, re-debates trade-offs | `PROJECT.md`, `REQUIREMENTS.md`, `STATE.md` are read once and stay cached for the whole milestone |
-| Improvised approaches that get rejected | Model proposes, you correct, model re-proposes — three turns gone | Plans are written by Architect/Lead **before** Dev gets the keys; rejected approaches are recorded in `ASSUMPTIONS.md` |
-| Goal drift mid-execution | "While I was at it, I also refactored…" — the dreaded scope explosion | Goal-backward QA verifies output against the **specified** plan, not against improvised goals |
-| Re-running QA from scratch on small fixes | Full validation matrix every time | Three QA tiers (`quick` / `standard` / `deep`) plus a `fix` lane that targets only the failed acceptance criterion |
+| Waste source                              | Without SWT                                                             | With SWT                                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Re-reading project context every turn     | Codex re-greps, re-globs, re-reads files it saw 5 minutes ago           | Stable cache-prefix prompts; durable `.swt-planning/` artefacts persist between turns                                  |
+| Re-discovering architecture & decisions   | Each session starts cold, re-derives constraints, re-debates trade-offs | `PROJECT.md`, `REQUIREMENTS.md`, `STATE.md` are read once and stay cached for the whole milestone                      |
+| Improvised approaches that get rejected   | Model proposes, you correct, model re-proposes — three turns gone       | Plans are written by Architect/Lead **before** Dev gets the keys; rejected approaches are recorded in `ASSUMPTIONS.md` |
+| Goal drift mid-execution                  | "While I was at it, I also refactored…" — the dreaded scope explosion   | Goal-backward QA verifies output against the **specified** plan, not against improvised goals                          |
+| Re-running QA from scratch on small fixes | Full validation matrix every time                                       | Three QA tiers (`quick` / `standard` / `deep`) plus a `fix` lane that targets only the failed acceptance criterion     |
 
 Every design decision in SWT — split prompts, pinned model profiles per agent, the phase artefact pipeline, the verification tiers, even the file-locking system — is downstream of "minimize tokens spent per shipped acceptance criterion."
 
@@ -66,12 +66,12 @@ Each agent has a fixed model profile and reasoning effort tuned for its role (Sc
 
 ## Prerequisites
 
-| Tool | Version | Why |
-|---|---|---|
-| **Node.js** | `>= 20.18` | Runtime for the `swt` CLI itself |
-| **OpenAI Codex CLI** | `>= 0.124.0` | The backend SWT orchestrates against |
-| **Git** | any recent | Phase commits, milestone tags, the pre-push hook |
-| One of: **npm 10+**, **pnpm 9+**, **bun 1+** | — | Pick whichever you already use |
+| Tool                                         | Version      | Why                                              |
+| -------------------------------------------- | ------------ | ------------------------------------------------ |
+| **Node.js**                                  | `>= 20.18`   | Runtime for the `swt` CLI itself                 |
+| **OpenAI Codex CLI**                         | `>= 0.124.0` | The backend SWT orchestrates against             |
+| **Git**                                      | any recent   | Phase commits, milestone tags, the pre-push hook |
+| One of: **npm 10+**, **pnpm 9+**, **bun 1+** | —            | Pick whichever you already use                   |
 
 Optional but recommended:
 
@@ -214,14 +214,14 @@ swt update                                             # check npm for a newer v
 
 ### The six agents
 
-| Agent | Model profile | Reasoning effort | Job |
-|---|---|---|---|
-| **Scout** | `gpt-5.5` | `low` | Ambient research, codebase queries, doc fetches |
-| **Architect** | `gpt-5.5` | `high` | Design decisions, trade-off analysis, scope shaping |
-| **Lead** | `gpt-5.3-codex` | `medium` | Plans phases into atomic tasks; one commit per task |
-| **Dev** | `gpt-5.3-codex` | `medium` | Executes tasks; writes code, tests, docs |
-| **QA** | `gpt-5.3-codex` | `medium` | Goal-backward verification against acceptance criteria |
-| **Debugger** | `gpt-5.3-codex` | `high` | Hypothesis-driven root-cause analysis when QA fails |
+| Agent         | Model profile   | Reasoning effort | Job                                                    |
+| ------------- | --------------- | ---------------- | ------------------------------------------------------ |
+| **Scout**     | `gpt-5.5`       | `low`            | Ambient research, codebase queries, doc fetches        |
+| **Architect** | `gpt-5.5`       | `high`           | Design decisions, trade-off analysis, scope shaping    |
+| **Lead**      | `gpt-5.3-codex` | `medium`         | Plans phases into atomic tasks; one commit per task    |
+| **Dev**       | `gpt-5.3-codex` | `medium`         | Executes tasks; writes code, tests, docs               |
+| **QA**        | `gpt-5.3-codex` | `medium`         | Goal-backward verification against acceptance criteria |
+| **Debugger**  | `gpt-5.3-codex` | `high`           | Hypothesis-driven root-cause analysis when QA fails    |
 
 You can override profiles per-project in `.swt-planning/config.json`, but the defaults are tuned to balance cost, latency, and quality for typical workloads.
 
@@ -273,19 +273,19 @@ Live config lives in `.swt-planning/config.json` and is editable directly or via
 
 The knobs that matter most:
 
-| Key | Values | Default | Effect |
-|---|---|---|---|
-| `effort` | `thorough` / `balanced` / `fast` / `turbo` | `balanced` | Planning depth and verification thoroughness; also a turn-budget scalar (1.5× → 0.6×) applied to every agent |
-| `autonomy` | `cautious` / `standard` / `confident` / `pure-vibe` | `standard` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error |
-| `verification_tier` | `quick` / `standard` / `deep` | `standard` | What QA runs. `quick` = smoke + lint + types; `standard` = +unit tests + must-have evidence; `deep` = +integration + cross-phase traceability |
-| `model_profile` | `quality` / `balanced` / `cost` | `quality` | Coarse cost/quality switch applied across all six agents |
-| `backend` | `codex` / `claude-code` / `ollama` | `codex` | Which CLI runtime SWT orchestrates against (Codex is fully shipped; Claude Code and Ollama drivers land in v1.6+) |
-| `prefer_teams` | `auto` / `always` / `never` | `auto` | Use parallel agent teams (when supported by your Codex CLI version) |
-| `auto_uat` | `true` / `false` | `false` | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`) |
-| `auto_push` | `never` / `after_phase` / `always` | `never` | When to push commits to `origin` |
-| `planning_tracking` | `manual` / `ignore` / `commit` | `manual` | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints) |
-| `agent_max_turns.{role}` | int | varies | Per-agent turn cap. Defaults: scout 15, qa 25, architect 30, lead 50, dev 75, debugger 80 |
-| `model_overrides.{role}` | string | none | Override the model for a specific agent (e.g. force the Architect onto a cheaper model for a low-stakes project) |
+| Key                      | Values                                              | Default    | Effect                                                                                                                                        |
+| ------------------------ | --------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `effort`                 | `thorough` / `balanced` / `fast` / `turbo`          | `balanced` | Planning depth and verification thoroughness; also a turn-budget scalar (1.5× → 0.6×) applied to every agent                                  |
+| `autonomy`               | `cautious` / `standard` / `confident` / `pure-vibe` | `standard` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error      |
+| `verification_tier`      | `quick` / `standard` / `deep`                       | `standard` | What QA runs. `quick` = smoke + lint + types; `standard` = +unit tests + must-have evidence; `deep` = +integration + cross-phase traceability |
+| `model_profile`          | `quality` / `balanced` / `cost`                     | `quality`  | Coarse cost/quality switch applied across all six agents                                                                                      |
+| `backend`                | `codex` / `claude-code` / `ollama`                  | `codex`    | Which CLI runtime SWT orchestrates against (Codex is fully shipped; Claude Code and Ollama drivers land in v1.6+)                             |
+| `prefer_teams`           | `auto` / `always` / `never`                         | `auto`     | Use parallel agent teams (when supported by your Codex CLI version)                                                                           |
+| `auto_uat`               | `true` / `false`                                    | `false`    | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`)                                                                        |
+| `auto_push`              | `never` / `after_phase` / `always`                  | `never`    | When to push commits to `origin`                                                                                                              |
+| `planning_tracking`      | `manual` / `ignore` / `commit`                      | `manual`   | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints)         |
+| `agent_max_turns.{role}` | int                                                 | varies     | Per-agent turn cap. Defaults: scout 15, qa 25, architect 30, lead 50, dev 75, debugger 80                                                     |
+| `model_overrides.{role}` | string                                              | none       | Override the model for a specific agent (e.g. force the Architect onto a cheaper model for a low-stakes project)                              |
 
 Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks`. Run `swt config show` for the full live config.
 

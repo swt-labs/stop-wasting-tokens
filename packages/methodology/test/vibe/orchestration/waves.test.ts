@@ -91,8 +91,8 @@ describe('validateDependencyOrder', () => {
   });
 
   it('rejects unknown dependencies', () => {
-    expect(() =>
-      validateDependencyOrder([plan({ plan: '01', depends_on: ['99'] })]),
-    ).toThrow(RoutingError);
+    expect(() => validateDependencyOrder([plan({ plan: '01', depends_on: ['99'] })])).toThrow(
+      RoutingError,
+    );
   });
 });

@@ -22,9 +22,7 @@ const HookSubBlockSchema = z
 
 export const ConfigSchema = z.object({
   effort: z.enum(EFFORTS as unknown as [string, ...string[]]).default('balanced'),
-  autonomy: z
-    .enum(AUTONOMY_TIERS as unknown as [string, ...string[]])
-    .default('standard'),
+  autonomy: z.enum(AUTONOMY_TIERS as unknown as [string, ...string[]]).default('standard'),
   verification_tier: z
     .enum(VERIFICATION_TIERS as unknown as [string, ...string[]])
     .default('standard'),

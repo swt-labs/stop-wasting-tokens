@@ -7,12 +7,12 @@ description: Four tiers of human-in-the-loop control for `swt vibe`.
 
 The `autonomy` config key controls how often `swt vibe` stops to ask before doing something. Four levels, ordered from most-supervised to least:
 
-| Level         | Confirms before each phase? | Auto-continues across phases? | Use case                                                  |
-|--------------|----------------------------|-------------------------------|----------------------------------------------------------|
-| `cautious`    | Yes, every transition       | No — stops between phases      | Production work, regulated environments, learning SWT    |
-| `standard`    | Most transitions            | No — stops between phases      | Default for solo dev work                                 |
-| `confident`   | Major transitions only      | Yes — auto-chains phases       | Trusted projects, fast iteration                          |
-| `pure-vibe`   | None — flags express intent | Yes, with no per-phase prompt  | Solo dev, mature project, you trust the routing          |
+| Level       | Confirms before each phase? | Auto-continues across phases? | Use case                                              |
+| ----------- | --------------------------- | ----------------------------- | ----------------------------------------------------- |
+| `cautious`  | Yes, every transition       | No — stops between phases     | Production work, regulated environments, learning SWT |
+| `standard`  | Most transitions            | No — stops between phases     | Default for solo dev work                             |
+| `confident` | Major transitions only      | Yes — auto-chains phases      | Trusted projects, fast iteration                      |
+| `pure-vibe` | None — flags express intent | Yes, with no per-phase prompt | Solo dev, mature project, you trust the routing       |
 
 ## What "confirm" means
 

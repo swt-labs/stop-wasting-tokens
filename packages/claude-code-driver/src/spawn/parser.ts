@@ -1,7 +1,6 @@
 import { HandoffEnvelopeSchema } from '@swt-labs/core';
 import { z } from 'zod';
 
-
 const UsageChunkSchema = z.object({
   type: z.literal('result'),
   usage: z.object({
@@ -68,9 +67,7 @@ export function parseLine(line: string): ParsedLine {
 
   const assistantAttempt = AssistantTextChunkSchema.safeParse(obj);
   if (assistantAttempt.success) {
-    const text = assistantAttempt.data.message.content
-      .map((c) => c.text)
-      .join('');
+    const text = assistantAttempt.data.message.content.map((c) => c.text).join('');
     if (text.length > 0) return { line, text };
   }
 

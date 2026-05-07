@@ -33,7 +33,12 @@ export function classifyPhase(input: ClassifyPhaseInput): PhaseClassification {
 
   // 1. Active UAT remediation takes priority over any QA work.
   const uatStage = s.uatRemediation?.stage;
-  if (uatStage === 'research' || uatStage === 'plan' || uatStage === 'execute' || uatStage === 'fix') {
+  if (
+    uatStage === 'research' ||
+    uatStage === 'plan' ||
+    uatStage === 'execute' ||
+    uatStage === 'fix'
+  ) {
     return { state: 'needs_uat_remediation', qaStatus: 'remediated', qaReason: '' };
   }
   if (uatStage === 'done') {
@@ -73,7 +78,11 @@ export function classifyPhase(input: ClassifyPhaseInput): PhaseClassification {
     };
   }
   if (verification.result === 'FAIL' || verification.result === 'PARTIAL') {
-    return { state: 'needs_qa_remediation', qaStatus: 'failed', qaReason: 'verification_result_missing' };
+    return {
+      state: 'needs_qa_remediation',
+      qaStatus: 'failed',
+      qaReason: 'verification_result_missing',
+    };
   }
   if (verification.result === 'unknown') {
     return {
@@ -103,5 +112,9 @@ export function classifyPhase(input: ClassifyPhaseInput): PhaseClassification {
     // auto_uat=false — only consider it "done" when SUMMARY+VERIFICATION line up.
   }
 
-  return { state: 'all_done', qaStatus: verification.result === 'PASS' ? 'passed' : 'remediated', qaReason: '' };
+  return {
+    state: 'all_done',
+    qaStatus: verification.result === 'PASS' ? 'passed' : 'remediated',
+    qaReason: '',
+  };
 }

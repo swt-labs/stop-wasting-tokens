@@ -20,11 +20,11 @@ You will be prompted for two values:
 
 How should SWT planning artifacts be tracked in git?
 
-| Value     | Behavior                                                                                            |
-|-----------|------------------------------------------------------------------------------------------------------|
-| `manual`  | (default) `.swt-planning/` is not auto-ignored or auto-committed — you commit when you want.        |
-| `ignore`  | `.swt-planning/` is added to root `.gitignore`.                                                      |
-| `commit`  | `.swt-planning/` and `CLAUDE.md` are auto-committed at planning checkpoints (bootstrap, scope, etc.) |
+| Value    | Behavior                                                                                             |
+| -------- | ---------------------------------------------------------------------------------------------------- |
+| `manual` | (default) `.swt-planning/` is not auto-ignored or auto-committed — you commit when you want.         |
+| `ignore` | `.swt-planning/` is added to root `.gitignore`.                                                      |
+| `commit` | `.swt-planning/` and `CLAUDE.md` are auto-committed at planning checkpoints (bootstrap, scope, etc.) |
 
 Most users pick `manual` for full control. Pick `commit` if you want planning history to be co-authored with the team via git.
 
@@ -32,11 +32,11 @@ Most users pick `manual` for full control. Pick `commit` if you want planning hi
 
 When should SWT push commits?
 
-| Value         | Behavior                                                              |
-|---------------|----------------------------------------------------------------------|
-| `never`       | (default) Never auto-pushes — `git push` stays in your hands.        |
-| `after_phase` | Push after each phase completes (verified + archived).                |
-| `always`      | Push after every commit when an upstream branch exists.               |
+| Value         | Behavior                                                      |
+| ------------- | ------------------------------------------------------------- |
+| `never`       | (default) Never auto-pushes — `git push` stays in your hands. |
+| `after_phase` | Push after each phase completes (verified + archived).        |
+| `always`      | Push after every commit when an upstream branch exists.       |
 
 ## What gets created
 

@@ -30,9 +30,7 @@ describe('remediation state', () => {
     expect(state.last_stage).toBe('none');
     expect(state.started).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
-    const persisted = JSON.parse(
-      await readFile(join(dir, '.uat-remediation-stage'), 'utf8'),
-    );
+    const persisted = JSON.parse(await readFile(join(dir, '.uat-remediation-stage'), 'utf8'));
     expect(persisted.round).toBe(1);
   });
 

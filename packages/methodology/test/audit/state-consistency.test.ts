@@ -20,13 +20,7 @@ afterEach(async () => {
 async function seedState(declaredCount: number): Promise<void> {
   await writeFile(
     join(planningDir, 'STATE.md'),
-    [
-      '# State',
-      '',
-      '## Current Phase',
-      `Phase: 1 of ${declaredCount}`,
-      'Status: ready',
-    ].join('\n'),
+    ['# State', '', '## Current Phase', `Phase: 1 of ${declaredCount}`, 'Status: ready'].join('\n'),
     'utf8',
   );
 }

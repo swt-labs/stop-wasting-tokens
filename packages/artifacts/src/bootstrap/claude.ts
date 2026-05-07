@@ -22,9 +22,7 @@ const SWT_OWNED_SECTIONS = new Set([
   'Code Intelligence',
 ]);
 
-const LEGACY_HEADING_MIGRATIONS = new Map<string, string>([
-  ['VBW Rules', 'SWT Rules'],
-]);
+const LEGACY_HEADING_MIGRATIONS = new Map<string, string>([['VBW Rules', 'SWT Rules']]);
 
 const ACTIVE_CONTEXT_SECTION = `## Active Context
 
@@ -132,11 +130,7 @@ export async function writeOrUpdateClaudeMd(opts: WriteClaudeMdOptions): Promise
     try {
       existing = await readFile(opts.path, 'utf8');
     } catch (err) {
-      if (
-        typeof err !== 'object' ||
-        err === null ||
-        (err as { code?: string }).code !== 'ENOENT'
-      ) {
+      if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'ENOENT') {
         throw err;
       }
     }
@@ -199,7 +193,10 @@ export async function writeOrUpdateClaudeMd(opts: WriteClaudeMdOptions): Promise
     out.push(body);
   }
 
-  const next = `${out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '')}\n`;
+  const next = `${out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s+$/, '')}\n`;
   await writeAtomically(opts.path, next);
   return opts.path;
 }

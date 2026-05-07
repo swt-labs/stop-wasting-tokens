@@ -23,7 +23,9 @@ beforeEach(() => {
   }) as unknown as typeof clearTimeout;
 });
 
-function makeClient(opts: { enabled?: boolean; anonymousId?: string | null; sender?: TestSender } = {}) {
+function makeClient(
+  opts: { enabled?: boolean; anonymousId?: string | null; sender?: TestSender } = {},
+) {
   const sender = opts.sender ?? new TestSender();
   const client = new TelemetryClient({
     sender,

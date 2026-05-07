@@ -1,7 +1,6 @@
 import { DEFAULT_CONFIG } from '@swt-labs/core';
 import { describe, expect, it } from 'vitest';
 
-
 import { buildPrompt, hashPrefix } from '../src/prompt-builder/index.js';
 
 const FIXTURE = {

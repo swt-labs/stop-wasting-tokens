@@ -11,7 +11,10 @@ describe('version command', () => {
     const out = new StringStream();
     const err = new StringStream();
     const io: CommandIO = { cwd: '/tmp', stdout: out, stderr: err };
-    const code = await versionHandler('1.2.3-test')({ verb: 'version', positionals: [], flags: {} }, io);
+    const code = await versionHandler('1.2.3-test')(
+      { verb: 'version', positionals: [], flags: {} },
+      io,
+    );
     expect(code).toBe(EXIT.SUCCESS);
     expect(out.text()).toBe('swt 1.2.3-test\n');
     expect(err.text()).toBe('');

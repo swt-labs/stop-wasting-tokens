@@ -29,13 +29,25 @@ async function seed(opts: {
   reqs?: string[];
   roadmapReqs?: string[];
 }): Promise<void> {
-  const phaseLines = (opts.roadmapPhases ?? ['Setup']).map(
-    (name, i) => [`## Phase ${i + 1}: ${name}`, `Goal: ${opts.goalForFirst ?? 'Configure stuff'}`, ''].join('\n'),
+  const phaseLines = (opts.roadmapPhases ?? ['Setup']).map((name, i) =>
+    [`## Phase ${i + 1}: ${name}`, `Goal: ${opts.goalForFirst ?? 'Configure stuff'}`, ''].join(
+      '\n',
+    ),
   );
   const reqRows = (opts.roadmapReqs ?? ['REQ-01']).map((id) => `| ${id} | mapped |`).join('\n');
   await writeFile(
     join(planningDir, 'ROADMAP.md'),
-    ['# Roadmap', '', ...phaseLines, '## Requirement Mapping', '', '| REQ | Phase |', '|-----|-------|', reqRows, ''].join('\n'),
+    [
+      '# Roadmap',
+      '',
+      ...phaseLines,
+      '## Requirement Mapping',
+      '',
+      '| REQ | Phase |',
+      '|-----|-------|',
+      reqRows,
+      '',
+    ].join('\n'),
     'utf8',
   );
   const reqs = opts.reqs ?? ['REQ-01'];

@@ -23,7 +23,7 @@ This Code of Conduct applies to all project spaces — the GitHub repo (issues, 
 
 If you witness or experience behavior that falls below the standard, please report it privately:
 
-- Email: `conduct@stopwastingtokens.dev` *(placeholder — replace with the real address before public beta)*
+- Email: `conduct@stopwastingtokens.dev` _(placeholder — replace with the real address before public beta)_
 - Or DM a maintainer on Discord
 
 Reports will be handled confidentially. Maintainers will follow the [Contributor Covenant 2.1 enforcement guidelines](https://www.contributor-covenant.org/version/2/1/code_of_conduct/#enforcement-guidelines), which lay out the four-step ladder (correction → warning → temporary ban → permanent ban) based on severity and history.

@@ -1,7 +1,6 @@
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import { describe, expect, it } from 'vitest';
 
-
 import { computeWatchState, type WatchSnapshot } from '../../src/watch/state.js';
 
 const baseSnapshot: PhaseDetectResult = {

@@ -38,7 +38,9 @@ export function milestoneUatRecoveryHandler(
     kind: 'milestone-uat-recovery',
     async run(route: VibeRoute, io: ModeIO): Promise<HandlerResult> {
       const planningDir = join(io.cwd, opts.planningDirName ?? '.swt-planning');
-      const latest = await (opts.resolveLatestMilestone ?? defaultResolveLatestMilestone)(planningDir);
+      const latest = await (opts.resolveLatestMilestone ?? defaultResolveLatestMilestone)(
+        planningDir,
+      );
       if (latest === undefined) {
         throw new RoutingError(
           'milestone-uat-recovery: no milestones present under .swt-planning/milestones/',
@@ -50,9 +52,7 @@ export function milestoneUatRecoveryHandler(
       const issues = await scanMilestonePhases(milestoneDir, latest);
 
       if (issues.length === 0) {
-        io.stdout.write(
-          `◇ Milestone UAT recovery — ${latest}: no unresolved issues found\n`,
-        );
+        io.stdout.write(`◇ Milestone UAT recovery — ${latest}: no unresolved issues found\n`);
         return { route, exit: 0, ranTo: 'completion' };
       }
 
@@ -63,8 +63,7 @@ export function milestoneUatRecoveryHandler(
         );
       }
 
-      const decision =
-        opts.forceDecision ?? (await promptDecision(opts.prompter, issues));
+      const decision = opts.forceDecision ?? (await promptDecision(opts.prompter, issues));
 
       if (decision === 'skip') {
         io.stdout.write('○ Milestone UAT recovery — skipped (will re-trigger on next /vbw:vibe)\n');

@@ -11,7 +11,11 @@ import type { VibeRoute } from '../../../src/vibe/route.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }
@@ -109,9 +113,7 @@ describe('milestoneUatRecoveryHandler', () => {
 
   it('returns create-remediation decision via scripted prompter', async () => {
     await seedUat(join(milestoneDir, 'phases', '01-foundation'), '01', 'issues_found', 1, true);
-    const prompter = new ScriptedPrompter([
-      { kind: 'choice', value: 'create-remediation' },
-    ]);
+    const prompter = new ScriptedPrompter([{ kind: 'choice', value: 'create-remediation' }]);
     const handler = milestoneUatRecoveryHandler({ prompter });
     const { io, stdout } = makeIO();
     const result = await handler.run(route, io);

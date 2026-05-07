@@ -56,14 +56,10 @@ const FALLBACK_MODEL = 'default';
  * concern (would require a backend-keyed override map or per-template
  * model-alias tables; both deferred).
  */
-export async function resolveAgentSpec(
-  opts: AgentSpecResolverOptions,
-): Promise<AgentSpec> {
+export async function resolveAgentSpec(opts: AgentSpecResolverOptions): Promise<AgentSpec> {
   const { role, config } = opts;
   const templatesPath =
-    opts.templates_dir instanceof URL
-      ? fileURLToPath(opts.templates_dir)
-      : opts.templates_dir;
+    opts.templates_dir instanceof URL ? fileURLToPath(opts.templates_dir) : opts.templates_dir;
   const tomlPath = join(templatesPath, `${role}.toml`);
 
   let source: string;
@@ -96,9 +92,7 @@ export async function resolveAgentSpec(
   const reasoning_effort = resolveReasoningEffort(parsed.model_reasoning_effort, tomlPath);
 
   const developer_instructions =
-    typeof parsed.developer_instructions === 'string'
-      ? parsed.developer_instructions
-      : '';
+    typeof parsed.developer_instructions === 'string' ? parsed.developer_instructions : '';
 
   const overrideMcp = config.mcp_overrides[role];
   const tomlMcp = parseStringArray(parsed.allowed_mcp_servers, tomlPath, 'allowed_mcp_servers');
@@ -108,7 +102,9 @@ export async function resolveAgentSpec(
 
   const overrideMaxTurns = config.agent_max_turns[role];
   const tomlMaxTurns =
-    typeof parsed.max_turns === 'number' && Number.isInteger(parsed.max_turns) && parsed.max_turns > 0
+    typeof parsed.max_turns === 'number' &&
+    Number.isInteger(parsed.max_turns) &&
+    parsed.max_turns > 0
       ? parsed.max_turns
       : undefined;
   const max_turns = overrideMaxTurns ?? tomlMaxTurns;

@@ -38,9 +38,7 @@ export interface ScopeHandlerOptions {
   readonly projectNameFallback?: string;
 }
 
-export const DEFAULT_SCOPE_RESOLVER = async (
-  io: ModeIO,
-): Promise<ScopeInput | undefined> => {
+export const DEFAULT_SCOPE_RESOLVER = async (io: ModeIO): Promise<ScopeInput | undefined> => {
   const path = join(io.cwd, '.swt-planning', 'phases.json');
   try {
     const raw = await readFile(path, 'utf8');
@@ -87,11 +85,20 @@ async function runInteractiveScope(
       prompt: `Phase ${position} goal (one sentence)`,
       required: true,
     });
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || `phase-${position}`;
-    phases.push({ position, name, slug, goal, status: 'pending', success_criteria: [], requirements: [] });
+    const slug =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || `phase-${position}`;
+    phases.push({
+      position,
+      name,
+      slug,
+      goal,
+      status: 'pending',
+      success_criteria: [],
+      requirements: [],
+    });
   }
 
   const project_name = await resolveProjectName(opts, io);
@@ -104,10 +111,7 @@ async function runInteractiveScope(
   };
 }
 
-async function resolveProjectName(
-  opts: ScopeHandlerOptions,
-  io: ModeIO,
-): Promise<string> {
+async function resolveProjectName(opts: ScopeHandlerOptions, io: ModeIO): Promise<string> {
   if (opts.projectNameFallback !== undefined) return opts.projectNameFallback;
   try {
     const raw = await readFile(join(io.cwd, '.swt-planning', 'PROJECT.md'), 'utf8');

@@ -54,10 +54,7 @@ export type VibeRoute =
  * Priority routing implementing VBW vibe.md tables 1-11 plus the
  * all_done QA-attention fallback and the earlier-work QA-attention fallback.
  */
-export function routeFromState(
-  state: PhaseDetectResult,
-  _args: RouteArgs = {},
-): VibeRoute {
+export function routeFromState(state: PhaseDetectResult, _args: RouteArgs = {}): VibeRoute {
   // Priority 1
   if (!state.planning_dir_exists) {
     return { kind: 'init-redirect', requires_confirmation: false };
@@ -172,10 +169,7 @@ export function routeFromState(
   }
   // Priority 11 — Archive (with QA-attention fallback to verify)
   if (state.next_phase_state === 'all_done') {
-    if (
-      state.first_qa_attention_phase !== undefined &&
-      state.qa_attention_status === 'pending'
-    ) {
+    if (state.first_qa_attention_phase !== undefined && state.qa_attention_status === 'pending') {
       return {
         kind: 'verify',
         phase: state.first_qa_attention_phase,

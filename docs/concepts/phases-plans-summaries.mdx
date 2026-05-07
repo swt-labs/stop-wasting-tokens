@@ -47,23 +47,23 @@ SWT projects produce many files. They all have the same purpose: capture a contr
 
 Every artifact has typed Zod-validated frontmatter. The runtime reads via `@swt-labs/artifacts/schemas/`.
 
-| Kind                    | Path                                                  | Purpose                                        |
-|------------------------|-------------------------------------------------------|------------------------------------------------|
-| **PROJECT**            | `.swt-planning/PROJECT.md`                            | Name + core purpose                            |
-| **REQUIREMENTS**       | `.swt-planning/REQUIREMENTS.md`                       | Hierarchical list of REQ-IDs                   |
-| **ROADMAP**            | `.swt-planning/ROADMAP.md`                            | Phase decomposition + dependency table         |
-| **STATE**              | `.swt-planning/STATE.md`                              | Current phase, decisions, activity log         |
-| **CONTEXT**            | `.swt-planning/CONTEXT.md` (milestone-level)          | Decomposition rationale + scope coverage       |
-| **PHASE-CONTEXT**      | `phases/NN-slug/NN-CONTEXT.md`                        | Per-phase discussion engine output             |
-| **RESEARCH**           | `phases/NN-slug/NN-RESEARCH.md`                       | Phase-wide research findings (Scout output)    |
-| **PLAN**               | `phases/NN-slug/NN-MM-PLAN.md`                        | Tight ordered task list with must-haves        |
-| **SUMMARY**            | `phases/NN-slug/NN-MM-SUMMARY.md`                     | Outcome — must-have results, deviations, files |
-| **VERIFICATION**       | `phases/NN-slug/NN-VERIFICATION.md`                   | QA verdict against the phase contract          |
-| **UAT**                | `phases/NN-slug/NN-UAT.md`                            | Interactive UAT outcome (PASS / issues_found)  |
-| **DEBUG-SESSION**      | `phases/NN-slug/debug/SS-DEBUG.md`                    | Investigation/findings/resolution log          |
-| **REMEDIATION-PLAN**   | `phases/NN-slug/remediation/.../R{RR}-PLAN.md`        | Per-round remediation task list                |
-| **REMEDIATION-SUMMARY**| `phases/NN-slug/remediation/.../R{RR}-SUMMARY.md`     | Per-round remediation outcome                  |
-| **REMEDIATION-RESEARCH**| `phases/NN-slug/remediation/.../R{RR}-RESEARCH.md`   | Per-round Scout research                       |
+| Kind                     | Path                                               | Purpose                                        |
+| ------------------------ | -------------------------------------------------- | ---------------------------------------------- |
+| **PROJECT**              | `.swt-planning/PROJECT.md`                         | Name + core purpose                            |
+| **REQUIREMENTS**         | `.swt-planning/REQUIREMENTS.md`                    | Hierarchical list of REQ-IDs                   |
+| **ROADMAP**              | `.swt-planning/ROADMAP.md`                         | Phase decomposition + dependency table         |
+| **STATE**                | `.swt-planning/STATE.md`                           | Current phase, decisions, activity log         |
+| **CONTEXT**              | `.swt-planning/CONTEXT.md` (milestone-level)       | Decomposition rationale + scope coverage       |
+| **PHASE-CONTEXT**        | `phases/NN-slug/NN-CONTEXT.md`                     | Per-phase discussion engine output             |
+| **RESEARCH**             | `phases/NN-slug/NN-RESEARCH.md`                    | Phase-wide research findings (Scout output)    |
+| **PLAN**                 | `phases/NN-slug/NN-MM-PLAN.md`                     | Tight ordered task list with must-haves        |
+| **SUMMARY**              | `phases/NN-slug/NN-MM-SUMMARY.md`                  | Outcome — must-have results, deviations, files |
+| **VERIFICATION**         | `phases/NN-slug/NN-VERIFICATION.md`                | QA verdict against the phase contract          |
+| **UAT**                  | `phases/NN-slug/NN-UAT.md`                         | Interactive UAT outcome (PASS / issues_found)  |
+| **DEBUG-SESSION**        | `phases/NN-slug/debug/SS-DEBUG.md`                 | Investigation/findings/resolution log          |
+| **REMEDIATION-PLAN**     | `phases/NN-slug/remediation/.../R{RR}-PLAN.md`     | Per-round remediation task list                |
+| **REMEDIATION-SUMMARY**  | `phases/NN-slug/remediation/.../R{RR}-SUMMARY.md`  | Per-round remediation outcome                  |
+| **REMEDIATION-RESEARCH** | `phases/NN-slug/remediation/.../R{RR}-RESEARCH.md` | Per-round Scout research                       |
 
 See the full schema reference in [Artifact schemas](/reference/artifacts).
 

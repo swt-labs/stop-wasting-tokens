@@ -11,8 +11,12 @@ describe('resolveUatRemediationRoundLimit', () => {
   });
 
   it('returns unlimited when max is missing/null', () => {
-    expect(resolveUatRemediationRoundLimit({ maxRounds: null, currentRound: 1 }).capReached).toBe(false);
-    expect(resolveUatRemediationRoundLimit({ maxRounds: undefined, currentRound: 1 }).capReached).toBe(false);
+    expect(resolveUatRemediationRoundLimit({ maxRounds: null, currentRound: 1 }).capReached).toBe(
+      false,
+    );
+    expect(
+      resolveUatRemediationRoundLimit({ maxRounds: undefined, currentRound: 1 }).capReached,
+    ).toBe(false);
   });
 
   it('flags capReached when current >= max', () => {
@@ -32,13 +36,11 @@ describe('resolveUatRemediationRoundLimit', () => {
   });
 
   it('treats invalid numeric values as unlimited', () => {
-    expect(
-      resolveUatRemediationRoundLimit({ maxRounds: 0, currentRound: 1 })
-        .maxRounds,
-    ).toBe('unlimited');
-    expect(
-      resolveUatRemediationRoundLimit({ maxRounds: -2, currentRound: 1 })
-        .maxRounds,
-    ).toBe('unlimited');
+    expect(resolveUatRemediationRoundLimit({ maxRounds: 0, currentRound: 1 }).maxRounds).toBe(
+      'unlimited',
+    );
+    expect(resolveUatRemediationRoundLimit({ maxRounds: -2, currentRound: 1 }).maxRounds).toBe(
+      'unlimited',
+    );
   });
 });

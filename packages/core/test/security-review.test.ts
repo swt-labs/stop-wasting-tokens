@@ -49,8 +49,6 @@ describe('LICENSE', () => {
     const content = readFileSync(path, 'utf8');
     expect(content).toContain('MIT License');
     const currentYear = new Date().getFullYear();
-    expect(content, `LICENSE missing year ${currentYear}`).toMatch(
-      new RegExp(String(currentYear)),
-    );
+    expect(content, `LICENSE missing year ${currentYear}`).toMatch(new RegExp(String(currentYear)));
   });
 });

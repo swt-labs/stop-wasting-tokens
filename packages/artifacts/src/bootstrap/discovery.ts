@@ -29,11 +29,7 @@ export async function readDiscovery(planningDir: string): Promise<Discovery> {
     const parsed = JSON.parse(raw) as unknown;
     return DiscoverySchema.parse(parsed);
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       return EMPTY_DISCOVERY;
     }
     throw err;

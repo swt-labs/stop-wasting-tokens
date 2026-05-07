@@ -4,10 +4,10 @@
 
 `stop-wasting-tokens` is currently in alpha. Only the latest published version on the `main` branch is supported. Pre-release versions (`v0.x.y`) may receive fixes only in the most recent release.
 
-| Version | Supported |
-|---------|-----------|
-| latest pre-release | Yes |
-| older pre-releases | No |
+| Version            | Supported |
+| ------------------ | --------- |
+| latest pre-release | Yes       |
+| older pre-releases | No        |
 
 Once the project reaches v1.0, this matrix will be updated to cover at least the current major and the previous major.
 
@@ -17,7 +17,7 @@ Please **do not** open a public GitHub issue for security reports.
 
 Instead, report privately by emailing the maintainer at:
 
-> `security@stopwastingtokens.dev` *(placeholder — to be activated when the domain is registered; until then please use GitHub's private "Report a vulnerability" feature on the repository's Security tab)*
+> `security@stopwastingtokens.dev` _(placeholder — to be activated when the domain is registered; until then please use GitHub's private "Report a vulnerability" feature on the repository's Security tab)_
 
 Include:
 

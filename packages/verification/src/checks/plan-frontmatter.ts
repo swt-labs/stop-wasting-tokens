@@ -2,9 +2,7 @@ import type { CheckResult } from './summary-frontmatter.js';
 
 const REQUIRED_KEYS = ['phase', 'plan', 'title', 'wave', 'must_haves'] as const;
 
-export function checkPlanFrontmatter(
-  frontmatter: Readonly<Record<string, unknown>>,
-): CheckResult {
+export function checkPlanFrontmatter(frontmatter: Readonly<Record<string, unknown>>): CheckResult {
   const reasons: string[] = [];
   for (const key of REQUIRED_KEYS) {
     if (!(key in frontmatter)) reasons.push(`missing ${key}`);

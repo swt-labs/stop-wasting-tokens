@@ -28,7 +28,6 @@ import { buildRegistry } from '@swt-labs/cli';
 import { ConfigSchema } from '@swt-labs/core';
 import { z, type ZodTypeAny } from 'zod';
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = join(__dirname, '..');
@@ -124,12 +123,16 @@ export function generateConfigMdx(): string {
   lines.push(AUTO_GENERATED_HEADER);
   lines.push('---');
   lines.push('title: Configuration reference');
-  lines.push('description: Every key in `.swt-planning/config.json` — type, default, when to override.');
+  lines.push(
+    'description: Every key in `.swt-planning/config.json` — type, default, when to override.',
+  );
   lines.push('---');
   lines.push('');
   lines.push('# Configuration reference');
   lines.push('');
-  lines.push('`config.json` lives at `.swt-planning/config.json` and is read on every `swt` invocation. All keys are optional — defaults from `@swt-labs/core/config/defaults.json` apply where missing.');
+  lines.push(
+    '`config.json` lives at `.swt-planning/config.json` and is read on every `swt` invocation. All keys are optional — defaults from `@swt-labs/core/config/defaults.json` apply where missing.',
+  );
   lines.push('');
 
   const shape = ConfigSchema.shape;
@@ -167,7 +170,9 @@ export function generateCliMdx(): string {
   lines.push('');
   lines.push('# CLI reference');
   lines.push('');
-  lines.push('Generated from the `buildRegistry()` function in `@swt-labs/cli`. Run `swt help` for the live runtime listing.');
+  lines.push(
+    'Generated from the `buildRegistry()` function in `@swt-labs/cli`. Run `swt help` for the live runtime listing.',
+  );
   lines.push('');
 
   const registry = buildRegistry();
@@ -203,7 +208,9 @@ export function generateArtifactsMdx(): string {
   lines.push('');
   lines.push('# Artifacts reference');
   lines.push('');
-  lines.push('`@swt-labs/artifacts` exports Zod schemas for every artifact type SWT writes (PLAN.md, SUMMARY.md, VERIFICATION.md, ROADMAP.md, etc.). The schemas listed here are the public surface — they validate every read + write the methodology layer performs.');
+  lines.push(
+    '`@swt-labs/artifacts` exports Zod schemas for every artifact type SWT writes (PLAN.md, SUMMARY.md, VERIFICATION.md, ROADMAP.md, etc.). The schemas listed here are the public surface — they validate every read + write the methodology layer performs.',
+  );
   lines.push('');
 
   const schemas: Array<{ name: string; schema: z.ZodObject<z.ZodRawShape> }> = [

@@ -50,11 +50,7 @@ export async function scanPhases(planningDir: string): Promise<readonly PhaseSna
   return snapshots;
 }
 
-async function snapshotPhase(
-  dir: string,
-  position: string,
-  slug: string,
-): Promise<PhaseSnapshot> {
+async function snapshotPhase(dir: string, position: string, slug: string): Promise<PhaseSnapshot> {
   let entries: string[] = [];
   try {
     entries = await readdir(dir);
@@ -113,10 +109,7 @@ async function readVerification(path: string): Promise<VerificationSnapshot> {
     const result = (typeof frontmatter.result === 'string' ? frontmatter.result : '').toUpperCase();
     return {
       filename,
-      result:
-        result === 'PASS' || result === 'FAIL' || result === 'PARTIAL'
-          ? (result)
-          : 'unknown',
+      result: result === 'PASS' || result === 'FAIL' || result === 'PARTIAL' ? result : 'unknown',
       verifiedAtCommit:
         typeof frontmatter.verified_at_commit === 'string'
           ? frontmatter.verified_at_commit
@@ -136,10 +129,8 @@ async function readUat(path: string): Promise<UatSnapshot> {
     return {
       filename,
       status:
-        status === 'in_progress' ||
-        status === 'complete' ||
-        status === 'issues_found'
-          ? (status)
+        status === 'in_progress' || status === 'complete' || status === 'issues_found'
+          ? status
           : 'unknown',
       major_or_higher:
         Boolean(frontmatter.major_or_higher) ||
@@ -159,12 +150,7 @@ async function readQaRemediation(dir: string): Promise<QaRemediationSnapshot | u
     const roundLine = raw.split('\n').find((l) => l.startsWith('round='));
     const stage = stageLine?.split('=')[1]?.trim();
     const round = roundLine?.split('=')[1]?.trim() ?? '00';
-    if (
-      stage === 'plan' ||
-      stage === 'execute' ||
-      stage === 'verify' ||
-      stage === 'done'
-    ) {
+    if (stage === 'plan' || stage === 'execute' || stage === 'verify' || stage === 'done') {
       return { stage, round };
     }
     return { stage: 'none', round };
@@ -203,11 +189,7 @@ async function readUatRemediation(dir: string): Promise<UatRemediationSnapshot |
 }
 
 function isFileNotFound(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    (err as { code?: string }).code === 'ENOENT'
-  );
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT';
 }
 
 function pathBasename(p: string): string {

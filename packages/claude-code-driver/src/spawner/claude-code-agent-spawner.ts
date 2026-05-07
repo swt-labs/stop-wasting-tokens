@@ -3,13 +3,7 @@ import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import type {
-  AgentRole,
-  AgentSpawner,
-  AgentSpec,
-  SpawnRequest,
-  SpawnResult,
-} from '@swt-labs/core';
+import type { AgentRole, AgentSpawner, AgentSpec, SpawnRequest, SpawnResult } from '@swt-labs/core';
 
 import { spawnClaude } from '../spawn/wrapper.js';
 
@@ -38,9 +32,7 @@ export class ClaudeCodeAgentSpawner implements AgentSpawner {
 
   constructor(opts: ClaudeCodeAgentSpawnerOptions = {}) {
     this.#claude_config_dir =
-      opts.claude_config_dir ??
-      process.env['CLAUDE_CONFIG_DIR'] ??
-      join(homedir(), '.claude');
+      opts.claude_config_dir ?? process.env['CLAUDE_CONFIG_DIR'] ?? join(homedir(), '.claude');
     this.#bin = opts.bin ?? 'claude';
     if (opts.env !== undefined) this.#env = opts.env;
   }
@@ -74,11 +66,7 @@ export class ClaudeCodeAgentSpawner implements AgentSpawner {
     try {
       await unlink(target);
     } catch (err) {
-      if (
-        typeof err !== 'object' ||
-        err === null ||
-        (err as { code?: string }).code !== 'ENOENT'
-      ) {
+      if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'ENOENT') {
         throw err;
       }
     }

@@ -61,9 +61,7 @@ export function formatIndex(entries: readonly MemoryEntry[]): string {
   const lines: string[] = [];
   lines.push('# MEMORY.md');
   lines.push('');
-  lines.push(
-    'Always-on lightweight index. Topic files live under `memory/<topic>.md`.',
-  );
+  lines.push('Always-on lightweight index. Topic files live under `memory/<topic>.md`.');
   lines.push('');
   lines.push('| ID | Topic | Tags |');
   lines.push('|----|-------|------|');

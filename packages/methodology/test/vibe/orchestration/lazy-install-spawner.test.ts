@@ -1,12 +1,5 @@
-import type {
-  AgentRole,
-  AgentSpec,
-  AgentSpawner,
-  SpawnRequest,
-  SpawnResult,
-} from '@swt-labs/core';
+import type { AgentRole, AgentSpec, AgentSpawner, SpawnRequest, SpawnResult } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
-
 
 import { LazyInstallSpawner } from '../../../src/vibe/orchestration/lazy-install-spawner.js';
 
@@ -36,11 +29,13 @@ function makeBase(): AgentSpawner & {
 } {
   return {
     installAgent: vi.fn(async () => undefined),
-    spawn: vi.fn(async (req: SpawnRequest): Promise<SpawnResult> => ({
-      role: req.spec.role,
-      success: true,
-      text: 'ok',
-    })),
+    spawn: vi.fn(
+      async (req: SpawnRequest): Promise<SpawnResult> => ({
+        role: req.spec.role,
+        success: true,
+        text: 'ok',
+      }),
+    ),
     removeAgent: vi.fn(async () => undefined),
   };
 }

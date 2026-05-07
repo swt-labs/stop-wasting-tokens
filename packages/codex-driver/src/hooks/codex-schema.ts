@@ -69,9 +69,10 @@ export function buildCodexHookFile(file: HookFile): CodexHookFile {
         command: entry.command,
         timeout: CODEX_DEFAULT_HOOK_TIMEOUT_SEC,
       };
-      const codexEntry: CodexHookEntry = entry.match !== undefined
-        ? { matcher: entry.match, hooks: [command] }
-        : { hooks: [command] };
+      const codexEntry: CodexHookEntry =
+        entry.match !== undefined
+          ? { matcher: entry.match, hooks: [command] }
+          : { hooks: [command] };
       return codexEntry;
     });
   }

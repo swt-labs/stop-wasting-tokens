@@ -54,13 +54,12 @@ describe('checkCommitMessage', () => {
     expect(checkCommitMessage(msg).ok).toBe(true);
   });
 
-  it.each([
-    'add foo',
-    'random update',
-    'WIP: ignore',
-  ])('rejects a non-conventional header: %s', (msg) => {
-    expect(checkCommitMessage(msg).ok).toBe(false);
-  });
+  it.each(['add foo', 'random update', 'WIP: ignore'])(
+    'rejects a non-conventional header: %s',
+    (msg) => {
+      expect(checkCommitMessage(msg).ok).toBe(false);
+    },
+  );
 
   it('rejects empty messages', () => {
     expect(checkCommitMessage('   ').ok).toBe(false);

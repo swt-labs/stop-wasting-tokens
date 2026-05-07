@@ -10,7 +10,11 @@ import type { VibeRoute } from '../../../src/vibe/route.js';
 
 class StringStream extends Writable {
   public readonly chunks: string[] = [];
-  override _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (e?: Error | null) => void): void {
+  override _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    callback: (e?: Error | null) => void,
+  ): void {
     this.chunks.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'));
     callback();
   }

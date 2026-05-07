@@ -9,8 +9,14 @@ export const DebugSessionFrontmatterSchema = z.object({
   session_id: z.string().min(1),
   started: z.string().regex(/^\d{4}-\d{2}-\d{2}T/),
   agent: AgentSchema,
-  phase: z.string().regex(/^\d{2}$/).optional(),
-  plan: z.string().regex(/^\d{2}[a-z]?$/).optional(),
+  phase: z
+    .string()
+    .regex(/^\d{2}$/)
+    .optional(),
+  plan: z
+    .string()
+    .regex(/^\d{2}[a-z]?$/)
+    .optional(),
   status: StatusSchema,
   summary: z.string().min(1),
 });

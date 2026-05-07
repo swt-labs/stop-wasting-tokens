@@ -1,11 +1,6 @@
 import { createInterface } from 'node:readline';
 
-import type {
-  AskChoiceInput,
-  AskConfirmInput,
-  AskTextInput,
-  Prompter,
-} from '@swt-labs/core';
+import type { AskChoiceInput, AskConfirmInput, AskTextInput, Prompter } from '@swt-labs/core';
 
 /**
  * Minimal readline-backed prompter. Used by `swt vibe verify` and milestone
@@ -20,7 +15,10 @@ export class ReadlinePrompter implements Prompter {
   async askChoice<T extends string>(input: AskChoiceInput<T>): Promise<T> {
     const lines = [
       input.prompt,
-      ...input.options.map((o, i) => `  [${i + 1}] ${o.label}${o.description !== undefined ? ` — ${o.description}` : ''}`),
+      ...input.options.map(
+        (o, i) =>
+          `  [${i + 1}] ${o.label}${o.description !== undefined ? ` — ${o.description}` : ''}`,
+      ),
     ];
     if (input.defaultValue !== undefined) {
       lines.push(`(default: ${input.defaultValue})`);

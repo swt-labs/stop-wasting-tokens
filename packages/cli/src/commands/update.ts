@@ -78,11 +78,12 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
           ...(opts.now !== undefined ? { now: opts.now } : {}),
         });
       } catch (err) {
-        marketplaceError = err instanceof MarketplaceQueryError
-          ? err.message
-          : err instanceof Error
+        marketplaceError =
+          err instanceof MarketplaceQueryError
             ? err.message
-            : String(err);
+            : err instanceof Error
+              ? err.message
+              : String(err);
       }
     }
 
@@ -122,16 +123,12 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
           }
           break;
         case 'unreachable':
-          io.stderr.write(
-            `⚠ Could not check for updates: ${result.error ?? 'unknown error'}\n`,
-          );
+          io.stderr.write(`⚠ Could not check for updates: ${result.error ?? 'unknown error'}\n`);
           break;
       }
       if (marketplaceResult !== undefined) {
         if (marketplaceResult.version === result.latest) {
-          io.stdout.write(
-            `  (also published on marketplace at v${marketplaceResult.version})\n`,
-          );
+          io.stdout.write(`  (also published on marketplace at v${marketplaceResult.version})\n`);
         } else {
           io.stdout.write(
             `⚠ Marketplace version (v${marketplaceResult.version}) differs from npm (v${result.latest})\n`,

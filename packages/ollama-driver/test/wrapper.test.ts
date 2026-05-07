@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import type { SpawnRequest } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-
 import { spawnOllama } from '../src/spawn/wrapper.js';
 
 const sampleRequest: SpawnRequest = {
@@ -21,7 +20,12 @@ const sampleRequest: SpawnRequest = {
   session_id: 'test-session',
 };
 
-function fetchReturning(body: string, ok = true, status = 200, statusText = 'OK'): typeof globalThis.fetch {
+function fetchReturning(
+  body: string,
+  ok = true,
+  status = 200,
+  statusText = 'OK',
+): typeof globalThis.fetch {
   return vi.fn().mockResolvedValue({
     ok,
     status,

@@ -1,7 +1,8 @@
-{/*
- * Hand-authored prose for `@swt-labs/artifacts` Zod schemas.
- * Markers: PROSE:override-artifacts-<schema-name>
- */}
+{/\*
+
+- Hand-authored prose for `@swt-labs/artifacts` Zod schemas.
+- Markers: PROSE:override-artifacts-<schema-name>
+  \*/}
 
 {/* PROSE:override-artifacts-PlanFrontmatterSchema */}
 A PLAN.md file's YAML frontmatter declares the contract for a single Lead → Dev handoff. The `must_haves` block is the verification contract: QA reads it back to validate the plan was executed correctly. The `files_modified` array is enforced by the PreToolUse hook — Dev cannot edit files outside this list without amending the plan first.

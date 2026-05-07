@@ -36,7 +36,8 @@ function bootstrapGrayAreas(calibration: Calibration): readonly GrayArea[] {
     {
       id: 'core_value',
       topic: 'Core value',
-      prompt: 'What problem does this project solve in one sentence? (Optional — defaults to description)',
+      prompt:
+        'What problem does this project solve in one sentence? (Optional — defaults to description)',
       kind: 'text',
     },
     {

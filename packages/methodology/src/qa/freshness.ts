@@ -72,9 +72,17 @@ export async function checkQaFreshness(
       freshness.reason === 'product_commit_unavailable' ||
       freshness.reason === 'freshness_baseline_unavailable'
     ) {
-      return { status: 'pending', reason: freshness.reason, verifiedAtCommit: snapshot?.verifiedAtCommit };
+      return {
+        status: 'pending',
+        reason: freshness.reason,
+        verifiedAtCommit: snapshot?.verifiedAtCommit,
+      };
     }
-    return { status: 'pending', reason: freshness.reason, verifiedAtCommit: snapshot?.verifiedAtCommit };
+    return {
+      status: 'pending',
+      reason: freshness.reason,
+      verifiedAtCommit: snapshot?.verifiedAtCommit,
+    };
   }
   return { status: 'passed', reason: '', verifiedAtCommit: snapshot?.verifiedAtCommit };
 }

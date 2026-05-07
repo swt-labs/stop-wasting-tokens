@@ -21,9 +21,7 @@ describe('handoff schemas', () => {
       kind: 'scout-findings',
       payload: {
         goal: 'Investigate the auth flow',
-        findings: [
-          { topic: 'login', summary: 'uses session cookies', sources: ['src/auth.ts'] },
-        ],
+        findings: [{ topic: 'login', summary: 'uses session cookies', sources: ['src/auth.ts'] }],
       },
       ...baseEnvelope,
     };
@@ -132,9 +130,7 @@ describe('handoff schemas', () => {
         phase: '03',
         plans_verified: ['01'],
         result: 'pass',
-        checks: [
-          { id: 'AC1', must_have: 'queue connects', status: 'pass', evidence: 'ping ok' },
-        ],
+        checks: [{ id: 'AC1', must_have: 'queue connects', status: 'pass', evidence: 'ping ok' }],
       },
       ...baseEnvelope,
     };

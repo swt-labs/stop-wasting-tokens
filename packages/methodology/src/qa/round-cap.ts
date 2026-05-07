@@ -15,9 +15,7 @@ export interface RoundCapDecision {
  * Mirror of VBW resolve-uat-remediation-round-limit.sh decision shape.
  * `false`/null/undefined = unlimited; positive integer = cap.
  */
-export function resolveUatRemediationRoundLimit(
-  input: RoundCapDecisionInput,
-): RoundCapDecision {
+export function resolveUatRemediationRoundLimit(input: RoundCapDecisionInput): RoundCapDecision {
   const max = normalizeMax(input.maxRounds);
   const next = input.currentRound + 1;
   if (max === 'unlimited') {

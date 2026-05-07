@@ -15,18 +15,14 @@ export const RemediationResearchFrontmatterSchema = z.object({
   live_validation_required: z.boolean().default(false),
 });
 
-export type RemediationResearchFrontmatter = z.infer<
-  typeof RemediationResearchFrontmatterSchema
->;
+export type RemediationResearchFrontmatter = z.infer<typeof RemediationResearchFrontmatterSchema>;
 
 export interface ParsedRemediationResearch {
   readonly frontmatter: RemediationResearchFrontmatter;
   readonly body: string;
 }
 
-export function readRemediationResearchFrontmatter(
-  raw: string,
-): ParsedRemediationResearch {
+export function readRemediationResearchFrontmatter(raw: string): ParsedRemediationResearch {
   const { frontmatter, body } = parseFrontmatter<Record<string, unknown>>(raw);
   return {
     frontmatter: RemediationResearchFrontmatterSchema.parse(coerce(frontmatter)),

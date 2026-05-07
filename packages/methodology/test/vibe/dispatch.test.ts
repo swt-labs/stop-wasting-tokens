@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { ModeRegistry, NotImplementedError, buildStubRegistry, stubHandler } from '../../src/vibe/handlers/index.js';
+import {
+  ModeRegistry,
+  NotImplementedError,
+  buildStubRegistry,
+  stubHandler,
+} from '../../src/vibe/handlers/index.js';
 import type { VibeRoute } from '../../src/vibe/route.js';
 
 describe('ModeRegistry', () => {

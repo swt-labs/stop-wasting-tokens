@@ -7,16 +7,22 @@ import type { AgentSpec, AgentSpawner, Effort } from '@swt-labs/core';
 import { NotImplementedError, RoutingError } from '../errors.js';
 import { runDev } from '../orchestration/dev-runner.js';
 import { writeSummary } from '../orchestration/summary-writer.js';
-import { groupByWave, validateDependencyOrder, validateDisjointFiles, type PlanRecord } from '../orchestration/waves.js';
+import {
+  groupByWave,
+  validateDependencyOrder,
+  validateDisjointFiles,
+  type PlanRecord,
+} from '../orchestration/waves.js';
 import type { VibeRoute } from '../route.js';
 
 import type { HandlerResult, ModeHandler, ModeIO } from './index.js';
 
 export interface ExecuteHandlerOptions {
   /** Resolve the target phase from the route + io. */
-  readonly resolveTarget?: (route: VibeRoute, io: ModeIO) =>
-    | { phase: string; slug: string }
-    | undefined;
+  readonly resolveTarget?: (
+    route: VibeRoute,
+    io: ModeIO,
+  ) => { phase: string; slug: string } | undefined;
   readonly planningDirName?: string;
   /**
    * Required for real Dev work; tests inject a MockAgentSpawner. When unset

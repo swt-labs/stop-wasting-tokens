@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import type { SpawnRequest } from '@swt-labs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-
 const sampleRequest: SpawnRequest = {
   spec: {
     role: 'scout',

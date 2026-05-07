@@ -45,11 +45,7 @@ export async function readState(path: string): Promise<ParsedState | undefined> 
     const raw = await readFile(path, 'utf8');
     return parseState(raw);
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       return undefined;
     }
     throw err;

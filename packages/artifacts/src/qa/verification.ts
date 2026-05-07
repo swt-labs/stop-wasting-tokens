@@ -111,10 +111,7 @@ export async function writeVerification(opts: WriteVerificationOptions): Promise
   return path;
 }
 
-export async function readVerification(
-  phaseDir: string,
-  phase: string,
-): Promise<VerificationDoc> {
+export async function readVerification(phaseDir: string, phase: string): Promise<VerificationDoc> {
   const path = join(phaseDir, `${phase}-VERIFICATION.md`);
   const raw = await readFile(path, 'utf8');
   const { frontmatter, body } = parseFrontmatter<Record<string, unknown>>(raw);
@@ -230,7 +227,10 @@ export function parseVerificationBody(body: string): ParsedSections {
         });
       }
       out.layout = 'vbw';
-    } else if (headerSlug.includes('requirement mapping') || headerSlug.includes('requirements mapping')) {
+    } else if (
+      headerSlug.includes('requirement mapping') ||
+      headerSlug.includes('requirements mapping')
+    ) {
       for (const cells of rows) {
         const [req, phase, statusRaw, evidence] = cells;
         if (req === undefined || phase === undefined) continue;
@@ -326,12 +326,12 @@ export function renderVerificationBody(doc: VerificationDoc): string {
     if (doc.anti_pattern_checks.length > 0) {
       lines.push('## Anti-pattern Checks');
       lines.push('');
-      pushTable(lines, ['ID', 'Anti-pattern', 'Status', 'Evidence'], doc.anti_pattern_checks, (c) => [
-        c.id,
-        c.anti_pattern,
-        c.status.toUpperCase(),
-        c.evidence,
-      ]);
+      pushTable(
+        lines,
+        ['ID', 'Anti-pattern', 'Status', 'Evidence'],
+        doc.anti_pattern_checks,
+        (c) => [c.id, c.anti_pattern, c.status.toUpperCase(), c.evidence],
+      );
     }
     if (doc.convention_checks.length > 0) {
       lines.push('## Convention Checks');

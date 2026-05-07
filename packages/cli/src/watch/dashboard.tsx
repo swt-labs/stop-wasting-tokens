@@ -39,7 +39,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       </Box>
 
       <Box marginTop={1}>
-        <Text>Phase {phase.number || '—'}: {phase.slug || 'no active phase'}</Text>
+        <Text>
+          Phase {phase.number || '—'}: {phase.slug || 'no active phase'}
+        </Text>
       </Box>
       <Box>
         <Text dimColor>State: </Text>
@@ -66,7 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <Text>UAT: </Text>
         {(() => {
           const c = uatColor(uat.issues, uat.file);
-          const label = uat.file !== undefined ? `${uat.file} — ${uat.issues} issues` : `${uat.issues} issues`;
+          const label =
+            uat.file !== undefined ? `${uat.file} — ${uat.issues} issues` : `${uat.issues} issues`;
           return c !== undefined ? <Text color={c}>{label}</Text> : <Text>{label}</Text>;
         })()}
       </Box>

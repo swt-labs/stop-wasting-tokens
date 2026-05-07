@@ -1,7 +1,6 @@
 import type { AgentSpec, SpawnRequest } from '@swt-labs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-
 import { OllamaAgentSpawner } from '../../src/spawner/ollama-agent-spawner.js';
 
 const installedSpec: AgentSpec = {
@@ -50,7 +49,10 @@ function fetchReturning(body: string): typeof globalThis.fetch {
 describe('OllamaAgentSpawner', () => {
   it('installAgent stores the spec; subsequent spawn uses the installed spec when role matches', async () => {
     const fetchMock = fetchReturning(successBody);
-    const spawner = new OllamaAgentSpawner({ ollama_host: 'http://localhost:11434', fetch: fetchMock });
+    const spawner = new OllamaAgentSpawner({
+      ollama_host: 'http://localhost:11434',
+      fetch: fetchMock,
+    });
 
     await spawner.installAgent(installedSpec);
     expect(spawner.installedRoles()).toEqual(['scout']);

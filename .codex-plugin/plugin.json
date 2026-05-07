@@ -9,15 +9,7 @@
   "license": "MIT",
   "homepage": "https://docs.stopwastingtokens.dev",
   "repository": "https://github.com/swt-labs/stop-wasting-tokens",
-  "keywords": [
-    "methodology",
-    "vibe-coding",
-    "cli",
-    "agents",
-    "codex",
-    "typescript",
-    "monorepo"
-  ],
+  "keywords": ["methodology", "vibe-coding", "cli", "agents", "codex", "typescript", "monorepo"],
   "interface": {
     "displayName": "stop-wasting-tokens (SWT)",
     "category": "Development",

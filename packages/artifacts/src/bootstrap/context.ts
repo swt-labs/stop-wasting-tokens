@@ -53,9 +53,7 @@ export interface WriteMilestoneContextOptions {
   readonly gathered?: string;
 }
 
-export async function writeMilestoneContext(
-  opts: WriteMilestoneContextOptions,
-): Promise<string> {
+export async function writeMilestoneContext(opts: WriteMilestoneContextOptions): Promise<string> {
   const path = join(opts.planningDir, 'CONTEXT.md');
   const gathered = opts.gathered ?? new Date().toISOString().slice(0, 10);
 

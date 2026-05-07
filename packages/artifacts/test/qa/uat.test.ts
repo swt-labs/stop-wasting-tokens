@@ -67,9 +67,7 @@ describe('uat artifact', () => {
         skipped: 0,
         issues: 1,
         tests: [{ id: 'T1', description: 'Failing', status: 'fail', notes: '' }],
-        issue_records: [
-          { id: 'I1', severity: 'major', summary: 'broken', details: 'detail' },
-        ],
+        issue_records: [{ id: 'I1', severity: 'major', summary: 'broken', details: 'detail' }],
         body: '',
       },
     });

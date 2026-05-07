@@ -20,11 +20,15 @@ describe('inferCalibration', () => {
   });
 
   it('honors a forced override', () => {
-    expect(inferCalibration({ description: 'just minimal', forced: 'architect' })).toBe('architect');
+    expect(inferCalibration({ description: 'just minimal', forced: 'architect' })).toBe(
+      'architect',
+    );
   });
 
   it('long technical descriptions skew architect', () => {
-    const longDesc = 'a '.repeat(150) + 'distributed system with multiple services, async messaging, and observability';
+    const longDesc =
+      'a '.repeat(150) +
+      'distributed system with multiple services, async messaging, and observability';
     expect(inferCalibration({ description: longDesc })).toBe('architect');
   });
 });

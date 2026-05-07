@@ -23,7 +23,6 @@ export const CODEX_REASONING_EFFORTS: readonly CodexReasoningEffort[] = [
 
 export function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
   return (
-    typeof value === 'string' &&
-    (CODEX_REASONING_EFFORTS as readonly string[]).includes(value)
+    typeof value === 'string' && (CODEX_REASONING_EFFORTS as readonly string[]).includes(value)
   );
 }

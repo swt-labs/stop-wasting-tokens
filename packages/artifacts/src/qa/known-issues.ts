@@ -36,11 +36,7 @@ export async function readKnownIssues(phaseDir: string): Promise<KnownIssue[]> {
     const parsed = KnownIssuesFileSchema.parse(JSON.parse(raw));
     return parsed.issues;
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       return [];
     }
     throw err;

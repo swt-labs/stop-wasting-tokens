@@ -38,6 +38,7 @@ Friction reports are the single most valuable thing you can give us. Even "I fel
 [`github.com/swt-labs/stop-wasting-tokens/issues/new?template=friction.md`](https://github.com/swt-labs/stop-wasting-tokens/issues/new?template=friction.md)
 
 Required fields:
+
 - What you were trying to do (one sentence)
 - What happened (with command output if relevant)
 - What you expected (the mental model that didn't match)
@@ -48,7 +49,7 @@ If it's an actual bug (crash, data loss, broken state), use the bug template ins
 
 ## Discord
 
-The closed-beta Discord is `discord.gg/swt-labs-beta` *(placeholder URL — real invite shipped via DM after Discord setup completes)*. Channels:
+The closed-beta Discord is `discord.gg/swt-labs-beta` _(placeholder URL — real invite shipped via DM after Discord setup completes)_. Channels:
 
 - `#general` — anything goes
 - `#friction` — quick async friction reports for things not worth filing as issues
@@ -66,11 +67,13 @@ swt config set telemetry.enabled true
 ```
 
 What we track when enabled:
+
 - Which CLI commands run (`cli.command_invoked`)
 - Phase progress (`vibe.phase_started` / `vibe.phase_completed`)
 - UAT outcomes (`uat.checkpoint`, `uat.remediation_round_started`)
 
 What we **never** track:
+
 - File paths, repository names, project names
 - Command arguments
 - Free-text content from prompts or artifacts
