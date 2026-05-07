@@ -53,17 +53,17 @@ jobs:
         run: |
           case "${{ matrix.manager }}" in
             npm)
-              npm install -g @swt-labs/cli@${{ steps.version.outputs.version }}
+              npm install -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             pnpm)
               npm install -g pnpm
-              pnpm add -g @swt-labs/cli@${{ steps.version.outputs.version }}
+              pnpm add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               echo "$(pnpm bin -g)" >> "$GITHUB_PATH"
               ;;
             bun)
               curl -fsSL https://bun.sh/install | bash
               echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
-              "$HOME/.bun/bin/bun" add -g @swt-labs/cli@${{ steps.version.outputs.version }}
+              "$HOME/.bun/bin/bun" add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
           esac
 
