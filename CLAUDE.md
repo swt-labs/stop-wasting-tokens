@@ -5,7 +5,7 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** v1.5 — `milestone/02-v10-launch-hardening-f1-real-codex-agentspawner-wiring-f2` (5 phases / 17 plans / 63 tasks / 35 UAT scenarios — 2026-05-07)
+**Last shipped:** v1.5.1 — `milestone/03-sdk-critical-conformance-plugin-marketplace-prep-hook` (3 phases / 3 plans / 13 tasks / 13 UAT scenarios — Codex SDK conformance — 2026-05-07)
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules

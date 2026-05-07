@@ -58,3 +58,8 @@ compass_artifact_*.md
 
 # Local working copy of VBW (out of git; not part of SWT)
 vibe-better-with-claude-code-vbw-main/
+
+# VBW planning state (kept out of git going forward — already-archived
+# milestones in .vbw-planning/milestones/ remain in repo history; new
+# planning work for future milestones stays local only)
+.vbw-planning/
