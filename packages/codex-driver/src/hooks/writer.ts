@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { buildCodexHookFile, type CodexHookFile } from './codex-schema.js';
+
 const HookEntrySchema = z.object({
   /** Glob/path of the matcher (event-specific). */
   match: z.string().optional(),
@@ -29,4 +31,27 @@ export function emitHooksJson(file: HookFile): string {
   // Validate before stringifying so callers can't slip a malformed shape past us.
   const parsed = HookFileSchema.parse(file);
   return `${JSON.stringify(parsed, null, 2)}\n`;
+}
+
+/**
+ * Emit the Codex-conformant `hooks.json` per `developers.openai.com/codex/hooks`.
+ * Translates SWT's flat snake_case schema to Codex's nested PascalCase shape
+ * via `buildCodexHookFile`, then JSON-stringifies with a trailing newline.
+ *
+ * This is the function the codex-driver's installer should call when writing
+ * `~/.codex/hooks.json` — `emitHooksJson` (above) is for SWT-internal storage.
+ */
+export function emitCodexHooksJson(file: HookFile): string {
+  const parsed = HookFileSchema.parse(file);
+  const codexFile: CodexHookFile = buildCodexHookFile(parsed);
+  return `${JSON.stringify(codexFile, null, 2)}\n`;
+}
+
+/**
+ * Emit the `[features] codex_hooks = true` TOML block to enable Codex's
+ * experimental hooks feature per `developers.openai.com/codex/config-advanced`.
+ * Callers should merge this into the user's `~/.codex/config.toml`.
+ */
+export function emitCodexHooksFeatureFlag(): string {
+  return '[features]\ncodex_hooks = true\n';
 }

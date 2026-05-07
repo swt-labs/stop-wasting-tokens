@@ -9,6 +9,7 @@ export * from './toml/permissions.js';
 export * from './toml/features.js';
 export * from './agents-md/writer.js';
 export * from './hooks/writer.js';
+export * from './hooks/codex-schema.js';
 export * from './skills/installer.js';
 export * from './prompts/installer.js';
 export * from './spawn/parser.js';
