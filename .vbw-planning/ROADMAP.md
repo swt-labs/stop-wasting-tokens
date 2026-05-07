@@ -3,18 +3,16 @@
 **Milestone goal:** Resolve the 17 findings from the Codex SDK verification research (`.vbw-planning/research/20260507-081032-verify-codex-sdk-best-practices.md`) so SWT v1.5 aligns with documented Codex SDK behavior at `developers.openai.com/codex`. Tier 4 findings (F-05 `allowed_mcp_servers`, F-06 `max_turns`, F-07 `role` aliasing, F-12 expanded HookSubBlockSchema, F-15 AGENTS.override.md migration, F-17 cache-hit measurement test) are intentionally deferred to v1.6+.
 
 ## Phase List
-
-- **Phase 1: SDK Critical Conformance** — TOML model + reasoning_effort + name/description fields (must-fix; Codex CLI rejects current values)
-- **Phase 2: Plugin Marketplace Prep** — manifest path + schema + version sync (prerequisite for Codex Plugin Marketplace listing)
-- **Phase 3: Hook Integration & Drift Cleanup** — codex-driver hooks-writer filtering + name translation + feature flag + comment fixes
+- [x] [Phase 1: SDK Critical Conformance](#phase-1-sdk-critical-conformance)
+- [x] [Phase 2: Plugin Marketplace Prep](#phase-2-plugin-marketplace-prep)
+- [x] [Phase 3: Hook Integration & Drift Cleanup](#phase-3-hook-integration--drift-cleanup)
 
 ## Progress
-
-| Phase | Name | Status | Plans | UAT |
-|-------|------|--------|-------|-----|
-| 01 | ● Done |
-| 02 | Plugin Marketplace Prep | not started | 0 | — |
-| 03 | Hook Integration & Drift Cleanup | not started | 0 | — |
+| Phase | Status | Plans | Tasks | Commits |
+|-------|--------|-------|-------|---------|
+| 01 | ● Done | 1 | 5 | 4 |
+| 02 | ● Done | 1 | 3 | 2 |
+| 03 | ● Done | 1 | 5 | 4 |
 
 ---
 
