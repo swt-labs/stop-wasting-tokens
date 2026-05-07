@@ -45,6 +45,12 @@ export const ConfigSchema = z.object({
       opted_in_at: z.string().optional(),
     })
     .default({ enabled: false }),
+  marketplace: z
+    .object({
+      endpoint: z.string().url().optional(),
+      cache_ttl_hours: z.number().int().positive().default(24),
+    })
+    .optional(),
 });
 
 export type SwtConfig = z.infer<typeof ConfigSchema>;

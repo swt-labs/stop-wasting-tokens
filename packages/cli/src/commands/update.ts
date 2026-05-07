@@ -1,5 +1,12 @@
+import { loadSwtConfig } from '@swt-labs/methodology';
+
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import { queryLatestVersion, type QueryOptions } from '../lib/npm-registry.js';
+import {
+  queryMarketplaceVersion,
+  MarketplaceQueryError,
+  type MarketplaceVersion,
+} from '../lib/marketplace-registry.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
 import { CURRENT_VERSION } from './version.js';
@@ -15,8 +22,11 @@ const UPGRADE_COMMANDS = [
 export interface UpdateHandlerOptions {
   readonly fetchImpl?: typeof fetch;
   readonly cachePath?: string;
+  readonly marketplaceCachePath?: string;
   readonly currentVersion?: string;
   readonly now?: () => number;
+  /** Override config.marketplace.endpoint resolution (test seam). */
+  readonly marketplaceEndpoint?: string | null;
 }
 
 export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
@@ -24,19 +34,57 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
     const json = parsed.flags.json === true;
     const strict = parsed.flags.strict === true;
     const noCache = parsed.flags['no-cache'] === true;
+    const noMarketplace = parsed.flags['no-marketplace'] === true;
     const registryFlag = parsed.flags.registry;
     const registry = typeof registryFlag === 'string' ? registryFlag : undefined;
 
     const queryOpts: QueryOptions = {
-      registry,
+      ...(registry !== undefined ? { registry } : {}),
       noCache,
-      fetchImpl: opts.fetchImpl,
-      cachePath: opts.cachePath,
-      now: opts.now,
+      ...(opts.fetchImpl !== undefined ? { fetchImpl: opts.fetchImpl } : {}),
+      ...(opts.cachePath !== undefined ? { cachePath: opts.cachePath } : {}),
+      ...(opts.now !== undefined ? { now: opts.now } : {}),
     };
 
     const current = opts.currentVersion ?? CURRENT_VERSION;
     const result = await queryLatestVersion(PACKAGE_NAME, current, queryOpts);
+
+    let marketplaceEndpoint: string | undefined;
+    if (opts.marketplaceEndpoint === null) {
+      marketplaceEndpoint = undefined;
+    } else if (typeof opts.marketplaceEndpoint === 'string') {
+      marketplaceEndpoint = opts.marketplaceEndpoint;
+    } else {
+      try {
+        const config = await loadSwtConfig(`${io.cwd}/.swt-planning`);
+        marketplaceEndpoint = config.marketplace?.endpoint;
+      } catch {
+        marketplaceEndpoint = undefined;
+      }
+    }
+
+    let marketplaceResult: MarketplaceVersion | undefined;
+    let marketplaceError: string | undefined;
+    if (!noMarketplace && marketplaceEndpoint !== undefined) {
+      try {
+        marketplaceResult = await queryMarketplaceVersion({
+          endpoint: marketplaceEndpoint,
+          packageName: PACKAGE_NAME,
+          ...(opts.fetchImpl !== undefined ? { fetchImpl: opts.fetchImpl } : {}),
+          noCache,
+          ...(opts.marketplaceCachePath !== undefined
+            ? { cachePath: opts.marketplaceCachePath }
+            : {}),
+          ...(opts.now !== undefined ? { now: opts.now } : {}),
+        });
+      } catch (err) {
+        marketplaceError = err instanceof MarketplaceQueryError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      }
+    }
 
     if (json) {
       const payload: Record<string, unknown> = {
@@ -50,6 +98,14 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
       }
       if (result.error !== undefined) {
         payload.error = result.error;
+      }
+      if (marketplaceResult !== undefined) {
+        payload.marketplace = {
+          version: marketplaceResult.version,
+          fromCache: marketplaceResult.fromCache,
+        };
+      } else if (marketplaceError !== undefined) {
+        payload.marketplace = { error: marketplaceError };
       }
       io.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     } else {
@@ -70,6 +126,19 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
             `⚠ Could not check for updates: ${result.error ?? 'unknown error'}\n`,
           );
           break;
+      }
+      if (marketplaceResult !== undefined) {
+        if (marketplaceResult.version === result.latest) {
+          io.stdout.write(
+            `  (also published on marketplace at v${marketplaceResult.version})\n`,
+          );
+        } else {
+          io.stdout.write(
+            `⚠ Marketplace version (v${marketplaceResult.version}) differs from npm (v${result.latest})\n`,
+          );
+        }
+      } else if (marketplaceError !== undefined) {
+        io.stderr.write(`  (marketplace lookup skipped: ${marketplaceError})\n`);
       }
     }
 

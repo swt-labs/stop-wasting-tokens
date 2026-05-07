@@ -162,4 +162,86 @@ describe('updateCommand', () => {
     expect(cache['@swt-labs/cli'].value.latest).toBe('0.3.0');
     expect(cache['@swt-labs/cli'].value.status).toBe('outdated');
   });
+
+  it('marketplace endpoint configured + same version → annotation in plain output', async () => {
+    const marketplaceCache = join(tempDir, 'marketplace-cache.json');
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('marketplace.test')) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({ latest_version: '0.1.0' }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({ version: '0.1.0' }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      marketplaceCachePath: marketplaceCache,
+      currentVersion: '0.1.0',
+      marketplaceEndpoint: 'https://marketplace.test',
+    });
+    const { stdout, io } = makeIO();
+    await handler(parsedFlags({}), io);
+    expect(stdout.output).toContain('up-to-date');
+    expect(stdout.output).toContain('also published on marketplace at v0.1.0');
+  });
+
+  it('marketplace returns different version → divergence warning', async () => {
+    const marketplaceCache = join(tempDir, 'marketplace-cache.json');
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('marketplace.test')) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({ latest_version: '0.2.5' }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({ version: '0.2.0' }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      marketplaceCachePath: marketplaceCache,
+      currentVersion: '0.1.0',
+      marketplaceEndpoint: 'https://marketplace.test',
+    });
+    const { stdout, io } = makeIO();
+    await handler(parsedFlags({}), io);
+    expect(stdout.output).toContain('Update available');
+    expect(stdout.output).toContain('Marketplace version (v0.2.5) differs from npm (v0.2.0)');
+  });
+
+  it('marketplace endpoint missing → npm-only path runs unchanged', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ version: '0.1.0' }),
+    })) as unknown as typeof fetch;
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      currentVersion: '0.1.0',
+      marketplaceEndpoint: null,
+    });
+    const { stdout, io } = makeIO();
+    await handler(parsedFlags({ json: true }), io);
+    const payload = JSON.parse(stdout.output);
+    expect(payload.status).toBe('up-to-date');
+    expect(payload.marketplace).toBeUndefined();
+  });
 });
