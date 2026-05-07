@@ -32,16 +32,14 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Typecheck is a required gate as of v1.5.2 Phase 01.
-      # Lint, Format check, and Test remain advisory until v1.5.2 Phases
-      # 02–03 land — they're pre-existing v1.0 DEV-1D carryforward
-      # (documented in the v1.5.1 archive's pre_existing_issues). Build is
-      # also required (it validates the published bundle compiles).
+      # Typecheck is required as of v1.5.2 Phase 01.
+      # Lint is required as of v1.5.2 Phase 02.
+      # Format check and Test remain advisory until v1.5.2 Phase 03 lands.
+      # Build is also required (it validates the published bundle compiles).
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Lint
-        continue-on-error: true
         run: pnpm lint
 
       - name: Format check
