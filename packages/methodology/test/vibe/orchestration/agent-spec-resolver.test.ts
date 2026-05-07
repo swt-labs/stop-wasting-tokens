@@ -142,4 +142,27 @@ describe('resolveAgentSpec', () => {
       }),
     ).rejects.toThrow(ConfigError);
   });
+
+  it('cross-backend override path: model_overrides wins over Codex-specific TOML model regardless of which backend will consume it', async () => {
+    // Bundled agents-templates declare Codex-specific models (e.g. gpt-5-codex).
+    // For non-Codex backends, model_overrides[role] is the documented escape hatch.
+    const claudeOverride = parseConfig({
+      model_overrides: { dev: 'claude-sonnet-4-6' },
+    });
+    const ollamaOverride = parseConfig({
+      model_overrides: { dev: 'llama3.2' },
+    });
+    const claudeSpec = await resolveAgentSpec({
+      role: 'dev',
+      config: claudeOverride,
+      templates_dir: templatesDir,
+    });
+    const ollamaSpec = await resolveAgentSpec({
+      role: 'dev',
+      config: ollamaOverride,
+      templates_dir: templatesDir,
+    });
+    expect(claudeSpec.model).toBe('claude-sonnet-4-6');
+    expect(ollamaSpec.model).toBe('llama3.2');
+  });
 });
