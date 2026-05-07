@@ -6,11 +6,14 @@ passed: 17
 failed: 0
 total: 17
 date: 2026-05-07
-verified_at_commit: acb12a7ab5f1e9384a3ef7ab28db6a178d8f3317
+verified_at_commit: 23cec4bfa83bf8d0731af06b8fd91dd782dee50c
 writer: write-verification.sh
 plans_verified:
   - R01
 ---
+
+<!-- Freshness re-verification (2026-05-07): verified_at_commit refreshed from acb12a7 to 23cec4b after Phases 03-05 closed. Phase 02-modified files were touched additively in later phases: Config.ts gained a marketplace block (Plan 04-02), telemetry.endpoint+cache_ttl_hours fields (Plan 04-03), and a hooks block (Plan 05-03) — all additive, none alter Phase 02's R01-specific claims (backend enum, model_overrides record, mcp_overrides record, base ConfigSchema validation, agent-spec-resolver, LazyInstallSpawner, load-config helper, vibe.ts dispatch). All 17 R01 PASS claims still hold structurally at the new product head. -->
+
 
 ## Other Checks
 

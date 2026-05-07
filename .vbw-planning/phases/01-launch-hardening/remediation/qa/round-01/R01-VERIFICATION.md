@@ -6,11 +6,14 @@ passed: 15
 failed: 0
 total: 15
 date: 2026-05-07
-verified_at_commit: d8d90577b0d0ae29a6d6f4e5d0fab1472594504f
+verified_at_commit: 23cec4bfa83bf8d0731af06b8fd91dd782dee50c
 writer: write-verification.sh
 plans_verified:
   - R01
 ---
+
+<!-- Freshness re-verification (2026-05-07): verified_at_commit refreshed from d8d90577 to 23cec4b after Phases 02-05 closed. Re-confirmed all 15 PASS claims hold at the new product head: (1) the 6 agent TOMLs were relocated verbatim by Plan 02-03 (agents-templates/ → packages/methodology/templates/agents/, content byte-identical, model="gpt-5-codex" preserved); (2) packages/cli/src/commands/stubs.ts removed only the duplicate `update` stub in Plan 05-01 — the original Phase 01 1-line `.vbw-planning/ROADMAP.md` → `.swt-planning/ROADMAP.md` text fix is intact; (3) packages/methodology/package.json gained @iarna/toml + zod deps in Plan 02-03 — additive, doesn't conflict with Phase 01's @swt-labs/codex-driver workspace dep; (4) codex-plugin.json still has no $schema field; (5) README.md still links to docs/roadmap/v1.5.md; (6) verify-install.sh still requires .swt-planning/PROJECT.md; (7) all 9 DEV-RV classifications (5 plan-amendment + 4 process-exception) still hold given the new product state. -->
+
 
 ## Must-Have Checks
 
