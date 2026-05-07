@@ -8,7 +8,7 @@
 | Phase | Status | Plans | Tasks | Commits |
 |-------|--------|-------|-------|---------|
 | 01 | ● Done |
-| 02 | ○ Planned |
+| 02 | ◐ In Progress |
 | 03 | ○ Pending | | | |
 | 04 | ○ Pending | | | |
 | 05 | ○ Pending | | | |

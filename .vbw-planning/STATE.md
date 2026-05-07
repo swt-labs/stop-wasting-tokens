@@ -5,13 +5,13 @@
 
 ## Current Phase
 Phase: 2 of 5 (Codex Spawner)
-Plans: 0/3
-Progress: 0%
-Status: ready
+Plans: 1/3
+Progress: 33%
+Status: active
 
 ## Phase Status
 - **Phase 1 (Launch Hardening):** Complete
-- **Phase 2 (Codex Spawner):** Planned
+- **Phase 2 (Codex Spawner):** In progress
 - **Phase 3 (Multi Backend Drivers):** Pending
 - **Phase 4 (User Surfaces):** Pending
 - **Phase 5 (Methodology Infra):** Pending
