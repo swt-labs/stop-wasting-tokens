@@ -4,6 +4,7 @@ import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { statusHandler } from './commands/status.js';
 import { vibeHandler } from './commands/vibe.js';
+import { defaultWatchHandler } from './commands/watch.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
 import { updateHandler } from './commands/update.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
@@ -65,6 +66,11 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[--json] [--strict] [--registry=<url>] [--no-cache]',
     description: 'Check the npm registry for a newer published version',
     handler: updateHandler({ currentVersion: version }),
+  });
+  registry.register({
+    name: 'watch',
+    description: 'Open an Ink TUI dashboard scoped to the active milestone',
+    handler: defaultWatchHandler,
   });
 
   for (const spec of STUB_SPECS) {
