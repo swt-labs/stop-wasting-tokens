@@ -18,7 +18,7 @@ export function planAndExecuteHandler(
     kind: 'plan-and-execute',
     async run(route: VibeRoute, io: ModeIO): Promise<HandlerResult> {
       const planRoute: VibeRoute = {
-        kind: 'plan',
+        kind: 'plan-and-execute',
         ...(route.phase !== undefined ? { phase: route.phase } : {}),
         ...(route.phase_slug !== undefined ? { phase_slug: route.phase_slug } : {}),
         requires_confirmation: route.requires_confirmation,

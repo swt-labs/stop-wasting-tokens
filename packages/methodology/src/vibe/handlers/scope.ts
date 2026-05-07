@@ -91,7 +91,7 @@ async function runInteractiveScope(
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || `phase-${position}`;
-    phases.push({ position, name, slug, goal, success_criteria: [], requirements: [] });
+    phases.push({ position, name, slug, goal, status: 'pending', success_criteria: [], requirements: [] });
   }
 
   const project_name = await resolveProjectName(opts, io);

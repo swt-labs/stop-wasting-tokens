@@ -162,8 +162,8 @@ function defaultResolveTarget(
 ): { phase: string; slug: string } | undefined {
   if (route.phase === undefined || route.phase_slug === undefined) {
     throw new NotImplementedError(
-      'plan',
-      'Phase 9 / Plan 03b — interactive phase selection. Until then, target a phase explicitly via `swt vibe N`.',
+      'plan-and-execute',
+      'Phase 9 / Plan 03b — interactive phase selection for plan mode. Until then, target a phase explicitly via `swt vibe N`.',
     );
   }
   // route.phase_slug is "<NN>-<slug>" — strip the leading NN-.
