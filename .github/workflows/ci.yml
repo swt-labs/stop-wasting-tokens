@@ -34,7 +34,11 @@ jobs:
 
       # Typecheck is required as of v1.5.2 Phase 01.
       # Lint is required as of v1.5.2 Phase 02.
-      # Format check and Test remain advisory until v1.5.2 Phase 03 lands.
+      # Format check is required as of v1.5.2 Phase 03.
+      # Test remains advisory pending a dedicated test-debt cleanup
+      # milestone (the 33 failures are documented v1.0/DEV-1D-class
+      # carryforward and partly Prettier-induced fixture drift; closing
+      # them is bigger than this milestone's scope).
       # Build is also required (it validates the published bundle compiles).
       - name: Typecheck
         run: pnpm typecheck
@@ -43,7 +47,6 @@ jobs:
         run: pnpm lint
 
       - name: Format check
-        continue-on-error: true
         run: pnpm format:check
 
       - name: Test
