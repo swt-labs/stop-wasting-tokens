@@ -13,3 +13,4 @@ export * from './skills/installer.js';
 export * from './prompts/installer.js';
 export * from './spawn/parser.js';
 export * from './spawn/wrapper.js';
+export * from './spawner/index.js';
