@@ -5,8 +5,8 @@
 
 ## Current Phase
 Phase: 2 of 5 (Codex Spawner)
-Plans: 1/3
-Progress: 33%
+Plans: 2/3
+Progress: 66%
 Status: active
 
 ## Phase Status
