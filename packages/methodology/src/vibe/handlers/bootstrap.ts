@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -7,7 +7,6 @@ import {
   readDiscovery,
   writeAtomically,
   writeDiscovery,
-  writeOrUpdateClaudeMd,
   writeProject,
   writeRequirements,
   writeRoadmap,
@@ -153,15 +152,6 @@ export function bootstrapHandler(
       return { route, exit: 0, ranTo: 'completion' };
     },
   };
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    const st = await stat(path);
-    return st.isFile();
-  } catch {
-    return false;
-  }
 }
 
 function pickValue(

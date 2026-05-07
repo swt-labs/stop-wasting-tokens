@@ -56,7 +56,7 @@ export type VibeRoute =
  */
 export function routeFromState(
   state: PhaseDetectResult,
-  args: RouteArgs = {},
+  _args: RouteArgs = {},
 ): VibeRoute {
   // Priority 1
   if (!state.planning_dir_exists) {

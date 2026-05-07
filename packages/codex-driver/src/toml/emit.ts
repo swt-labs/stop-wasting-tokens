@@ -33,6 +33,10 @@ function emitScalar(value: string | number | boolean): string {
   return value ? 'true' : 'false';
 }
 
+function isTomlArray(value: TomlValue): value is readonly TomlValue[] {
+  return Array.isArray(value);
+}
+
 function isInlineTable(value: TomlValue): value is { readonly [key: string]: TomlValue } {
   return (
     typeof value === 'object' &&
@@ -42,7 +46,7 @@ function isInlineTable(value: TomlValue): value is { readonly [key: string]: Tom
 }
 
 function emitInlineValue(value: TomlValue): string {
-  if (Array.isArray(value)) {
+  if (isTomlArray(value)) {
     return `[${value.map((v) => emitInlineValue(v)).join(', ')}]`;
   }
   if (isInlineTable(value)) {
