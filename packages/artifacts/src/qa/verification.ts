@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { writeAtomically } from '../atomic-write.js';
-import { formatFrontmatter, parseFrontmatter } from '../frontmatter.js';
+import { formatFrontmatter, parseFrontmatter, safeStringify } from '../frontmatter.js';
 
 const ResultSchema = z.enum(['pass', 'fail', 'partial']);
 export type VerificationResult = z.infer<typeof ResultSchema>;
@@ -120,15 +120,15 @@ export async function readVerification(
   const { frontmatter, body } = parseFrontmatter<Record<string, unknown>>(raw);
   const sections = parseVerificationBody(body);
   const normalized = {
-    phase: String(frontmatter.phase ?? phase),
-    tier: String(frontmatter.tier ?? 'standard') as VerificationTier,
-    result: String(frontmatter.result ?? 'pass').toLowerCase() as VerificationResult,
+    phase: safeStringify(frontmatter.phase) || phase,
+    tier: (safeStringify(frontmatter.tier) || 'standard') as VerificationTier,
+    result: (safeStringify(frontmatter.result) || 'pass').toLowerCase() as VerificationResult,
     passed: Number(frontmatter.passed ?? 0),
     failed: Number(frontmatter.failed ?? 0),
     total: Number(frontmatter.total ?? 0),
-    date: String(frontmatter.date ?? ''),
+    date: safeStringify(frontmatter.date),
     plans_verified: toStringArray(frontmatter.plans_verified),
-    verified_at_commit: String(frontmatter.verified_at_commit ?? ''),
+    verified_at_commit: safeStringify(frontmatter.verified_at_commit),
     checks: sections.checks,
     artifact_checks: sections.artifact_checks,
     key_link_checks: sections.key_link_checks,

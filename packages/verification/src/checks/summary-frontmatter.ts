@@ -21,15 +21,22 @@ export function checkSummaryFrontmatter(
   for (const key of REQUIRED_KEYS) {
     if (!(key in frontmatter)) reasons.push(`missing ${key}`);
   }
-  if (frontmatter.phase !== undefined && !/^\d{2}$/.test(String(frontmatter.phase))) {
+  if (
+    frontmatter.phase !== undefined &&
+    (typeof frontmatter.phase !== 'string' || !/^\d{2}$/.test(frontmatter.phase))
+  ) {
     reasons.push('phase must be a 2-digit string');
   }
-  if (frontmatter.plan !== undefined && !/^\d{2}$/.test(String(frontmatter.plan))) {
+  if (
+    frontmatter.plan !== undefined &&
+    (typeof frontmatter.plan !== 'string' || !/^\d{2}$/.test(frontmatter.plan))
+  ) {
     reasons.push('plan must be a 2-digit string');
   }
   if (
     frontmatter.status !== undefined &&
-    !['complete', 'partial', 'failed', 'in-progress'].includes(String(frontmatter.status))
+    (typeof frontmatter.status !== 'string' ||
+      !['complete', 'partial', 'failed', 'in-progress'].includes(frontmatter.status))
   ) {
     reasons.push('status must be one of complete | partial | failed | in-progress');
   }

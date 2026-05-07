@@ -170,7 +170,24 @@ function formatScalarYaml(obj: Record<string, unknown>): string {
       lines.push(`${key}: ${JSON.stringify(value)}`);
       continue;
     }
-    lines.push(`${key}: ${String(value)}`);
+    if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+      lines.push(`${key}: ${String(value)}`);
+      continue;
+    }
+    // Fallback for any other shape (bigint, symbol, etc) — JSON stringify it.
+    lines.push(`${key}: ${JSON.stringify(value)}`);
   }
   return lines.length === 0 ? '' : `${lines.join('\n')}\n`;
+}
+
+/**
+ * Safely stringify an unknown frontmatter value for inclusion in user-facing
+ * messages or paths. Returns `''` for objects, arrays, and other non-scalar
+ * values rather than the meaningless `[object Object]`. Strings, numbers,
+ * and booleans are stringified normally.
+ */
+export function safeStringify(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
 }

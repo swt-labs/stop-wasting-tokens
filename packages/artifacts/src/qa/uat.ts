@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { writeAtomically } from '../atomic-write.js';
-import { formatFrontmatter, parseFrontmatter } from '../frontmatter.js';
+import { formatFrontmatter, parseFrontmatter, safeStringify } from '../frontmatter.js';
 
 const SeveritySchema = z.enum(['critical', 'major', 'minor', 'cosmetic']);
 export type IssueSeverity = z.infer<typeof SeveritySchema>;
@@ -105,11 +105,11 @@ export async function readUat(phaseDir: string, phase: string): Promise<UatDoc> 
   const raw = await readFile(path, 'utf8');
   const { frontmatter, body } = parseFrontmatter<Record<string, unknown>>(raw);
   const normalized = {
-    phase: String(frontmatter.phase ?? phase),
+    phase: safeStringify(frontmatter.phase) || phase,
     plan_count: Number(frontmatter.plan_count ?? 0),
     status: (frontmatter.status as UatStatus | undefined) ?? 'complete',
-    started: String(frontmatter.started ?? frontmatter.completed ?? ''),
-    completed: String(frontmatter.completed ?? frontmatter.started ?? ''),
+    started: safeStringify(frontmatter.started) || safeStringify(frontmatter.completed),
+    completed: safeStringify(frontmatter.completed) || safeStringify(frontmatter.started),
     total_tests: Number(frontmatter.total_tests ?? 0),
     passed: Number(frontmatter.passed ?? 0),
     skipped: Number(frontmatter.skipped ?? 0),

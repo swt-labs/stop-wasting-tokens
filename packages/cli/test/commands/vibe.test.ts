@@ -238,10 +238,8 @@ function devHandoffJson(): string {
 function startOllamaStubServer(handoffJson: string): Promise<{ port: number; server: Server }> {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk;
-      });
+      // Drain the request body — the stub doesn't inspect it.
+      req.on('data', () => {});
       req.on('end', () => {
         // Emit a single text chunk containing the entire handoff JSON, then a final done line.
         const stream = [

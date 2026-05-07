@@ -71,7 +71,7 @@ export async function scanMilestoneUat(planningDir: string): Promise<MilestoneUa
       try {
         const raw = await readFile(uatPath, 'utf8');
         const { frontmatter } = parseFrontmatter(raw);
-        const status = String(frontmatter.status ?? '').toLowerCase();
+        const status = (typeof frontmatter.status === 'string' ? frontmatter.status : '').toLowerCase();
         if (status !== 'issues_found') continue;
         const isMajor =
           Boolean(frontmatter.major_or_higher) ||

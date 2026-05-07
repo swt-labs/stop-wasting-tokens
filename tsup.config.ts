@@ -1,10 +1,21 @@
 import { defineConfig } from 'tsup';
 
+interface EsbuildPluginBuild {
+  onResolve(
+    options: { filter: RegExp },
+    callback: (args: { path: string }) => { path: string; namespace: string },
+  ): void;
+  onLoad(
+    options: { filter: RegExp; namespace: string },
+    callback: () => { contents: string; loader: string },
+  ): void;
+}
+
 const stubDevDeps = {
   name: 'stub-ink-devtools',
-  setup(build: { onResolve: Function; onLoad: Function }): void {
+  setup(build: EsbuildPluginBuild): void {
     const filter = /^(react-devtools-core)$/;
-    build.onResolve({ filter }, (args: { path: string }) => ({
+    build.onResolve({ filter }, (args) => ({
       path: args.path,
       namespace: 'stubbed',
     }));

@@ -75,5 +75,7 @@ function formatValue(value: unknown): string {
   if (value === null) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'number') return String(value);
-  return String(value);
+  if (typeof value === 'string') return value;
+  // Fallback: any non-scalar (object, array) — JSON-encode rather than emit `[object Object]`.
+  return JSON.stringify(value);
 }

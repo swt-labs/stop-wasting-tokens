@@ -69,7 +69,7 @@ export function watchHandler(opts: WatchOptions = {}): CommandHandler {
       return EXIT.SUCCESS;
     }
 
-    const handle = (opts.watcherFactory ?? defaultWatcherFactory)(planningDir, async () => {
+    const onChange = async (): Promise<void> => {
       try {
         const fresh = await detectPhase({ cwd: io.cwd });
         const next: WatchSnapshot = {
@@ -82,18 +82,24 @@ export function watchHandler(opts: WatchOptions = {}): CommandHandler {
       } catch {
         // Swallow errors during re-detect — keep the dashboard responsive.
       }
+    };
+    const handle = (opts.watcherFactory ?? defaultWatcherFactory)(planningDir, () => {
+      void onChange();
     });
 
     return new Promise<ExitCode>((resolve) => {
       const cleanup = async (): Promise<void> => {
-        process.off('SIGINT', cleanup);
-        process.off('SIGTERM', cleanup);
+        process.off('SIGINT', signalHandler);
+        process.off('SIGTERM', signalHandler);
         await handle.close();
         renderer.unmount();
         resolve(EXIT.SUCCESS);
       };
-      process.on('SIGINT', cleanup);
-      process.on('SIGTERM', cleanup);
+      function signalHandler(): void {
+        void cleanup();
+      }
+      process.on('SIGINT', signalHandler);
+      process.on('SIGTERM', signalHandler);
     });
   };
 }

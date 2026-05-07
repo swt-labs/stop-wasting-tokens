@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 import { formatFrontmatter, parseFrontmatter } from '../frontmatter.js';
 
-const VerdictSchema = z.enum(['pass', 'fail', 'partial', 'deferred']);
-export type AcVerdict = z.infer<typeof VerdictSchema>;
+export type AcVerdict = 'pass' | 'fail' | 'partial' | 'deferred';
 
 const RawAcResultSchema = z
   .object({
