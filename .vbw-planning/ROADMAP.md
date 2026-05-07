@@ -10,8 +10,8 @@
 | 01 | ● Done |
 | 02 | ● Done |
 | 03 | ● Done |
-| 04 | ○ Planned |
-| 05 | ○ Pending | | | |
+| 04 | ● Done |
+| 05 | ○ Planned |
 
 ---
 
@@ -19,7 +19,7 @@
 - [x] [Phase 1: v1.0 launch hardening](#phase-1-v10-launch-hardening)
 - [x] [Phase 2: F1 — Real Codex AgentSpawner wiring](#phase-2-f1--real-codex-agentspawner-wiring)
 - [x] [Phase 3: F2 + F3 — Multi-backend drivers](#phase-3-f2--f3--multi-backend-drivers)
-- [ ] [Phase 4: F4 + F5 + F8 — User-facing surfaces](#phase-4-f4--f5--f8--user-facing-surfaces)
+- [x] [Phase 4: F4 + F5 + F8 — User-facing surfaces](#phase-4-f4--f5--f8--user-facing-surfaces)
 - [ ] [Phase 5: F6 + F7 — Methodology infrastructure](#phase-5-f6--f7--methodology-infrastructure)
 
 ---
