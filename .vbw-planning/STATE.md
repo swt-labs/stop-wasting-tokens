@@ -4,15 +4,15 @@
 **Milestone:** v1.5.1 — Codex SDK conformance
 
 ## Current Phase
-Phase: 1 of 3
+Phase: 2 of 3 (Plugin Marketplace Prep)
 Plans: 0/0
 Progress: 0%
 Status: ready
 
 ## Phase Status
-- **Phase 1:** Pending planning
-- **Phase 2:** Pending
-- **Phase 3:** Pending
+- **Phase 1 (Sdk Critical Conformance):** Complete
+- **Phase 2 (Plugin Marketplace Prep):** Pending
+- **Phase 3 (Hook Integration Cleanup):** Pending
 
 ## Key Decisions
 | Decision | Date | Rationale |

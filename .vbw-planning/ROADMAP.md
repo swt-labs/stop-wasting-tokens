@@ -12,7 +12,7 @@
 
 | Phase | Name | Status | Plans | UAT |
 |-------|------|--------|-------|-----|
-| 01 | ○ Planned |
+| 01 | ● Done |
 | 02 | Plugin Marketplace Prep | not started | 0 | — |
 | 03 | Hook Integration & Drift Cleanup | not started | 0 | — |
 
