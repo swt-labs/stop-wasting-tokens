@@ -1,0 +1,28 @@
+{/*
+ * Hand-authored prose for `swt` CLI commands.
+ * Markers: PROSE:override-cli-<command-name>
+ */}
+
+{/* PROSE:override-cli-vibe */}
+The `vibe` command is the SDLC entry point. With no arguments, it routes based on the current planning state (init-redirect → bootstrap → scope → plan → execute → verify → archive). Pass a phase number (`swt vibe 03`) or a mode flag (`swt vibe --plan 03`) to target a specific stage.
+{/* /PROSE */}
+
+{/* PROSE:override-cli-watch */}
+Opens an Ink TUI dashboard scoped to the active milestone. Updates within 1 second on `.swt-planning/` file-system changes. Read-only — does not modify any files. Ctrl+C exits cleanly. See [F4 in the v1.5 roadmap](/roadmap/v1.5#f4-ink-tui-watch).
+{/* /PROSE */}
+
+{/* PROSE:override-cli-update */}
+Checks the npm registry for a newer published version. With `config.marketplace.endpoint` set, also queries the Codex Plugin Marketplace and flags any version divergence between the two sources. `--no-marketplace` skips the marketplace path even when configured.
+{/* /PROSE */}
+
+{/* PROSE:override-cli-config */}
+Read or update SWT configuration. `swt config show` prints the resolved config; `swt config get <key>` returns a single value; `swt config set <key> <value>` mutates `.swt-planning/config.json`. Validation runs through `ConfigSchema`, so invalid values are rejected with a clear error.
+{/* /PROSE */}
+
+{/* PROSE:override-cli-doctor */}
+Checks that SWT prerequisites are installed (Node version, git availability, optional Codex/Claude/Ollama CLIs depending on `config.backend`). Run after `swt init` to catch environment issues before the first `swt vibe`.
+{/* /PROSE */}
+
+{/* PROSE:override-cli-detect-phase */}
+Prints the computed phase-detection state (JSON by default; `--bash-format` for shell-script consumption). Useful for debugging routing or for shell hooks that need to read the current phase state.
+{/* /PROSE */}

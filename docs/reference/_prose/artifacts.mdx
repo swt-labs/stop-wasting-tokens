@@ -1,0 +1,32 @@
+{/*
+ * Hand-authored prose for `@swt-labs/artifacts` Zod schemas.
+ * Markers: PROSE:override-artifacts-<schema-name>
+ */}
+
+{/* PROSE:override-artifacts-PlanFrontmatterSchema */}
+A PLAN.md file's YAML frontmatter declares the contract for a single Lead → Dev handoff. The `must_haves` block is the verification contract: QA reads it back to validate the plan was executed correctly. The `files_modified` array is enforced by the PreToolUse hook — Dev cannot edit files outside this list without amending the plan first.
+{/* /PROSE */}
+
+{/* PROSE:override-artifacts-SummaryFrontmatterSchema */}
+A SUMMARY.md file's YAML frontmatter is the Dev → QA handoff. The `status` field gates phase routing: `complete` means the plan's must_haves were met; `partial` flags an unfinished plan that needs another Dev pass; `failed` blocks the phase from advancing. The `deviations` array surfaces during QA and gets classified during Round 01 remediation.
+{/* /PROSE */}
+
+{/* PROSE:override-artifacts-RoadmapSchema */}
+A ROADMAP.md frontmatter declares the milestone scope: phases (with names + slugs + completion status) plus the requirement IDs the milestone targets. The methodology layer reads this on every `swt vibe` invocation to compute routing.
+{/* /PROSE */}
+
+{/* PROSE:override-artifacts-ProjectFrontmatterSchema */}
+A PROJECT.md frontmatter declares the immutable project metadata (name + description). Set once during `swt init` bootstrap and rarely edited afterwards.
+{/* /PROSE */}
+
+{/* PROSE:override-artifacts-ResearchFrontmatterSchema */}
+A RESEARCH.md frontmatter declares the Scout output for a phase or plan. The `findings` array is the canonical research surface that downstream Lead + Dev agents consume.
+{/* /PROSE */}
+
+{/* PROSE:override-artifacts-RemediationPlanFrontmatterSchema */}
+An R{NN}-PLAN.md frontmatter for a QA remediation round. The `fail_classifications` array (one entry per FAIL row in the source verification) is the contract the deterministic gate validates — every entry must classify as code-fix / plan-amendment / process-exception.
+{/* /PROSE */}
+
+{/* PROSE:override-artifacts-RemediationSummaryFrontmatterSchema */}
+An R{NN}-SUMMARY.md frontmatter for a QA remediation round. Mirrors the SUMMARY.md shape (status, tasks_completed, files_modified, deviations) but is scoped to a remediation round rather than an original plan.
+{/* /PROSE */}

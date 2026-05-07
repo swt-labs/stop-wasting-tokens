@@ -43,7 +43,7 @@ export const STUB_SPECS: readonly StubSpec[] = [
   { name: 'todo', description: 'Manage the STATE.md todo list', roadmap_phase: 'Phase 7' },
   { name: 'skills', description: 'Search and install skills', roadmap_phase: 'Phase 9' },
   { name: 'whats-new', description: 'Show recent SWT release notes', roadmap_phase: 'Phase 9' },
-  { name: 'update', description: 'Update SWT to the latest version', roadmap_phase: 'Phase 10' },
+  // `update` is registered as a real command in main.ts (Phase 04 / Plan 04-02 added marketplace dispatch alongside npm); the stub entry was pre-existing v1.0 carryforward and removed here to fix the duplicate-registration error that surfaced when scripts/docs-gen.ts called buildRegistry().
   { name: 'uninstall', description: 'Uninstall SWT', roadmap_phase: 'Phase 10' },
   { name: 'worktree', description: 'Manage milestone worktrees', roadmap_phase: 'Phase 7' },
   { name: 'lease', description: 'Acquire / release file locks', roadmap_phase: 'Phase 7' },

@@ -1,0 +1,72 @@
+{/*
+ * Hand-authored "When to override" prose for `config.json` keys.
+ *
+ * Each block is identified by a marker comment in the form
+ * `PROSE:override-config-<key>`. The codegen at scripts/docs-gen.ts
+ * inlines these blocks into docs/reference/config.mdx at matching
+ * marker locations. Keys without a block here render as
+ * `_(no override guidance documented)_` in the generated output.
+ *
+ * To add prose for a new key, append a new PROSE block keyed by the
+ * key name. Run `pnpm docs:gen` to regenerate.
+ */}
+
+{/* PROSE:override-config-effort */}
+`turbo` for prototypes, `thorough` for production. See [effort levels](/concepts/effort-levels).
+{/* /PROSE */}
+
+{/* PROSE:override-config-autonomy */}
+`pure-vibe` for solo mature projects, `cautious` for regulated work. See [autonomy levels](/concepts/autonomy-levels).
+{/* /PROSE */}
+
+{/* PROSE:override-config-verification_tier */}
+`"thorough"` for security-sensitive code or before a customer-facing release.
+{/* /PROSE */}
+
+{/* PROSE:override-config-model_profile */}
+`"fast"` to save tokens during iteration; `"quality"` is the default for shipping work.
+{/* /PROSE */}
+
+{/* PROSE:override-config-backend */}
+`"codex"` is the default and most-tested path. Switch to `"claude-code"` when running against the Claude Code CLI; `"ollama"` for local-only inference. Cross-backend model resolution requires `model_overrides[role]` to be set to a backend-appropriate value (see Phase 03 / Plan 03-05's cross-backend-model-gap notes).
+{/* /PROSE */}
+
+{/* PROSE:override-config-prefer_teams */}
+`"never"` if your environment cannot reliably create real team-scoped teammates (e.g., pure-CLI Codex without team support).
+{/* /PROSE */}
+
+{/* PROSE:override-config-agent_max_turns */}
+Bump `qa` if your QA agent regularly hits the cap on dense phases. The shipped defaults (15/25/30/80/50/75 for scout/qa/architect/debugger/lead/dev) reflect the v1.0 ship's empirical floor.
+{/* /PROSE */}
+
+{/* PROSE:override-config-model_overrides */}
+Pin a specific model for a role: `{ "qa": "gpt-5-codex", "dev": "gpt-5-codex-thinking" }`. Required for non-Codex backends because the bundled agents-templates declare Codex-specific model identifiers.
+{/* /PROSE */}
+
+{/* PROSE:override-config-mcp_overrides */}
+Override the MCP server allow-list for a specific role. The default is whatever the agents-templates `{role}.toml` declares.
+{/* /PROSE */}
+
+{/* PROSE:override-config-auto_uat */}
+`false` to require explicit `swt vibe --verify` invocations. The default `true` is right for solo / pure-vibe workflows; teams may prefer explicit verification gates.
+{/* /PROSE */}
+
+{/* PROSE:override-config-planning_tracking */}
+`"commit"` when planning history should ship with code commits; `"ignore"` for personal exploration repos where `.swt-planning/` shouldn't appear in git.
+{/* /PROSE */}
+
+{/* PROSE:override-config-auto_push */}
+`"after_phase"` for solo projects with a remote; `"always"` only for ephemeral branches.
+{/* /PROSE */}
+
+{/* PROSE:override-config-telemetry */}
+Telemetry is opt-in, anonymous (UUIDv4 per machine), and sanitized at the client. Set `enabled: true` + `endpoint: "https://your-collector.example.com/ingest"` to wire the production HttpSender. The privacy contract is preserved: no PII, no machine identifiers, no auth headers.
+{/* /PROSE */}
+
+{/* PROSE:override-config-marketplace */}
+The Codex Plugin Marketplace API surface is reserved for when the marketplace publishes their endpoint. When set, `swt update` queries both npm and the marketplace, surfacing any version divergence. Default is undefined → marketplace lookup stays dormant.
+{/* /PROSE */}
+
+{/* PROSE:override-config-hooks */}
+Wire shell scripts to SDLC lifecycle events. Each event accepts an optional `{ script_path: "..." }` block. The script runs synchronously when the event fires; non-zero exit aborts the lifecycle action (e.g., `pre_archive` exiting 1 aborts the archive). See `templates/hooks/*.sample.sh` for shell script templates.
+{/* /PROSE */}
