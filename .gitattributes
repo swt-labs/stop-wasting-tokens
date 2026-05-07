@@ -1,0 +1,34 @@
+# Normalize line endings to LF for all text files on checkout, regardless of
+# the user's `core.autocrlf` setting. Without this, Windows checks out CRLF
+# and Prettier's `--check` (which expects LF per its default `endOfLine: lf`)
+# fails on the entire repo.
+#
+# `text=auto` lets git detect text vs binary heuristically. `eol=lf` then
+# forces LF on checkout for everything classified as text. Binaries
+# (images, archives, etc) are left alone.
+
+* text=auto eol=lf
+
+# Explicit binary classifications (defensive — git's auto-detect is usually
+# right for these, but pinning prevents regressions if a new file with the
+# same extension is mis-detected).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+*.pdf binary
+*.zip binary
+*.tgz binary
+*.tar binary
+*.gz binary
+
+# Shell scripts MUST be LF — running `.sh` files with CRLF on Linux fails
+# with `bad interpreter` errors.
+*.sh text eol=lf
+
+# package-lock.json and pnpm-lock.yaml are large generated files — disable
+# diff to keep `git diff` output readable.
+package-lock.json -diff
+pnpm-lock.yaml -diff
