@@ -1,4 +1,13 @@
+import { readFileSync } from 'node:fs';
+
 import { defineConfig } from 'tsup';
+
+// Source-of-truth: read the published version from package.json at build time
+// and inject it as a global identifier via esbuild's `define`. The CLI's
+// `swt --version` reads this constant; without injection, the source has a
+// fallback of '0.0.0-dev' so test runs (vitest, tsx) get a sensible value
+// without touching the bundle path.
+const pkg = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
 interface EsbuildPluginBuild {
   onResolve(
@@ -40,6 +49,9 @@ export default defineConfig({
   platform: 'node',
   shims: true,
   esbuildPlugins: [stubDevDeps],
+  define: {
+    __SWT_VERSION__: JSON.stringify(pkg.version),
+  },
   outExtension({ format }) {
     return { js: format === 'esm' ? '.mjs' : '.cjs' };
   },
