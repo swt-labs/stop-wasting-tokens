@@ -33,8 +33,9 @@ export class OllamaAgentSpawner implements AgentSpawner {
     this.#fetch = opts.fetch ?? globalThis.fetch;
   }
 
-  async installAgent(spec: AgentSpec): Promise<void> {
+  installAgent(spec: AgentSpec): Promise<void> {
     this.#installed.set(spec.role, spec);
+    return Promise.resolve();
   }
 
   async spawn(request: SpawnRequest): Promise<SpawnResult> {
@@ -55,8 +56,9 @@ export class OllamaAgentSpawner implements AgentSpawner {
     return spawnOllama(effectiveRequest, flags);
   }
 
-  async removeAgent(role: AgentRole): Promise<void> {
+  removeAgent(role: AgentRole): Promise<void> {
     this.#installed.delete(role);
+    return Promise.resolve();
   }
 
   /** Test seam: report which roles are currently installed. */

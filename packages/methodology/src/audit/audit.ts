@@ -53,14 +53,14 @@ export async function runArchiveAudit(
   return { status: aggregate, checks };
 }
 
-async function auditRoadmapCompleteness(roadmap: string): Promise<AuditCheck> {
+function auditRoadmapCompleteness(roadmap: string): Promise<AuditCheck> {
   if (roadmap.length === 0) {
-    return {
+    return Promise.resolve({
       id: 'roadmap_completeness',
       title: 'Roadmap completeness',
       status: 'fail',
       details: ['ROADMAP.md missing'],
-    };
+    });
   }
   const sections = splitPhaseSections(roadmap);
   const missing: string[] = [];
@@ -69,12 +69,12 @@ async function auditRoadmapCompleteness(roadmap: string): Promise<AuditCheck> {
       missing.push(s.heading);
     }
   }
-  return {
+  return Promise.resolve({
     id: 'roadmap_completeness',
     title: 'Roadmap completeness',
     status: missing.length > 0 ? 'fail' : 'pass',
     details: missing.map((h) => `${h} has no concrete Goal`),
-  };
+  });
 }
 
 async function auditPhasePlanning(

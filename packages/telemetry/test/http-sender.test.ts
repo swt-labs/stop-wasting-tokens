@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { TelemetryEvent } from '../src/events.js';
 import { HttpSender } from '../src/http-sender.js';

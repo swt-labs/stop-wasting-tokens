@@ -28,8 +28,8 @@ const STUB_SPECS: readonly StubSpec[] = [
 export function stubHandler(spec: StubSpec): ModeHandler {
   return {
     kind: spec.kind,
-    async run(route: VibeRoute, _io: ModeIO): Promise<HandlerResult> {
-      throw new NotImplementedError(route.kind, spec.roadmap_pointer);
+    run(route: VibeRoute, _io: ModeIO): Promise<HandlerResult> {
+      return Promise.reject(new NotImplementedError(route.kind, spec.roadmap_pointer));
     },
   };
 }

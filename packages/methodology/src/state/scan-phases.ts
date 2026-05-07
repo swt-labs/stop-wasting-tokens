@@ -110,7 +110,7 @@ async function readVerification(path: string): Promise<VerificationSnapshot> {
   try {
     const raw = await readFile(path, 'utf8');
     const { frontmatter } = parseFrontmatter(raw);
-    const result = String(frontmatter.result ?? '').toUpperCase();
+    const result = (typeof frontmatter.result === 'string' ? frontmatter.result : '').toUpperCase();
     return {
       filename,
       result:
@@ -132,7 +132,7 @@ async function readUat(path: string): Promise<UatSnapshot> {
   try {
     const raw = await readFile(path, 'utf8');
     const { frontmatter } = parseFrontmatter(raw);
-    const status = String(frontmatter.status ?? '').toLowerCase();
+    const status = (typeof frontmatter.status === 'string' ? frontmatter.status : '').toLowerCase();
     return {
       filename,
       status:

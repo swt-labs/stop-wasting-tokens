@@ -86,7 +86,7 @@ export async function resolveAgentSpec(
     );
   }
   if (parsed.role !== undefined && !isAgentRole(parsed.role)) {
-    throw new ConfigError(`${tomlPath} declares an invalid role: ${String(parsed.role)}`);
+    throw new ConfigError(`${tomlPath} declares an invalid role: ${JSON.stringify(parsed.role)}`);
   }
 
   const tomlModel = typeof parsed.model === 'string' ? parsed.model : undefined;
@@ -142,7 +142,7 @@ function resolveReasoningEffort(value: unknown, tomlPath: string): CodexReasonin
     return value as CodexReasoningEffort;
   }
   throw new ConfigError(
-    `${tomlPath} has invalid model_reasoning_effort: ${String(value)} (expected one of ${CODEX_REASONING_EFFORTS.join(', ')})`,
+    `${tomlPath} has invalid model_reasoning_effort: ${JSON.stringify(value)} (expected one of ${CODEX_REASONING_EFFORTS.join(', ')})`,
   );
 }
 
@@ -165,6 +165,6 @@ function resolveSandboxMode(value: unknown, tomlPath: string): SandboxMode | und
     return value as SandboxMode;
   }
   throw new ConfigError(
-    `${tomlPath} has invalid sandbox_mode: ${String(value)} (expected one of ${SANDBOX_MODES.join(', ')})`,
+    `${tomlPath} has invalid sandbox_mode: ${JSON.stringify(value)} (expected one of ${SANDBOX_MODES.join(', ')})`,
   );
 }

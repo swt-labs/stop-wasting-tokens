@@ -72,7 +72,7 @@ function coercePlan(raw: Record<string, unknown>): Record<string, unknown> {
     out.wave = Number.parseInt(out.wave, 10);
   }
   if (Array.isArray(out.must_haves)) {
-    out.must_haves = out.must_haves.map((m) => {
+    out.must_haves = (out.must_haves as readonly unknown[]).map((m: unknown) => {
       if (typeof m === 'object' && m !== null && 'truths' in m) {
         return MustHaveBlockSchema.parse(m);
       }

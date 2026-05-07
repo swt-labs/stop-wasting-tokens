@@ -9,10 +9,16 @@ export function checkPlanFrontmatter(
   for (const key of REQUIRED_KEYS) {
     if (!(key in frontmatter)) reasons.push(`missing ${key}`);
   }
-  if (frontmatter.phase !== undefined && !/^\d{2}$/.test(String(frontmatter.phase))) {
+  if (
+    frontmatter.phase !== undefined &&
+    (typeof frontmatter.phase !== 'string' || !/^\d{2}$/.test(frontmatter.phase))
+  ) {
     reasons.push('phase must be a 2-digit string');
   }
-  if (frontmatter.plan !== undefined && !/^\d{2}$/.test(String(frontmatter.plan))) {
+  if (
+    frontmatter.plan !== undefined &&
+    (typeof frontmatter.plan !== 'string' || !/^\d{2}$/.test(frontmatter.plan))
+  ) {
     reasons.push('plan must be a 2-digit string');
   }
   const mustHaves = frontmatter.must_haves;
