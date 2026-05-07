@@ -4,8 +4,8 @@
 # gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.2.
 # Valid reasoning_effort: minimal | low | medium | high | xhigh.
 # `allowed_mcp_servers` below lists illustrative identifiers — replace with
-# the real MCP server names registered in your `~/.codex/mcp.json` (or omit
-# servers you don't have configured).
+# the real MCP server names declared in `[mcp_servers.<name>]` blocks of
+# your `~/.codex/config.toml` (or omit servers you don't have configured).
 name = "qa"
 description = "Verification agent. Use to assert plan-claimed must_haves are met by the actual product code."
 role = "qa"
