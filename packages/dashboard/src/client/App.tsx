@@ -1,3 +1,4 @@
+import Resizable from '@corvu/resizable';
 import { Show, createMemo, onCleanup, onMount, type Component } from 'solid-js';
 
 import { AgentTimeline } from './components/AgentTimeline.js';
@@ -9,6 +10,7 @@ import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
+import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
 
 export const App: Component = () => {
@@ -34,6 +36,14 @@ export const App: Component = () => {
     void actions.selectArtifact(phaseSlug, artifactName);
   };
 
+  const initialLayout = loadLayout();
+  const layout: DashboardLayout = {
+    main: [...initialLayout.main],
+    center: [...initialLayout.center],
+    right: [...initialLayout.right],
+  };
+  const persist = (): void => saveLayout(layout);
+
   return (
     <div class="app-shell">
       <TopBar
@@ -52,48 +62,124 @@ export const App: Component = () => {
         }
       >
         <main class="app-body">
-          <div class="panel">
-            <Show
-              when={phases().length > 0}
-              fallback={
-                <div class="preview-panel-empty">
-                  No phases yet. Run <code>swt vibe</code> from your terminal to scope a milestone,
-                  or type <code>help</code> in the command bar above for available subcommands.
-                </div>
-              }
+          <Resizable
+            orientation="horizontal"
+            initialSizes={initialLayout.main}
+            onSizesChange={(sizes) => {
+              layout.main = sizes;
+              persist();
+            }}
+            class="resizable-root resizable-root-h"
+          >
+            <Resizable.Panel
+              initialSize={initialLayout.main[0]}
+              minSize={0.08}
+              class="panel resizable-panel"
             >
-              <PhaseStepper
+              <Show
+                when={phases().length > 0}
+                fallback={
+                  <div class="preview-panel-empty">
+                    No phases yet. Run <code>swt vibe</code> from your terminal to scope a
+                    milestone, or type <code>help</code> in the command bar above for available
+                    subcommands.
+                  </div>
+                }
+              >
+                <PhaseStepper
+                  phases={phases()}
+                  currentIndex={state.snapshot?.milestone?.phase_index ?? 1}
+                  selectedPhase={selectedPhaseSlug()}
+                  onSelect={handleSelect}
+                />
+              </Show>
+            </Resizable.Panel>
+            <Resizable.Handle class="resizable-handle resizable-handle-h" aria-label="Resize phase column" />
+            <Resizable.Panel
+              initialSize={initialLayout.main[1]}
+              minSize={0.08}
+              class="panel resizable-panel"
+            >
+              <ArtifactTree
                 phases={phases()}
-                currentIndex={state.snapshot?.milestone?.phase_index ?? 1}
-                selectedPhase={selectedPhaseSlug()}
+                selected={state.selectedArtifact}
                 onSelect={handleSelect}
               />
-            </Show>
-          </div>
-          <div class="panel">
-            <ArtifactTree
-              phases={phases()}
-              selected={state.selectedArtifact}
-              onSelect={handleSelect}
-            />
-          </div>
-          <div class="app-body-center">
-            <ArtifactPreview
-              selected={state.selectedArtifact}
-              rendered={renderedArtifact()}
-              loading={state.artifactLoading}
-              error={state.artifactError}
-              onRetry={() => {
-                const sel = state.selectedArtifact;
-                if (sel) handleSelect(sel.phase, sel.name);
-              }}
-            />
-            <LogPanel lines={state.recentLogLines} />
-          </div>
-          <div class="app-body-right">
-            <AgentTimeline events={state.snapshot?.recent_events ?? []} />
-            <CostPanel cost={state.snapshot?.cost_summary ?? null} />
-          </div>
+            </Resizable.Panel>
+            <Resizable.Handle class="resizable-handle resizable-handle-h" aria-label="Resize artifact tree" />
+            <Resizable.Panel
+              initialSize={initialLayout.main[2]}
+              minSize={0.25}
+              class="resizable-panel resizable-stack"
+            >
+              <Resizable
+                orientation="vertical"
+                initialSizes={initialLayout.center}
+                onSizesChange={(sizes) => {
+                  layout.center = sizes;
+                  persist();
+                }}
+                class="resizable-root resizable-root-v"
+              >
+                <Resizable.Panel
+                  initialSize={initialLayout.center[0]}
+                  minSize={0.15}
+                  class="resizable-panel"
+                >
+                  <ArtifactPreview
+                    selected={state.selectedArtifact}
+                    rendered={renderedArtifact()}
+                    loading={state.artifactLoading}
+                    error={state.artifactError}
+                    onRetry={() => {
+                      const sel = state.selectedArtifact;
+                      if (sel) handleSelect(sel.phase, sel.name);
+                    }}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle class="resizable-handle resizable-handle-v" aria-label="Resize preview / log" />
+                <Resizable.Panel
+                  initialSize={initialLayout.center[1]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <LogPanel lines={state.recentLogLines} />
+                </Resizable.Panel>
+              </Resizable>
+            </Resizable.Panel>
+            <Resizable.Handle class="resizable-handle resizable-handle-h" aria-label="Resize right column" />
+            <Resizable.Panel
+              initialSize={initialLayout.main[3]}
+              minSize={0.1}
+              class="resizable-panel resizable-stack"
+            >
+              <Resizable
+                orientation="vertical"
+                initialSizes={initialLayout.right}
+                onSizesChange={(sizes) => {
+                  layout.right = sizes;
+                  persist();
+                }}
+                class="resizable-root resizable-root-v"
+              >
+                <Resizable.Panel
+                  initialSize={initialLayout.right[0]}
+                  minSize={0.2}
+                  class="resizable-panel"
+                >
+                  <AgentTimeline events={state.snapshot?.recent_events ?? []} />
+                </Resizable.Panel>
+                <Resizable.Handle class="resizable-handle resizable-handle-v" aria-label="Resize agents / cost" />
+                <Resizable.Panel
+                  initialSize={initialLayout.right[1]}
+                  minSize={0.15}
+                  class="resizable-panel"
+                >
+                  <CostPanel cost={state.snapshot?.cost_summary ?? null} />
+                </Resizable.Panel>
+              </Resizable>
+            </Resizable.Panel>
+          </Resizable>
         </main>
       </Show>
       <UatModal
