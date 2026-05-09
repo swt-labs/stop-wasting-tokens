@@ -64,11 +64,15 @@ jobs:
               else
                 PNPM_HOME="${HOME}/.local/share/pnpm"
               fi
-              mkdir -p "${PNPM_HOME}"
+              # pnpm's global *bin* lives at $PNPM_HOME/bin (not at the
+              # config root). Both must exist before `pnpm add -g`, and
+              # the bin dir must be on PATH for the same step.
+              PNPM_BIN="${PNPM_HOME}/bin"
+              mkdir -p "${PNPM_BIN}"
               export PNPM_HOME
-              export PATH="${PNPM_HOME}:${PATH}"
+              export PATH="${PNPM_BIN}:${PATH}"
               echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
-              echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
+              echo "${PNPM_BIN}" >> "${GITHUB_PATH}"
               pnpm add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             bun)
