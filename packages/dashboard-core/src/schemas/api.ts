@@ -99,6 +99,15 @@ export type VibeStartBody = z.infer<typeof VibeStartBodySchema>;
 export const VibeStartResponseSchema = z.object({
   session_id: z.string().min(1),
   state: z.enum(['idle', 'running', 'awaiting-reply', 'completed', 'failed', 'expired']),
+  /**
+   * Whether the daemon has an agent backend configured. When `'none'`, the
+   * session was created but no agent will run — the caller saw idle-state
+   * and should surface a setup hint to the user. v2.0 ships with codex
+   * agents gated behind `SWT_VIBE_AGENT=codex` opt-in, so the default
+   * behavior of `swt dashboard` returns `'none'` until the env var is set.
+   * Optional for back-compat with v2.0.0 daemons that don't emit it.
+   */
+  agent_backend: z.enum(['none', 'codex', 'scripted']).optional(),
 });
 export type VibeStartResponse = z.infer<typeof VibeStartResponseSchema>;
 

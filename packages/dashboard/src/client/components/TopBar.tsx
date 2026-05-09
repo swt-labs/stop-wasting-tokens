@@ -85,34 +85,46 @@ export const TopBar: Component<TopBarProps> = (props) => {
         <span class="topbar-brand-mark">swt</span>
         <span class="topbar-brand-cursor">_</span>
       </h1>
-      <form class="topbar-cmd" onSubmit={(e) => void onSubmit(e)} aria-label="Run swt command">
-        <span class="topbar-cmd-prompt">$</span>
-        <input
-          type="text"
-          class="topbar-cmd-input"
-          placeholder="Describe what you want to build, or run: status / doctor / help / version …"
-          autocomplete="off"
-          spellcheck={false}
-          disabled={props.commandSubmitting || props.vibeStarting}
-          value={input()}
-          onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
-        />
-        <Show when={status() === 'natural_language'}>
-          <span class="topbar-cmd-hint" data-hint="natural" role="status">
-            ↵ Press enter to start a vibe session
-          </span>
+      <div class="topbar-cmd-wrapper">
+        <form class="topbar-cmd" onSubmit={(e) => void onSubmit(e)} aria-label="Run swt command">
+          <span class="topbar-cmd-prompt">$</span>
+          <input
+            type="text"
+            class="topbar-cmd-input"
+            placeholder="Describe what you want to build, or run: status / doctor / help / version …"
+            autocomplete="off"
+            spellcheck={false}
+            disabled={props.commandSubmitting || props.vibeStarting}
+            value={input()}
+            onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
+          />
+        </form>
+        <Show
+          when={
+            status() === 'natural_language' ||
+            status() === 'unknown' ||
+            status() === 'interactive'
+          }
+        >
+          <div class="topbar-cmd-hint-row">
+            <Show when={status() === 'natural_language'}>
+              <span class="topbar-cmd-hint" data-hint="natural" role="status">
+                ↵ Press enter to start a vibe session
+              </span>
+            </Show>
+            <Show when={status() === 'unknown'}>
+              <span class="topbar-cmd-hint" data-hint="unknown" role="status">
+                ↪ Try: status, doctor, help, detect-phase, version, update
+              </span>
+            </Show>
+            <Show when={status() === 'interactive'}>
+              <span class="topbar-cmd-hint" data-hint="interactive" role="status">
+                ↪ Interactive — run from your terminal
+              </span>
+            </Show>
+          </div>
         </Show>
-        <Show when={status() === 'unknown'}>
-          <span class="topbar-cmd-hint" data-hint="unknown" role="status">
-            ↪ Try: status, doctor, help, detect-phase, version, update
-          </span>
-        </Show>
-        <Show when={status() === 'interactive'}>
-          <span class="topbar-cmd-hint" data-hint="interactive" role="status">
-            ↪ Interactive — run from your terminal
-          </span>
-        </Show>
-      </form>
+      </div>
       <div class="topbar-status">
         <Show when={props.project} fallback={<span class="topbar-placeholder">project: …</span>}>
           <span>{props.project!.name}</span>
@@ -125,7 +137,17 @@ export const TopBar: Component<TopBarProps> = (props) => {
           <span>{props.milestone!.name}</span>
         </Show>
         <span class="topbar-sep">·</span>
-        <Show when={props.milestone} fallback={<span class="topbar-placeholder">phase: …</span>}>
+        <Show
+          when={props.milestone && props.milestone.phase_count > 0}
+          fallback={
+            <Show
+              when={props.milestone}
+              fallback={<span class="topbar-placeholder">phase: …</span>}
+            >
+              <span class="topbar-placeholder">no phases yet</span>
+            </Show>
+          }
+        >
           <span>
             phase {props.milestone!.phase_index} of {props.milestone!.phase_count}
           </span>

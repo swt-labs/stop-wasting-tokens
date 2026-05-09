@@ -66,6 +66,14 @@ export interface VibeSessionState {
   initial_prompt: string;
   started_at: string;
   conversation: ConversationEntry[];
+  /**
+   * Reflects whether the daemon has an agent backend wired. When 'none',
+   * the session was created but no agent will run — the UI surfaces a
+   * setup hint instead of waiting silently. v2.0 ships codex agents
+   * gated behind SWT_VIBE_AGENT=codex opt-in. When undefined (older
+   * daemons), assume 'none' for back-compat.
+   */
+  agent_backend: 'none' | 'codex' | 'scripted';
 }
 
 export interface DashboardState {
@@ -470,8 +478,15 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
         initial_prompt: trimmed,
         started_at: new Date().toISOString(),
         conversation: [],
+        agent_backend: response.agent_backend ?? 'none',
       });
       appendLogLine(`[vibe] started session ${response.session_id.slice(0, 8)} — "${trimmed}"`);
+      if ((response.agent_backend ?? 'none') === 'none') {
+        appendLogLine(
+          `[vibe] no agent backend configured — set SWT_VIBE_AGENT=codex (and have codex CLI installed) to run real agents.`,
+          'stderr',
+        );
+      }
       return response.session_id;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

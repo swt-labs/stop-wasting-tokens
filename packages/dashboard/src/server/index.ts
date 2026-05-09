@@ -77,6 +77,13 @@ export function createApp(
      * that exercise the wire format but don't need agent execution.
      */
     agentFactory?: MethodologyAgentFactory;
+    /**
+     * Tag for the agent backend, surfaced in `VibeStartResponse.agent_backend`.
+     * Defaults: 'codex' when SWT_VIBE_AGENT=codex env var triggered the
+     * factory; 'scripted' when caller passed an agentFactory; 'none' when
+     * no factory was wired.
+     */
+    agentBackendTag?: 'none' | 'codex' | 'scripted';
   } = {},
 ): {
   app: Hono;
@@ -165,6 +172,7 @@ export function createApp(
     registry: vibeRegistry,
     project_root: projectRoot ?? cwd,
     ...(opts.agentFactory !== undefined ? { agentFactory: opts.agentFactory, bus } : {}),
+    ...(opts.agentBackendTag !== undefined ? { agentBackendTag: opts.agentBackendTag } : {}),
   });
   registerSpaRoutes(app);
   return { app, bus, snapshotter, projectRoot, vibeRegistry };
@@ -261,17 +269,23 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
   // matches the legacy 02-02/03 behavior so the production-default flip
   // doesn't ride along with this plan.
   let resolvedAgentFactory: MethodologyAgentFactory | undefined = options.agentFactory;
-  if (resolvedAgentFactory === undefined && process.env['SWT_VIBE_AGENT'] === 'codex') {
+  let resolvedBackendTag: 'none' | 'codex' | 'scripted' = 'none';
+  if (resolvedAgentFactory !== undefined) {
+    // Caller-provided factory (test path) — tag scripted unless caller overrides.
+    resolvedBackendTag = 'scripted';
+  } else if (process.env['SWT_VIBE_AGENT'] === 'codex') {
     resolvedAgentFactory = ({ project_root }) =>
       new CodexMethodologyAgent({
         cwd: project_root,
       });
+    resolvedBackendTag = 'codex';
   }
 
   const { app, bus, snapshotter, vibeRegistry } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
     ...(resolvedAgentFactory !== undefined ? { agentFactory: resolvedAgentFactory } : {}),
+    agentBackendTag: resolvedBackendTag,
   });
 
   const server = await new Promise<ServerType>((resolve) => {
