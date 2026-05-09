@@ -1,0 +1,87 @@
+:root {
+  --terminal-green: #00ff41;
+  --deep-void: #0a0e14;
+  --ghost-white: #e8eaed;
+  --neon-cyan: #00e5ff;
+  --warm-amber: #ffb74d;
+  --danger-red: #ff5252;
+  --slate-muted: #5a6580;
+
+  --terminal-green-15: rgba(0, 255, 65, 0.15);
+  --slate-muted-15: rgba(90, 101, 128, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--deep-void);
+  color: var(--ghost-white);
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  height: 100%;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 24px;
+  gap: 16px;
+}
+
+.app-shell h1 {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 28px;
+  margin: 0;
+  color: var(--terminal-green);
+}
+
+.app-shell .subtitle {
+  color: var(--slate-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 12px;
+  border-radius: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  background: var(--slate-muted-15);
+  color: var(--slate-muted);
+  width: fit-content;
+}
+
+.connection-pill[data-state='connected'] {
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+}
+
+.connection-pill[data-state='error'] {
+  background: rgba(255, 82, 82, 0.15);
+  color: var(--danger-red);
+}

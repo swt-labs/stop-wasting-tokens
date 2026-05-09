@@ -36,7 +36,10 @@ const stubDevDeps = {
 };
 
 export default defineConfig({
-  entry: { cli: 'packages/cli/src/index.ts' },
+  entry: {
+    cli: 'packages/cli/src/index.ts',
+    'dashboard-server': 'packages/dashboard/src/server/index.ts',
+  },
   outDir: 'dist',
   format: ['esm'],
   dts: { resolve: true },
