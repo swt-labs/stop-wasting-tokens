@@ -90,6 +90,28 @@ export async function postUatCheckpoint(
   return UatCheckpointResponseSchema.parse(raw);
 }
 
+/**
+ * Try to parse a fetch error body as JSON and extract a human-readable message.
+ * Falls back to raw text when the body isn't JSON, and to a status-only string
+ * when the body is empty. Used by postInit + postCommand to surface clean
+ * errors like "init_failed: permission denied" instead of raw HTTP envelopes.
+ */
+async function readErrorMessage(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+  if (!text) return `HTTP ${res.status}`;
+  try {
+    const parsed = JSON.parse(text) as { error?: unknown; detail?: unknown };
+    const error = typeof parsed.error === 'string' ? parsed.error : null;
+    const detail = typeof parsed.detail === 'string' ? parsed.detail : null;
+    if (error && detail) return `${error}: ${detail}`;
+    if (error) return error;
+    if (detail) return detail;
+  } catch {
+    /* not JSON */
+  }
+  return text;
+}
+
 export async function postInit(body: InitBody): Promise<InitResponse> {
   const validated = InitBodySchema.parse(body);
   const res = await fetch('/api/init', {
@@ -98,8 +120,8 @@ export async function postInit(body: InitBody): Promise<InitResponse> {
     body: JSON.stringify(validated),
   });
   if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new ApiError(`HTTP ${res.status}: ${detail}`, res.status);
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
   }
   const raw: unknown = await res.json();
   return InitResponseSchema.parse(raw);
