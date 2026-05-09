@@ -1,4 +1,10 @@
-import type { Snapshot, SnapshotEvent } from '@swt-labs/dashboard-core';
+import type {
+  AgentPromptContext,
+  AgentPromptOption,
+  Snapshot,
+  SnapshotEvent,
+  VibeReplyBody,
+} from '@swt-labs/dashboard-core';
 import { createStore } from 'solid-js/store';
 
 import {
@@ -7,6 +13,8 @@ import {
   postCommand,
   postInit,
   postUatCheckpoint,
+  postVibeReply,
+  postVibeStart,
   type CommandResponse,
   type InitBody,
   type RenderedArtifact,
@@ -35,6 +43,31 @@ export interface UatModalState {
   plan?: string;
 }
 
+export type ConversationEntryStatus = 'pending' | 'answered' | 'expired';
+
+export interface ConversationEntry {
+  prompt_id: string;
+  session_id: string;
+  subtype: 'clarification' | 'permission';
+  question: string;
+  options?: AgentPromptOption[];
+  context?: AgentPromptContext;
+  emitted_at: string;
+  expires_at?: string;
+  status: ConversationEntryStatus;
+  /** The reply payload once answered (free_form text, choice value, or permission decision). */
+  reply?: VibeReplyBody['answer'];
+  /** When the prompt expired or the user replied. */
+  resolved_at?: string;
+}
+
+export interface VibeSessionState {
+  session_id: string;
+  initial_prompt: string;
+  started_at: string;
+  conversation: ConversationEntry[];
+}
+
 export interface DashboardState {
   connection: ConnectionState;
   reconnectAttempt: number;
@@ -48,6 +81,9 @@ export interface DashboardState {
   uatSubmitting: boolean;
   initSubmitting: boolean;
   commandSubmitting: boolean;
+  vibeSession: VibeSessionState | null;
+  vibeStarting: boolean;
+  vibeReplying: boolean;
   errors: DashboardErrorEntry[];
 }
 
@@ -60,6 +96,8 @@ export interface DashboardActions {
   submitUatCheckpoint: (result: 'pass' | 'fail', note?: string) => Promise<void>;
   initProject: (body: InitBody) => Promise<void>;
   runCommand: (input: string) => Promise<CommandResponse | null>;
+  startVibeSession: (prompt: string) => Promise<string | null>;
+  replyToActivePrompt: (answer: VibeReplyBody['answer']) => Promise<boolean>;
   pushError: (message: string) => void;
   shutdown: () => void;
 }
@@ -90,6 +128,9 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     uatSubmitting: false,
     initSubmitting: false,
     commandSubmitting: false,
+    vibeSession: null,
+    vibeStarting: false,
+    vibeReplying: false,
     errors: [],
   });
 
@@ -155,6 +196,38 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     }
     if (evt.type === 'error') {
       pushError(`${evt.code}: ${evt.message}`);
+      return;
+    }
+    if (evt.type === 'agent.prompt') {
+      // Only append to the active session's conversation. Cross-session
+      // prompts (multi-tab daemon) are ignored at the client level — the
+      // server-side ?session_id= filter normally prevents them from
+      // arriving, but this guard keeps the store coherent if the SSE is
+      // unfiltered.
+      if (state.vibeSession?.session_id !== evt.session_id) return;
+      const entry: ConversationEntry = {
+        prompt_id: evt.prompt_id,
+        session_id: evt.session_id,
+        subtype: evt.subtype,
+        question: evt.question,
+        ...(evt.options !== undefined ? { options: [...evt.options] } : {}),
+        ...(evt.context !== undefined ? { context: { ...evt.context } } : {}),
+        emitted_at: evt.ts,
+        ...(evt.expires_at !== undefined ? { expires_at: evt.expires_at } : {}),
+        status: 'pending',
+      };
+      setState('vibeSession', 'conversation', (prev) => [...prev, entry]);
+      return;
+    }
+    if (evt.type === 'agent.prompt.timeout') {
+      if (state.vibeSession?.session_id !== evt.session_id) return;
+      setState('vibeSession', 'conversation', (entries) =>
+        entries.map((entry) =>
+          entry.prompt_id === evt.prompt_id && entry.status === 'pending'
+            ? { ...entry, status: 'expired', resolved_at: evt.expired_at }
+            : entry,
+        ),
+      );
       return;
     }
   };
@@ -386,6 +459,58 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     }
   };
 
+  const startVibeSession = async (prompt: string): Promise<string | null> => {
+    const trimmed = prompt.trim();
+    if (trimmed.length === 0) return null;
+    setState('vibeStarting', true);
+    try {
+      const response = await postVibeStart({ prompt: trimmed });
+      setState('vibeSession', {
+        session_id: response.session_id,
+        initial_prompt: trimmed,
+        started_at: new Date().toISOString(),
+        conversation: [],
+      });
+      appendLogLine(`[vibe] started session ${response.session_id.slice(0, 8)} — "${trimmed}"`);
+      return response.session_id;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`vibe start failed: ${message}`);
+      return null;
+    } finally {
+      setState('vibeStarting', false);
+    }
+  };
+
+  const replyToActivePrompt = async (answer: VibeReplyBody['answer']): Promise<boolean> => {
+    const session = state.vibeSession;
+    if (!session) return false;
+    const active = session.conversation.find((e) => e.status === 'pending');
+    if (!active) return false;
+    setState('vibeReplying', true);
+    try {
+      await postVibeReply(session.session_id, {
+        prompt_id: active.prompt_id,
+        answer,
+      });
+      const resolved_at = new Date().toISOString();
+      setState('vibeSession', 'conversation', (entries) =>
+        entries.map((entry) =>
+          entry.prompt_id === active.prompt_id
+            ? { ...entry, status: 'answered', reply: answer, resolved_at }
+            : entry,
+        ),
+      );
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`vibe reply failed: ${message}`);
+      return false;
+    } finally {
+      setState('vibeReplying', false);
+    }
+  };
+
   const shutdown = (): void => {
     sse?.close();
     sse = null;
@@ -402,6 +527,8 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
       submitUatCheckpoint,
       initProject,
       runCommand,
+      startVibeSession,
+      replyToActivePrompt,
       pushError,
       shutdown,
     },

@@ -51,7 +51,9 @@ export const App: Component = () => {
         milestone={state.snapshot?.milestone ?? null}
         connection={state.connection}
         commandSubmitting={state.commandSubmitting}
+        vibeStarting={state.vibeStarting}
         onCommand={actions.runCommand}
+        onVibe={actions.startVibeSession}
       />
       <Show
         when={isInitialized()}
@@ -143,7 +145,12 @@ export const App: Component = () => {
                   minSize={0.1}
                   class="resizable-panel"
                 >
-                  <LogPanel lines={state.recentLogLines} />
+                  <LogPanel
+                    lines={state.recentLogLines}
+                    conversation={state.vibeSession?.conversation ?? []}
+                    replying={state.vibeReplying}
+                    onReply={actions.replyToActivePrompt}
+                  />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>

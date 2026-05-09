@@ -795,6 +795,210 @@
   cursor: pointer;
 }
 
+/* Vibe Conversation (rendered inline in LogPanel) */
+
+.conversation-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px 12px 12px;
+  border-bottom: 1px solid var(--slate-muted-15);
+}
+
+.conversation-card {
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.conversation-card[data-subtype='permission'] {
+  border-color: rgba(255, 165, 0, 0.4);
+  background: rgba(255, 165, 0, 0.06);
+}
+
+.conversation-card[data-status='expired'] {
+  opacity: 0.55;
+}
+
+.conversation-card[data-status='answered'] {
+  opacity: 0.75;
+}
+
+.conversation-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--slate-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.conversation-card-icon {
+  color: rgba(255, 165, 0, 0.9);
+  font-size: 14px;
+}
+
+.conversation-card-label {
+  color: var(--slate-muted);
+}
+
+.conversation-card[data-subtype='permission'] .conversation-card-label {
+  color: rgba(255, 165, 0, 0.9);
+  font-weight: 600;
+}
+
+.conversation-card-status {
+  margin-left: auto;
+  font-style: italic;
+}
+
+.conversation-card-question {
+  color: var(--ghost-white);
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.conversation-card-target {
+  font-size: 12px;
+  color: var(--slate-muted);
+  margin-bottom: 6px;
+}
+
+.conversation-card-target-value {
+  color: var(--ghost-white);
+  background: var(--slate-muted-15);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.conversation-card-risk {
+  font-size: 12px;
+  color: var(--slate-muted);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.conversation-card-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.conversation-card-option-btn {
+  background: var(--slate-muted-15);
+  color: var(--ghost-white);
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.conversation-card-option-btn:hover:not(:disabled) {
+  background: var(--terminal-green-15);
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+
+.conversation-card-reply-form {
+  display: flex;
+  gap: 6px;
+}
+
+.conversation-card-reply-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--ghost-white);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.conversation-card-reply-input:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+}
+
+.conversation-card-reply-submit {
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid var(--terminal-green);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.conversation-card-permission-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.conversation-card-permission-note {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--ghost-white);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.conversation-card-permission-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.conversation-card-permission-btn {
+  flex: 1;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--slate-muted-15);
+  background: var(--slate-muted-15);
+  color: var(--ghost-white);
+}
+
+.conversation-card-permission-btn[data-decision='session'] {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: var(--terminal-green-15);
+}
+
+.conversation-card-permission-btn[data-decision='deny'] {
+  border-color: var(--danger-red);
+  color: var(--danger-red);
+  background: rgba(255, 82, 82, 0.1);
+}
+
+.conversation-card-reply-summary {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--slate-muted);
+}
+
+.conversation-card-reply-arrow {
+  color: var(--terminal-green);
+}
+
+.conversation-card-reply-note {
+  font-style: italic;
+}
+
 /* Cost Panel */
 
 .cost-panel-grid {

@@ -9,7 +9,9 @@ export interface TopBarProps {
   milestone: MilestoneSummary | null;
   connection: ConnectionState;
   commandSubmitting: boolean;
+  vibeStarting: boolean;
   onCommand: (input: string) => Promise<unknown>;
+  onVibe: (input: string) => Promise<unknown>;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -31,7 +33,25 @@ const BACKEND_LABEL: Record<Backend, string> = {
 const ALLOWLIST = new Set(['help', 'version', 'status', 'doctor', 'detect-phase', 'update']);
 const INTERACTIVE = new Set(['vibe', 'watch', 'dashboard']);
 
-type VerbStatus = 'empty' | 'literal' | 'interactive' | 'unknown';
+type VerbStatus = 'empty' | 'literal' | 'interactive' | 'unknown' | 'natural_language';
+
+/**
+ * Decides whether unknown input looks like natural language (route to vibe)
+ * vs a typo of a literal verb (suggest the allowlist). Heuristic:
+ *   - 3+ tokens → treat as natural language. "build me a snake game" matches.
+ *   - first token has 8+ chars → treat as natural language. "describe …" matches.
+ *   - otherwise → unknown verb (typo). "stauts" suggests "status".
+ *
+ * Conservative on the natural-language side — false positives route to vibe
+ * which spawns an agent (cost). False negatives show the allowlist hint
+ * which is recoverable. We tune toward fewer false positives.
+ */
+function looksLikeNaturalLanguage(trimmed: string): boolean {
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 3) return true;
+  const first = tokens[0] ?? '';
+  return first.length >= 8;
+}
 
 function classifyInput(input: string): VerbStatus {
   const trimmed = input.trim();
@@ -39,6 +59,7 @@ function classifyInput(input: string): VerbStatus {
   const firstToken = trimmed.split(/\s+/)[0]?.toLowerCase() ?? '';
   if (ALLOWLIST.has(firstToken)) return 'literal';
   if (INTERACTIVE.has(firstToken)) return 'interactive';
+  if (looksLikeNaturalLanguage(trimmed)) return 'natural_language';
   return 'unknown';
 }
 
@@ -51,6 +72,10 @@ export const TopBar: Component<TopBarProps> = (props) => {
     const value = input().trim();
     if (value.length === 0) return;
     setInput('');
+    if (status() === 'natural_language') {
+      await props.onVibe(value);
+      return;
+    }
     await props.onCommand(value);
   };
 
@@ -65,13 +90,18 @@ export const TopBar: Component<TopBarProps> = (props) => {
         <input
           type="text"
           class="topbar-cmd-input"
-          placeholder="status / doctor / help / detect-phase / version / update …"
+          placeholder="Describe what you want to build, or run: status / doctor / help / version …"
           autocomplete="off"
           spellcheck={false}
-          disabled={props.commandSubmitting}
+          disabled={props.commandSubmitting || props.vibeStarting}
           value={input()}
           onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
         />
+        <Show when={status() === 'natural_language'}>
+          <span class="topbar-cmd-hint" data-hint="natural" role="status">
+            ↵ Press enter to start a vibe session
+          </span>
+        </Show>
         <Show when={status() === 'unknown'}>
           <span class="topbar-cmd-hint" data-hint="unknown" role="status">
             ↪ Try: status, doctor, help, detect-phase, version, update

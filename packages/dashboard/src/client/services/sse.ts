@@ -1,13 +1,8 @@
-import { SnapshotEventSchema, type SnapshotEvent } from '@swt-labs/dashboard-core';
-
-const SNAPSHOT_EVENT_TYPES = [
-  'snapshot.replace',
-  'state.changed',
-  'agent.spawn',
-  'agent.complete',
-  'log.append',
-  'error',
-] as const;
+import {
+  SNAPSHOT_EVENT_TYPES,
+  SnapshotEventSchema,
+  type SnapshotEvent,
+} from '@swt-labs/dashboard-core';
 
 export interface SseHandlers {
   onOpen?: () => void;
