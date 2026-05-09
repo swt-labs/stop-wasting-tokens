@@ -294,22 +294,86 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 
 ## Command reference
 
-The CLI exposes ~30 commands. The full reference (with examples and flag details) is in [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev). Quick index:
+SWT exposes 32 commands derived from the VBW (`vibe-better-with-claude-code`) methodology surface. Of those, **10 are working** in the published binary and **22 are registered placeholders** that return `swt {verb}: not yet implemented in this build` with a roadmap pointer. The placeholders give users a discoverable surface (`swt help` shows them all) without committing to a v1 implementation; most are reachable today via `swt vibe` flags.
 
-**Lifecycle** `init` `vibe` `plan` `execute` `verify` `archive`
-**Quality** `qa` `fix` `debug` `audit`
-**Inspection** `status` `detect-phase` `watch` `dashboard` `whats-new`
-**Backlog** `todo` `phase` `assumptions`
-**Research** `research` `discuss`
-**Workspace** `map` `worktree` `lease` `pause` `resume`
-**Maintenance** `doctor` `config` `skills` `update` `uninstall` `release` `version`
+### Working today (10)
+
+| Command            | Use case                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `swt vibe`         | The methodology entrypoint. Auto-detects project state and routes to discuss / plan / execute / verify / archive. Accepts `--plan N`, `--execute N`, `--discuss N`, `--assumptions N`, `--scope`, `--verify [N]`, `--archive`, `--add "name"`, `--insert N "name"`, `--remove N`, plus modifiers `--effort {thorough\|balanced\|fast\|turbo}`, `--skip-qa`, `--skip-audit`, `--yolo`. |
+| `swt status`       | Show current phase, milestone, plan velocity, todos, blockers, codebase profile.                                                                                                                                                                                                                                                                                                      |
+| `swt doctor`       | Verify SWT prerequisites (Codex CLI ≥ 0.124, Node ≥ 20.18, pnpm, jq). Use this first when something feels off.                                                                                                                                                                                                                                                                        |
+| `swt detect-phase` | Print the computed phase-detection state (`--bash-format` for shell consumption, JSON by default). Helper used by `swt vibe` routing.                                                                                                                                                                                                                                                 |
+| `swt config`       | Read or update SWT configuration: `swt config show \| get <key> \| set <key> <value>`.                                                                                                                                                                                                                                                                                                |
+| `swt update`       | Check npm registry for a newer published SWT version. `--json` for scripting; `--strict` fails offline; `--registry=<url>`, `--no-cache`.                                                                                                                                                                                                                                             |
+| `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs. Coexists with `swt dashboard` through v1.6.x.                                                                                                                                                                                                                                     |
+| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`. Shipped v1.6.0; hardened in v1.6.6.                                                                                                                                                                     |
+| `swt help`         | Print usage, list all registered commands. Also `swt --help` and `swt {verb} --help`.                                                                                                                                                                                                                                                                                                 |
+| `swt version`      | Print SWT version. Also `swt --version`.                                                                                                                                                                                                                                                                                                                                              |
+
+### Stub (22) — placeholder commands
+
+These are registered for discoverability and roadmap visibility but return `EXIT.NOT_IMPLEMENTED` (exit code 78) with a roadmap-phase pointer. **Most are reachable today as `swt vibe` flags** — the standalone command form is alternative ergonomics that elevation will land in v2.
+
+| Stub command      | Reach today via                             | Roadmap                                              |
+| ----------------- | ------------------------------------------- | ---------------------------------------------------- |
+| `swt init`        | `swt dashboard` Init button (greenfield UX) | v1.7 (audit finding X-02)                            |
+| `swt plan`        | `swt vibe --plan N`                         | v1.7                                                 |
+| `swt execute`     | `swt vibe --execute N`                      | v1.7                                                 |
+| `swt verify`      | `swt vibe --verify N`                       | v1.7                                                 |
+| `swt archive`     | `swt vibe --archive`                        | Phase 7                                              |
+| `swt phase`       | `swt vibe --add/--insert/--remove`          | Phase 7                                              |
+| `swt discuss`     | `swt vibe --discuss N`                      | Phase 7                                              |
+| `swt assumptions` | `swt vibe --assumptions N`                  | Phase 7                                              |
+| `swt qa`          | (continuous QA runs in `vibe`)              | Phase 8 — standalone goal-backward QA tier           |
+| `swt audit`       | (audit matrix runs in `vibe --archive`)     | Phase 7 — standalone pre-archive audit               |
+| `swt fix`         | (no current path)                           | Phase 8 — quick-fix loop for small UAT issues        |
+| `swt debug`       | (no current path)                           | Phase 8 — hypothesis-driven debugging session        |
+| `swt research`    | (no current path)                           | Phase 7 — Scout-only research pass                   |
+| `swt map`         | (no current path)                           | Phase 7 — codebase mapping                           |
+| `swt todo`        | (manual `STATE.md ## Todos`)                | Phase 7 — managed todo list                          |
+| `swt skills`      | (manual `npx skills add`)                   | Phase 9 — search/install Skills.sh registry          |
+| `swt resume`      | (no current path)                           | Phase 7 — resume paused session                      |
+| `swt pause`       | (no current path)                           | Phase 7 — pause + stash session state                |
+| `swt whats-new`   | (manual `CHANGELOG.md`)                     | Phase 9 — show recent SWT release notes              |
+| `swt uninstall`   | (manual `npm uninstall -g`)                 | Phase 10 — guided uninstall                          |
+| `swt worktree`    | (manual `git worktree`)                     | Phase 7 — manage milestone worktrees                 |
+| `swt lease`       | (no current path)                           | Phase 7 — file-lock coordination for parallel agents |
+| `swt release`     | (`changesets/action` via OIDC)              | Phase 10 — local release wrapper                     |
+
+### VBW commands without an SWT equivalent
+
+The VBW plugin (`vibe-better-with-claude-code`) ships 26 slash commands. SWT's command surface mirrors the methodology subset that maps to a Codex CLI workflow. The four VBW commands below are **intentionally not ported**:
+
+| VBW command                | Decision   | Reasoning                                                                                                                             |
+| -------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `/vbw:compress`            | not ported | Codex CLI handles its own context compaction; the VBW auto-compaction wrapper isn't needed in the Codex-native flow.                  |
+| `/vbw:rtk`                 | not ported | RTK (Runtime Toolkit) is an external VBW-only integration. SWT stays Codex-native.                                                    |
+| `/vbw:teach`               | not ported | Replaced by SWT's MEMORY.md self-healing model (REQ-11) plus the Codex Skills API surface — the same outcome via different mechanics. |
+| `/vbw:report`              | deferred   | No SWT equivalent today. Could land as `swt report` if a concrete reporting use case emerges.                                         |
+| `/vbw:profile`             | folded     | Profile management is folded into `swt config` (one config surface).                                                                  |
+| `/vbw:verify` (standalone) | folded     | Available as `swt vibe --verify N` per VBW's own routing convention.                                                                  |
+| `/vbw:list-todos`          | folded     | Maps to the (currently-stub) `swt todo` viewer; standalone listing landed in `swt status`.                                            |
+
+### Use case quick-pick
+
+- **Fresh project** → `swt dashboard` (then click Initialize) **or** the working stub path: scope a milestone via `swt vibe`
+- **Existing project, daily work** → `swt vibe` (auto-routes), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
+- **Something feels broken** → `swt doctor` first, then `swt update --json` to check for a newer published version
+- **Configuration tweaks** → `swt config show` / `swt config set <key> <value>`
+- **Discoverability** → `swt help` lists all 32 commands; stubs print their roadmap phase when invoked
+
+### Help and flags
 
 Every command supports `--help`:
 
 ```bash
 swt vibe --help
-swt qa --help
+swt dashboard --help
+swt config --help
 ```
+
+Top-level flags: `--version` (print version), `--help` (top-level usage). Commands without an explicit handler fall through to the stub message with the roadmap pointer. Full per-command flag reference will live at [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) once that site is up (REQ-18, deferred from v1.5).
 
 ---
 
