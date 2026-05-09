@@ -1,5 +1,143 @@
 # Changelog
 
+## 1.6.6
+
+### Patch Changes
+
+- v1.6.6 — Dashboard ↔ CLI integration audit & hardening.
+
+  Closes both originally-reported v1.6.5 user bugs ("blink, nothing happened"
+  on the Init button; command bar treating natural language as literal argv)
+  and 14 additional audit-surfaced findings across the dashboard server,
+  client SPA, schemas, and install-smoke gates. Driven by a 36-finding audit
+  catalog (`.vbw-planning/milestones/.../01-audit-and-catalog/AUDIT.md`)
+  produced before any code changes — the audit + routing approach made the
+  user-reported issues obvious symptoms of a deeper integration gap rather
+  than two isolated bugs.
+
+  **Backend (Plan 02-01 — `packages/dashboard/src/server/`):**
+  - `B-01 (S0)`: `vibe` no longer hangs the command bar. The route used to
+    spawn with `stdio: ['ignore', 'pipe', 'pipe']` (stdin closed), so any
+    interactive verb blocked on its first prompt and was killed at the
+    hardcoded 10s timeout. The new `classifyVerb()` helper rejects
+    interactive verbs up-front with `routing_decision: 'rejected_interactive'`
+    and points the user at their terminal. No spawn occurs; response returns
+    in 0ms.
+  - `B-02 (S1)`: Whitespace-split argv is now classified through a 6-verb
+    allowlist (`help`, `version`, `status`, `doctor`, `detect-phase`,
+    `update`). Allowlist match → spawn `swt <argv>` literally. Stub verbs
+    (`init`, `plan`, `execute`, etc.) and natural-language input fall to
+    `routing_decision: 'rejected_unknown'` with a helpful hint listing the
+    allowlist.
+  - `B-03 (S1)`: Hardcoded 10s timeout replaced with per-verb budgets:
+    short verbs (`help`, `version`, `status`) = 5s; scan verbs
+    (`doctor`, `detect-phase`) = 15s; network verbs (`update`) = 30s.
+    `SWT_DASHBOARD_COMMAND_TIMEOUT_MS_DEFAULT` env var raises the floor
+    for power users; per-verb caps still apply unless the env override
+    exceeds them.
+  - `B-04 (S1)`: Spawn target is now the daemon's adjacent `cli.mjs`
+    resolved via `import.meta.url`. Both bundles ship side-by-side in
+    `dist/` per `tsup.config.ts`, so `dirname(fileURLToPath(import.meta.url))
+    - 'cli.mjs'`is always reachable for`npm i -g`installs. Falls back
+to PATH`swt` only for in-repo dev where the daemon source runs
+      unbundled.
+  - `B-05/B-06/B-07 (S2)`: `FORBIDDEN_VERBS` denylist (which only blocked
+    `dashboard` + `watch`) replaced with the inverse `ALLOWED_VERBS`
+    allowlist. Eliminates the "stub verbs run and return NOT_IMPLEMENTED"
+    path (`B-06`) and the "swt init shadows /api/init" contradictory
+    contract (`B-07`).
+  - `S-03 (S2)`: `CommandResponseSchema` extended with `routing_decision:
+'literal' | 'rejected_interactive' | 'rejected_unknown'` and `verb:
+string | null`. Both have schema defaults so v1.6.0–v1.6.5 clients
+    aren't broken on parse.
+  - `X-01 (S0)`: Real-vs-stub clarity. Of the 32 CLI verbs (10 real + 22
+    stubs), only 6 are now reachable via the command bar — explicitly
+    documented in `packages/dashboard/src/server/lib/allowed-verbs.ts`
+    as a hand-mirror of `packages/cli/src/main.ts:buildRegistry()`.
+    Mirror is intentional: the dashboard server bundle ships standalone
+    per `tsup.config.ts`; a runtime import from `packages/cli` would
+    couple build graphs.
+  - `X-03 (S2 ½)`: `scripts/verify-install.sh` extended with three
+    `/api/command` POST checks after `/api/snapshot`: allowlist verb →
+    `routing_decision: 'literal'`; interactive verb → `rejected_interactive`;
+    unknown verb → `rejected_unknown`. Each failure prints the offending
+    `CommandResponse` JSON before exiting non-zero. CI gates the entire
+    contract before npm publishes.
+
+  17 new Vitest cases across `packages/dashboard/test/{allowed-verbs,
+command-route}.test.ts` exercise the routing contract under mocked
+  `child_process.spawn`.
+
+  **Frontend (Plan 03-01 — `packages/dashboard/src/client/`):**
+  - `F-01/F-02 (S1, S1)`: The user's "blink, nothing happened" complaint
+    is closed by optimistic UI. `dashboard-store.ts:initProject` now
+    captures the current snapshot, synthesizes an optimistic snapshot
+    with `is_initialized: true`, and `setState`s it BEFORE awaiting
+    `postInit`. App.tsx's `isInitialized()` createMemo flips on the same
+    reactive tick — InitScreen unmounts immediately, 4-panel grid mounts.
+    A `[ok] Initialized .swt-planning/ — type 'help' for available
+subcommands.` line appends to the LogPanel as in-band confirmation.
+    On `postInit` failure, the optimistic snapshot rolls back to the
+    captured `previousSnapshot` and InitScreen reappears with a clean
+    error.
+  - `F-03/F-04 (S1, S1)`: Command-bar UX. Placeholder text drops `vibe`
+    (rejected_interactive post-Plan 02-01) and adds `version` + `update`
+    to match the actual allowlist. A new `classifyInput()` helper mirrors
+    the server's `classifyVerb()`. `createMemo<VerbStatus>` derives
+    `'empty' | 'literal' | 'interactive' | 'unknown'` from the input
+    signal. Conditional `<Show>` renders an inline hint chip below the
+    input: amber "↪ Try: status, doctor, …" for unknown verbs, cyan
+    "↪ Interactive — run from your terminal" for `vibe`/`watch`/
+    `dashboard`. The chip surfaces the routing contract instantly,
+    before the user hits Enter.
+  - `F-07 (S2)`: Empty-state prose nudges. App.tsx phase-stepper fallback
+    now reads "No phases yet. Run `swt vibe` from your terminal to scope
+    a milestone, or type `help` in the command bar above for available
+    subcommands." `AgentTimeline.tsx` similarly: "No agent activity yet.
+    Run `swt vibe` in your terminal to start the methodology loop."
+    Tells the user what to do next instead of just stating a fact.
+  - `F-08 (S2)`: New `readErrorMessage(res)` helper in `services/api.ts`
+    parses fetch error bodies as JSON and extracts `{error, detail}`.
+    `InitScreen.setError()` now displays "init_failed: permission denied"
+    instead of `HTTP 500: {"error":"init_failed","detail":"permission
+denied"}`. Falls back to raw text or status-only on non-JSON bodies.
+  - `F-09 (S2)`: `InitScreen.tsx:submit()` adds `if (props.submitting)
+return;` as the first statement. Guards against double-fire when
+    the user smashes Enter while focus is in the textarea (the button
+    is disabled, but the form still submits on Enter from descendants).
+
+  **Deferred to v1.7** (S2/S3 polish, not v1.6.6 closure-blocking):
+  - `B-08`/`S-01`/`S-02` — `/api/init` returning the snapshot inline +
+    schema cleanup. Closed by F-02's optimistic UI on the user-reported
+    failure mode; the round-trip optimization is belt-and-suspenders.
+  - `B-09`/`B-10` — SSE initial-frame replay + queue cap. Defense-in-depth
+    only; current behavior works under typical loads.
+  - `B-11` — Snapshotter parent-dir watcher for greenfield → terminal-side
+    `swt init` auto-detection. Audit-surfaced edge case, not in any user
+    failure mode.
+  - `B-12`/`B-13`/`B-14`/`B-15`/`B-16` — server-side hardening (changed
+    array specificity, artifact allowlist, project root walk cap, health
+    daemon_version, UAT placeholder cleanup). All audit-surfaced.
+  - `S-04` — `HealthResponseSchema` daemon version. Cosmetic.
+  - `X-02` — `swt init` real CLI command. Still a stub; `/api/init` is
+    the only path. Audit-surfaced contradictory contract.
+  - `F-05` (connection pill flashing), `F-06` (snapshot refetch
+    efficiency), `F-10` (TopBar fallback), `C-01` (CLI debug stderr
+    passthrough), `C-04` (isTTY default true). All cosmetic / debug-only
+    paths.
+  - Vitest store-action coverage for `initProject` / `runCommand` —
+    needs Solid reactive test scaffolding not present in the current
+    suite.
+
+  Full audit catalog with severities + per-issue routing is preserved
+  in the v1.6.6 milestone archive at
+  `.vbw-planning/milestones/.../01-audit-and-catalog/AUDIT.md` (36
+  findings; 16 closed in v1.6.6; 20 deferred to v1.7).
+
+  **No new dependencies, no schema breaking changes, no API surface
+  changes beyond `CommandResponse.routing_decision` + `verb` (both
+  defaulted for back-compat).**
+
 ## 1.6.5
 
 ### Patch Changes
