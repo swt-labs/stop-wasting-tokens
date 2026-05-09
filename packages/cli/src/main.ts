@@ -1,5 +1,6 @@
 import { parseSwtArgv } from './argv.js';
 import { configHandler } from './commands/config.js';
+import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { statusHandler } from './commands/status.js';
@@ -72,6 +73,7 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     description: 'Open an Ink TUI dashboard scoped to the active milestone',
     handler: defaultWatchHandler,
   });
+  registerDashboard(registry);
 
   for (const spec of STUB_SPECS) {
     registry.register({

@@ -10,6 +10,13 @@ Global flags:
   --skip-audit        Skip non-UAT pre-archive audit checks
   --yolo              Skip all confirmation gates; auto-loop
   --plan <NN>         Execute a single plan instead of an entire wave
+
+Dashboard flags (swt dashboard):
+  --port <N>          Bind to a specific port (default: auto-pick 54320–54420)
+  --host <H>          Bind host (default: 127.0.0.1)
+  --unsafe-public     Allow non-loopback bind (off by default)
+  --no-open           Skip launching the browser
+  --debug             Run the daemon from source via tsx, inherit stdio
 `.trim();
 
 export function renderHelp(registry: CommandRegistry): string {
