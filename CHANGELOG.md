@@ -93,12 +93,21 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
-### Planned for v1.5
+### Closed in this batch (defensive hardening, post-v1.6.0)
 
-- Real Codex AgentSpawner wiring against the Codex CLI subagent API
-- Claude Code backend driver
-- Ollama backend driver
-- Ink TUI dashboard
+- **F-07 Role aliasing.** `AgentSpec.aliases?: readonly string[]` added; `emitAgentToml` emits the field conditionally so existing TOML output is unchanged when no aliases are declared. Test coverage in `packages/codex-driver/test/toml.test.ts`.
+- **F-15 `AGENTS.override.md` support.** `composeAgentsMdBody` + `readAgentsOverrideSync` in `packages/codex-driver/src/agents-md/writer.ts` let users layer project-specific rules into the SWT-managed block without losing them on regeneration. Tests in `packages/codex-driver/test/agents-md.test.ts`.
+- **F-17 Agent prompt cache-hit measurement.** `packages/codex-driver/test/cache-hit.test.ts` asserts byte-identical TOML emission across repeated calls (REQ-05 cache-key stability).
+
+### Planned for v1.6.1 / next milestone
+
+- Playwright e2e suite (3–5 critical paths × Linux + macOS) for the localhost dashboard
+- `axe-cli` automated CI a11y gate (AC-12 / AC-13)
+- Published `docs.stopwastingtokens.dev` site (Mintlify infra)
+- Full Claude Code backend driver (12-event hook taxonomy, Agent Teams, isolation modes — REQ-V2-02)
+- Full Ollama backend driver (REQ-V2-03)
+- Codex Plugin Marketplace submission (REQ-19) — once OpenAI accepts third-party manifests
+- Real Codex `subagent`-spawn API wiring once OpenAI publishes the surface (today's `codex exec` wrapper is functionally adequate)
 - Auto-derived reference docs (CLI / config / artifacts) generated at build time
 - Configurable telemetry cache TTL
 - Real HTTP telemetry sender pointing at a hosted analytics endpoint
