@@ -48,12 +48,11 @@ echo "  ✓ swt help lists vibe / dashboard / status / doctor / detect-phase / u
 
 # 4. detect-phase round-trips
 #    (real command — emits a phase-detect dump even outside an SWT project)
-NONEXISTENT_DIR="${TMP_DIR}-detect"
-mkdir -p "$NONEXISTENT_DIR"
-pushd "$NONEXISTENT_DIR" >/dev/null
+DETECT_DIR=$(mktemp -d -t swt-verify-detect-XXXXXX)
+trap 'rm -rf "$DETECT_DIR"' EXIT
+pushd "$DETECT_DIR" >/dev/null
 RESULT=$(swt detect-phase --json 2>/dev/null || true)
 popd >/dev/null
-rm -rf "$NONEXISTENT_DIR"
 if [ -z "$RESULT" ]; then
   echo "✗ swt detect-phase produced no output" >&2
   exit 1
