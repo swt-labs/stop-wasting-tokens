@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.6.5
+
+### Patch Changes
+
+- v1.6.5 — Validates the hands-off Trusted Publisher OIDC release flow.
+
+  Same product code as v1.6.4. This bump exists to confirm end-to-end
+  that the npm publish path is now genuinely zero-touch:
+  1. Bump `package.json:version` + `CHANGELOG.md ## X.Y.Z` entry,
+  2. `git push origin main`,
+  3. ~80 seconds later, `npm view stop-wasting-tokens version` returns
+     the new version. No NPM_TOKEN, no OTP, no terminal-side `npm
+publish` invocation, no human in the loop.
+
+  The Release workflow now uses npm Trusted Publisher (OIDC) — the
+  GitHub Actions runtime token is exchanged with the npm registry for
+  an ephemeral publish authorization scoped to this exact repo +
+  workflow file (`swt-labs/stop-wasting-tokens` ·
+  `.github/workflows/release.yml`). On the npm side, the package is
+  locked to "Require 2FA and disallow tokens (recommended)" so
+  token-based publishes are rejected outright — OIDC is the only
+  path. Tokens can no longer be stolen and used to publish.
+
+  The plumbing pieces, all landed in v1.6.4's release cycle:
+  - `release.yml` — `node-version: 24` (ships npm 11.x with OIDC
+    publish support; Node 22's npm 10.x had only provenance signing,
+    which is why every previous CI publish 404'd after sigstore
+    stamping).
+  - `release.yml` — drop `NPM_TOKEN` env from the changesets/action
+    step so npm CLI takes the OIDC path instead of falling back to
+    token auth.
+  - npm package access — Trusted Publisher rule for `swt-labs/stop-
+wasting-tokens` + workflow filename `release.yml` (no environment).
+  - npm package access — "disallow tokens" radio set, locking out
+    any future token-based publish drift.
+
+  No source / runtime / API surface changes. If `npm view stop-wasting-
+tokens version` shows `1.6.5` after this commit lands, the OIDC flow
+  is verified for real users and every subsequent patch release ships
+  via the same one-step push.
+
 ## 1.6.4
 
 ### Patch Changes
