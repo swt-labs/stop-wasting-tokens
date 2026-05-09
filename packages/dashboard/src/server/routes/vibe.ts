@@ -6,12 +6,28 @@ import {
 } from '@swt-labs/dashboard-core';
 import type { Hono } from 'hono';
 
+import type { EventBus } from '../event-bus.js';
+import { runMethodologyLoop } from '../vibe/loop.js';
+import type { MethodologyAgentFactory } from '../vibe/methodology-agent.js';
 import type { SessionRegistry } from '../vibe/session.js';
 
 export interface RegisterVibeRoutesOptions {
   registry: SessionRegistry;
   /** Project root for the spawned methodology loop. Frozen for the session's lifetime. */
   project_root: string;
+  /**
+   * Optional factory for creating a methodology agent on each `POST /api/vibe`.
+   * Tests pass a `ScriptedAgent` factory; production passes a `CodexMethodologyAgent`
+   * factory (deferred to follow-up plan). When omitted, sessions stay idle —
+   * useful for early integration testing of the wire format without spawning
+   * agents.
+   */
+  agentFactory?: MethodologyAgentFactory;
+  /**
+   * Required when `agentFactory` is provided — the loop publishes log lines
+   * and error events through this bus so the dashboard SPA sees them.
+   */
+  bus?: EventBus;
 }
 
 /**
@@ -28,7 +44,7 @@ export interface RegisterVibeRoutesOptions {
  * Returns 200 on accept and 4xx on the typed error envelopes.
  */
 export function registerVibeRoutes(app: Hono, opts: RegisterVibeRoutesOptions): void {
-  const { registry, project_root } = opts;
+  const { registry, project_root, agentFactory, bus } = opts;
 
   app.post('/api/vibe', async (c) => {
     const raw: unknown = await c.req.json().catch(() => null);
@@ -46,6 +62,23 @@ export function registerVibeRoutes(app: Hono, opts: RegisterVibeRoutesOptions): 
         ? { permission_timeout_ms: parsed.data.prompt_timeouts.permission_ms }
         : {}),
     });
+
+    // If an agent factory is configured, spawn the methodology loop in the
+    // background. The HTTP response returns immediately with `{session_id}`;
+    // agent activity surfaces via SSE. When no factory is configured, the
+    // session stays idle (legacy 02-02 behavior, used until CodexMethodologyAgent
+    // ships).
+    if (agentFactory && bus) {
+      const agent = agentFactory({ prompt: parsed.data.prompt, project_root });
+      void runMethodologyLoop({
+        agent,
+        registry,
+        bus,
+        session_id: session.id,
+        prompt: parsed.data.prompt,
+      });
+    }
+
     const response: VibeStartResponse = {
       session_id: session.id,
       state: session.state,
