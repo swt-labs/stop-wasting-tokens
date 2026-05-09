@@ -9,6 +9,12 @@ export interface AgentSpec {
   readonly allowed_mcp_servers: readonly string[];
   readonly sandbox_mode?: 'read-only' | 'workspace-write' | 'danger-full-access';
   readonly max_turns?: number;
+  /**
+   * Optional alternate names the orchestrator may use to route to this role.
+   * Codex resolves the first matching alias before falling back to `role`.
+   * Empty / undefined => no aliases.
+   */
+  readonly aliases?: readonly string[];
 }
 
 export interface SpawnRequest {

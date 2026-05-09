@@ -27,6 +27,9 @@ export function emitAgentToml(spec: AgentSpec): string {
   };
   if (spec.sandbox_mode !== undefined) table.sandbox_mode = spec.sandbox_mode;
   if (spec.max_turns !== undefined) table.max_turns = spec.max_turns;
+  if (spec.aliases !== undefined && spec.aliases.length > 0) {
+    table.aliases = [...spec.aliases];
+  }
   return emitToml(table);
 }
 
