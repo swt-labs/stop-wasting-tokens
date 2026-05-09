@@ -14,6 +14,7 @@ export interface TopBarProps {
 
 const PILL_LABEL: Record<ConnectionState, string> = {
   connecting: '◇ CONNECTING',
+  syncing: '◇ SYNCING',
   connected: '◯ CONNECTED',
   error: '✗ DISCONNECTED',
 };
@@ -82,17 +83,24 @@ export const TopBar: Component<TopBarProps> = (props) => {
           </span>
         </Show>
       </form>
-      <Show when={props.project && props.milestone} fallback={<div class="topbar-status">…</div>}>
-        <div class="topbar-status">
-          <span>{props.project?.name}</span>
-          <span class="topbar-sep">·</span>
-          <span>{props.milestone?.name}</span>
-          <span class="topbar-sep">·</span>
+      <div class="topbar-status">
+        <Show when={props.project} fallback={<span class="topbar-placeholder">project: …</span>}>
+          <span>{props.project!.name}</span>
+        </Show>
+        <span class="topbar-sep">·</span>
+        <Show
+          when={props.milestone}
+          fallback={<span class="topbar-placeholder">milestone: …</span>}
+        >
+          <span>{props.milestone!.name}</span>
+        </Show>
+        <span class="topbar-sep">·</span>
+        <Show when={props.milestone} fallback={<span class="topbar-placeholder">phase: …</span>}>
           <span>
-            phase {props.milestone?.phase_index} of {props.milestone?.phase_count}
+            phase {props.milestone!.phase_index} of {props.milestone!.phase_count}
           </span>
-        </div>
-      </Show>
+        </Show>
+      </div>
       <div class="topbar-controls">
         <Show when={props.project}>
           <span class="topbar-pill">backend: {BACKEND_LABEL[props.project!.backend]}</span>
