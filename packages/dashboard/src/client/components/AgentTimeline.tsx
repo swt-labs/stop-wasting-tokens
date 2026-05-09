@@ -84,7 +84,12 @@ export const AgentTimeline: Component<AgentTimelineProps> = (props) => {
       <h2 class="panel-header">Agents</h2>
       <Show
         when={rows().length > 0}
-        fallback={<div class="preview-panel-empty">No agent activity yet.</div>}
+        fallback={
+          <div class="preview-panel-empty">
+            No agent activity yet. Run <code>swt vibe</code> in your terminal to start the
+            methodology loop.
+          </div>
+        }
       >
         <ul class="agent-timeline-list" aria-live="polite">
           <For each={rows()}>

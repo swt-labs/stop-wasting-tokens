@@ -14,6 +14,10 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
 
   const submit = async (e: Event): Promise<void> => {
     e.preventDefault();
+    // Belt-and-suspenders against double-fire on rapid clicks. The button is
+    // also disabled via props.submitting, but the form itself can still
+    // submit on Enter when focus is in the textarea, so guard here too.
+    if (props.submitting) return;
     const trimmedName = name().trim();
     if (trimmedName.length === 0) {
       setError('Project name is required.');

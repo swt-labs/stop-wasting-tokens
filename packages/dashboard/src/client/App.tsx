@@ -55,7 +55,12 @@ export const App: Component = () => {
           <div class="panel">
             <Show
               when={phases().length > 0}
-              fallback={<div class="preview-panel-empty">No phases yet.</div>}
+              fallback={
+                <div class="preview-panel-empty">
+                  No phases yet. Run <code>swt vibe</code> from your terminal to scope a milestone,
+                  or type <code>help</code> in the command bar above for available subcommands.
+                </div>
+              }
             >
               <PhaseStepper
                 phases={phases()}
