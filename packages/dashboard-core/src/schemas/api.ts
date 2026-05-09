@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { SnapshotEventSchema } from './events.js';
+import { SnapshotSchema } from './snapshot.js';
 
 export const HealthResponseSchema = z.object({
   status: z.literal('ok'),
@@ -40,6 +41,12 @@ export const InitResponseSchema = z.object({
   initialized: z.literal(true),
   root: z.string().min(1),
   files: z.array(z.string().min(1)),
+  /**
+   * The snapshot the daemon's just-spun-up snapshotter produced. Lets the
+   * client drop the redundant follow-up `GET /api/snapshot` round-trip.
+   * Optional for back-compat with v1.6.0–v1.6.7 daemons that don't emit it.
+   */
+  snapshot: SnapshotSchema.optional(),
 });
 export type InitResponse = z.infer<typeof InitResponseSchema>;
 

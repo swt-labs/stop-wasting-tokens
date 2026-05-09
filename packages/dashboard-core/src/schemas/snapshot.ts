@@ -93,9 +93,12 @@ export const SnapshotSchema = z.object({
   cost_summary: CostSummarySchema.nullable(),
   /**
    * False when the daemon's cwd has no `.swt-planning/` yet. The SPA uses
-   * this to render the init flow. Defaults to true for back-compat with
-   * v1.6.0–v1.6.2 snapshots that pre-date the field.
+   * this to render the init flow. Required since v1.7.0 — every emitter
+   * (reducer.ts, empty.ts) sets it explicitly, and the SSE layer is
+   * session-local so back-compat with pre-v1.6.6 wire snapshots is moot.
+   * The .default(true) shim was a v1.6.6 protective measure that's no
+   * longer load-bearing.
    */
-  is_initialized: z.boolean().default(true),
+  is_initialized: z.boolean(),
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;
