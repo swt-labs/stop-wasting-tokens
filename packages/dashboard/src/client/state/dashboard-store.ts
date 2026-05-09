@@ -4,7 +4,11 @@ import { createStore } from 'solid-js/store';
 import {
   fetchArtifactRendered,
   fetchSnapshot,
+  postCommand,
+  postInit,
   postUatCheckpoint,
+  type CommandResponse,
+  type InitBody,
   type RenderedArtifact,
   type UatCheckpointBody,
 } from '../services/api.js';
@@ -42,6 +46,8 @@ export interface DashboardState {
   recentLogLines: LogLine[];
   uatModal: UatModalState | null;
   uatSubmitting: boolean;
+  initSubmitting: boolean;
+  commandSubmitting: boolean;
   errors: DashboardErrorEntry[];
 }
 
@@ -52,6 +58,8 @@ export interface DashboardActions {
   openUatModal: (modal: UatModalState) => void;
   closeUatModal: () => void;
   submitUatCheckpoint: (result: 'pass' | 'fail', note?: string) => Promise<void>;
+  initProject: (body: InitBody) => Promise<void>;
+  runCommand: (input: string) => Promise<CommandResponse | null>;
   pushError: (message: string) => void;
   shutdown: () => void;
 }
@@ -76,6 +84,8 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     recentLogLines: [],
     uatModal: null,
     uatSubmitting: false,
+    initSubmitting: false,
+    commandSubmitting: false,
     errors: [],
   });
 
@@ -240,6 +250,81 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     }
   };
 
+  const initProject = async (body: InitBody): Promise<void> => {
+    setState('initSubmitting', true);
+    try {
+      await postInit(body);
+      // Re-fetch snapshot — the daemon should now have a snapshotter and
+      // is_initialized: true.
+      const snap = await fetchSnapshot();
+      setState('snapshot', snap);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`init failed: ${message}`);
+      throw err;
+    } finally {
+      setState('initSubmitting', false);
+    }
+  };
+
+  const appendCommandLines = (response: CommandResponse, input: string): void => {
+    const ts = new Date().toISOString();
+    const inputLine: LogLine = {
+      id: `log-cmd-${++logSeq}`,
+      ts,
+      channel: 'stdout',
+      line: `$ swt ${input}`,
+    };
+    const lines: LogLine[] = [inputLine];
+    for (const raw of response.stdout.split('\n')) {
+      if (raw.length === 0) continue;
+      lines.push({ id: `log-cmd-${++logSeq}`, ts, channel: 'stdout', line: raw });
+    }
+    for (const raw of response.stderr.split('\n')) {
+      if (raw.length === 0) continue;
+      lines.push({ id: `log-cmd-${++logSeq}`, ts, channel: 'stderr', line: raw });
+    }
+    if (response.exit_code !== 0) {
+      lines.push({
+        id: `log-cmd-${++logSeq}`,
+        ts,
+        channel: 'stderr',
+        line: `[exit ${response.exit_code} · ${response.duration_ms}ms]`,
+      });
+    }
+    setState('recentLogLines', (prev) => {
+      const next = [...prev, ...lines];
+      return next.slice(-RECENT_LOG_LIMIT);
+    });
+  };
+
+  const runCommand = async (input: string): Promise<CommandResponse | null> => {
+    const trimmed = input.trim();
+    if (trimmed.length === 0) return null;
+    setState('commandSubmitting', true);
+    try {
+      const result = await postCommand({ input: trimmed });
+      appendCommandLines(result, trimmed);
+      // Some commands (e.g. `init`, `vibe`, `archive`) mutate `.swt-planning/`,
+      // so re-fetch snapshot opportunistically. SSE state.changed events also
+      // catch this, but a deterministic re-fetch after a user-triggered
+      // command is the simplest contract.
+      try {
+        const snap = await fetchSnapshot();
+        setState('snapshot', snap);
+      } catch {
+        /* ignore — log lines already captured */
+      }
+      return result;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`command failed: ${message}`);
+      return null;
+    } finally {
+      setState('commandSubmitting', false);
+    }
+  };
+
   const shutdown = (): void => {
     sse?.close();
     sse = null;
@@ -254,6 +339,8 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
       openUatModal,
       closeUatModal,
       submitUatCheckpoint,
+      initProject,
+      runCommand,
       pushError,
       shutdown,
     },

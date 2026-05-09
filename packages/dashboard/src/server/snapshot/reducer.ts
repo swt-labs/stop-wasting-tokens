@@ -193,6 +193,7 @@ export function buildSnapshot(projectRoot: string): Snapshot {
       today_usd: 0,
       this_milestone_usd: 0,
     },
+    is_initialized: true,
   };
 
   return SnapshotSchema.parse(snapshot);

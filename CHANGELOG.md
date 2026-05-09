@@ -1,5 +1,84 @@
 # Changelog
 
+## 1.6.3
+
+### Patch Changes
+
+- v1.6.3 — Greenfield init UX + inline command bar.
+
+  v1.6.2 made the dashboard daemon serve its own SPA, but the SPA still
+  showed a misleading "DISCONNECTED" indicator when run from a directory
+  that didn't have `.swt-planning/` yet — and there was no path forward
+  in-browser, since `swt init` is a stub in the published binary. v1.6.3
+  fixes both of those and adds an inline command input next to the
+  brand cursor so the dashboard mirrors the CLI surface 1:1 with visual
+  feedback.
+
+  **Greenfield init flow**
+  - `packages/dashboard-core/src/schemas/snapshot.ts` — `project`,
+    `milestone`, `cost_summary` are now nullable on the snapshot
+    schema, plus a new `is_initialized: z.boolean().default(true)` flag.
+  - `packages/dashboard/src/server/snapshot/empty.ts` — synthesizes a
+    `is_initialized: false` snapshot for greenfield daemons.
+  - `packages/dashboard/src/server/routes/snapshot.ts` — registers
+    unconditionally with a getter so a snapshotter that lights up
+    after `POST /api/init` is picked up automatically; serves the
+    synth when the getter returns null.
+  - `packages/dashboard/src/server/routes/init.ts` — new
+    `POST /api/init { name, description? }` endpoint that scaffolds
+    `.swt-planning/PROJECT.md` + `.swt-planning/STATE.md` + an empty
+    `phases/` dir, then triggers a snapshotter spin-up so subsequent
+    `/api/snapshot` polls + SSE `state.changed` events flow.
+    `409 already_initialized` if `.swt-planning/` already exists.
+  - `packages/dashboard/src/client/components/InitScreen.tsx` —
+    centered onboarding card with project-name input + description
+    textarea + "Initialize SWT project" button, rendered when the
+    snapshot reports `is_initialized: false`.
+  - `App.tsx` branches on `snapshot.is_initialized`: false → InitScreen,
+    true → the existing 4-panel grid.
+
+  **Inline command bar (CLI parity)**
+  - `packages/dashboard-core/src/schemas/api.ts` — new
+    `CommandBodySchema` / `CommandResponseSchema` (`{ input }` →
+    `{ ok, exit_code, stdout, stderr, duration_ms }`).
+  - `packages/dashboard/src/server/routes/command.ts` — new
+    `POST /api/command` route. Splits the input on whitespace
+    (no shell parsing — args go directly to `child_process.spawn`),
+    invokes the user's installed `swt` binary in the daemon's cwd,
+    captures stdout/stderr with a 10 s timeout, returns the result.
+    `dashboard` and `watch` are rejected with helpful errors
+    (recursive launch / Ink TUI requires an interactive terminal).
+  - `packages/dashboard/src/client/components/TopBar.tsx` — new
+    inline `<form>` with a `$` prompt and an input next to the
+    blinking cursor. Submit on Enter routes to the new `runCommand`
+    store action.
+  - `dashboard-store.runCommand` appends `$ swt <input>` plus each
+    stdout/stderr line into `recentLogLines` so users see the
+    command echo + response in the LogPanel exactly like a terminal.
+    Re-fetches the snapshot opportunistically after each command so
+    state-mutating verbs (init via CLI, future archive, etc.) reflect
+    immediately.
+
+  **Bug fixes carried in this release**
+  - SPA fallback at `app.get('*')` now skips `/api/*` paths so missing
+    API routes return real JSON 404s instead of HTML — closes the
+    masking bug introduced by v1.6.2's static-files wiring.
+  - `packages/dashboard/src/server/snapshot/reducer.ts` adds
+    `is_initialized: true` to the reducer's output so the live
+    snapshotter's snapshot matches the schema's expected shape.
+
+  **Verified end-to-end** (greenfield → init → connected → command):
+  - `GET /` → 200 + index.html
+  - `GET /api/snapshot` (greenfield) → 200 + `is_initialized: false`
+  - `POST /api/init` → 200 + creates the three artifacts
+  - `GET /api/snapshot` (post-init) → 200 + `is_initialized: true`
+  - `POST /api/command { input: "help" }` → 200 + real swt help
+  - `POST /api/command { input: "watch" }` → 200 + `ok: false`
+  - typecheck + lint --max-warnings 0 + format:check all green
+
+  No new runtime dependencies; `@hono/node-server/serve-static` was
+  already pulled in by v1.6.2.
+
 ## 1.6.2
 
 ### Patch Changes

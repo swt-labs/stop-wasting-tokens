@@ -4,6 +4,7 @@ import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
 import { CostPanel } from './components/CostPanel.js';
+import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
@@ -21,6 +22,7 @@ export const App: Component = () => {
 
   const phases = createMemo(() => state.snapshot?.phases ?? []);
   const selectedPhaseSlug = createMemo(() => state.selectedArtifact?.phase ?? null);
+  const isInitialized = createMemo(() => state.snapshot?.is_initialized ?? false);
 
   const renderedArtifact = createMemo(() => {
     const sel = state.selectedArtifact;
@@ -38,46 +40,57 @@ export const App: Component = () => {
         project={state.snapshot?.project ?? null}
         milestone={state.snapshot?.milestone ?? null}
         connection={state.connection}
+        commandSubmitting={state.commandSubmitting}
+        onCommand={actions.runCommand}
       />
-      <main class="app-body">
-        <div class="panel">
-          <Show
-            when={phases().length > 0}
-            fallback={<div class="preview-panel-empty">No phases yet.</div>}
-          >
-            <PhaseStepper
+      <Show
+        when={isInitialized()}
+        fallback={
+          <main class="app-body app-body-greenfield">
+            <InitScreen submitting={state.initSubmitting} onInit={actions.initProject} />
+          </main>
+        }
+      >
+        <main class="app-body">
+          <div class="panel">
+            <Show
+              when={phases().length > 0}
+              fallback={<div class="preview-panel-empty">No phases yet.</div>}
+            >
+              <PhaseStepper
+                phases={phases()}
+                currentIndex={state.snapshot?.milestone?.phase_index ?? 1}
+                selectedPhase={selectedPhaseSlug()}
+                onSelect={handleSelect}
+              />
+            </Show>
+          </div>
+          <div class="panel">
+            <ArtifactTree
               phases={phases()}
-              currentIndex={state.snapshot?.milestone.phase_index ?? 1}
-              selectedPhase={selectedPhaseSlug()}
+              selected={state.selectedArtifact}
               onSelect={handleSelect}
             />
-          </Show>
-        </div>
-        <div class="panel">
-          <ArtifactTree
-            phases={phases()}
-            selected={state.selectedArtifact}
-            onSelect={handleSelect}
-          />
-        </div>
-        <div class="app-body-center">
-          <ArtifactPreview
-            selected={state.selectedArtifact}
-            rendered={renderedArtifact()}
-            loading={state.artifactLoading}
-            error={state.artifactError}
-            onRetry={() => {
-              const sel = state.selectedArtifact;
-              if (sel) handleSelect(sel.phase, sel.name);
-            }}
-          />
-          <LogPanel lines={state.recentLogLines} />
-        </div>
-        <div class="app-body-right">
-          <AgentTimeline events={state.snapshot?.recent_events ?? []} />
-          <CostPanel cost={state.snapshot?.cost_summary ?? null} />
-        </div>
-      </main>
+          </div>
+          <div class="app-body-center">
+            <ArtifactPreview
+              selected={state.selectedArtifact}
+              rendered={renderedArtifact()}
+              loading={state.artifactLoading}
+              error={state.artifactError}
+              onRetry={() => {
+                const sel = state.selectedArtifact;
+                if (sel) handleSelect(sel.phase, sel.name);
+              }}
+            />
+            <LogPanel lines={state.recentLogLines} />
+          </div>
+          <div class="app-body-right">
+            <AgentTimeline events={state.snapshot?.recent_events ?? []} />
+            <CostPanel cost={state.snapshot?.cost_summary ?? null} />
+          </div>
+        </main>
+      </Show>
       <UatModal
         modal={state.uatModal}
         submitting={state.uatSubmitting}
