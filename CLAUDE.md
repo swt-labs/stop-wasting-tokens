@@ -4,9 +4,9 @@
 
 ## Active Context
 
-**Work:** v2.0 release in flight — Phases 1-4 done (10 plans, 47 tasks, 7 commits, ~107 new tests). Phase 5 (Release lifecycle) is the only remaining phase. v2.0 = natural-language-first dashboard pivot. Locked architecture in `.vbw-planning/research/v2-permission-model.md` + `v2-agent-prompt-protocol.md`.
-**Last shipped:** v1.7.1 README install refresh + idiot_check.py automation — `milestones/07-v1-7-0-cli-bug-fixes-and-v1-6-6-audit-closure` (npm publish via Trusted Publisher OIDC at v1.7.1 / 53bc1de — 2026-05-09)
-**Next action:** Phase 5 (Release v2.0) — bump 1.7.1 → 2.0.0, CHANGELOG, push, OIDC publish, tag, archive milestone
+**Work:** No active milestone
+**Last shipped:** v2.0 Natural-Language-First Dashboard — `milestones/08-v2-0-natural-language-first-dashboard` (5 phases / 11 plans / 53 tasks / 5 UAT CHECKPOINTs / ~107 new passing tests / 8 commits / 2 deviations — major-version pivot from "methodology in your terminal" to "dashboard IS the methodology surface, terminal is for power users." Bare `swt` now opens the dashboard daemon; `SWT_NO_DASHBOARD=1` restores legacy help. Phase 1: locked architecture in `v2-permission-model.md` + `v2-agent-prompt-protocol.md`. Phase 2: `agent.prompt` SSE schema, vibe session module with disk JSONL, `POST /api/vibe` + `/api/vibe/:id/reply`, marker protocol, ScriptedAgent test double, CodexMethodologyAgent production runner (opt-in via `SWT_VIBE_AGENT=codex`). Phase 3: `DashboardPermissionGate` with classification + session-scoped allowlist + visual-distinct amber-shield permission cards. Phase 4: natural-language command bar, chat-style conversation in LogPanel, empty-state CTA, first-run 3-step explainer. Phase 5: bump 1.7.1 → 2.0.0, CHANGELOG with full migration notes, OIDC publish, v2.0.0 tag at 4f93afa. idiot_check.py 18/18 against published binary. Follow-up work: agent-prompt template updates so real Codex emits ASK_USER markers + production-default flip + daemon restart resumption — all out of scope for 2.0.0; tracked in `milestones/08-...` SHIPPED.md "What did NOT ship" section. — 2026-05-09)
+**Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules
 
