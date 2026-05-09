@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.7.1
+
+### Patch Changes
+
+- v1.7.1 — README install-instruction refresh + idiot_check.py automation
+  shipped alongside the published bundle for clarity.
+
+  No runtime code changes — the published JS bundle is byte-for-byte
+  identical to v1.7.0. This patch refreshes user-facing surface only.
+
+  **What changed:**
+
+  - `README.md` — install section adds a version-pin example
+    (`npm install -g stop-wasting-tokens@1.7.0`), an upgrade-path
+    snippet, and a pointer to the in-repo Python smoke-tester
+    (`a_non_production_files/idiot_check.py`) for users who want to
+    verify a release end-to-end before committing to a daily-driver
+    upgrade. The "Verify the install" sample updates the example
+    `swt --version` output from the stale `1.5.1` to `1.7.0`. The
+    "What the package contains" list now mentions the dashboard SPA
+    assets (`packages/dashboard/dist/client/`).
+  - `a_non_production_files/idiot_check.py` (now tracked) — Python
+    stdlib-only smoke-tester that automates 18 Track A checks against
+    a globally-installed `swt` binary (~30s, no Codex tokens spent):
+    built-ins, help, version, doctor, detect-phase, config round-trip,
+    status, update, dashboard `/api/health` + `/api/snapshot` +
+    `/api/command` × 3 routing, watch, stub-verb sweep.
+  - Two test-script bugs fixed inline during the v1.7.0 verification
+    run (both caused by the v1.7.0 fixes themselves, not regressions):
+    A9 spawns the dashboard daemon in a dedicated tmpdir so A6's
+    now-working `config set` doesn't pollute the greenfield assumption;
+    A11 drops `init` from the stub list (X-02 promoted it to a real
+    command). Net result: 18/18 PASS against published v1.7.0
+    (vs. 13/18 baseline before the v1.7.0 fixes shipped).
+
+  **Why a release:** The README updates are user-facing — pinning the
+  install pointer and refreshing the version sample are visible to
+  anyone reading the npm package page or the GitHub README. Bundling
+  them with the idiot_check.py addition keeps both pieces of "release
+  documentation" tied to a single npm version.
+
 ## 1.7.0
 
 ### Minor Changes
