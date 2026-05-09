@@ -22,6 +22,18 @@ export function registerEventsRoute(
   getSnapshot: () => Snapshot | null = () => null,
 ): void {
   app.get('/api/events', (c) => {
+    // v2.0: optional ?session_id= filter. When present, only events that
+    // either have no session_id (global) or have a matching session_id
+    // (vibe session events) reach this client. Absent param = legacy
+    // firehose behavior (all events delivered to all clients).
+    const sessionFilter = c.req.query('session_id') ?? null;
+    const matchesSession = (event: SnapshotEvent): boolean => {
+      if (sessionFilter === null) return true;
+      const evtSessionId = (event as { session_id?: unknown }).session_id;
+      if (typeof evtSessionId !== 'string') return true; // global event, always pass
+      return evtSessionId === sessionFilter;
+    };
+
     return streamSSE(c, async (stream) => {
       const queue: SnapshotEvent[] = [];
       let resolveNext: ((event: SnapshotEvent | null) => void) | null = null;
@@ -47,6 +59,7 @@ export function registerEventsRoute(
 
       const unsubscribe = bus.subscribe((event) => {
         if (closed) return;
+        if (!matchesSession(event)) return;
         if (resolveNext) {
           const fn = resolveNext;
           resolveNext = null;

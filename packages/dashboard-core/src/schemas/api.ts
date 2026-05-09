@@ -84,6 +84,58 @@ export const RoutingDecisionSchema = z.enum([
 ]);
 export type RoutingDecision = z.infer<typeof RoutingDecisionSchema>;
 
+export const VibeStartBodySchema = z.object({
+  prompt: z.string().min(1).max(8000),
+  project_context: z.record(z.unknown()).optional(),
+  prompt_timeouts: z
+    .object({
+      clarification_ms: z.number().int().positive().optional(),
+      permission_ms: z.number().int().positive().optional(),
+    })
+    .optional(),
+});
+export type VibeStartBody = z.infer<typeof VibeStartBodySchema>;
+
+export const VibeStartResponseSchema = z.object({
+  session_id: z.string().min(1),
+  state: z.enum(['idle', 'running', 'awaiting-reply', 'completed', 'failed', 'expired']),
+});
+export type VibeStartResponse = z.infer<typeof VibeStartResponseSchema>;
+
+export const VibeReplyBodySchema = z.object({
+  prompt_id: z.string().min(1),
+  answer: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('choice'), value: z.string().min(1) }),
+    z.object({ kind: z.literal('free_form'), text: z.string().min(1) }),
+    z.object({
+      kind: z.literal('permission'),
+      decision: z.enum(['once', 'session', 'deny']),
+      user_note: z.string().optional(),
+    }),
+  ]),
+});
+export type VibeReplyBody = z.infer<typeof VibeReplyBodySchema>;
+
+export const VibeReplyResponseSchema = z.object({
+  ok: z.literal(true),
+  accepted: z.literal(true),
+});
+export type VibeReplyResponse = z.infer<typeof VibeReplyResponseSchema>;
+
+export const VibeReplyErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.enum([
+    'session_not_found',
+    'session_not_blocking',
+    'prompt_id_mismatch',
+    'prompt_expired',
+    'invalid_answer_kind',
+    'invalid_body',
+  ]),
+  expected_prompt_id: z.string().optional(),
+});
+export type VibeReplyError = z.infer<typeof VibeReplyErrorSchema>;
+
 export const CommandResponseSchema = z.object({
   ok: z.boolean(),
   exit_code: z.number().int(),
@@ -125,6 +177,16 @@ export const ApiSchemas = {
     method: 'POST',
     body: CommandBodySchema,
     response: CommandResponseSchema,
+  },
+  '/api/vibe': {
+    method: 'POST',
+    body: VibeStartBodySchema,
+    response: VibeStartResponseSchema,
+  },
+  '/api/vibe/:session_id/reply': {
+    method: 'POST',
+    body: VibeReplyBodySchema,
+    response: VibeReplyResponseSchema,
   },
 } as const;
 export type ApiSchemaMap = typeof ApiSchemas;

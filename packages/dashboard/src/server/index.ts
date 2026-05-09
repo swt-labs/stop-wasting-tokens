@@ -18,7 +18,9 @@ import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
+import { registerVibeRoutes } from './routes/vibe.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
+import { createSessionRegistry, type SessionRegistry } from './vibe/session.js';
 
 export interface DashboardServer {
   app: Hono;
@@ -26,6 +28,7 @@ export interface DashboardServer {
   bus: EventBus;
   snapshotter: Snapshotter | null;
   projectRoot: string | null;
+  vibeRegistry: SessionRegistry;
   port: number;
   hostname: string;
   close: () => Promise<void>;
@@ -59,7 +62,13 @@ export function createApp(
     projectRoot?: string;
     snapshotter?: Snapshotter;
   } = {},
-): { app: Hono; bus: EventBus; snapshotter: Snapshotter | null; projectRoot: string | null } {
+): {
+  app: Hono;
+  bus: EventBus;
+  snapshotter: Snapshotter | null;
+  projectRoot: string | null;
+  vibeRegistry: SessionRegistry;
+} {
   const bus = opts.bus ?? createEventBus();
   const startedAt = opts.startedAt ?? Date.now();
   const app = new Hono();
@@ -129,8 +138,16 @@ export function createApp(
     () => snapshotter?.current() ?? null,
   );
   registerCommandRoute(app, cwd);
+  // v2.0 Phase 2: vibe session registry + routes. Disk-backed events JSONL
+  // lives under {projectRoot}/.swt-planning/.vibe-sessions/. Falls back to
+  // {cwd}/.swt-planning/ when no projectRoot is resolved (greenfield) so
+  // the registry has a deterministic place to write logs from the moment
+  // the daemon starts.
+  const planningPath = join(projectRoot ?? cwd, '.swt-planning');
+  const vibeRegistry = createSessionRegistry({ bus, planning_path: planningPath });
+  registerVibeRoutes(app, { registry: vibeRegistry, project_root: projectRoot ?? cwd });
   registerSpaRoutes(app);
-  return { app, bus, snapshotter, projectRoot };
+  return { app, bus, snapshotter, projectRoot, vibeRegistry };
 }
 
 /**
@@ -218,7 +235,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     }
   }
 
-  const { app, bus, snapshotter } = createApp({
+  const { app, bus, snapshotter, vibeRegistry } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
   });
@@ -236,9 +253,11 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     bus,
     snapshotter,
     projectRoot: projectRoot ?? null,
+    vibeRegistry,
     port: boundPort,
     hostname,
     close: async () => {
+      vibeRegistry.shutdown();
       if (snapshotter) await snapshotter.close();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
