@@ -46,5 +46,12 @@ jobs:
           title: 'chore(release): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM_TOKEN — auth happens via npm Trusted Publisher (OIDC)
+          # configured at https://www.npmjs.com/package/stop-wasting-tokens/access.
+          # The id-token: write permission above lets `npm publish` pick up
+          # the GitHub Actions runtime OIDC token and exchange it with npm's
+          # registry for an ephemeral publish authorization tied to this
+          # exact workflow path. Setting NPM_TOKEN would override OIDC and
+          # fall back to token auth — which the package now rejects per
+          # "disallow tokens (recommended)".
           NPM_CONFIG_PROVENANCE: 'true'
