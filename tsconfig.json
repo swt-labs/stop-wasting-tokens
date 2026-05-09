@@ -7,6 +7,8 @@
     { "path": "./packages/methodology" },
     { "path": "./packages/artifacts" },
     { "path": "./packages/verification" },
-    { "path": "./packages/telemetry" }
+    { "path": "./packages/telemetry" },
+    { "path": "./packages/dashboard-core" },
+    { "path": "./packages/dashboard" }
   ]
 }
