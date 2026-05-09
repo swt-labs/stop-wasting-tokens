@@ -5,7 +5,7 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** v1.6.0 Localhost Dashboard — `milestones/05-workspace-foundation-and-schema-spike-mvp-read-only` (4 phases / 4 plans / 20 tasks / 17 UAT CHECKPOINTs / 94 files modified / 0 deviations — Hono + Solid + Vite + SSE + chokidar dashboard wired into `swt dashboard` with AC-01/04/14 hardening, log-rate-limit, ArtifactPreview virtualization, bundle/offline guards, and `docs/swt-dashboard.md` — 2026-05-09)
+**Last shipped:** v1.6.6 Dashboard ↔ CLI Integration Audit and Fix — `milestones/06-audit-and-catalog-backend-hardening-frontend-hardening` (4 phases / 4 plans / 17 tasks / 4 UAT CHECKPOINTs / 13 files modified / 1 process-exception deviation — audit-driven hardening that closed both originally-reported v1.6.5 bugs (init silent transition, command bar literal argv) plus 14 audit-surfaced findings; ALLOWED_VERBS allowlist + smart routing + per-verb timeouts on the server, optimistic init UI + hint chip + actionable empty-state on the client; 16 of 36 audit findings closed in v1.6.6, 20 deferred to v1.7 — npm publish via Trusted Publisher OIDC at v1.6.6 / 15a087d — 2026-05-09)
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules
