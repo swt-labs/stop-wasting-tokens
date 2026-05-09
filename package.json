@@ -34,6 +34,7 @@
   },
   "files": [
     "dist",
+    "packages/dashboard/dist/client",
     "README.md",
     "LICENSE",
     "CONTRIBUTING.md",
@@ -44,7 +45,8 @@
   },
   "packageManager": "pnpm@9.12.0",
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm dashboard:client:build && tsup",
+    "dashboard:client:build": "vite build --config packages/dashboard/vite.config.ts",
     "typecheck": "tsc --build",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -56,7 +58,9 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build && changeset publish",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "check:bundle-size": "node scripts/check-bundle-size.mjs",
+    "check:offline": "node scripts/check-offline.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",

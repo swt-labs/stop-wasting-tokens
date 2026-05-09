@@ -5,7 +5,7 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** v1.5.1 — `milestone/03-sdk-critical-conformance-plugin-marketplace-prep-hook` (3 phases / 3 plans / 13 tasks / 13 UAT scenarios — Codex SDK conformance — 2026-05-07)
+**Last shipped:** v1.6.0 Localhost Dashboard — `milestones/05-workspace-foundation-and-schema-spike-mvp-read-only` (4 phases / 4 plans / 20 tasks / 17 UAT CHECKPOINTs / 94 files modified / 0 deviations — Hono + Solid + Vite + SSE + chokidar dashboard wired into `swt dashboard` with AC-01/04/14 hardening, log-rate-limit, ArtifactPreview virtualization, bundle/offline guards, and `docs/swt-dashboard.md` — 2026-05-09)
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules

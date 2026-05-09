@@ -23,6 +23,7 @@ If you've ever watched Codex re-read your codebase three times in one session, h
 - [The methodology](#the-methodology)
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
+- [Dashboard](docs/swt-dashboard.md)
 - [Troubleshooting](#troubleshooting)
 - [Status](#status)
 - [Contributing, security, license](#contributing-security-license)
@@ -297,7 +298,7 @@ The CLI exposes ~30 commands. The full reference (with examples and flag details
 
 **Lifecycle** `init` `vibe` `plan` `execute` `verify` `archive`
 **Quality** `qa` `fix` `debug` `audit`
-**Inspection** `status` `detect-phase` `watch` `whats-new`
+**Inspection** `status` `detect-phase` `watch` `dashboard` `whats-new`
 **Backlog** `todo` `phase` `assumptions`
 **Research** `research` `discuss`
 **Workspace** `map` `worktree` `lease` `pause` `resume`
@@ -336,7 +337,11 @@ Check whether you're using v1.5.0 or earlier — the build pipeline didn't actua
 
 ## Status
 
-Currently shipping **v1.5.1**. v1 milestones (1–15) are complete. v1.5 forward-compatibility is in place for additional backend drivers (Claude Code, Ollama) — see [`docs/roadmap/v1.5.md`](docs/roadmap/v1.5.md). v1 itself targets the Codex CLI only.
+Currently shipping **v1.6.0** — Localhost Dashboard. `swt dashboard` boots a Hono daemon + Solid SPA on `127.0.0.1` and renders live SWT project state (phases, plans, summaries, agent timeline, log stream, cost rollups) with chokidar file-watching and SSE-driven live updates. UAT CHECKPOINTs can be recorded from the browser. See [`docs/swt-dashboard.md`](docs/swt-dashboard.md) for the full subcommand reference, or run `swt dashboard --help`.
+
+v1 milestones (1–15) plus the v1.5 tech-debt cleanup and the v1.6 dashboard are all shipped. v1.5 forward-compatibility is in place for additional backend drivers (Claude Code, Ollama) — see [`docs/roadmap/v1.5.md`](docs/roadmap/v1.5.md). v1 itself targets the Codex CLI only.
+
+**Carry-forward to v1.6.1:** Playwright e2e suite, `axe-cli` automated CI a11y gate, published `docs.stopwastingtokens.dev/swt-dashboard` site.
 
 Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md). Stable release notes are in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md).
 
