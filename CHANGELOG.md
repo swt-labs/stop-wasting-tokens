@@ -1,5 +1,72 @@
 # Changelog
 
+## 1.7.0
+
+### Minor Changes
+
+- v1.7.0 — Frontend polish + dashboard-store coverage; closes the v1.6.6
+  audit catalog (22 audit findings) plus the 2 new CLI bugs surfaced by
+  `idiot_check.py`.
+
+  **Milestone scope:** 4 phases / 22+1 audit findings closed. Phases 01
+  (CLI surface fixes) and 02 (backend + schema hardening) shipped
+  cumulatively in v1.6.8 alongside the resizable-panels feature; v1.7.0
+  adds Phase 03 (frontend polish + Vitest store-action coverage).
+
+  **What changed in v1.7.0 itself (Phase 03 — `packages/dashboard/src/client/`):**
+
+  - Connection pill gains a `'syncing'` state for the post-snapshot,
+    pre-first-onOpen window (closes F-05). Eliminates the flash of
+    `DISCONNECTED` on slow networks. The pill only flips to `'error'`
+    once the SSE stream has been successfully open at least once and
+    then dropped — transient errors during the initial sync window
+    stay in `'syncing'` and let the SSE wrapper auto-reconnect.
+  - `runCommand` re-fetches the snapshot only for **mutating verbs**
+    (`init`, `vibe`, `archive`, `fix`) (closes F-06). Read-only verbs
+    (`status`, `help`, `doctor`, `version`, `update`, `detect-phase`)
+    skip the redundant `/api/snapshot` round-trip and rely on SSE
+    `state.changed` events instead. Verb match is case-insensitive on
+    the first whitespace-delimited token.
+  - `TopBar` status section renders project / milestone / phase as
+    three independent `<Show>` blocks with per-field italic
+    placeholders (`project: …`, `milestone: …`, `phase: …`) (closes
+    F-10). Replaces the all-or-nothing
+    `<Show when={project && milestone}>` that previously hid the phase
+    index whenever either was missing.
+  - New `packages/dashboard/test/dashboard-store.test.ts` — 8 cases
+    covering `initProject` optimistic flip + rollback, `runCommand`
+    verb-aware refresh, and the
+    `connecting → syncing → connected → error` transition graph
+    (closes T04). The rollback test caught a real bug in the existing
+    code: `previousSnapshot` was a SolidJS store proxy reference that
+    got mutated by the optimistic `setState`, so the rollback no-op'd.
+    Fixed by shallow-spreading the snapshot at capture time.
+
+  **Cumulative v1.7.0 audit closure (Phases 01–03):**
+
+  | Phase | Audit IDs closed | Where |
+  |---|---|---|
+  | 01 — CLI surface (shipped in v1.6.8) | A5.b, A6.c, X-02, C-01, C-04 | `packages/cli/src/argv.ts`, `packages/cli/src/commands/{config,init,dashboard}.ts`, `packages/core/src/scaffold/init-project.ts` |
+  | 02 — Backend + schema (shipped in v1.6.8) | B-08, B-09, B-10, B-11, B-12, B-13, B-14, B-15, B-16, S-01, S-02, S-04 | `packages/dashboard/src/server/**`, `packages/dashboard-core/src/schemas/**` |
+  | 03 — Frontend + tests (this release) | F-05, F-06, F-10, T04 | `packages/dashboard/src/client/**`, `packages/dashboard/test/dashboard-store.test.ts` |
+
+  **What did NOT change:** server bundle and CLI bundle are byte-for-byte
+  identical to v1.6.8 (Phase 03 is client-side + tests only). The npm
+  tarball delta is roughly +1.2 KB (TopBar.tsx + dashboard-store.ts
+  edits compiled into the SPA bundle) plus the new test file in the
+  source-only tree.
+
+  **Verification:**
+
+  - `tsc --build` clean.
+  - `eslint` clean on touched `.ts` files.
+  - `vitest run`: 42 failed / 572 passed (= same 42 pre-existing
+    failures as the v1.6.8 baseline + 8 net new passes from
+    `dashboard-store.test.ts`; zero new regressions).
+  - `idiot_check.py` Track A: pending verification against the
+    published v1.7.0 binary (target: 18/18 vs 13/18 baseline before
+    A5.b + A6.c + X-02 fixes shipped).
+
 ## 1.6.8
 
 ### Patch Changes
