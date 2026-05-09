@@ -59,9 +59,11 @@ jobs:
               # whose target dir isn't already on PATH. Set PNPM_HOME
               # explicitly per OS, mkdir, export both PATH (for this step)
               # and GITHUB_PATH (for "Verify install").
-              # When PNPM_HOME is set, pnpm uses it *directly* as the
-              # global bin dir (no `/bin` suffix). PNPM_HOME must exist
-              # AND be on PATH for the same step before `pnpm add -g`.
+              # pnpm 9's default `global-bin-dir` resolves to a sub-path
+              # under PNPM_HOME (e.g. PNPM_HOME/bin), not PNPM_HOME
+              # itself, so setting PNPM_HOME alone isn't enough. Override
+              # `global-bin-dir` explicitly via `pnpm config set` so the
+              # bin landing zone matches what we put on PATH.
               if [[ "${RUNNER_OS}" == "macOS" ]]; then
                 PNPM_HOME="${HOME}/Library/pnpm"
               else
@@ -69,6 +71,7 @@ jobs:
               fi
               mkdir -p "${PNPM_HOME}"
               export PNPM_HOME
+              pnpm config set global-bin-dir "${PNPM_HOME}"
               export PATH="${PNPM_HOME}:${PATH}"
               echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
               echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
