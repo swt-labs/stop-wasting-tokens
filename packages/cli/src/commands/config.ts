@@ -1,5 +1,5 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import { ConfigError, DEFAULT_CONFIG, parseConfig, type SwtConfig } from '@swt-labs/core';
 
@@ -30,6 +30,11 @@ async function loadConfig(cwd: string): Promise<SwtConfig> {
 
 async function saveConfig(cwd: string, config: SwtConfig): Promise<void> {
   const path = join(cwd, CONFIG_PATH_RELATIVE);
+  // Greenfield directories don't have `.swt-planning/` yet; without this
+  // mkdir the writeFile below crashes with ENOENT before the user can ever
+  // set a config key. recursive: true is idempotent (no-op when the dir
+  // already exists).
+  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }
 
