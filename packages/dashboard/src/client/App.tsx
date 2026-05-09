@@ -164,6 +164,7 @@ export const App: Component = () => {
                     conversation={state.vibeSession?.conversation ?? []}
                     replying={state.vibeReplying}
                     onReply={actions.replyToActivePrompt}
+                    agentBackend={state.vibeSession?.agent_backend ?? null}
                   />
                 </Resizable.Panel>
               </Resizable>

@@ -17,6 +17,13 @@ export interface LogPanelProps {
   conversation?: readonly ConversationEntry[];
   replying?: boolean;
   onReply?: (answer: VibeReplyBody['answer']) => Promise<boolean>;
+  /**
+   * When set to a non-null backend tag and the active vibe session has
+   * `agent_backend: 'none'`, renders a setup-hint banner above the
+   * conversation thread. Lets users see WHY the dashboard is silent
+   * after they typed a prompt.
+   */
+  agentBackend?: 'none' | 'codex' | 'scripted' | null;
 }
 
 const PERMISSION_OPERATION_VERB: Record<string, string> = {
@@ -60,6 +67,7 @@ export const LogPanel: Component<LogPanelProps> = (props) => {
 
   const isEmpty = (): boolean => {
     const conv = props.conversation ?? [];
+    if (props.agentBackend === 'none') return false; // banner counts as content
     return props.lines.length === 0 && conv.length === 0;
   };
 
@@ -72,6 +80,22 @@ export const LogPanel: Component<LogPanelProps> = (props) => {
           when={!isEmpty()}
           fallback={<div class="preview-panel-empty">No log lines yet.</div>}
         >
+          <Show when={props.agentBackend === 'none'}>
+            <div class="vibe-no-backend-banner" role="status">
+              <div class="vibe-no-backend-banner-icon" aria-hidden="true">
+                ⚙
+              </div>
+              <div class="vibe-no-backend-banner-text">
+                <div class="vibe-no-backend-banner-title">No agent backend configured</div>
+                <div class="vibe-no-backend-banner-body">
+                  Sessions can be created but no agent will run. To enable real Codex agents,
+                  install the Codex CLI and restart the dashboard with{' '}
+                  <code>SWT_VIBE_AGENT=codex swt</code>. v2.0 ships agents as opt-in until
+                  the prompt templates teach Codex to emit ASK_USER markers reliably.
+                </div>
+              </div>
+            </div>
+          </Show>
           <Show when={(props.conversation ?? []).length > 0}>
             <div class="conversation-thread" aria-label="Vibe conversation">
               <For each={props.conversation ?? []}>

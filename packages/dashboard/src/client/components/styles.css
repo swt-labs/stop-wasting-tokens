@@ -197,18 +197,39 @@
   letter-spacing: 0.5px;
 }
 
+/* Wrapper holds the form + the hint row below. Position relative so the
+   hint row can absolute-anchor against the wrapper. */
+.topbar-cmd-wrapper {
+  position: relative;
+  flex: 1;
+  max-width: 540px;
+  margin: 0 12px;
+}
+
 .topbar-cmd {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
-  max-width: 480px;
-  margin: 0 12px;
   padding: 4px 10px;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(0, 255, 65, 0.2);
   border-radius: 4px;
   font-family: 'Fira Code', ui-monospace, monospace;
+}
+
+/* Hint row sits below the form, absolute-positioned so long hints can't
+   clip the input. Only one hint child renders at a time per the
+   classification, so the row is always a single chip. */
+.topbar-cmd-hint-row {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .topbar-cmd:focus-within {
@@ -929,6 +950,48 @@
 .onboarding-dismiss-btn:hover {
   background: var(--terminal-green);
   color: var(--slate-deep, #0d1117);
+}
+
+/* No-backend banner — shows in LogPanel when a vibe session was created
+   but the daemon has no agent backend wired (SWT_VIBE_AGENT unset). */
+
+.vibe-no-backend-banner {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  margin: 12px;
+  background: rgba(255, 170, 68, 0.08);
+  border: 1px solid rgba(255, 170, 68, 0.35);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.vibe-no-backend-banner-icon {
+  font-size: 20px;
+  color: var(--warm-amber, #ffaa44);
+  flex-shrink: 0;
+}
+
+.vibe-no-backend-banner-title {
+  color: var(--warm-amber, #ffaa44);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.vibe-no-backend-banner-body {
+  color: var(--ghost-white);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.vibe-no-backend-banner-body code {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--terminal-green);
+  font-family: inherit;
+  font-size: 12px;
 }
 
 /* Vibe Conversation (rendered inline in LogPanel) */

@@ -1,5 +1,60 @@
 # Changelog
 
+## 2.0.1
+
+### Patch Changes
+
+- v2.0.1 — Three UX fixes for the v2.0 dashboard surfaced by first-day
+  user feedback. No breaking changes; safe upgrade for everyone on
+  v2.0.0.
+
+  **Fixes:**
+
+  - **Command bar input clipping** — when the natural-language hint
+    chip ("↵ Press enter to start a vibe session") was visible, it
+    competed with the input for horizontal space and clipped typed
+    characters off the left edge. Restructured so the hint chip sits
+    in its own absolute-positioned row below the form, never
+    competing for input space. Same fix applies to the unknown-verb
+    and interactive-verb hints.
+  - **"phase 1 of 0" display** — the TopBar status rendered
+    `phase {phase_index} of {phase_count}` even when `phase_count
+    === 0` (brand-new project, no phases scoped). Now shows
+    "no phases yet" when phase_count is zero; the literal phase line
+    only renders when there's at least one phase scoped.
+  - **Silent idle vibe sessions** — v2.0.0 default behavior was to
+    create vibe sessions but stay idle indefinitely (because
+    `SWT_VIBE_AGENT=codex` is opt-in and unset by default). Users
+    typed prompts and saw nothing happen. Now:
+    - `POST /api/vibe` response includes a new `agent_backend` field
+      (`'none' | 'codex' | 'scripted'`).
+    - When the daemon has no agent factory wired (default), the
+      response carries `agent_backend: 'none'`.
+    - The dashboard renders an amber banner above the conversation
+      thread: "No agent backend configured — Sessions can be created
+      but no agent will run. To enable real Codex agents, install the
+      Codex CLI and restart the dashboard with
+      `SWT_VIBE_AGENT=codex swt`. v2.0 ships agents as opt-in until
+      the prompt templates teach Codex to emit ASK_USER markers
+      reliably."
+    - A stderr log line also surfaces the same hint inline.
+
+  **Schema additions:**
+
+  - `VibeStartResponseSchema` gains optional `agent_backend` field
+    in `@swt-labs/dashboard-core`. Optional for back-compat with
+    v2.0.0 daemons.
+
+  **What did NOT change:**
+
+  - Wire format, session lifecycle, marker protocol, permission gate
+    — all unchanged.
+  - `swt` no-args dashboard launch + `SWT_NO_DASHBOARD=1` escape
+    hatch unchanged.
+  - The opt-in production runner gate (`SWT_VIBE_AGENT=codex`) is
+    unchanged. v2.0.1 just makes the default's limitation visible
+    instead of silent.
+
 ## 2.0.0
 
 ### Major Changes
