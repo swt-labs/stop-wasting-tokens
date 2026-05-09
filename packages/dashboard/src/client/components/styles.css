@@ -5,53 +5,100 @@
 }
 
 .app-body {
-  display: grid;
-  grid-template-columns: 220px 280px 1fr 280px;
-  grid-template-rows: 1fr;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
   padding: 12px;
+  min-height: 0;
   overflow: hidden;
 }
 
-.app-body-center,
-.app-body-right {
+.resizable-root {
+  flex: 1;
+  min-height: 0;
+}
+
+.resizable-root-h {
+  display: flex;
+  flex-direction: row;
+}
+
+.resizable-root-v {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+
+.resizable-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 
-.app-body-center > * {
+.resizable-panel > .panel {
   flex: 1;
   min-height: 0;
 }
 
-.app-body-right > * {
+.resizable-stack {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.resizable-handle {
   flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  position: relative;
+  cursor: inherit;
 }
 
-.app-body-right .agent-timeline {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+.resizable-handle-h {
+  width: 8px;
+  margin: 0 2px;
+  cursor: col-resize;
 }
 
-@media (max-width: 1300px) {
-  .app-body {
-    grid-template-columns: 220px 280px 1fr;
-  }
-
-  .app-body-right {
-    display: none;
-  }
+.resizable-handle-v {
+  height: 8px;
+  margin: 2px 0;
+  cursor: row-resize;
 }
 
-@media (max-width: 1100px) {
-  .app-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    overflow: auto;
-  }
+.resizable-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: rgba(0, 255, 65, 0.12);
+  border-radius: 2px;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.resizable-handle-h::before {
+  width: 2px;
+  height: 32px;
+}
+
+.resizable-handle-v::before {
+  height: 2px;
+  width: 32px;
+}
+
+.resizable-handle:hover::before,
+.resizable-handle:focus-visible::before,
+.resizable-handle[data-active]::before,
+.resizable-handle[data-dragging]::before {
+  background: var(--terminal-green);
+  box-shadow: 0 0 6px rgba(0, 255, 65, 0.5);
+}
+
+.resizable-handle:focus-visible {
+  outline: none;
 }
 
 .panel {
@@ -59,6 +106,18 @@
   border: 1px solid rgba(0, 255, 65, 0.18);
   border-radius: 6px;
   padding: 12px;
+  overflow: auto;
+}
+
+.agent-timeline {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.agent-timeline-list {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 

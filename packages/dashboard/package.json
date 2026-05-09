@@ -19,9 +19,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@swt-labs/dashboard-core": "workspace:*",
+    "@corvu/resizable": "^0.2.5",
     "@hono/node-server": "^1.13.0",
     "@shikijs/rehype": "^1.20.0",
+    "@swt-labs/dashboard-core": "workspace:*",
     "chokidar": "^4.0.0",
     "gray-matter": "^4.0.3",
     "hono": "^4.6.0",

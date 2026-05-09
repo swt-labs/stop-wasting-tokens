@@ -1,5 +1,60 @@
 # Changelog
 
+## 1.6.8
+
+### Patch Changes
+
+- v1.6.8 — Resizable dashboard panels.
+
+  The 4-panel localhost dashboard grid (phase stepper / artifact tree /
+  preview+log column / agents+cost column) is now drag-resizable on every
+  split. Layout fractions persist to `localStorage` under the key
+  `swt:dashboard:layout-v1` so a refreshed tab keeps the user's column
+  widths.
+
+  **What changed:**
+  - `packages/dashboard/package.json` — adds `@corvu/resizable@^0.2.5`
+    (Solid drag-handle library, MIT-licensed, ~3 KB gzipped).
+  - `packages/dashboard/src/client/App.tsx` — the 4-panel `<main>` grid
+    is wrapped in `<Resizable>` (horizontal) with two nested vertical
+    `<Resizable>` instances for the center column (preview / log) and
+    right column (agents / cost). Each `<Resizable.Handle>` carries an
+    `aria-label` for keyboard / screen-reader navigation. The
+    `onSizesChange` callbacks persist via `saveLayout()`.
+  - `packages/dashboard/src/client/lib/layout-storage.ts` (new) —
+    `loadLayout()` / `saveLayout()` with strict per-array length
+    validation (4 fractions for main, 2 each for center/right) and a
+    `DEFAULT_LAYOUT` fallback if `localStorage` is unavailable
+    (private mode, quota exceeded, SSR / non-browser runtime). Storage
+    access is gated behind a typed `getStorage()` helper that respects
+    the `globalThis.localStorage` contract without leaning on full DOM
+    types.
+  - `packages/dashboard/src/client/components/styles.css` — new
+    `.resizable-*` selectors for the horizontal/vertical handle
+    containers. Handles are 8 px wide (col) / 8 px tall (row) with a
+    32 px terminal-green visual indicator at hover/focus/active. The
+    indicator uses `box-shadow` for the glow effect, matching the
+    existing brand palette (`var(--terminal-green)`, low-opacity
+    background).
+
+  No schema changes, no API changes, no daemon-side changes. Pure
+  client-side feature. Existing users on v1.6.7 dashboards will see
+  the default layout on first load of v1.6.8 and any subsequent
+  drag-resizes are auto-persisted.
+
+  **Constraints:**
+  - Min sizes per panel are conservative (`0.08–0.25` of parent) so
+    no panel can be collapsed to zero width.
+  - The handle hover / focus-visible / active states all collapse to
+    the same visual treatment, so keyboard-driven layout changes
+    (Tab + arrow keys per `@corvu/resizable`'s built-in semantics)
+    are visible.
+
+  This release does not modify any of the v1.6.6 audit closures or
+  v1.6.7 docs work. v1.7.0 (in-progress, ~22 audit closures + new
+  CLI bugs) will land on top of this 1.6.8 baseline so its Phase 03
+  frontend polish can extend the resizable layout cleanly.
+
 ## 1.6.7
 
 ### Patch Changes
@@ -82,8 +137,8 @@ version`).
     resolved via `import.meta.url`. Both bundles ship side-by-side in
     `dist/` per `tsup.config.ts`, so `dirname(fileURLToPath(import.meta.url))
     - 'cli.mjs'`is always reachable for`npm i -g`installs. Falls back
-    to PATH`swt` only for in-repo dev where the daemon source runs
-    unbundled.
+to PATH`swt` only for in-repo dev where the daemon source runs
+      unbundled.
   - `B-05/B-06/B-07 (S2)`: `FORBIDDEN_VERBS` denylist (which only blocked
     `dashboard` + `watch`) replaced with the inverse `ALLOWED_VERBS`
     allowlist. Eliminates the "stub verbs run and return NOT_IMPLEMENTED"
