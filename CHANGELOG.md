@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.6.2
+
+### Patch Changes
+
+- v1.6.2 — Dashboard daemon serves the SPA.
+
+  v1.6.1 shipped the localhost dashboard daemon and the bundled SPA
+  (`packages/dashboard/dist/client/`) as separate concerns. The daemon
+  registered all the API routes (`/api/snapshot`, `/api/events`,
+  `/api/artifact`, `/api/uat/:phase/checkpoint`, `/api/health`,
+  `/api/_debug/emit`) but never registered a static-file handler for
+  `GET /`. Result: `swt dashboard` happily reported `Listening on
+http://127.0.0.1:54320`, but a browser visiting that URL got
+  `404 Not Found` because Hono had no route matching `/`.
+
+  The Phase 02 UAT had verified the SPA via Vite's dev server (proxying
+  `/api/*` to the daemon), and the Phase 04 `swt dashboard` smoke
+  CHECKPOINT was answered PASS without an actual end-to-end
+  `npm install -g + swt dashboard + open browser` run. So the gap shipped.
+
+  **Fix.** `packages/dashboard/src/server/index.ts` now registers a
+  `serveStatic` route from `@hono/node-server/serve-static` that mounts
+  the bundled SPA at `/`, plus an SPA fallback for unknown GET paths so
+  client-side routing (deep links, refreshes) works. The static-files
+  directory is resolved at runtime via `import.meta.url` with three
+  candidate paths covering: published tarball
+  (`dist/dashboard-server.mjs` → `../packages/dashboard/dist/client`),
+  in-repo dev (`src/server/index.ts` → `../../dist/client`), and a
+  CWD-relative fallback. If none exist, the static block is skipped
+  silently — API-only mode still works.
+
+  **Verified locally.**
+  - `GET /` → 200 + index.html (correct script + style tags)
+  - `GET /assets/index-*.js` → 200 + ~93 KB JS bundle
+  - `GET /assets/index-*.css` → 200 + CSS bundle
+  - `GET /api/health` → 200 + JSON (existing API unaffected)
+
+  No new dependencies; `@hono/node-server` was already a dashboard dep.
+
 ## 1.6.1
 
 ### Patch Changes

@@ -1,4 +1,9 @@
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { serve, type ServerType } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 
 import { createEventBus, type EventBus } from './event-bus.js';
@@ -74,7 +79,61 @@ export function createApp(
     registerArtifactRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
   }
+  registerSpaRoutes(app);
   return { app, bus, snapshotter, projectRoot };
+}
+
+/**
+ * Serve the bundled SPA (`packages/dashboard/dist/client/`) at `GET /` and
+ * `GET /assets/*`. Without this, a browser hitting the daemon's root URL
+ * gets 404 because the API routes don't match `/`. The client dir lives
+ * adjacent to the daemon bundle in the published tarball:
+ *
+ *   <pkg>/dist/dashboard-server.mjs        ← this file at runtime
+ *   <pkg>/packages/dashboard/dist/client/  ← SPA static assets
+ *
+ * Resolution probes a few candidate paths so the same code works for the
+ * tsup'd published bundle, the in-repo dist, and a user's local
+ * `pnpm --filter @swt-labs/dashboard build` output.
+ */
+function registerSpaRoutes(app: Hono): void {
+  const here = (() => {
+    try {
+      return fileURLToPath(import.meta.url);
+    } catch {
+      return process.cwd();
+    }
+  })();
+  const serverDir = dirname(here);
+  const candidates = [
+    // Published tarball: dist/dashboard-server.mjs → ../packages/dashboard/dist/client
+    resolve(serverDir, '..', 'packages', 'dashboard', 'dist', 'client'),
+    // In-repo dev: packages/dashboard/src/server/index.ts → ../../dist/client
+    resolve(serverDir, '..', '..', 'dist', 'client'),
+    // Cwd fallback
+    resolve(process.cwd(), 'packages', 'dashboard', 'dist', 'client'),
+  ];
+  const clientDir = candidates.find((p) => existsSync(p));
+  if (!clientDir) return;
+
+  app.use(
+    '/*',
+    serveStatic({
+      root: clientDir,
+      // Hono's serveStatic uses paths relative to `root`; `rewriteRequestPath`
+      // strips a leading `/` so `GET /assets/foo.js` resolves under `root`.
+      rewriteRequestPath: (path) => path.replace(/^\/+/, '/'),
+    }),
+  );
+
+  // SPA fallback — for any unknown GET (deep links, refreshes on /vibe etc.),
+  // hand back index.html so the client-side router takes over.
+  app.get('*', async (c) => {
+    const indexPath = resolve(clientDir, 'index.html');
+    if (!existsSync(indexPath)) return c.notFound();
+    const { readFileSync } = await import('node:fs');
+    return c.html(readFileSync(indexPath, 'utf8'));
+  });
 }
 
 export async function createServer(options: CreateServerOptions = {}): Promise<DashboardServer> {
