@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,9 +65,7 @@ function spawnDaemon(
     SWT_DASHBOARD_HOST: host,
     ...(unsafePublic ? { SWT_DASHBOARD_UNSAFE_PUBLIC: '1' } : {}),
   };
-  const stdio: ('inherit' | 'pipe')[] = debug
-    ? ['inherit', 'inherit', 'pipe']
-    : ['ignore', 'pipe', 'pipe'];
+  const stdio: StdioOptions = debug ? ['inherit', 'inherit', 'pipe'] : ['ignore', 'pipe', 'pipe'];
   if (entry.mode === 'src') {
     return spawn('node', ['--import', 'tsx/esm', entry.script], { env, stdio });
   }
@@ -164,7 +162,8 @@ export const dashboardHandler: CommandHandler = async (
   const url = readyLine.replace(/^.*?(http:\/\/[^/\s]+).*/i, '$1');
   io.stdout.write(`Dashboard ${readyLine}\nAddress: ${url}/\n`);
 
-  const wantOpen = !flags.noOpen && shouldAutoOpen(process.env, Boolean(io.stdout.isTTY ?? true));
+  const stdoutIsTty = Boolean((io.stdout as { isTTY?: boolean }).isTTY ?? true);
+  const wantOpen = !flags.noOpen && shouldAutoOpen(process.env, stdoutIsTty);
   if (wantOpen) {
     try {
       await openBrowser(`${url}/`);

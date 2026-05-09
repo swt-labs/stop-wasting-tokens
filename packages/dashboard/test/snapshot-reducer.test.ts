@@ -2,12 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { SnapshotSchema } from '@swt-labs/dashboard-core';
 import { describe, expect, it } from 'vitest';
 
-import { SnapshotSchema } from '@swt-labs/dashboard-core';
-
-import { buildSnapshot } from '../src/server/snapshot/reducer.js';
 import { snapshotsEqual } from '../src/server/snapshot/diff.js';
+import { buildSnapshot } from '../src/server/snapshot/reducer.js';
 
 function setupFixture(): string {
   const root = mkdtempSync(path.join(tmpdir(), 'swt-snap-'));

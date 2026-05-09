@@ -70,8 +70,14 @@ export function openSseConnection(
       source = null;
       scheduleReconnect();
     });
+    // Snapshot SSE events are dispatched as MessageEvents on a typed
+    // EventSource; the wrapping signature satisfies addEventListener's
+    // EventListener contract while keeping the typed dispatch internally.
+    const dispatchListener = function (this: EventTarget, event: Event): void {
+      dispatch(event as MessageEvent);
+    };
     for (const type of SNAPSHOT_EVENT_TYPES) {
-      es.addEventListener(type, dispatch as EventListener);
+      es.addEventListener(type, dispatchListener);
     }
   };
 

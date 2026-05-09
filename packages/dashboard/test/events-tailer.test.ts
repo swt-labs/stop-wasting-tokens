@@ -2,9 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import type { SnapshotEvent } from '@swt-labs/dashboard-core';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createEventBus } from '../src/server/event-bus.js';
 import { createEventsTailer, type EventsTailer } from '../src/server/snapshot/events-tailer.js';

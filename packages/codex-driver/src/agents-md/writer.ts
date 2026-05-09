@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 export const SWT_BEGIN_FENCE = '<!-- SWT BEGIN -->';
 export const SWT_END_FENCE = '<!-- SWT END -->';
 export const OVERRIDE_BEGIN_FENCE = '<!-- SWT OVERRIDE BEGIN -->';
@@ -77,12 +79,9 @@ export function composeAgentsMdBody(swtBody: string, overrideContent?: string): 
  * Filesystem errors other than ENOENT are surfaced.
  */
 export function readAgentsOverrideSync(projectRoot: string): string | null {
-  // Late require to avoid pulling node:fs into pure-emit consumers.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require('node:fs') as typeof import('node:fs');
   const path = `${projectRoot.replace(/[\/\\]+$/, '')}/${AGENTS_OVERRIDE_FILENAME}`;
   try {
-    return fs.readFileSync(path, 'utf8');
+    return readFileSync(path, 'utf8');
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw err;

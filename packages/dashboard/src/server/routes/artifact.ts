@@ -2,8 +2,8 @@ import { readFile } from 'node:fs/promises';
 
 import type { Hono } from 'hono';
 
-import { renderMarkdown } from '../markdown/render.js';
 import { resolveSafePath } from '../lib/safe-path.js';
+import { renderMarkdown } from '../markdown/render.js';
 
 const ALLOWLIST = ['.swt-planning/', 'dist/'] as const;
 

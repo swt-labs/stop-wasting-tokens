@@ -1,10 +1,10 @@
 import path from 'node:path';
 
+import type { Snapshot, SnapshotEvent } from '@swt-labs/dashboard-core';
 import chokidar, { type FSWatcher } from 'chokidar';
 
-import type { Snapshot, SnapshotEvent } from '@swt-labs/dashboard-core';
-
 import type { EventBus } from '../event-bus.js';
+
 import { snapshotsEqual } from './diff.js';
 import { createEventsTailer, type EventsTailer } from './events-tailer.js';
 import { buildSnapshot } from './reducer.js';

@@ -26,7 +26,7 @@ export function createEventBus(): EventBus {
         } catch (err: unknown) {
           // Listeners must not throw; if one does, log and keep going so a buggy
           // subscriber can't kill SSE delivery to its peers.
-          // eslint-disable-next-line no-console
+
           console.error('event-bus listener threw:', err);
         }
       }

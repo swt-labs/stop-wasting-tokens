@@ -15,7 +15,8 @@
     "scripts/**/*.ts",
     "tsup.config.ts",
     "vitest.config.ts",
-    "eslint.config.mjs"
+    "eslint.config.mjs",
+    "packages/dashboard/vite.config.ts"
   ],
   "exclude": ["**/dist/**", "**/build/**", "**/coverage/**", "**/node_modules/**"]
 }

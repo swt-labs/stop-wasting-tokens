@@ -1,9 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import type { Hono } from 'hono';
-
 import { UatCheckpointBodySchema, type UatCheckpointResponse } from '@swt-labs/dashboard-core';
+import type { Hono } from 'hono';
 
 const PHASES_DIR = path.join('.swt-planning', 'phases');
 
