@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.6.1
+
+### Patch Changes
+
+- v1.6.1 — Codex SDK conformance hardening, post-v1.6.0.
+
+  Closes the three deferred findings from the v1.5.1 SDK conformance pass (F-07, F-15, F-17) and fixes a pre-existing TOML emit bug surfaced while running the new test sweep. No public-API breaking changes; all additions are optional. The Codex backend driver (`@swt-labs/codex-driver`) now exhibits 59/59 green tests against the documented Codex schema.
+
+  **F-07 — Role aliasing**
+  - `packages/core/src/abstractions/AgentSpawner.ts` adds `aliases?: readonly string[]` to `AgentSpec`. Optional; when omitted the emitted TOML is byte-identical to v1.6.0 output.
+  - `packages/codex-driver/src/toml/agents.ts` — `emitAgentToml` emits `aliases = [...]` only when `spec.aliases` is non-empty, so legacy specs without the field stay on the existing emit path.
+  - `packages/codex-driver/test/toml.test.ts` — 2 new cases: emit-when-present, omit-when-absent-or-empty.
+
+  **F-15 — `AGENTS.override.md` support**
+  - `packages/codex-driver/src/agents-md/writer.ts` — new helpers `composeAgentsMdBody(swtBody, overrideContent?)` and `readAgentsOverrideSync(projectRoot)`, plus the public exports `OVERRIDE_BEGIN_FENCE`, `OVERRIDE_END_FENCE`, and `AGENTS_OVERRIDE_FILENAME = 'AGENTS.override.md'`.
+  - Pattern: when `AGENTS.override.md` is present at the project root, its content is folded into the SWT-managed block of `AGENTS.md` between dedicated override fences, so user-authored project-specific rules survive every `swt init` / `swt vibe` regeneration.
+  - Empty / whitespace-only overrides are silently dropped — no override fence appears at all.
+  - `packages/codex-driver/test/agents-md.test.ts` — 6 new cases: no-override / explicit-override / empty-override / read-when-missing / read-when-present / regenerate-round-trip.
+
+  **F-17 — Agent prompt cache-hit measurement**
+  - `packages/codex-driver/test/cache-hit.test.ts` (new file) — locks down REQ-05 (cache-aware split prompts) by asserting:
+    1. Two `emitAgentToml(spec)` calls with the same spec produce byte-identical output and identical SHA-256 digests (cache key stability).
+    2. Mutating the static prefix layer (`developer_instructions`) yields a different digest, so silent-prefix-drift regressions surface as test failures rather than degraded production cache hit-rate.
+    3. Object key-insertion-order shuffles do not change the emitted TOML — defends against deterministic emit going wobbly if the upstream `AgentSpec` schema is ever refactored.
+
+  **Pre-existing bug fix — `[features]` table emission**
+  - `packages/codex-driver/src/toml/features.ts` — `emitFeaturesToml(flags)` was calling `emitToml({ features: entries })`, which applied the inline-table heuristic for primitive-only sub-objects and produced `features = { foo = true, bar = false }` instead of the documented Codex `[features]` table header.
+  - The pre-existing test `toml.test.ts > features TOML > emits a [features] table when flags are present` was failing at HEAD as a result — caught only because the F-07 batch ran the suite end-to-end.
+  - Replaced with a direct-emit implementation that always writes the `[features]` header followed by `key = value` lines. Empty input still returns an empty string so callers can no-op cleanly.
+
+  **Quality gate trail**
+  - `prettier --check .` clean.
+  - `tsc --build packages/{core,codex-driver}` exit 0.
+  - 59/59 codex-driver vitest cases green (was 57/59 at v1.6.0 HEAD due to the latent `[features]` bug).
+  - 11 new test cases added (2 F-07 + 6 F-15 + 3 F-17).
+
+  **Documentation**
+  - `.vbw-planning/REQUIREMENTS.md` (local-only, gitignored) refreshed with shipping-evidence notes — most REQ-01..REQ-17 now `[x]` against actual code locations.
+  - `a_non_production_files/issues1.md` catalogs the full audit trail: closed items, deferred items, blocked items (npm publish, plugin-marketplace submission, docs-site publish), and live-runtime verification gaps.
+
+  **Out of scope (deferred to next milestone):** Playwright e2e suite × Linux + macOS, `axe-cli` automated CI a11y gate, published `docs.stopwastingtokens.dev` site, full Claude Code driver implementation (REQ-V2-02), full Ollama driver implementation (REQ-V2-03), real Codex `subagent`-spawn API wiring once OpenAI publishes the surface, telemetry / Vale / hook-taxonomy long-tail.
+
 ## 1.6.0
 
 ### Minor Changes
@@ -93,13 +135,7 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
-### Closed in this batch (defensive hardening, post-v1.6.0)
-
-- **F-07 Role aliasing.** `AgentSpec.aliases?: readonly string[]` added; `emitAgentToml` emits the field conditionally so existing TOML output is unchanged when no aliases are declared. Test coverage in `packages/codex-driver/test/toml.test.ts`.
-- **F-15 `AGENTS.override.md` support.** `composeAgentsMdBody` + `readAgentsOverrideSync` in `packages/codex-driver/src/agents-md/writer.ts` let users layer project-specific rules into the SWT-managed block without losing them on regeneration. Tests in `packages/codex-driver/test/agents-md.test.ts`.
-- **F-17 Agent prompt cache-hit measurement.** `packages/codex-driver/test/cache-hit.test.ts` asserts byte-identical TOML emission across repeated calls (REQ-05 cache-key stability).
-
-### Planned for v1.6.1 / next milestone
+### Planned for next milestone
 
 - Playwright e2e suite (3–5 critical paths × Linux + macOS) for the localhost dashboard
 - `axe-cli` automated CI a11y gate (AC-12 / AC-13)
