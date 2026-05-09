@@ -20,6 +20,7 @@ import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { registerVibeRoutes } from './routes/vibe.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
+import type { MethodologyAgentFactory } from './vibe/methodology-agent.js';
 import { createSessionRegistry, type SessionRegistry } from './vibe/session.js';
 
 export interface DashboardServer {
@@ -50,6 +51,13 @@ export interface CreateServerOptions {
   projectRoot?: string;
   /** Skip snapshot watcher even if projectRoot is provided. For tests. */
   skipSnapshotter?: boolean;
+  /**
+   * Optional methodology-agent factory. When provided, `POST /api/vibe`
+   * spawns a real agent loop (background async) for each new session.
+   * v2.0 Phase 2 ships with no default — production wires
+   * CodexMethodologyAgent in a follow-up plan; sessions stay idle until then.
+   */
+  agentFactory?: MethodologyAgentFactory;
 }
 
 const DEFAULT_PORT = 54321;
@@ -61,6 +69,13 @@ export function createApp(
     startedAt?: number;
     projectRoot?: string;
     snapshotter?: Snapshotter;
+    /**
+     * Optional methodology-agent factory. When provided, `POST /api/vibe`
+     * spawns a real agent loop (background async) for each new session.
+     * When omitted (default), sessions stay idle — useful for unit tests
+     * that exercise the wire format but don't need agent execution.
+     */
+    agentFactory?: MethodologyAgentFactory;
   } = {},
 ): {
   app: Hono;
@@ -145,7 +160,11 @@ export function createApp(
   // the daemon starts.
   const planningPath = join(projectRoot ?? cwd, '.swt-planning');
   const vibeRegistry = createSessionRegistry({ bus, planning_path: planningPath });
-  registerVibeRoutes(app, { registry: vibeRegistry, project_root: projectRoot ?? cwd });
+  registerVibeRoutes(app, {
+    registry: vibeRegistry,
+    project_root: projectRoot ?? cwd,
+    ...(opts.agentFactory !== undefined ? { agentFactory: opts.agentFactory, bus } : {}),
+  });
   registerSpaRoutes(app);
   return { app, bus, snapshotter, projectRoot, vibeRegistry };
 }
@@ -238,6 +257,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
   const { app, bus, snapshotter, vibeRegistry } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
+    ...(options.agentFactory !== undefined ? { agentFactory: options.agentFactory } : {}),
   });
 
   const server = await new Promise<ServerType>((resolve) => {
