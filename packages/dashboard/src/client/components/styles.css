@@ -133,6 +133,183 @@
   letter-spacing: 0.5px;
 }
 
+.topbar-cmd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 480px;
+  margin: 0 12px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.2);
+  border-radius: 4px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+}
+
+.topbar-cmd:focus-within {
+  border-color: var(--terminal-green);
+}
+
+.topbar-cmd-prompt {
+  color: var(--terminal-green);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.topbar-cmd-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--ghost-white);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.topbar-cmd-input::placeholder {
+  color: var(--slate-muted);
+  opacity: 0.7;
+}
+
+.topbar-cmd-input:disabled {
+  color: var(--slate-muted);
+}
+
+/* Init screen — greenfield onboarding */
+
+.app-body-greenfield {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 24px;
+  overflow: auto;
+}
+
+.init-screen {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.init-card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--deep-void);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  border-radius: 8px;
+  padding: 32px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 0 32px rgba(0, 255, 65, 0.05);
+}
+
+.init-title {
+  margin: 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--terminal-green);
+}
+
+.init-lede {
+  margin: 0;
+  color: var(--ghost-white);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.init-lede code {
+  color: var(--neon-cyan);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.init-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.init-field span {
+  color: var(--slate-muted);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.init-input,
+.init-textarea {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(232, 234, 237, 0.18);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: var(--ghost-white);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+.init-input:focus,
+.init-textarea:focus {
+  border-color: var(--terminal-green);
+}
+
+.init-textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.init-error {
+  margin: 0;
+  color: var(--danger-red);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.init-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.init-submit {
+  background: var(--terminal-green);
+  color: var(--deep-void);
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.init-submit:disabled {
+  background: var(--slate-muted);
+  cursor: not-allowed;
+}
+
+.init-fineprint {
+  margin: 0;
+  color: var(--slate-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.init-fineprint code {
+  color: var(--neon-cyan);
+}
+
 .phase-stepper-list {
   list-style: none;
   margin: 0;

@@ -1,15 +1,30 @@
 import {
+  CommandBodySchema,
+  CommandResponseSchema,
   HealthResponseSchema,
+  InitBodySchema,
+  InitResponseSchema,
   SnapshotSchema,
   UatCheckpointBodySchema,
   UatCheckpointResponseSchema,
+  type CommandBody,
+  type CommandResponse,
   type HealthResponse,
+  type InitBody,
+  type InitResponse,
   type Snapshot,
   type UatCheckpointBody,
   type UatCheckpointResponse,
 } from '@swt-labs/dashboard-core';
 
-export type { UatCheckpointBody, UatCheckpointResponse };
+export type {
+  CommandBody,
+  CommandResponse,
+  InitBody,
+  InitResponse,
+  UatCheckpointBody,
+  UatCheckpointResponse,
+};
 
 export interface RenderedArtifact {
   html: string;
@@ -73,4 +88,34 @@ export async function postUatCheckpoint(
   if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
   const raw: unknown = await res.json();
   return UatCheckpointResponseSchema.parse(raw);
+}
+
+export async function postInit(body: InitBody): Promise<InitResponse> {
+  const validated = InitBodySchema.parse(body);
+  const res = await fetch('/api/init', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new ApiError(`HTTP ${res.status}: ${detail}`, res.status);
+  }
+  const raw: unknown = await res.json();
+  return InitResponseSchema.parse(raw);
+}
+
+export async function postCommand(body: CommandBody): Promise<CommandResponse> {
+  const validated = CommandBodySchema.parse(body);
+  const res = await fetch('/api/command', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new ApiError(`HTTP ${res.status}: ${detail}`, res.status);
+  }
+  const raw: unknown = await res.json();
+  return CommandResponseSchema.parse(raw);
 }

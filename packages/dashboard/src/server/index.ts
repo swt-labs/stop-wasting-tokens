@@ -10,9 +10,11 @@ import { createEventBus, type EventBus } from './event-bus.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactRoute } from './routes/artifact.js';
+import { registerCommandRoute } from './routes/command.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
+import { registerInitRoute } from './routes/init.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
@@ -72,13 +74,27 @@ export function createApp(
   if (projectRoot && !snapshotter) {
     snapshotter = createSnapshotter({ projectRoot, bus });
   }
-  if (snapshotter) {
-    registerSnapshotRoute(app, snapshotter);
-  }
+  // Snapshot route registers unconditionally with a getter so a post-init
+  // snapshotter is picked up on the next request without re-registration.
+  // When the getter returns null, the route serves a synthetic
+  // `is_initialized: false` snapshot.
+  registerSnapshotRoute(app, () => snapshotter);
   if (projectRoot) {
     registerArtifactRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
   }
+  // Init + command always register — they're how a greenfield user goes from
+  // "no .swt-planning/" to a connected dashboard, and how power users invoke
+  // arbitrary `swt` verbs from the TopBar input.
+  const cwd = projectRoot ?? process.cwd();
+  registerInitRoute(app, cwd, (root) => {
+    // After a successful init, spin up a snapshotter on the new root so
+    // subsequent /api/snapshot polls + SSE state.changed events flow.
+    if (snapshotter) return; // someone else got there first
+    snapshotter = createSnapshotter({ projectRoot: root, bus });
+    projectRoot = root;
+  });
+  registerCommandRoute(app, cwd);
   registerSpaRoutes(app);
   return { app, bus, snapshotter, projectRoot };
 }
@@ -126,9 +142,12 @@ function registerSpaRoutes(app: Hono): void {
     }),
   );
 
-  // SPA fallback — for any unknown GET (deep links, refreshes on /vibe etc.),
-  // hand back index.html so the client-side router takes over.
+  // SPA fallback — for any non-API GET (deep links, refreshes), hand back
+  // index.html so the client-side router takes over. Critically, `/api/*`
+  // is excluded so a missing API route returns a real JSON 404 rather than
+  // HTML (a v1.6.2 regression that masked the real DISCONNECTED bug).
   app.get('*', async (c) => {
+    if (c.req.path.startsWith('/api/')) return c.notFound();
     const indexPath = resolve(clientDir, 'index.html');
     if (!existsSync(indexPath)) return c.notFound();
     const { readFileSync } = await import('node:fs');

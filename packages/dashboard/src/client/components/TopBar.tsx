@@ -1,4 +1,4 @@
-import { Show, type Component } from 'solid-js';
+import { Show, createSignal, type Component } from 'solid-js';
 
 import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/dashboard-core';
 
@@ -8,6 +8,8 @@ export interface TopBarProps {
   project: ProjectSummary | null;
   milestone: MilestoneSummary | null;
   connection: ConnectionState;
+  commandSubmitting: boolean;
+  onCommand: (input: string) => Promise<unknown>;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -23,12 +25,35 @@ const BACKEND_LABEL: Record<Backend, string> = {
 };
 
 export const TopBar: Component<TopBarProps> = (props) => {
+  const [input, setInput] = createSignal('');
+
+  const onSubmit = async (e: Event): Promise<void> => {
+    e.preventDefault();
+    const value = input().trim();
+    if (value.length === 0) return;
+    setInput('');
+    await props.onCommand(value);
+  };
+
   return (
     <header class="topbar" role="banner">
       <h1 class="topbar-brand">
         <span class="topbar-brand-mark">swt</span>
         <span class="topbar-brand-cursor">_</span>
       </h1>
+      <form class="topbar-cmd" onSubmit={(e) => void onSubmit(e)} aria-label="Run swt command">
+        <span class="topbar-cmd-prompt">$</span>
+        <input
+          type="text"
+          class="topbar-cmd-input"
+          placeholder="status / doctor / help / detect-phase / vibe …"
+          autocomplete="off"
+          spellcheck={false}
+          disabled={props.commandSubmitting}
+          value={input()}
+          onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
+        />
+      </form>
       <Show when={props.project && props.milestone} fallback={<div class="topbar-status">…</div>}>
         <div class="topbar-status">
           <span>{props.project?.name}</span>

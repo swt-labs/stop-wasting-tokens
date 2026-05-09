@@ -82,11 +82,20 @@ export type CostSummary = z.infer<typeof CostSummarySchema>;
 export const SnapshotSchema = z.object({
   schema_version: z.literal('1'),
   generated_at: z.string().datetime({ offset: true }),
-  project: ProjectSummarySchema,
-  milestone: MilestoneSummarySchema,
+  // Greenfield (no `.swt-planning/` yet) returns null for project, milestone,
+  // and cost_summary so the SPA can branch on `is_initialized: false` and
+  // render the InitScreen instead of the 4-panel grid.
+  project: ProjectSummarySchema.nullable(),
+  milestone: MilestoneSummarySchema.nullable(),
   phases: z.array(PhaseSummarySchema),
   active_agent: ActiveAgentSchema.nullable(),
   recent_events: z.array(z.unknown()).max(100),
-  cost_summary: CostSummarySchema,
+  cost_summary: CostSummarySchema.nullable(),
+  /**
+   * False when the daemon's cwd has no `.swt-planning/` yet. The SPA uses
+   * this to render the init flow. Defaults to true for back-compat with
+   * v1.6.0–v1.6.2 snapshots that pre-date the field.
+   */
+  is_initialized: z.boolean().default(true),
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;
