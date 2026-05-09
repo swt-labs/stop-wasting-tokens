@@ -30,6 +30,14 @@ jobs:
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
+      # Trusted Publisher OIDC publish auth landed in npm 11.5.1; setup-node
+      # with Node 22 ships npm 10.x by default, which has provenance signing
+      # but NOT the OIDC token-exchange flow that authorizes the registry
+      # PUT. Without 11.5.1+, the publish falls back to token auth and gets
+      # 404'd by the "disallow tokens (recommended)" package setting.
+      - name: Upgrade npm to a Trusted-Publisher-capable version
+        run: npm install -g npm@latest
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
