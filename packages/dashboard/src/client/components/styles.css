@@ -795,6 +795,142 @@
   cursor: pointer;
 }
 
+/* Empty-state CTA (phase column) */
+
+.empty-state-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 24px 16px;
+}
+
+.empty-state-headline {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--ghost-white);
+  margin: 0;
+}
+
+.empty-state-arrow {
+  font-size: 32px;
+  color: var(--terminal-green);
+  margin: 0;
+  line-height: 1;
+}
+
+.empty-state-hint {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--slate-muted);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 280px;
+}
+
+/* Onboarding Overlay */
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.onboarding-card {
+  background: var(--slate-deep, #0d1117);
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 8px;
+  padding: 32px;
+  max-width: 580px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.onboarding-title {
+  font-size: 22px;
+  color: var(--terminal-green);
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.onboarding-intro {
+  font-size: 14px;
+  color: var(--ghost-white);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.onboarding-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.onboarding-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.onboarding-step-number {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid var(--terminal-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.onboarding-step-title {
+  font-size: 14px;
+  color: var(--ghost-white);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.onboarding-step-body {
+  font-size: 13px;
+  color: var(--slate-muted);
+  line-height: 1.5;
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.onboarding-dismiss-btn {
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid var(--terminal-green);
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.onboarding-dismiss-btn:hover {
+  background: var(--terminal-green);
+  color: var(--slate-deep, #0d1117);
+}
+
 /* Vibe Conversation (rendered inline in LogPanel) */
 
 .conversation-thread {
