@@ -31,27 +31,23 @@ if [ -z "$INSTALLED" ] || [ "$INSTALLED" != "$EXPECTED_VERSION" ]; then
 fi
 echo "  ✓ swt --version reports ${INSTALLED}"
 
-# 3. swt init scaffolds in a tmp dir
-TMP_DIR=$(mktemp -d -t swt-verify-XXXXXX)
-trap "rm -rf $TMP_DIR" EXIT
-pushd "$TMP_DIR" >/dev/null
-
-# Use --yes if supported; fall back to bare init otherwise
-if ! swt init --yes 2>/dev/null && ! echo | swt init 2>/dev/null; then
-  echo "✗ swt init failed in fresh directory" >&2
-  popd >/dev/null
+# 3. `swt help` lists the registered commands
+HELP_OUTPUT=$(swt help 2>/dev/null || true)
+if ! echo "$HELP_OUTPUT" | grep -q 'swt — stop-wasting-tokens'; then
+  echo "✗ swt help did not produce the expected banner" >&2
+  echo "Output was: $HELP_OUTPUT" >&2
   exit 1
 fi
-
-if [ ! -f .swt-planning/PROJECT.md ]; then
-  echo "✗ swt init did not scaffold .swt-planning/PROJECT.md" >&2
-  popd >/dev/null
-  exit 1
-fi
-echo "  ✓ swt init scaffolds .swt-planning/"
-popd >/dev/null
+for cmd in vibe dashboard status doctor detect-phase update; do
+  if ! echo "$HELP_OUTPUT" | grep -qE "^  ${cmd}( |$)"; then
+    echo "✗ swt help missing expected command: ${cmd}" >&2
+    exit 1
+  fi
+done
+echo "  ✓ swt help lists vibe / dashboard / status / doctor / detect-phase / update"
 
 # 4. detect-phase round-trips
+#    (real command — emits a phase-detect dump even outside an SWT project)
 NONEXISTENT_DIR="${TMP_DIR}-detect"
 mkdir -p "$NONEXISTENT_DIR"
 pushd "$NONEXISTENT_DIR" >/dev/null
