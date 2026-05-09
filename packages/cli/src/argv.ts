@@ -33,6 +33,12 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       'unsafe-public': { type: 'boolean', default: false },
       'no-open': { type: 'boolean', default: false },
       debug: { type: 'boolean', default: false },
+      // detect-phase --bash-format: emit key=value lines instead of JSON.
+      // Without this entry parseArgs (strict) rejects the flag before the
+      // handler can see it.
+      'bash-format': { type: 'boolean', default: false },
+      // swt init [<name>] [--description "..."]: scaffold .swt-planning/.
+      description: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,
