@@ -1,5 +1,5 @@
 import { AlreadyInitializedError, initProject } from '@swt-labs/core';
-import { InitBodySchema, type InitResponse } from '@swt-labs/dashboard-core';
+import { InitBodySchema, type InitResponse, type Snapshot } from '@swt-labs/dashboard-core';
 import type { Hono } from 'hono';
 
 const PLANNING_DIR = '.swt-planning';
@@ -8,6 +8,14 @@ export function registerInitRoute(
   app: Hono,
   cwd: string,
   onInitialized: (root: string) => void,
+  /**
+   * Resolves the just-spun-up snapshotter's current state after onInitialized
+   * has run. Returns null if no snapshotter was attached (e.g., onInitialized
+   * was a no-op because someone else got there first). The route includes the
+   * snapshot inline in the response so clients can skip a follow-up
+   * GET /api/snapshot round-trip (B-08 / S-02).
+   */
+  getSnapshot: () => Snapshot | null = () => null,
 ): void {
   app.post('/api/init', async (c) => {
     const raw: unknown = await c.req.json().catch(() => null);
@@ -23,10 +31,12 @@ export function registerInitRoute(
         source: 'dashboard',
       });
       onInitialized(result.root);
+      const snapshot = getSnapshot();
       const response: InitResponse = {
         initialized: true,
         root: result.root,
         files: [...result.files],
+        ...(snapshot !== null ? { snapshot } : {}),
       };
       return c.json(response);
     } catch (err: unknown) {

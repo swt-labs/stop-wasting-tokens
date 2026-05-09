@@ -87,13 +87,20 @@ export function createApp(
   // "no .swt-planning/" to a connected dashboard, and how power users invoke
   // arbitrary `swt` verbs from the TopBar input.
   const cwd = projectRoot ?? process.cwd();
-  registerInitRoute(app, cwd, (root) => {
-    // After a successful init, spin up a snapshotter on the new root so
-    // subsequent /api/snapshot polls + SSE state.changed events flow.
-    if (snapshotter) return; // someone else got there first
-    snapshotter = createSnapshotter({ projectRoot: root, bus });
-    projectRoot = root;
-  });
+  registerInitRoute(
+    app,
+    cwd,
+    (root) => {
+      // After a successful init, spin up a snapshotter on the new root so
+      // subsequent /api/snapshot polls + SSE state.changed events flow.
+      if (snapshotter) return; // someone else got there first
+      snapshotter = createSnapshotter({ projectRoot: root, bus });
+      projectRoot = root;
+    },
+    // Read the snapshot AFTER onInitialized has spun up the snapshotter so
+    // the route can include it inline in the response (B-08 / S-02).
+    () => snapshotter?.current() ?? null,
+  );
   registerCommandRoute(app, cwd);
   registerSpaRoutes(app);
   return { app, bus, snapshotter, projectRoot };
