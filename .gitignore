@@ -51,8 +51,16 @@ pnpm-debug.log*
 .claude/cache/
 
 # SWT dashboard live event stream (per-session JSONL emitted by the CLI;
-# session-local state, not project artifact)
-.swt-planning/.events/
+# session-local state, not project artifact).
+#
+# Also ignore the whole `.swt-planning/` dir within the SWT source repo: the
+# dashboard's Init flow creates `.swt-planning/PROJECT.md` + `STATE.md` in the
+# daemon's cwd, which during local development of SWT itself is the source
+# repo root. SWT's own development uses `.vbw-planning/` (VBW-driven), so
+# `.swt-planning/` here is always dev-test detritus and should never enter git.
+# When SWT-on-SWT dogfooding lands post-v1.5 (per CLAUDE.md decision), this
+# entry needs revisiting.
+.swt-planning/
 
 # Changesets internals
 .changeset/.changes-*/
