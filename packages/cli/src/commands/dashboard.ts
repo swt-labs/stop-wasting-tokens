@@ -38,17 +38,36 @@ function parseFlags(parsed: {
 }
 
 function resolveDaemonEntry(cwd: string): { script: string; mode: 'built' | 'src' } | null {
-  const built = join(cwd, 'dist', 'dashboard-server.mjs');
-  if (existsSync(built)) return { script: built, mode: 'built' };
-  // Fallback: try repo-local path (dev usage from monorepo root)
-  const here = dirname(fileURLToPath(import.meta.url));
-  try {
-    const repoRoot = realpathSync(join(here, '..', '..', '..', '..'));
-    const repoSrc = join(repoRoot, 'packages', 'dashboard', 'src', 'server', 'main.ts');
-    if (existsSync(repoSrc)) return { script: repoSrc, mode: 'src' };
-  } catch {
-    /* ignore */
+  // 1. Bundle adjacent to cli.mjs — the path that always works for users
+  //    who installed via `npm i -g stop-wasting-tokens`. Both bundles ship
+  //    side-by-side in dist/ per tsup.config.ts and the published tarball.
+  const here = (() => {
+    try {
+      return fileURLToPath(import.meta.url);
+    } catch {
+      return null;
+    }
+  })();
+  if (here !== null) {
+    const adjacent = join(dirname(here), 'dashboard-server.mjs');
+    if (existsSync(adjacent)) return { script: adjacent, mode: 'built' };
+    // 2. In-repo dev: when running tests / `pnpm dev` against an unbundled
+    //    cli (packages/cli/src/commands/dashboard.ts), the built daemon
+    //    lives at <repo>/dist/dashboard-server.mjs (4 dirs up).
+    try {
+      const repoRoot = realpathSync(join(dirname(here), '..', '..', '..', '..'));
+      const repoBuilt = join(repoRoot, 'dist', 'dashboard-server.mjs');
+      if (existsSync(repoBuilt)) return { script: repoBuilt, mode: 'built' };
+      const repoSrc = join(repoRoot, 'packages', 'dashboard', 'src', 'server', 'index.ts');
+      if (existsSync(repoSrc)) return { script: repoSrc, mode: 'src' };
+    } catch {
+      /* ignore */
+    }
   }
+  // 3. Last resort: cwd-relative — covers the "I just ran `pnpm build` and
+  //    am invoking from the repo root" workflow if neither path above hits.
+  const cwdBuilt = join(cwd, 'dist', 'dashboard-server.mjs');
+  if (existsSync(cwdBuilt)) return { script: cwdBuilt, mode: 'built' };
   return null;
 }
 
@@ -141,8 +160,9 @@ export const dashboardHandler: CommandHandler = async (
   const entry = resolveDaemonEntry(io.cwd);
   if (!entry) {
     io.stderr.write(
-      'swt dashboard: could not find dashboard server bundle (dist/dashboard-server.mjs).\n' +
-        'Run `pnpm build` from the repo root or invoke from a workspace with a built dashboard.\n',
+      'swt dashboard: could not locate the dashboard server bundle.\n' +
+        'This usually means the published install is corrupt — try:\n' +
+        '  npm uninstall -g stop-wasting-tokens && npm install -g stop-wasting-tokens\n',
     );
     return EXIT.USAGE_ERROR;
   }

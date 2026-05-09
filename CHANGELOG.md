@@ -1,5 +1,74 @@
 # Changelog
 
+## 1.6.4
+
+### Patch Changes
+
+- v1.6.4 — `swt dashboard` finds its bundle from any directory.
+
+  v1.6.3 published the dashboard with a `resolveDaemonEntry()` that
+  looked for `dist/dashboard-server.mjs` **relative to the user's CWD**,
+  with a hand-rolled "go up 4 dirs and probe" fallback that only
+  worked from inside the source repo. For anyone who installed via
+  `npm i -g stop-wasting-tokens` and then ran `swt dashboard` from
+  any directory other than the repo root (i.e., 100% of real users),
+  the daemon couldn't be located and the CLI failed with the
+  misleading "Run `pnpm build` from the repo root" error.
+
+  **Root cause.** The CLI bundle (`dist/cli.mjs`) and the daemon
+  bundle (`dist/dashboard-server.mjs`) ship as siblings in the
+  published tarball — both are emitted by tsup into the same
+  `dist/` and both are listed under `package.json:files`. When
+  Node loads `cli.mjs`, `import.meta.url` resolves to its install
+  location, and the daemon is **always** at
+  `join(dirname(fileURLToPath(import.meta.url)), 'dashboard-server.mjs')`
+  regardless of the user's CWD. The CWD-based check shipped in
+  v1.6.0 was a leftover from local-dev orchestration that never
+  applied to published installs.
+
+  **Fix** (`packages/cli/src/commands/dashboard.ts`):
+  `resolveDaemonEntry()` now resolves three candidate paths in
+  order, with the bundle-adjacent path first so it always wins
+  for real users:
+  1. **Adjacent to `cli.mjs` itself** — the path that always works
+     for `npm i -g` installs and for `node ./dist/cli.mjs`
+     invocations from the source repo.
+  2. **Repo-relative `dist/dashboard-server.mjs`** computed via
+     `realpath(...)` walk-up from `cli.mjs` — covers `pnpm tsx
+packages/cli/src/index.ts` flows where the bundled daemon
+     exists at the repo's root `dist/` but the unbundled cli is
+     in `packages/cli/src/`.
+  3. **Repo-relative source `index.ts`** — covers the in-repo
+     dev case where neither bundle exists yet but the daemon
+     source is reachable.
+  4. **CWD-relative `dist/dashboard-server.mjs`** — last-resort
+     legacy fallback for "I just ran `pnpm build` and am in the
+     repo root."
+
+  Error message rewritten to point at re-installation rather than
+  `pnpm build` since the new failure mode is "your global install
+  is corrupt" rather than "you forgot to run a build step."
+
+  **Defensive: install-smoke now exercises `swt dashboard`.**
+  `scripts/verify-install.sh` gains a 6th check: spawn the daemon
+  in the background, `curl /api/health` and `/api/snapshot` to
+  confirm both the dashboard server and the SPA fallback fix
+  from v1.6.2 are still working, then kill the daemon. This
+  catches:
+  - "daemon bundle not found" (v1.6.4's class of regression)
+  - "SPA fallback eats /api/\* paths" (v1.6.2's regression)
+  - "daemon refuses to start" (any future Hono/binding issue)
+    …all at the publish gate, before the bug reaches users.
+
+  **Verified end-to-end** by simulating the full `npm i -g` flow:
+  `npm pack` the local dist, `npm install --prefix /tmp/...` the
+  resulting tarball, `cd /tmp/empty-dir && swt dashboard --no-open`
+  → daemon boots, `/api/health`, `/api/snapshot`, and `/` all
+  serve correctly with no `pnpm` anywhere in sight.
+
+  No new dependencies, no schema changes, no API surface changes.
+  Pure resolution-bug fix + smoke-test hardening.
+
 ## 1.6.3
 
 ### Patch Changes
