@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.6.7
+
+### Patch Changes
+
+- v1.6.7 — Docs-only release: VBW ↔ SWT command parity audit + README
+  refresh.
+
+  No source code, schema, or runtime changes. The `## Command reference`
+  section in `README.md` is rewritten as a 3-section breakdown:
+  - **Working today (10)** — table of every verb that actually runs
+    in the published binary, with use case per command (`swt vibe`,
+    `swt status`, `swt doctor`, `swt detect-phase`, `swt config`,
+    `swt update`, `swt watch`, `swt dashboard`, `swt help`, `swt
+version`).
+  - **Stub (22)** — table of placeholder verbs that return
+    `EXIT.NOT_IMPLEMENTED` (exit code 78) with a roadmap-phase
+    pointer. Each row notes the "reach today via" path — most are
+    accessible as `swt vibe --flag` so users don't need to wait for
+    the standalone implementation.
+  - **VBW commands without an SWT equivalent** — explicit "don't
+    port" decisions for `/vbw:compress`, `/vbw:rtk`, `/vbw:teach`,
+    `/vbw:report` (Codex CLI handles compaction natively; RTK is
+    external-only; SWT uses MEMORY.md self-healing instead of teach;
+    report has no concrete use case yet) plus three folded commands
+    (`/vbw:profile` → `swt config`, `/vbw:verify` → `swt vibe
+--verify`, `/vbw:list-todos` → `swt todo`).
+  - **Use case quick-pick** — five common user intents (fresh
+    project / daily work / something broken / config tweaks /
+    discoverability) mapped to the right verb so users don't grep
+    the full table.
+
+  Audit summary: all 26 VBW slash commands are accounted for in
+  SWT (10 working + 22 stub + 4 explicitly not ported + 3 folded
+  into another command). Full coverage.
+
+  Also refreshes `CLAUDE.md` Active Context to point at milestone
+  06 (v1.6.6 Dashboard ↔ CLI Integration Audit and Fix) — was
+  previously pointing at milestone 05.
+
+  This release exists primarily so the npm tarball includes the
+  refreshed `README.md` (which the npm package page renders).
+  Functional behavior is identical to v1.6.6.
+
 ## 1.6.6
 
 ### Patch Changes
@@ -39,8 +82,8 @@
     resolved via `import.meta.url`. Both bundles ship side-by-side in
     `dist/` per `tsup.config.ts`, so `dirname(fileURLToPath(import.meta.url))
     - 'cli.mjs'`is always reachable for`npm i -g`installs. Falls back
-to PATH`swt` only for in-repo dev where the daemon source runs
-      unbundled.
+    to PATH`swt` only for in-repo dev where the daemon source runs
+    unbundled.
   - `B-05/B-06/B-07 (S2)`: `FORBIDDEN_VERBS` denylist (which only blocked
     `dashboard` + `watch`) replaced with the inverse `ALLOWED_VERBS`
     allowlist. Eliminates the "stub verbs run and return NOT_IMPLEMENTED"
