@@ -42,6 +42,7 @@ describe('SnapshotSchema', () => {
       today_usd: 0,
       this_milestone_usd: 0,
     },
+    is_initialized: true,
   };
 
   it('parses a valid snapshot', () => {
