@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { serve, type ServerType } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
+import chokidar from 'chokidar';
 import { Hono } from 'hono';
 
 import { createEventBus, type EventBus } from './event-bus.js';
@@ -73,6 +74,28 @@ export function createApp(
   }
   if (projectRoot && !snapshotter) {
     snapshotter = createSnapshotter({ projectRoot, bus });
+  } else if (!snapshotter) {
+    // B-11: greenfield daemon — register a one-shot parent-dir watcher on
+    // cwd/.swt-planning/ so a terminal-side `swt init` (or any other path
+    // that creates the planning dir without going through /api/init) is
+    // auto-detected. When the dir appears, spin up the snapshotter just
+    // like onInitialized does and close the watcher.
+    const cwdValue = process.cwd();
+    const planningPath = join(cwdValue, '.swt-planning');
+    const greenfieldWatcher = chokidar.watch(planningPath, {
+      ignoreInitial: false,
+      // persistent:false keeps this watcher from holding the event loop open
+      // on its own — when the snapshotter takes over, the daemon's normal
+      // chokidar instance keeps the loop alive.
+      persistent: false,
+      depth: 0,
+    });
+    greenfieldWatcher.on('addDir', (p) => {
+      if (p !== planningPath || snapshotter) return;
+      snapshotter = createSnapshotter({ projectRoot: cwdValue, bus });
+      projectRoot = cwdValue;
+      void greenfieldWatcher.close();
+    });
   }
   // Snapshot route registers unconditionally with a getter so a post-init
   // snapshotter is picked up on the next request without re-registration.
