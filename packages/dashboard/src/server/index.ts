@@ -64,7 +64,11 @@ export function createApp(
   const startedAt = opts.startedAt ?? Date.now();
   const app = new Hono();
   registerHealthRoute(app, startedAt);
-  registerEventsRoute(app, bus);
+  // B-09: pass a snapshot getter so SSE writes an initial snapshot.replace
+  // frame on connect. The getter reads the live `snapshotter` closure so
+  // greenfield daemons that gain a snapshotter mid-session start emitting
+  // initial frames automatically.
+  registerEventsRoute(app, bus, () => snapshotter?.current() ?? null);
   registerDebugEmitRoute(app, bus);
 
   let snapshotter: Snapshotter | null = opts.snapshotter ?? null;
