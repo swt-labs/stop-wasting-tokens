@@ -64,3 +64,8 @@ vibe-better-with-claude-code-vbw-main/
 # planning work for future milestones stays local only)
 .vbw-planning/
 .claude/
+
+# Non-production scratch / experiment files (anywhere in the tree, all
+# current and future contents). Keep out of git so the repo stays
+# focused on shippable code.
+non_prod_files/
