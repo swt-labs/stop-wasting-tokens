@@ -27,7 +27,10 @@ jobs:
       - uses: pnpm/action-setup@v4
         if: matrix.manager == 'pnpm'
         with:
-          version: 9
+          # No `version:` here — the action picks pnpm from the
+          # `packageManager` field in root package.json (currently
+          # pnpm@9.12.0). Specifying it twice would error with
+          # ERR_PNPM_BAD_PM_VERSION.
           run_install: false
 
       - uses: actions/setup-node@v4
@@ -58,29 +61,10 @@ jobs:
               npm install -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             pnpm)
-              npm install -g pnpm
-              # Fresh CI runners don't have pnpm's global bin on PATH yet.
-              # `pnpm setup` only writes to shell rc files (no use across
-              # job steps), and `pnpm add -g` refuses to install a bin
-              # whose target dir isn't already on PATH. Set PNPM_HOME
-              # explicitly per OS, mkdir, export both PATH (for this step)
-              # and GITHUB_PATH (for "Verify install").
-              # pnpm 9's default `global-bin-dir` resolves to a sub-path
-              # under PNPM_HOME (e.g. PNPM_HOME/bin), not PNPM_HOME
-              # itself, so setting PNPM_HOME alone isn't enough. Override
-              # `global-bin-dir` explicitly via `pnpm config set` so the
-              # bin landing zone matches what we put on PATH.
-              if [[ "${RUNNER_OS}" == "macOS" ]]; then
-                PNPM_HOME="${HOME}/Library/pnpm"
-              else
-                PNPM_HOME="${HOME}/.local/share/pnpm"
-              fi
-              mkdir -p "${PNPM_HOME}"
-              export PNPM_HOME
-              pnpm config set global-bin-dir "${PNPM_HOME}"
-              export PATH="${PNPM_HOME}:${PATH}"
-              echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
-              echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
+              # `pnpm/action-setup@v4` (above, gated on matrix.manager
+              # == 'pnpm') has already wired PNPM_HOME + the bin path
+              # onto PATH for this step and into GITHUB_PATH for the
+              # subsequent "Verify install" step. We just install.
               pnpm add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             bun)
