@@ -3,6 +3,7 @@ import { configHandler } from './commands/config.js';
 import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
+import { initHandler } from './commands/init.js';
 import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
 import { updateHandler } from './commands/update.js';
@@ -55,6 +56,12 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[--bash-format]',
     description: 'Print the computed phase-detection state (JSON by default)',
     handler: detectPhaseHandler,
+  });
+  registry.register({
+    name: 'init',
+    usage: '<name> [--description "..."]',
+    description: 'Scaffold .swt-planning/ (PROJECT.md, STATE.md, phases/) for a fresh project',
+    handler: initHandler,
   });
   registry.register({
     name: 'vibe',

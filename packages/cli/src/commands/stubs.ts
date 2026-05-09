@@ -24,7 +24,8 @@ export function stubCommand(spec: StubSpec): CommandHandler {
 }
 
 export const STUB_SPECS: readonly StubSpec[] = [
-  { name: 'init', description: 'Initialise an SWT project', roadmap_phase: 'Phase 7' },
+  // `init` graduated from stub to real command in v1.7.0; see
+  // packages/cli/src/commands/init.ts and main.ts buildRegistry().
   { name: 'plan', description: 'Plan a phase (Scout + Lead)', roadmap_phase: 'Phase 7' },
   { name: 'execute', description: 'Execute a planned phase', roadmap_phase: 'Phase 7' },
   { name: 'qa', description: 'Run goal-backward QA', roadmap_phase: 'Phase 8' },
