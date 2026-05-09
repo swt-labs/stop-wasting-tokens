@@ -42,7 +42,11 @@ export default defineConfig({
   },
   outDir: 'dist',
   format: ['esm'],
-  dts: { resolve: true },
+  // Only emit .d.ts for the CLI entry. The dashboard-server bundle is an
+  // executable, not a typed import surface — and tsup's rollup-dts pass
+  // chokes on `@hono/node-server`'s re-exports of `node:http` types,
+  // which rollup-dts can't resolve. Skipping dts for it is safe.
+  dts: { resolve: true, entry: { cli: 'packages/cli/src/index.ts' } },
   tsconfig: 'tsconfig.build.json',
   sourcemap: true,
   clean: true,

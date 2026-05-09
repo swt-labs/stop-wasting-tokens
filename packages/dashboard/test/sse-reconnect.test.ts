@@ -21,7 +21,7 @@ interface FakeEventSourceInstance {
 
 declare global {
   // Augment globalThis with our fake so TS doesn't complain.
-  // eslint-disable-next-line no-var
+
   var __fakeEventSources: FakeEventSourceInstance[] | undefined;
 }
 

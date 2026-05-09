@@ -1,6 +1,5 @@
-import { createStore } from 'solid-js/store';
-
 import type { Snapshot, SnapshotEvent } from '@swt-labs/dashboard-core';
+import { createStore } from 'solid-js/store';
 
 import {
   fetchArtifactRendered,
@@ -116,7 +115,7 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
       if (partial && Object.keys(partial).length > 0) {
         setState('snapshot', (prev) => {
           if (!prev) return prev;
-          return { ...prev, ...partial } as Snapshot;
+          return { ...prev, ...partial };
         });
       }
       return;

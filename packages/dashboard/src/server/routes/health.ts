@@ -1,6 +1,5 @@
-import type { Hono } from 'hono';
-
 import type { HealthResponse } from '@swt-labs/dashboard-core';
+import type { Hono } from 'hono';
 
 export function registerHealthRoute(app: Hono, startedAt: number): void {
   app.get('/api/health', (c) => {

@@ -1,7 +1,6 @@
+import type { SnapshotEvent } from '@swt-labs/dashboard-core';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-
-import type { SnapshotEvent } from '@swt-labs/dashboard-core';
 
 import type { EventBus } from '../event-bus.js';
 

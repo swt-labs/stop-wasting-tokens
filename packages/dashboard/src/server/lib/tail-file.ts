@@ -30,7 +30,6 @@ export function createFileTailer(options: FileTailerOptions): FileTailer {
   const onError =
     options.onError ??
     ((err, filePath) => {
-      // eslint-disable-next-line no-console
       console.error(`[tail-file] ${filePath}: ${err.message}`);
     });
 
@@ -85,7 +84,7 @@ export function createFileTailer(options: FileTailerOptions): FileTailer {
     });
   };
 
-  const patterns = Array.isArray(pattern) ? [...pattern] : [pattern];
+  const patterns: string[] = typeof pattern === 'string' ? [pattern] : pattern.map((p) => p);
   const watcher: FSWatcher = chokidar.watch(patterns, {
     ignoreInitial: false,
     persistent: true,

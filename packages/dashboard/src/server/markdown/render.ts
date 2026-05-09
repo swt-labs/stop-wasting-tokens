@@ -1,15 +1,13 @@
 import rehypeShiki from '@shikijs/rehype';
 import matter from 'gray-matter';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema, type Options as SanitizeOptions } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
-import { unified, type Processor } from 'unified';
+import { unified } from 'unified';
 
-let cachedProcessor: Processor | null = null;
-
-const sanitizeSchema = {
+const sanitizeSchema: SanitizeOptions = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), 'details', 'summary'],
   attributes: {
@@ -21,17 +19,22 @@ const sanitizeSchema = {
   },
 };
 
-function getProcessor(): Processor {
-  if (cachedProcessor) return cachedProcessor;
-  cachedProcessor = unified()
+function buildProcessor() {
+  return unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: false })
-    .use(rehypeShiki, {
-      theme: 'github-dark',
-    })
+    .use(rehypeShiki, { theme: 'github-dark' })
     .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeStringify);
+}
+
+type CachedProcessor = ReturnType<typeof buildProcessor>;
+let cachedProcessor: CachedProcessor | null = null;
+
+function getProcessor(): CachedProcessor {
+  if (cachedProcessor) return cachedProcessor;
+  cachedProcessor = buildProcessor();
   return cachedProcessor;
 }
 
@@ -50,6 +53,6 @@ export async function renderMarkdown(source: string): Promise<RenderedMarkdown> 
   const file = await getProcessor().process(parsed.content);
   return {
     html: String(file),
-    frontmatter: parsed.data as Record<string, unknown>,
+    frontmatter: parsed.data,
   };
 }

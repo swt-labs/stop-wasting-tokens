@@ -46,7 +46,7 @@
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "build": "pnpm dashboard:client:build && tsup",
-    "dashboard:client:build": "vite build --config packages/dashboard/vite.config.ts",
+    "dashboard:client:build": "pnpm --filter @swt-labs/dashboard run build:client",
     "typecheck": "tsc --build",
     "lint": "eslint .",
     "format": "prettier --write .",

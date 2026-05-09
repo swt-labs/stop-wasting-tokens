@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import { HealthResponseSchema } from '@swt-labs/dashboard-core';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createServer, type DashboardServer } from '../src/server/index.js';
 

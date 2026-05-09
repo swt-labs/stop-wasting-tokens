@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import type { SnapshotEvent } from '@swt-labs/dashboard-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
