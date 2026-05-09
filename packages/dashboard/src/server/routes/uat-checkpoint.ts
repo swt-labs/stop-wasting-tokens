@@ -70,13 +70,16 @@ function appendCheckpointBlock(
   result: 'pass' | 'fail',
   note: string | undefined,
 ): string {
+  // B-16: dropped the placeholder lines for **Plan:** and **Expected:**.
+  // The dashboard modal doesn't capture either field, so writing literal
+  // "(recorded by dashboard UAT modal)" / "(recorded by dashboard)" placeholder
+  // text was misleading noise. The verify-flow's PLAN.md scan picks up the
+  // real plan/expected from the matching plan file when the round resumes.
   const block = [
     '',
     `### ${testId}: ${scenario}`,
     '',
-    '- **Plan:** (recorded by dashboard UAT modal)',
     `- **Scenario:** ${scenario}`,
-    '- **Expected:** (recorded by dashboard)',
     `- **Result:** ${result}`,
     ...(note ? [`- **Notes:** ${note.replace(/\n/g, ' ')}`] : []),
     '',

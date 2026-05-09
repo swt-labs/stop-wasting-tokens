@@ -5,7 +5,11 @@ import type { Hono } from 'hono';
 import { resolveSafePath } from '../lib/safe-path.js';
 import { renderMarkdown } from '../markdown/render.js';
 
-const ALLOWLIST = ['.swt-planning/', 'dist/'] as const;
+// B-13: dropped 'dist/' from the allowlist. The only legitimate user of
+// dist/ paths was the SPA reading its own bundled JS, which is handled by
+// serveStatic in server/index.ts (registerSpaRoutes). Letting clients GET
+// arbitrary dist/ paths via /api/artifact was unnecessary surface area.
+const ALLOWLIST = ['.swt-planning/'] as const;
 
 export function registerArtifactRoute(app: Hono, projectRoot: string): void {
   app.get('/api/artifact', async (c) => {

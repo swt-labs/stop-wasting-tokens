@@ -7,6 +7,13 @@ export const HealthResponseSchema = z.object({
   status: z.literal('ok'),
   uptime_ms: z.number().int().nonnegative(),
   schema_version: z.literal('1'),
+  /**
+   * SWT version the daemon is running. Sourced from the CLI's CURRENT_VERSION
+   * via the `SWT_DASHBOARD_DAEMON_VERSION` env var the CLI sets when spawning
+   * the daemon. Optional for back-compat with v1.6.0–v1.6.7 daemons that
+   * don't emit it; v1.7.0+ always does.
+   */
+  daemon_version: z.string().min(1).optional(),
 });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
