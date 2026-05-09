@@ -54,6 +54,39 @@ describe('agent TOML', () => {
     expect(out).toContain('max_threads = 6');
     expect(out).toContain('max_depth = 1');
   });
+
+  it('emits aliases when AgentSpec declares them (F-07)', () => {
+    const out = emitAgentToml({
+      role: 'lead',
+      model: 'gpt-5.3-codex',
+      reasoning_effort: 'medium',
+      developer_instructions: 'Plan thoroughly.',
+      allowed_mcp_servers: [],
+      aliases: ['planner', 'orchestrator'],
+    });
+    expect(out).toContain('aliases = ["planner", "orchestrator"]');
+  });
+
+  it('omits the aliases key when none are provided (F-07)', () => {
+    const withoutAliases = emitAgentToml({
+      role: 'dev',
+      model: 'gpt-5.3-codex',
+      reasoning_effort: 'medium',
+      developer_instructions: 'Implement tasks.',
+      allowed_mcp_servers: [],
+    });
+    expect(withoutAliases).not.toContain('aliases');
+
+    const withEmpty = emitAgentToml({
+      role: 'dev',
+      model: 'gpt-5.3-codex',
+      reasoning_effort: 'medium',
+      developer_instructions: 'Implement tasks.',
+      allowed_mcp_servers: [],
+      aliases: [],
+    });
+    expect(withEmpty).not.toContain('aliases');
+  });
 });
 
 describe('permission TOML', () => {

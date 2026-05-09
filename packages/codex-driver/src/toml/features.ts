@@ -1,12 +1,19 @@
-import { emitToml } from './emit.js';
-
 /**
- * Codex feature flag block. Currently a stub — no SWT-required flags yet.
- * When a future Codex release ships a feature flag SWT depends on, list it
- * here and emit the corresponding `[features]` table.
+ * Codex feature flag block. Emits a proper `[features]` table header so the
+ * Codex TOML parser reads it as a stand-alone section rather than an inline
+ * sub-table on a `features = { ... }` line. Empty input returns an empty
+ * string so the caller can no-op cleanly.
+ *
+ * Avoids `emitToml({ features: ... })` because that path applies an
+ * inline-table heuristic for primitive-only sub-objects, which is wrong for
+ * Codex feature flags.
  */
 export function emitFeaturesToml(flags: Readonly<Record<string, boolean>>): string {
-  const entries = Object.fromEntries(Object.entries(flags));
-  if (Object.keys(entries).length === 0) return '';
-  return emitToml({ features: entries });
+  const keys = Object.keys(flags);
+  if (keys.length === 0) return '';
+  const lines = ['[features]'];
+  for (const key of keys) {
+    lines.push(`${key} = ${flags[key] ? 'true' : 'false'}`);
+  }
+  return `${lines.join('\n')}\n`;
 }
