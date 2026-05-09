@@ -4,9 +4,9 @@
 
 ## Active Context
 
-**Work:** No active milestone
-**Last shipped:** v1.7.0 CLI bug fixes and v1.6.6 audit closure — `milestones/07-v1-7-0-cli-bug-fixes-and-v1-6-6-audit-closure` (4 phases / 5 plans / 22 tasks / 4 UAT CHECKPOINTs / 14 files modified / 0 deviations — closes the v1.6.6 audit's 20 deferred S2/S3 findings + 2 new CLI bugs surfaced by `idiot_check.py` (A5.b detect-phase --bash-format, A6.c config set ENOENT); minor bump justified by `swt init` becoming a real CLI command (X-02). Phases 01 + 02 shipped cumulatively in v1.6.8 alongside resizable-panels; v1.7.0 adds Phase 03 frontend polish (connection-pill 'syncing', verb-aware refresh, TopBar per-field fallback) + dashboard-store.test.ts (8 cases, including a bonus rollback-bug fix in initProject). idiot_check.py 18/18 against published binary. npm publish via Trusted Publisher OIDC at v1.7.0 / 9d59016 — 2026-05-09)
-**Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
+**Work:** v2.0 release in flight — Phases 1-4 done (10 plans, 47 tasks, 7 commits, ~107 new tests). Phase 5 (Release lifecycle) is the only remaining phase. v2.0 = natural-language-first dashboard pivot. Locked architecture in `.vbw-planning/research/v2-permission-model.md` + `v2-agent-prompt-protocol.md`.
+**Last shipped:** v1.7.1 README install refresh + idiot_check.py automation — `milestones/07-v1-7-0-cli-bug-fixes-and-v1-6-6-audit-closure` (npm publish via Trusted Publisher OIDC at v1.7.1 / 53bc1de — 2026-05-09)
+**Next action:** Phase 5 (Release v2.0) — bump 1.7.1 → 2.0.0, CHANGELOG, push, OIDC publish, tag, archive milestone
 
 ## VBW Rules
 
