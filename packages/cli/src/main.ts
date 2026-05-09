@@ -112,19 +112,33 @@ export async function main(
     return EXIT.USAGE_ERROR;
   }
 
-  if (parsed.flags.help === true || parsed.verb === 'help' || parsed.verb === undefined) {
-    if (parsed.verb === undefined && parsed.flags.help !== true && parsed.flags.version !== true) {
-      io.stdout.write(renderHelp(registry));
-      return EXIT.SUCCESS;
-    }
-  }
+  // v2.0: bare `swt` (no verb, no flags) opens the dashboard daemon by
+  // default — the natural-language UX is now the primary surface, terminal
+  // is for power users. Escape hatch for CI / scripts that depend on the
+  // legacy "print help on empty argv" behavior: `SWT_NO_DASHBOARD=1`.
+  // `--help` / `--version` flags continue to short-circuit before the
+  // dashboard launch.
   if (parsed.flags.version === true) {
     io.stdout.write(`swt ${deps.version ?? CURRENT_VERSION}\n`);
     return EXIT.SUCCESS;
   }
-  if (parsed.flags.help === true && parsed.verb === undefined) {
+  if (parsed.flags.help === true) {
     io.stdout.write(renderHelp(registry));
     return EXIT.SUCCESS;
+  }
+  if (parsed.verb === 'help') {
+    io.stdout.write(renderHelp(registry));
+    return EXIT.SUCCESS;
+  }
+  if (parsed.verb === undefined) {
+    if (process.env['SWT_NO_DASHBOARD'] === '1') {
+      io.stdout.write(renderHelp(registry));
+      return EXIT.SUCCESS;
+    }
+    // Dispatch to `dashboard` with the same parsed shape but the verb
+    // filled in. The dashboard handler defaults to opening the browser.
+    const dashboardParsed = { ...parsed, verb: 'dashboard' };
+    return dispatch(registry, dashboardParsed, io);
   }
 
   return dispatch(registry, parsed, io);

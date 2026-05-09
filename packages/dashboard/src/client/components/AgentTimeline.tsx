@@ -86,8 +86,8 @@ export const AgentTimeline: Component<AgentTimelineProps> = (props) => {
         when={rows().length > 0}
         fallback={
           <div class="preview-panel-empty">
-            No agent activity yet. Run <code>swt vibe</code> in your terminal to start the
-            methodology loop.
+            No agent activity yet. The agents will appear here once you start a vibe session
+            from the command bar.
           </div>
         }
       >

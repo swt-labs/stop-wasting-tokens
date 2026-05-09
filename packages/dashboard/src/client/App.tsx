@@ -1,5 +1,5 @@
 import Resizable from '@corvu/resizable';
-import { Show, createMemo, onCleanup, onMount, type Component } from 'solid-js';
+import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
 import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
@@ -7,20 +7,31 @@ import { ArtifactTree } from './components/ArtifactTree.js';
 import { CostPanel } from './components/CostPanel.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
+import { OnboardingOverlay } from './components/OnboardingOverlay.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
+import {
+  markOnboardingDismissed,
+  shouldShowOnboarding,
+} from './lib/onboarding-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
 
 export const App: Component = () => {
   const [state, actions] = createDashboardStore();
+  const [onboardingVisible, setOnboardingVisible] = createSignal(shouldShowOnboarding());
 
   onMount(() => {
     void actions.bootstrap();
   });
 
   onCleanup(() => actions.shutdown());
+
+  const dismissOnboarding = (): void => {
+    markOnboardingDismissed();
+    setOnboardingVisible(false);
+  };
 
   const phases = createMemo(() => state.snapshot?.phases ?? []);
   const selectedPhaseSlug = createMemo(() => state.selectedArtifact?.phase ?? null);
@@ -81,10 +92,13 @@ export const App: Component = () => {
               <Show
                 when={phases().length > 0}
                 fallback={
-                  <div class="preview-panel-empty">
-                    No phases yet. Run <code>swt vibe</code> from your terminal to scope a
-                    milestone, or type <code>help</code> in the command bar above for available
-                    subcommands.
+                  <div class="preview-panel-empty empty-state-cta">
+                    <p class="empty-state-headline">Describe what you want to build</p>
+                    <p class="empty-state-arrow" aria-hidden="true">↑</p>
+                    <p class="empty-state-hint">
+                      Type your idea in the command bar above. The agent will ask follow-up
+                      questions if it needs anything from you.
+                    </p>
                   </div>
                 }
               >
@@ -195,6 +209,7 @@ export const App: Component = () => {
         onSubmit={(result, note) => void actions.submitUatCheckpoint(result, note)}
         onClose={() => actions.closeUatModal()}
       />
+      <OnboardingOverlay visible={onboardingVisible()} onDismiss={dismissOnboarding} />
     </div>
   );
 };
