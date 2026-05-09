@@ -250,15 +250,56 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     }
   };
 
+  const appendLogLine = (line: string, channel: 'stdout' | 'stderr' = 'stdout'): void => {
+    logSeq += 1;
+    const entry: LogLine = {
+      id: `log-init-${logSeq}`,
+      ts: new Date().toISOString(),
+      channel,
+      line,
+    };
+    setState('recentLogLines', (prev) => {
+      const next = [...prev, entry];
+      return next.slice(-RECENT_LOG_LIMIT);
+    });
+  };
+
   const initProject = async (body: InitBody): Promise<void> => {
     setState('initSubmitting', true);
+    // Capture the current snapshot so we can roll back if init fails.
+    const previousSnapshot = state.snapshot;
+    // Optimistically flip is_initialized: true so App.tsx unmounts InitScreen
+    // and mounts the 4-panel grid immediately — no waiting on POST + GET
+    // round-trips. Project/milestone stay null; TopBar's <Show> fallback
+    // already handles that case ("…" placeholder). The real values arrive
+    // when fetchSnapshot resolves below.
+    const optimisticSnap: Snapshot = previousSnapshot
+      ? { ...previousSnapshot, is_initialized: true, generated_at: new Date().toISOString() }
+      : {
+          schema_version: '1',
+          generated_at: new Date().toISOString(),
+          project: null,
+          milestone: null,
+          phases: [],
+          active_agent: null,
+          recent_events: [],
+          cost_summary: null,
+          is_initialized: true,
+        };
+    setState('snapshot', optimisticSnap);
+    appendLogLine(`[ok] Initialized .swt-planning/ — type 'help' for available subcommands.`);
     try {
-      await postInit(body);
-      // Re-fetch snapshot — the daemon should now have a snapshotter and
-      // is_initialized: true.
+      const response = await postInit(body);
+      appendLogLine(`[ok] Project ${body.name} ready at ${response.root}`);
+      // Replace the optimistic snapshot with the server's real one. After
+      // /api/init, the daemon's snapshotter is live and /api/snapshot returns
+      // populated project/milestone/phases.
       const snap = await fetchSnapshot();
       setState('snapshot', snap);
     } catch (err: unknown) {
+      // Roll back the optimistic flip — InitScreen reappears so the user can
+      // see the error and retry.
+      setState('snapshot', previousSnapshot);
       const message = err instanceof Error ? err.message : String(err);
       pushError(`init failed: ${message}`);
       throw err;
