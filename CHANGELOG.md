@@ -1,5 +1,115 @@
 # Changelog
 
+## 2.0.0
+
+### Major Changes
+
+- v2.0 — **Natural-Language-First Dashboard.** Pivots SWT from
+  "methodology in your terminal, dashboard observes" to "dashboard IS
+  the methodology surface, terminal is for power users." Non-technical
+  users type "build me a snake game" in the dashboard command bar; SWT
+  runs the methodology loop server-side; clarifying questions surface
+  as chat-style messages; user replies inline; files appear in the
+  project dir.
+
+  **The headline change:** `swt` (no args) now opens the dashboard
+  daemon and auto-opens your browser. Previously it printed help.
+
+  **Migration from 1.x:**
+
+  - `swt` (no args) → dashboard. Set `SWT_NO_DASHBOARD=1` to restore
+    the legacy "print help on empty argv" behavior. `swt --help`,
+    `swt --version`, and `swt help` are unaffected.
+  - The terminal-side `swt vibe` flow is unchanged for power users.
+    The methodology loop, agent profiles, and existing CLI surface
+    are all preserved.
+  - The dashboard daemon's existing `swt dashboard` command is
+    unchanged — bare `swt` is now equivalent.
+
+  **What's new:**
+
+  - **Server-side vibe** (Phase 2). New `POST /api/vibe` endpoint
+    accepts `{prompt}`, creates a session, spawns the methodology
+    loop in the daemon process. Loop events (agent.spawn,
+    agent.complete, log.append) flow through the existing SSE bus.
+    Disk-backed sessions in `.swt-planning/.vibe-sessions/` survive
+    daemon restarts.
+  - **Conversational clarification protocol** (Phase 2). New
+    `agent.prompt` SSE event with subtypes `'clarification'` and
+    `'permission'`. Agents emit
+    `<<<ASK_USER:{json}>>>` markers on stdout; the daemon surfaces
+    the question via SSE; the user replies via
+    `POST /api/vibe/:session_id/reply`; the daemon writes
+    `<<<USER_REPLY:{json}>>>` to the agent's stdin. 1-hour
+    clarification timeout, 5-minute permission timeout. FIFO single-
+    outstanding-prompt enforcement per session.
+  - **Permission boundary** (Phase 3). `DashboardPermissionGate`
+    classifies tool calls: file writes inside the project root and
+    file reads inside `$HOME` auto-allow; shell commands, network
+    requests, and writes outside the project always require an
+    inline confirm in the dashboard. "Approve once" / "Approve for
+    session" / "Deny" with optional note. Session-scoped allowlist
+    matches the v2-permission-model.md design.
+  - **Frontend natural-language UX** (Phase 4). Command bar
+    classifies free-form input (3+ tokens or first token 8+ chars)
+    as natural language and routes to vibe instead of the literal
+    verb allowlist. Chat-style cards render `agent.prompt` events
+    inline in the log panel — free-form text reply, structured
+    option buttons, or amber-shield permission card depending on
+    subtype. Empty state reads "Describe what you want to build ↑"
+    pointing at the command bar.
+  - **First-run onboarding** (Phase 4). Dismissable 3-step explainer
+    overlay on first dashboard visit; persists dismiss state under
+    `swt:dashboard:onboarded-v1` localStorage key.
+  - **Production agent runner** (Phase 2 Plan 02-04).
+    `CodexMethodologyAgent` wraps `codex exec` via streaming
+    `child_process.spawn` (stdin OPEN). Wired as the production
+    agentFactory when `SWT_VIBE_AGENT=codex` env var is set —
+    intentionally opt-in until follow-up agent-prompt template
+    updates land that teach Codex to emit ASK_USER markers
+    reliably.
+
+  **What did NOT ship in 2.0.0 (planned for follow-up):**
+
+  - Agent-prompt template updates so real Codex emits ASK_USER
+    markers without manual prompt engineering. Until this lands,
+    `SWT_VIBE_AGENT=codex` runs Codex as usual but won't surface
+    clarification prompts in the dashboard chat.
+  - Default-on production wiring of `CodexMethodologyAgent`. v2.0.0
+    keeps the env-var opt-in.
+  - Daemon restart resumption from `.vibe-sessions/` JSONL events.
+    Sessions persist their event log to disk but the daemon doesn't
+    yet rebuild in-flight session state from those logs at startup.
+  - Cost-gating with hard limits and pre-spawn confirmation dialogs
+    (deferred to v2.1).
+  - Mobile-friendly responsive layout (deferred to v2.1).
+  - Multi-session concurrency UI / session sidebar (deferred to v2.1).
+
+  **Verification:**
+
+  - `tsc --build` clean.
+  - `eslint` clean on all touched .ts files.
+  - `vitest run`: ~107 net new passing tests across the v2.0
+    milestone (Phase 1 documentation; Phase 2: 70 tests covering
+    schema + session module + HTTP routes + SSE filter + methodology
+    loop + markers + ScriptedAgent + CodexMethodologyAgent; Phase 3:
+    19 tests covering permission classification + integration +
+    e2e via ScriptedAgent; Phase 4: 19 tests covering NL routing +
+    chat rendering + onboarding storage + CLI no-args). Same ~42
+    pre-existing failures as v1.7.x baseline; zero new regressions.
+  - `idiot_check.py` Track A: pending verification against the
+    published v2.0.0 binary.
+
+  **Architecture decisions locked in `.vbw-planning/research/`:**
+
+  - `v2-permission-model.md` — file-write classification, inline-
+    confirm UX, decision persistence, REQ-14 composition.
+  - `v2-agent-prompt-protocol.md` — SSE event schema, reply endpoint,
+    context injection, timeout/serialization.
+
+  Both docs include explicit "Rejected alternatives" sections so
+  future maintainers see the decision space.
+
 ## 1.7.1
 
 ### Patch Changes
