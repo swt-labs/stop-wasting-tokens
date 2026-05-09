@@ -176,6 +176,28 @@
   color: var(--slate-muted);
 }
 
+/* Inline hint chip when first command-bar token is unknown / interactive */
+.topbar-cmd-hint {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.topbar-cmd-hint[data-hint='unknown'] {
+  color: var(--warm-amber, #ffaa44);
+  background: rgba(255, 170, 68, 0.08);
+  border: 1px solid rgba(255, 170, 68, 0.25);
+}
+
+.topbar-cmd-hint[data-hint='interactive'] {
+  color: var(--neon-cyan, #44ddff);
+  background: rgba(68, 221, 255, 0.08);
+  border: 1px solid rgba(68, 221, 255, 0.25);
+}
+
 /* Init screen — greenfield onboarding */
 
 .app-body-greenfield {
