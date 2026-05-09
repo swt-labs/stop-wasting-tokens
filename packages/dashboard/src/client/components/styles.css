@@ -176,6 +176,11 @@
   color: var(--slate-muted);
 }
 
+.topbar-placeholder {
+  color: var(--slate-muted);
+  font-style: italic;
+}
+
 .topbar-controls {
   display: flex;
   align-items: center;

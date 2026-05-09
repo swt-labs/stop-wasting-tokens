@@ -81,6 +81,11 @@ body {
   color: var(--terminal-green);
 }
 
+.connection-pill[data-state='syncing'] {
+  background: var(--slate-muted-15);
+  color: var(--slate-muted);
+}
+
 .connection-pill[data-state='error'] {
   background: rgba(255, 82, 82, 0.15);
   color: var(--danger-red);

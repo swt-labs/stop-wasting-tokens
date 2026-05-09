@@ -14,7 +14,7 @@ import {
 } from '../services/api.js';
 import { openSseConnection, type SseConnection } from '../services/sse.js';
 
-export type ConnectionState = 'connecting' | 'connected' | 'error';
+export type ConnectionState = 'connecting' | 'syncing' | 'connected' | 'error';
 
 export interface DashboardErrorEntry {
   id: string;
@@ -68,6 +68,10 @@ const ARTIFACT_CACHE_LIMIT = 32;
 const RECENT_EVENTS_LIMIT = 100;
 const RECENT_LOG_LIMIT = 200;
 
+// Verbs whose execution mutates `.swt-planning/` and warrants a deterministic
+// snapshot re-fetch. Read-only verbs rely on SSE state.changed events instead.
+const MUTATING_VERBS = new Set(['init', 'vibe', 'archive', 'fix']);
+
 function cacheKey(phase: string, name: string): string {
   return `${phase}/${name}`;
 }
@@ -91,6 +95,7 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
 
   let sse: SseConnection | null = null;
   let logSeq = 0;
+  let sseHasOpened = false;
 
   const pushError = (message: string): void => {
     setState('errors', (prev) => {
@@ -166,15 +171,24 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
       return;
     }
 
+    // Snapshot is in hand; SSE is opening. 'syncing' covers this gap so the
+    // pill doesn't flash DISCONNECTED on slow networks before the first
+    // onOpen fires.
+    setState('connection', 'syncing');
+
     sse = openSseConnection(
       '/api/events',
       {
         onOpen: () => {
+          sseHasOpened = true;
           setState('connection', 'connected');
           setState('reconnectAttempt', 0);
         },
         onError: () => {
-          setState('connection', 'error');
+          // Only flip to 'error' once we've successfully connected at least
+          // once. Transient errors during the initial sync window stay in
+          // 'syncing' — the SSE wrapper auto-reconnects.
+          if (sseHasOpened) setState('connection', 'error');
         },
         onEvent: applyEvent,
       },
@@ -267,7 +281,11 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
   const initProject = async (body: InitBody): Promise<void> => {
     setState('initSubmitting', true);
     // Capture the current snapshot so we can roll back if init fails.
-    const previousSnapshot = state.snapshot;
+    // Shallow-spread to detach from the SolidJS store proxy — without this,
+    // the optimistic setState below would mutate the captured reference and
+    // the rollback would no-op. Phases/recent_events arrays are aliased,
+    // which is safe because rollback only restores top-level primitives.
+    const previousSnapshot: Snapshot | null = state.snapshot ? { ...state.snapshot } : null;
     // Optimistically flip is_initialized: true so App.tsx unmounts InitScreen
     // and mounts the 4-panel grid immediately — no waiting on POST + GET
     // round-trips. Project/milestone stay null; TopBar's <Show> fallback
@@ -346,15 +364,17 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     try {
       const result = await postCommand({ input: trimmed });
       appendCommandLines(result, trimmed);
-      // Some commands (e.g. `init`, `vibe`, `archive`) mutate `.swt-planning/`,
-      // so re-fetch snapshot opportunistically. SSE state.changed events also
-      // catch this, but a deterministic re-fetch after a user-triggered
-      // command is the simplest contract.
-      try {
-        const snap = await fetchSnapshot();
-        setState('snapshot', snap);
-      } catch {
-        /* ignore — log lines already captured */
+      const verb = trimmed.split(/\s+/)[0]?.toLowerCase() ?? '';
+      if (MUTATING_VERBS.has(verb)) {
+        // Mutating verbs warrant a deterministic re-fetch even though SSE
+        // state.changed events also fire — covers the case where the user
+        // runs a command before SSE has reconnected.
+        try {
+          const snap = await fetchSnapshot();
+          setState('snapshot', snap);
+        } catch {
+          /* ignore — log lines already captured */
+        }
       }
       return result;
     } catch (err: unknown) {
