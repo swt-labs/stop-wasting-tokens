@@ -108,7 +108,49 @@ if ! printf '%s' "$SNAPSHOT_JSON" | grep -q '"is_initialized"'; then
   rm -rf "$DASHBOARD_DIR" /tmp/swt-dashboard.log
   exit 1
 fi
-echo "  ✓ swt dashboard boots + serves /api/health + /api/snapshot"
+
+# Command-bar allowlist regression checks (v1.6.6 / AUDIT.md X-03)
+#   - allowlist verb must accept (routing_decision: literal)
+#   - interactive verb must reject (routing_decision: rejected_interactive)
+#   - unknown verb must reject (routing_decision: rejected_unknown)
+# These three checks gate the v1.6.6 closure criteria from AUDIT.md and
+# catch any regression in the smart-routing path before the release ships.
+COMMAND_VERSION_JSON=$(curl -sf -X POST -H 'content-type: application/json' \
+  -d '{"input":"version"}' \
+  "http://127.0.0.1:${DASHBOARD_PORT}/api/command" 2>/dev/null || true)
+if ! printf '%s' "$COMMAND_VERSION_JSON" | grep -q '"routing_decision":"literal"'; then
+  echo "✗ swt dashboard /api/command did not honor allowlist for verb 'version' (no routing_decision:literal)" >&2
+  echo "  Output was: $COMMAND_VERSION_JSON" >&2
+  kill "$DAEMON_PID" 2>/dev/null || true
+  popd >/dev/null
+  rm -rf "$DASHBOARD_DIR" /tmp/swt-dashboard.log
+  exit 1
+fi
+
+COMMAND_VIBE_JSON=$(curl -sf -X POST -H 'content-type: application/json' \
+  -d '{"input":"vibe"}' \
+  "http://127.0.0.1:${DASHBOARD_PORT}/api/command" 2>/dev/null || true)
+if ! printf '%s' "$COMMAND_VIBE_JSON" | grep -q '"routing_decision":"rejected_interactive"'; then
+  echo "✗ swt dashboard /api/command did not reject interactive verb 'vibe' (no routing_decision:rejected_interactive)" >&2
+  echo "  Output was: $COMMAND_VIBE_JSON" >&2
+  kill "$DAEMON_PID" 2>/dev/null || true
+  popd >/dev/null
+  rm -rf "$DASHBOARD_DIR" /tmp/swt-dashboard.log
+  exit 1
+fi
+
+COMMAND_UNKNOWN_JSON=$(curl -sf -X POST -H 'content-type: application/json' \
+  -d '{"input":"create-a-fake-readme"}' \
+  "http://127.0.0.1:${DASHBOARD_PORT}/api/command" 2>/dev/null || true)
+if ! printf '%s' "$COMMAND_UNKNOWN_JSON" | grep -q '"routing_decision":"rejected_unknown"'; then
+  echo "✗ swt dashboard /api/command did not reject unknown verb (no routing_decision:rejected_unknown)" >&2
+  echo "  Output was: $COMMAND_UNKNOWN_JSON" >&2
+  kill "$DAEMON_PID" 2>/dev/null || true
+  popd >/dev/null
+  rm -rf "$DASHBOARD_DIR" /tmp/swt-dashboard.log
+  exit 1
+fi
+echo "  ✓ swt dashboard boots + serves /api/health + /api/snapshot + /api/command (allowlist + interactive + unknown all routed correctly)"
 
 kill "$DAEMON_PID" 2>/dev/null || true
 wait "$DAEMON_PID" 2>/dev/null || true
