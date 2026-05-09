@@ -104,6 +104,20 @@ pnpm add -g stop-wasting-tokens
 bun add -g stop-wasting-tokens
 ```
 
+To pin a specific version (e.g. for CI or reproducible installs):
+
+```bash
+npm install -g stop-wasting-tokens@1.7.0
+```
+
+To upgrade an existing install to the latest published version:
+
+```bash
+npm install -g stop-wasting-tokens@latest
+# or
+swt update              # built-in self-check; prints the upgrade command
+```
+
 That's it. The package ships an ESM-only bundle with a single `swt` binary. No build step, no peer-dependency negotiation, no native modules.
 
 ### What the package contains
@@ -112,6 +126,7 @@ The published tarball is ~1.3 MB compressed and includes:
 
 - `dist/cli.mjs` — the bundled CLI (single file, ~2.1 MB)
 - `dist/cli.d.ts` — TypeScript declarations for programmatic consumers
+- `packages/dashboard/dist/client/` — the localhost dashboard SPA assets (Solid + Vite, ~30 KB gzipped)
 - `README.md`, `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`
 
 Everything reachable from the CLI entry point is bundled in. There are no transitive runtime dependencies installed alongside.
@@ -123,12 +138,22 @@ Everything reachable from the CLI entry point is bundled in. There are no transi
 After install, run:
 
 ```bash
-swt --version          # should print: swt 1.5.1 (or whatever you installed)
-swt --help             # should list ~30 commands
+swt --version          # prints: swt 1.7.0 (or whatever you installed)
+swt --help             # lists the working command surface
 swt doctor             # checks: Node version, Codex CLI, jq, git
 ```
 
 `swt doctor` is the one-shot environmental check. If anything's missing or out-of-version it tells you exactly what to fix.
+
+For a deeper smoke test that exercises 18 distinct CLI + dashboard checks against your installed binary (no Codex tokens spent), the repo ships a Python script:
+
+```bash
+git clone https://github.com/swt-labs/stop-wasting-tokens.git
+cd stop-wasting-tokens
+python3 a_non_production_files/idiot_check.py
+```
+
+Useful when you want to verify a release end-to-end before committing to a daily-driver upgrade.
 
 ---
 

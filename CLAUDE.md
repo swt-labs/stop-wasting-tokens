@@ -5,7 +5,7 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** v1.6.6 Dashboard ↔ CLI Integration Audit and Fix — `milestones/06-audit-and-catalog-backend-hardening-frontend-hardening` (4 phases / 4 plans / 17 tasks / 4 UAT CHECKPOINTs / 13 files modified / 1 process-exception deviation — audit-driven hardening that closed both originally-reported v1.6.5 bugs (init silent transition, command bar literal argv) plus 14 audit-surfaced findings; ALLOWED_VERBS allowlist + smart routing + per-verb timeouts on the server, optimistic init UI + hint chip + actionable empty-state on the client; 16 of 36 audit findings closed in v1.6.6, 20 deferred to v1.7 — npm publish via Trusted Publisher OIDC at v1.6.6 / 15a087d — 2026-05-09)
+**Last shipped:** v1.7.0 CLI bug fixes and v1.6.6 audit closure — `milestones/07-v1-7-0-cli-bug-fixes-and-v1-6-6-audit-closure` (4 phases / 5 plans / 22 tasks / 4 UAT CHECKPOINTs / 14 files modified / 0 deviations — closes the v1.6.6 audit's 20 deferred S2/S3 findings + 2 new CLI bugs surfaced by `idiot_check.py` (A5.b detect-phase --bash-format, A6.c config set ENOENT); minor bump justified by `swt init` becoming a real CLI command (X-02). Phases 01 + 02 shipped cumulatively in v1.6.8 alongside resizable-panels; v1.7.0 adds Phase 03 frontend polish (connection-pill 'syncing', verb-aware refresh, TopBar per-field fallback) + dashboard-store.test.ts (8 cases, including a bonus rollback-bug fix in initProject). idiot_check.py 18/18 against published binary. npm publish via Trusted Publisher OIDC at v1.7.0 / 9d59016 — 2026-05-09)
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules
