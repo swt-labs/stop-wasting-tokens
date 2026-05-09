@@ -12,6 +12,7 @@ import type {
   MethodologyAgentResult,
   MethodologyAgentRunOpts,
 } from './methodology-agent.js';
+import type { DashboardPermissionGate } from './permission-gate.js';
 import type { SessionRegistry } from './session.js';
 
 export interface RunMethodologyLoopOptions {
@@ -20,6 +21,16 @@ export interface RunMethodologyLoopOptions {
   bus: EventBus;
   session_id: string;
   prompt: string;
+  /**
+   * Optional permission gate. When provided, the loop wires
+   * `gate.requestApproval` as the agent's `requestApproval` callback so
+   * every tool call routes through the gate (auto-allow / allowlist /
+   * user-decision via the chat channel). When omitted, agents that try
+   * to invoke `opts.requestApproval` will receive `undefined` and must
+   * handle the absence (ScriptedAgent fails the run; CodexMethodologyAgent
+   * may default-deny depending on Plan 02-04's wiring).
+   */
+  gate?: DashboardPermissionGate;
   abortSignal?: AbortSignal;
 }
 
@@ -44,7 +55,7 @@ export interface RunMethodologyLoopOptions {
 export async function runMethodologyLoop(
   opts: RunMethodologyLoopOptions,
 ): Promise<MethodologyAgentResult> {
-  const { agent, registry, bus, session_id, prompt, abortSignal } = opts;
+  const { agent, registry, bus, session_id, prompt, gate, abortSignal } = opts;
 
   registry.setState(session_id, 'running');
 
@@ -85,6 +96,7 @@ export async function runMethodologyLoop(
       prompt,
       onStdoutLine,
       askUser,
+      ...(gate !== undefined ? { requestApproval: (call) => gate.requestApproval(call) } : {}),
       ...(abortSignal !== undefined ? { abortSignal } : {}),
     };
     const result = await agent.run(runOpts);

@@ -1,5 +1,7 @@
 import type { AgentPromptContext, AgentPromptOption } from '@swt-labs/dashboard-core';
 
+import type { ApprovalDecision, ToolCall } from './permission-gate.js';
+
 /**
  * The dashboard's agent-runner abstraction. Decouples `runMethodologyLoop()`
  * from any specific agent backend. v2.0 ships:
@@ -38,6 +40,15 @@ export interface MethodologyAgentRunOpts {
    * receive USER_REPLY before the user actually replies.
    */
   askUser: (request: AskUserRequest) => Promise<AskUserReply>;
+  /**
+   * Called when the agent intercepts a tool call (file write, shell,
+   * network). The dashboard wires `DashboardPermissionGate.requestApproval`
+   * here so the gate's classification + user-decision surface mediates
+   * every privileged operation. When omitted, agents bypass the gate
+   * (terminal-side `swt vibe` already has its own gate; tests that don't
+   * exercise tool calls don't need to wire this).
+   */
+  requestApproval?: (call: ToolCall) => Promise<ApprovalDecision>;
   /** Optional abort signal. */
   abortSignal?: AbortSignal;
 }
@@ -67,6 +78,14 @@ export type MethodologyAgentFactory = (input: { prompt: string; project_root: st
 export type ScriptAction =
   | { type: 'stdout'; line: string }
   | { type: 'ask'; request: AskUserRequest }
+  | {
+      type: 'tool_call';
+      call: ToolCall;
+      /** Called with the gate's decision so test scripts can branch. */
+      on_decision?: (decision: ApprovalDecision) => void;
+      /** When true, fail with `tool_denied` if the gate denies. Default: continue. */
+      fail_on_deny?: boolean;
+    }
   | { type: 'complete'; text?: string }
   | { type: 'fail'; error: string };
 
@@ -81,6 +100,8 @@ export class ScriptedAgent implements MethodologyAgent {
   readonly #stepDelayMs: number;
   /** Captured replies from `askUser` so tests can inspect what the user said. */
   readonly received_replies: AskUserReply[] = [];
+  /** Captured decisions from `requestApproval` so tests can inspect gate behavior. */
+  readonly received_decisions: ApprovalDecision[] = [];
 
   constructor(opts: ScriptedAgentOptions) {
     this.#script = opts.script;
@@ -102,6 +123,21 @@ export class ScriptedAgent implements MethodologyAgent {
         case 'ask': {
           const reply = await opts.askUser(action.request);
           this.received_replies.push(reply);
+          break;
+        }
+        case 'tool_call': {
+          if (!opts.requestApproval) {
+            return {
+              success: false,
+              error: 'tool_call action requires opts.requestApproval to be wired',
+            };
+          }
+          const decision = await opts.requestApproval(action.call);
+          this.received_decisions.push(decision);
+          if (action.on_decision) action.on_decision(decision);
+          if (action.fail_on_deny && !decision.allowed) {
+            return { success: false, error: `tool_denied: ${decision.reason}` };
+          }
           break;
         }
         case 'complete':
