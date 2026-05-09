@@ -7,6 +7,10 @@ import {
   SnapshotSchema,
   UatCheckpointBodySchema,
   UatCheckpointResponseSchema,
+  VibeReplyBodySchema,
+  VibeReplyResponseSchema,
+  VibeStartBodySchema,
+  VibeStartResponseSchema,
   type CommandBody,
   type CommandResponse,
   type HealthResponse,
@@ -15,6 +19,10 @@ import {
   type Snapshot,
   type UatCheckpointBody,
   type UatCheckpointResponse,
+  type VibeReplyBody,
+  type VibeReplyResponse,
+  type VibeStartBody,
+  type VibeStartResponse,
 } from '@swt-labs/dashboard-core';
 
 export type {
@@ -24,6 +32,10 @@ export type {
   InitResponse,
   UatCheckpointBody,
   UatCheckpointResponse,
+  VibeReplyBody,
+  VibeReplyResponse,
+  VibeStartBody,
+  VibeStartResponse,
 };
 
 export interface RenderedArtifact {
@@ -140,4 +152,37 @@ export async function postCommand(body: CommandBody): Promise<CommandResponse> {
   }
   const raw: unknown = await res.json();
   return CommandResponseSchema.parse(raw);
+}
+
+export async function postVibeStart(body: VibeStartBody): Promise<VibeStartResponse> {
+  const validated = VibeStartBodySchema.parse(body);
+  const res = await fetch('/api/vibe', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return VibeStartResponseSchema.parse(raw);
+}
+
+export async function postVibeReply(
+  session_id: string,
+  body: VibeReplyBody,
+): Promise<VibeReplyResponse> {
+  const validated = VibeReplyBodySchema.parse(body);
+  const res = await fetch(`/api/vibe/${encodeURIComponent(session_id)}/reply`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return VibeReplyResponseSchema.parse(raw);
 }

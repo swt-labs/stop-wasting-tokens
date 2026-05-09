@@ -7,6 +7,8 @@ const postInitMock = vi.fn();
 const postCommandMock = vi.fn();
 const postUatCheckpointMock = vi.fn();
 const fetchArtifactRenderedMock = vi.fn();
+const postVibeStartMock = vi.fn();
+const postVibeReplyMock = vi.fn();
 const openSseConnectionMock = vi.fn();
 
 vi.mock('../src/client/services/api.js', () => ({
@@ -15,6 +17,8 @@ vi.mock('../src/client/services/api.js', () => ({
   postCommand: (...args: unknown[]) => postCommandMock(...args),
   postUatCheckpoint: (...args: unknown[]) => postUatCheckpointMock(...args),
   fetchArtifactRendered: (...args: unknown[]) => fetchArtifactRenderedMock(...args),
+  postVibeStart: (...args: unknown[]) => postVibeStartMock(...args),
+  postVibeReply: (...args: unknown[]) => postVibeReplyMock(...args),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({
@@ -44,6 +48,8 @@ beforeEach(() => {
   postCommandMock.mockReset();
   postUatCheckpointMock.mockReset();
   fetchArtifactRenderedMock.mockReset();
+  postVibeStartMock.mockReset();
+  postVibeReplyMock.mockReset();
   openSseConnectionMock.mockReset();
   openSseConnectionMock.mockReturnValue({ close: () => {} });
 });
@@ -153,6 +159,178 @@ describe('runCommand verb-aware refresh', () => {
 
       await actions.runCommand('INIT myproj --description hi');
       expect(fetchSnapshotMock).toHaveBeenCalledTimes(1);
+      dispose();
+    });
+  });
+});
+
+describe('vibe session lifecycle', () => {
+  it('startVibeSession sets the active session and clears stale state', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-123', state: 'idle' });
+
+      const id = await actions.startVibeSession('build me a snake game');
+      expect(id).toBe('sess-123');
+      expect(state.vibeSession?.session_id).toBe('sess-123');
+      expect(state.vibeSession?.initial_prompt).toBe('build me a snake game');
+      expect(state.vibeSession?.conversation).toEqual([]);
+      expect(state.vibeStarting).toBe(false);
+      dispose();
+    });
+  });
+
+  it('startVibeSession returns null on rejection and pushes an error', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockRejectedValue(new Error('vibe_start_failed'));
+      const id = await actions.startVibeSession('test');
+      expect(id).toBeNull();
+      expect(state.vibeSession).toBeNull();
+      expect(state.errors.at(-1)?.message).toContain('vibe_start_failed');
+      dispose();
+    });
+  });
+
+  it('agent.prompt event appends to conversation as pending when session_id matches', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle' });
+      await actions.startVibeSession('test');
+
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:00:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-1',
+        subtype: 'clarification',
+        question: 'What goal?',
+      });
+      expect(state.vibeSession?.conversation).toHaveLength(1);
+      expect(state.vibeSession?.conversation[0]).toMatchObject({
+        prompt_id: 'p-1',
+        question: 'What goal?',
+        status: 'pending',
+      });
+      dispose();
+    });
+  });
+
+  it('agent.prompt for a different session_id is ignored', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle' });
+      await actions.startVibeSession('test');
+
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:00:00Z',
+        session_id: 'sess-B',
+        prompt_id: 'p-1',
+        subtype: 'clarification',
+        question: 'cross-session',
+      });
+      expect(state.vibeSession?.conversation).toHaveLength(0);
+      dispose();
+    });
+  });
+
+  it('replyToActivePrompt POSTs reply, updates conversation entry to answered', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle' });
+      postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
+      await actions.startVibeSession('test');
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:00:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-1',
+        subtype: 'clarification',
+        question: 'q?',
+      });
+
+      const ok = await actions.replyToActivePrompt({ kind: 'free_form', text: 'a snake game' });
+      expect(ok).toBe(true);
+      expect(postVibeReplyMock).toHaveBeenCalledWith('sess-A', {
+        prompt_id: 'p-1',
+        answer: { kind: 'free_form', text: 'a snake game' },
+      });
+      const entry = state.vibeSession?.conversation[0];
+      expect(entry?.status).toBe('answered');
+      expect(entry?.reply).toEqual({ kind: 'free_form', text: 'a snake game' });
+      dispose();
+    });
+  });
+
+  it('replyToActivePrompt returns false when no pending prompt exists', async () => {
+    await createRoot(async (dispose) => {
+      const [, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle' });
+      await actions.startVibeSession('test');
+      const ok = await actions.replyToActivePrompt({ kind: 'free_form', text: 'a' });
+      expect(ok).toBe(false);
+      expect(postVibeReplyMock).not.toHaveBeenCalled();
+      dispose();
+    });
+  });
+
+  it('agent.prompt.timeout flips matching pending entry to expired', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle' });
+      await actions.startVibeSession('test');
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:00:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-1',
+        subtype: 'clarification',
+        question: 'q?',
+      });
+      actions.applyEvent({
+        type: 'agent.prompt.timeout',
+        ts: '2026-05-09T10:05:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-1',
+        expired_at: '2026-05-09T10:05:00Z',
+      });
+      const entry = state.vibeSession?.conversation[0];
+      expect(entry?.status).toBe('expired');
+      expect(entry?.resolved_at).toBe('2026-05-09T10:05:00Z');
+      dispose();
+    });
+  });
+
+  it('multiple sequential prompts stack as a conversation thread', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle' });
+      postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
+      await actions.startVibeSession('test');
+
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:00:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-1',
+        subtype: 'clarification',
+        question: 'goal?',
+      });
+      await actions.replyToActivePrompt({ kind: 'free_form', text: 'snake' });
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:01:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-2',
+        subtype: 'clarification',
+        question: 'color?',
+      });
+
+      const conv = state.vibeSession!.conversation;
+      expect(conv).toHaveLength(2);
+      expect(conv[0]?.status).toBe('answered');
+      expect(conv[1]?.status).toBe('pending');
       dispose();
     });
   });
