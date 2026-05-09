@@ -9,6 +9,8 @@ import { openBrowser, shouldAutoOpen } from '../lib/open-browser.js';
 import { pickPort } from '../lib/pick-port.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
+import { CURRENT_VERSION } from './version.js';
+
 const PORT_RANGE = { start: 54320, end: 54420 } as const;
 const READY_LINE_RE = /Listening on http:\/\/[^/\s]+/i;
 const SHUTDOWN_TIMEOUT_MS = 5000;
@@ -82,6 +84,9 @@ function spawnDaemon(
     ...process.env,
     SWT_DASHBOARD_PORT: String(port),
     SWT_DASHBOARD_HOST: host,
+    // B-15 / S-04: pass the CLI's version through so /api/health can report
+    // daemon_version. Daemon reads via process.env in routes/health.ts.
+    SWT_DASHBOARD_DAEMON_VERSION: CURRENT_VERSION,
     ...(unsafePublic ? { SWT_DASHBOARD_UNSAFE_PUBLIC: '1' } : {}),
   };
   const stdio: StdioOptions = debug ? ['inherit', 'inherit', 'pipe'] : ['ignore', 'pipe', 'pipe'];

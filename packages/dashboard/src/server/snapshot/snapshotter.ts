@@ -9,6 +9,45 @@ import { snapshotsEqual } from './diff.js';
 import { createEventsTailer, type EventsTailer } from './events-tailer.js';
 import { buildSnapshot } from './reducer.js';
 
+/**
+ * B-12: emit only the top-level snapshot keys that actually changed,
+ * instead of the v1.6.0–v1.6.7 hardcoded `['phase', 'artifacts']`. Maps
+ * snapshot fields to the SnapshotEvent.changed enum:
+ *   phases       → 'phase' + 'artifacts' (phases contain artifacts)
+ *   active_agent + recent_events → 'agents'
+ *   cost_summary → 'cost'
+ * Falls back to ['phase'] if nothing structurally changed (snapshotsEqual
+ * returned false on a non-trivial diff that doesn't hit any of the buckets
+ * above — e.g., generated_at timestamp drift). The schema requires .min(1)
+ * on `changed`, so an empty array is invalid.
+ */
+function diffChangedKeys(
+  prev: Snapshot,
+  next: Snapshot,
+): Array<'phase' | 'agents' | 'artifacts' | 'cost'> {
+  const changed = new Set<'phase' | 'agents' | 'artifacts' | 'cost'>();
+  if (JSON.stringify(prev.phases) !== JSON.stringify(next.phases)) {
+    changed.add('phase');
+    changed.add('artifacts');
+  }
+  if (
+    JSON.stringify(prev.active_agent) !== JSON.stringify(next.active_agent) ||
+    JSON.stringify(prev.recent_events) !== JSON.stringify(next.recent_events)
+  ) {
+    changed.add('agents');
+  }
+  if (JSON.stringify(prev.cost_summary) !== JSON.stringify(next.cost_summary)) {
+    changed.add('cost');
+  }
+  if (changed.size === 0) {
+    // Fallback for cases where snapshotsEqual returned false but no key-level
+    // structural diff was detected (timestamp-only drifts shouldn't reach here
+    // because snapshotsEqual filters generated_at, but be defensive).
+    changed.add('phase');
+  }
+  return [...changed];
+}
+
 const WATCH_GLOBS = (projectRoot: string): string[] => [
   path.join(projectRoot, '.swt-planning', 'STATE.md'),
   path.join(projectRoot, '.swt-planning', 'ROADMAP.md'),
@@ -62,11 +101,12 @@ export function createSnapshotter(opts: SnapshotterOptions): Snapshotter {
       return;
     }
     if (snapshotsEqual(cached, next)) return;
+    const changed = diffChangedKeys(cached, next);
     cached = next;
     const evt: SnapshotEvent = {
       type: 'state.changed',
       ts: new Date().toISOString(),
-      changed: ['phase', 'artifacts'],
+      changed,
       snapshot: next,
     };
     bus.publish(evt);
