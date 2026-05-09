@@ -134,6 +134,102 @@ describe('SnapshotEventSchema (discriminated union)', () => {
     expect(() => SnapshotEventSchema.parse(bad)).toThrow();
   });
 
+  it('accepts agent.prompt clarification with structured options', () => {
+    const evt = {
+      type: 'agent.prompt' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-1',
+      subtype: 'clarification' as const,
+      question: 'Which color do you want?',
+      options: [
+        { value: 'red', label: 'Red' },
+        { value: 'green', label: 'Green', description: 'My favorite' },
+      ],
+      context: {
+        agent_role: 'architect' as const,
+      },
+      expires_at: '2026-05-09T11:00:00Z',
+    };
+    expect(SnapshotEventSchema.parse(evt).type).toBe('agent.prompt');
+  });
+
+  it('accepts agent.prompt clarification without options (free-form)', () => {
+    const evt = {
+      type: 'agent.prompt' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-2',
+      subtype: 'clarification' as const,
+      question: 'What is the project goal?',
+    };
+    expect(SnapshotEventSchema.parse(evt).type).toBe('agent.prompt');
+  });
+
+  it('accepts agent.prompt permission with operation context', () => {
+    const evt = {
+      type: 'agent.prompt' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-3',
+      subtype: 'permission' as const,
+      question: 'Run a shell command?',
+      context: {
+        operation: 'shell' as const,
+        target: 'npm install lodash',
+        risk_summary: 'Runs arbitrary lifecycle scripts during install. Network access required.',
+        agent_role: 'dev' as const,
+      },
+    };
+    expect(SnapshotEventSchema.parse(evt).type).toBe('agent.prompt');
+  });
+
+  it('rejects agent.prompt with unknown subtype', () => {
+    const bad = {
+      type: 'agent.prompt' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-4',
+      subtype: 'mystery',
+      question: 'huh?',
+    };
+    expect(() => SnapshotEventSchema.parse(bad)).toThrow();
+  });
+
+  it('rejects agent.prompt option with empty value', () => {
+    const bad = {
+      type: 'agent.prompt' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-5',
+      subtype: 'clarification' as const,
+      question: 'Pick one',
+      options: [{ value: '', label: 'Bad' }],
+    };
+    expect(() => SnapshotEventSchema.parse(bad)).toThrow();
+  });
+
+  it('accepts agent.prompt.timeout', () => {
+    const evt = {
+      type: 'agent.prompt.timeout' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-6',
+      expired_at: '2026-05-09T11:05:00Z',
+    };
+    expect(SnapshotEventSchema.parse(evt).type).toBe('agent.prompt.timeout');
+  });
+
+  it('rejects agent.prompt.timeout missing expired_at', () => {
+    const bad = {
+      type: 'agent.prompt.timeout' as const,
+      ts,
+      session_id: 'sess-abc',
+      prompt_id: 'prompt-7',
+    };
+    expect(() => SnapshotEventSchema.parse(bad)).toThrow();
+  });
+
   it('PhaseSummarySchema rejects empty slug', () => {
     expect(() =>
       PhaseSummarySchema.parse({
