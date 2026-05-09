@@ -59,20 +59,19 @@ jobs:
               # whose target dir isn't already on PATH. Set PNPM_HOME
               # explicitly per OS, mkdir, export both PATH (for this step)
               # and GITHUB_PATH (for "Verify install").
+              # When PNPM_HOME is set, pnpm uses it *directly* as the
+              # global bin dir (no `/bin` suffix). PNPM_HOME must exist
+              # AND be on PATH for the same step before `pnpm add -g`.
               if [[ "${RUNNER_OS}" == "macOS" ]]; then
                 PNPM_HOME="${HOME}/Library/pnpm"
               else
                 PNPM_HOME="${HOME}/.local/share/pnpm"
               fi
-              # pnpm's global *bin* lives at $PNPM_HOME/bin (not at the
-              # config root). Both must exist before `pnpm add -g`, and
-              # the bin dir must be on PATH for the same step.
-              PNPM_BIN="${PNPM_HOME}/bin"
-              mkdir -p "${PNPM_BIN}"
+              mkdir -p "${PNPM_HOME}"
               export PNPM_HOME
-              export PATH="${PNPM_BIN}:${PATH}"
+              export PATH="${PNPM_HOME}:${PATH}"
               echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
-              echo "${PNPM_BIN}" >> "${GITHUB_PATH}"
+              echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
               pnpm add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             bun)
