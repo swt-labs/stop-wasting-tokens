@@ -182,7 +182,22 @@ export const dashboardHandler: CommandHandler = async (
   const url = readyLine.replace(/^.*?(http:\/\/[^/\s]+).*/i, '$1');
   io.stdout.write(`Dashboard ${readyLine}\nAddress: ${url}/\n`);
 
-  const stdoutIsTty = Boolean((io.stdout as { isTTY?: boolean }).isTTY ?? true);
+  // C-01: in --debug mode, mirror daemon stderr to the CLI's stderr after
+  // waitForReady has consumed the ready line. The waitForReady handler does
+  // its own pass-through while waiting, but once it resolves the daemon's
+  // stderr is silently piped to /dev/null without this listener.
+  const debugStderrListener = flags.debug
+    ? (chunk: Buffer): void => {
+        io.stderr.write(chunk);
+      }
+    : null;
+  if (debugStderrListener) child.stderr?.on('data', debugStderrListener);
+
+  // C-04: default to false when isTTY is undefined (stream wrappers, log
+  // redirects, test harnesses). Auto-open the browser only on a confirmed
+  // TTY — undefined-isTTY-as-true was misfiring on pipelines that don't
+  // expose the isTTY property at all.
+  const stdoutIsTty = Boolean((io.stdout as { isTTY?: boolean }).isTTY ?? false);
   const wantOpen = !flags.noOpen && shouldAutoOpen(process.env, stdoutIsTty);
   if (wantOpen) {
     try {
@@ -203,6 +218,9 @@ export const dashboardHandler: CommandHandler = async (
     child.once('exit', (code) => {
       process.off('SIGINT', onSignal);
       process.off('SIGTERM', onSignal);
+      // Detach the debug stderr listener (C-01) so post-exit writes from
+      // any in-flight buffered stderr chunks don't go to a closed handle.
+      if (debugStderrListener) child.stderr?.off('data', debugStderrListener);
       resolveExit(code === 0 ? EXIT.SUCCESS : EXIT.RUNTIME_ERROR);
     });
   });
