@@ -4,12 +4,16 @@ import { Show, createMemo, onCleanup, onMount, type Component } from 'solid-js';
 import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
+import { ConfigPanel } from './components/ConfigPanel.js';
 import { CostPanel } from './components/CostPanel.js';
+import { DetectPhasePanel } from './components/DetectPhasePanel.js';
+import { DoctorPanel } from './components/DoctorPanel.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
+import { UpdatePanel } from './components/UpdatePanel.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
 
@@ -42,6 +46,7 @@ export const App: Component = () => {
     main: [...initialLayout.main],
     center: [...initialLayout.center],
     right: [...initialLayout.right],
+    tools: [...initialLayout.tools],
   };
   const persist = (): void => saveLayout(layout);
 
@@ -209,6 +214,90 @@ export const App: Component = () => {
                   class="resizable-panel"
                 >
                   <CostPanel cost={state.snapshot?.cost_summary ?? null} />
+                </Resizable.Panel>
+              </Resizable>
+            </Resizable.Panel>
+            <Resizable.Handle
+              class="resizable-handle resizable-handle-h"
+              aria-label="Resize tools column"
+            />
+            <Resizable.Panel
+              initialSize={initialLayout.main[4]}
+              minSize={0.08}
+              class="resizable-panel resizable-stack"
+            >
+              <Resizable
+                orientation="vertical"
+                initialSizes={initialLayout.tools}
+                onSizesChange={(sizes) => {
+                  layout.tools = sizes;
+                  persist();
+                }}
+                class="resizable-root resizable-root-v"
+              >
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[0]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <ConfigPanel
+                    data={state.tools.config.data}
+                    loading={state.tools.config.loading}
+                    error={state.tools.config.error}
+                    lastFetched={state.tools.config.lastFetched}
+                    onRefresh={() => void actions.refreshToolsCell('config')}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize config / doctor"
+                />
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[1]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <DoctorPanel
+                    data={state.tools.doctor.data}
+                    loading={state.tools.doctor.loading}
+                    error={state.tools.doctor.error}
+                    lastFetched={state.tools.doctor.lastFetched}
+                    onRefresh={() => void actions.refreshToolsCell('doctor')}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize doctor / detect-phase"
+                />
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[2]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <DetectPhasePanel
+                    data={state.tools.detectPhase.data}
+                    loading={state.tools.detectPhase.loading}
+                    error={state.tools.detectPhase.error}
+                    lastFetched={state.tools.detectPhase.lastFetched}
+                    onRefresh={() => void actions.refreshToolsCell('detectPhase')}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize detect-phase / update"
+                />
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[3]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <UpdatePanel
+                    data={state.tools.update.data}
+                    loading={state.tools.update.loading}
+                    error={state.tools.update.error}
+                    lastFetched={state.tools.update.lastFetched}
+                    onRefresh={() => void actions.refreshToolsCell('update')}
+                  />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>

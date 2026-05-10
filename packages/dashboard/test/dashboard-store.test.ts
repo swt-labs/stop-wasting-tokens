@@ -688,4 +688,26 @@ describe('tools sub-state', () => {
       dispose();
     });
   });
+
+  it('greenfield bootstrap never starts the polling timer (no fetches even after time passes)', async () => {
+    vi.useFakeTimers();
+    try {
+      await createRoot(async (dispose) => {
+        const [, actions] = createDashboardStore({ pollIntervalMs: 1000 });
+        fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: false }));
+        await actions.bootstrap();
+        // Advance well past several would-be polling ticks. No fetches
+        // should fire because the timer was never installed.
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(fetchConfigMock).not.toHaveBeenCalled();
+        expect(fetchDoctorMock).not.toHaveBeenCalled();
+        expect(fetchDetectPhaseMock).not.toHaveBeenCalled();
+        expect(fetchUpdateMock).not.toHaveBeenCalled();
+        actions.shutdown();
+        dispose();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
