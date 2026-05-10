@@ -162,10 +162,7 @@ export function createSessionRegistry(opts: CreateRegistryOptions): SessionRegis
     return session;
   };
 
-  const emitPrompt = (
-    session_id: string,
-    promptOpts: EmitPromptOptions,
-  ): PendingPrompt | null => {
+  const emitPrompt = (session_id: string, promptOpts: EmitPromptOptions): PendingPrompt | null => {
     const session = sessions.get(session_id);
     if (!session) return null;
     if (session.pending_prompt) {
@@ -233,11 +230,7 @@ export function createSessionRegistry(opts: CreateRegistryOptions): SessionRegis
     return prompt;
   };
 
-  const reply = (
-    session_id: string,
-    prompt_id: string,
-    replyValue: ReplyKind,
-  ): ReplyResult => {
+  const reply = (session_id: string, prompt_id: string, replyValue: ReplyKind): ReplyResult => {
     const session = sessions.get(session_id);
     if (!session) return { ok: false, error: 'session_not_found' };
     if (session.state !== 'awaiting-reply' || !session.pending_prompt) {
@@ -350,10 +343,7 @@ function sessionAllowKey(prompt: PendingPrompt): string | null {
  * reconstruct session history after a daemon restart. Returns an empty array
  * if the log doesn't exist.
  */
-export function readSessionEventsLog(
-  planning_path: string,
-  session_id: string,
-): unknown[] {
+export function readSessionEventsLog(planning_path: string, session_id: string): unknown[] {
   const path = eventsLogPath(planning_path, session_id);
   if (!existsSync(path)) return [];
   const raw = readFileSync(path, 'utf8');

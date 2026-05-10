@@ -8,10 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createEventBus, type EventBus } from '../src/server/event-bus.js';
 import { runMethodologyLoop } from '../src/server/vibe/loop.js';
 import { ScriptedAgent } from '../src/server/vibe/methodology-agent.js';
-import {
-  createSessionRegistry,
-  type SessionRegistry,
-} from '../src/server/vibe/session.js';
+import { createSessionRegistry, type SessionRegistry } from '../src/server/vibe/session.js';
 
 let bus: EventBus;
 let received: SnapshotEvent[];
@@ -134,9 +131,7 @@ describe('runMethodologyLoop', () => {
     });
 
     await loopPromise;
-    expect(registry.get(session.id)!.permission_allowlist.has('shell::npm install')).toBe(
-      true,
-    );
+    expect(registry.get(session.id)!.permission_allowlist.has('shell::npm install')).toBe(true);
   });
 
   it('routes a fail action through error event and sets state=failed', async () => {

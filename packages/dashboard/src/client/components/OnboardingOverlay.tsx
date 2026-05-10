@@ -8,18 +8,15 @@ export interface OnboardingOverlayProps {
 const STEPS: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: 'Describe what you want',
-    body:
-      'Type your idea in the command bar at the top — anything from "build me a snake game" to "fix the failing test in payments.ts."',
+    body: 'Type your idea in the command bar at the top — anything from "build me a snake game" to "fix the failing test in payments.ts."',
   },
   {
     title: 'Answer the agent’s questions',
-    body:
-      'When the agent needs more info, it’ll ask in the log panel. Pick from options or type a free-form reply. Permission decisions (running shell commands, writing outside the project) get amber prompts you can approve or deny.',
+    body: 'When the agent needs more info, it’ll ask in the log panel. Pick from options or type a free-form reply. Permission decisions (running shell commands, writing outside the project) get amber prompts you can approve or deny.',
   },
   {
     title: 'Review and ship',
-    body:
-      'Watch agents do the work in the timeline on the right. Files appear in your project. When everything looks good, commit and ship.',
+    body: 'Watch agents do the work in the timeline on the right. Files appear in your project. When everything looks good, commit and ship.',
   },
 ];
 
@@ -32,8 +29,8 @@ export const OnboardingOverlay: Component<OnboardingOverlayProps> = (props) => {
             Welcome to SWT
           </h2>
           <p class="onboarding-intro">
-            SWT runs the methodology loop in the background while you describe what you want
-            in plain English. Three steps:
+            SWT runs the methodology loop in the background while you describe what you want in
+            plain English. Three steps:
           </p>
           <ol class="onboarding-steps">
             {STEPS.map((step, idx) => (
@@ -47,11 +44,7 @@ export const OnboardingOverlay: Component<OnboardingOverlayProps> = (props) => {
             ))}
           </ol>
           <div class="onboarding-actions">
-            <button
-              type="button"
-              class="onboarding-dismiss-btn"
-              onClick={() => props.onDismiss()}
-            >
+            <button type="button" class="onboarding-dismiss-btn" onClick={() => props.onDismiss()}>
               Got it — let&rsquo;s build
             </button>
           </div>

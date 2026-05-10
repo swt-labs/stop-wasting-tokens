@@ -41,7 +41,8 @@ function projectMd(name: string, description: string | undefined): string {
 }
 
 function stateMd(name: string, source: 'cli' | 'dashboard'): string {
-  const initLabel = source === 'dashboard' ? 'Initialized via dashboard.' : 'Initialized via swt init.';
+  const initLabel =
+    source === 'dashboard' ? 'Initialized via dashboard.' : 'Initialized via swt init.';
   return `# State
 
 **Project:** ${name}

@@ -9,7 +9,8 @@ import {
 
 describe('tryParseMarker', () => {
   it('parses a valid ASK_USER clarification with options', () => {
-    const line = '<<<ASK_USER:{"subtype":"clarification","question":"Color?","options":[{"value":"red","label":"Red"}]}>>>';
+    const line =
+      '<<<ASK_USER:{"subtype":"clarification","question":"Color?","options":[{"value":"red","label":"Red"}]}>>>';
     const marker = tryParseMarker(line);
     expect(marker).not.toBeNull();
     expect(marker!.kind).toBe('ASK_USER');
@@ -44,8 +45,7 @@ describe('tryParseMarker', () => {
   });
 
   it('parses a valid USER_REPLY permission with optional user_note', () => {
-    const line =
-      '<<<USER_REPLY:{"kind":"permission","decision":"deny","user_note":"too risky"}>>>';
+    const line = '<<<USER_REPLY:{"kind":"permission","decision":"deny","user_note":"too risky"}>>>';
     const marker = tryParseMarker(line);
     expect(marker).not.toBeNull();
   });

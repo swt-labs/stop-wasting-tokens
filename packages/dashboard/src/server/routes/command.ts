@@ -64,7 +64,11 @@ function tokenize(input: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-function execSwt(args: readonly string[], cwd: string, timeoutMs: number): Promise<CommandResponse> {
+function execSwt(
+  args: readonly string[],
+  cwd: string,
+  timeoutMs: number,
+): Promise<CommandResponse> {
   return new Promise((resolve) => {
     const startedAt = Date.now();
     let stdout = '';

@@ -101,9 +101,7 @@ export const TopBar: Component<TopBarProps> = (props) => {
         </form>
         <Show
           when={
-            status() === 'natural_language' ||
-            status() === 'unknown' ||
-            status() === 'interactive'
+            status() === 'natural_language' || status() === 'unknown' || status() === 'interactive'
           }
         >
           <div class="topbar-cmd-hint-row">

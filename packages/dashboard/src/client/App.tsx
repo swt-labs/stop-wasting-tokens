@@ -12,10 +12,7 @@ import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
-import {
-  markOnboardingDismissed,
-  shouldShowOnboarding,
-} from './lib/onboarding-storage.js';
+import { markOnboardingDismissed, shouldShowOnboarding } from './lib/onboarding-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
 
 export const App: Component = () => {
@@ -94,7 +91,9 @@ export const App: Component = () => {
                 fallback={
                   <div class="preview-panel-empty empty-state-cta">
                     <p class="empty-state-headline">Describe what you want to build</p>
-                    <p class="empty-state-arrow" aria-hidden="true">↑</p>
+                    <p class="empty-state-arrow" aria-hidden="true">
+                      ↑
+                    </p>
                     <p class="empty-state-hint">
                       Type your idea in the command bar above. The agent will ask follow-up
                       questions if it needs anything from you.
@@ -110,7 +109,10 @@ export const App: Component = () => {
                 />
               </Show>
             </Resizable.Panel>
-            <Resizable.Handle class="resizable-handle resizable-handle-h" aria-label="Resize phase column" />
+            <Resizable.Handle
+              class="resizable-handle resizable-handle-h"
+              aria-label="Resize phase column"
+            />
             <Resizable.Panel
               initialSize={initialLayout.main[1]}
               minSize={0.08}
@@ -122,7 +124,10 @@ export const App: Component = () => {
                 onSelect={handleSelect}
               />
             </Resizable.Panel>
-            <Resizable.Handle class="resizable-handle resizable-handle-h" aria-label="Resize artifact tree" />
+            <Resizable.Handle
+              class="resizable-handle resizable-handle-h"
+              aria-label="Resize artifact tree"
+            />
             <Resizable.Panel
               initialSize={initialLayout.main[2]}
               minSize={0.25}
@@ -153,7 +158,10 @@ export const App: Component = () => {
                     }}
                   />
                 </Resizable.Panel>
-                <Resizable.Handle class="resizable-handle resizable-handle-v" aria-label="Resize preview / log" />
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize preview / log"
+                />
                 <Resizable.Panel
                   initialSize={initialLayout.center[1]}
                   minSize={0.1}
@@ -169,7 +177,10 @@ export const App: Component = () => {
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>
-            <Resizable.Handle class="resizable-handle resizable-handle-h" aria-label="Resize right column" />
+            <Resizable.Handle
+              class="resizable-handle resizable-handle-h"
+              aria-label="Resize right column"
+            />
             <Resizable.Panel
               initialSize={initialLayout.main[3]}
               minSize={0.1}
@@ -191,7 +202,10 @@ export const App: Component = () => {
                 >
                   <AgentTimeline events={state.snapshot?.recent_events ?? []} />
                 </Resizable.Panel>
-                <Resizable.Handle class="resizable-handle resizable-handle-v" aria-label="Resize agents / cost" />
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize agents / cost"
+                />
                 <Resizable.Panel
                   initialSize={initialLayout.right[1]}
                   minSize={0.15}

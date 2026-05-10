@@ -76,10 +76,7 @@ export const LogPanel: Component<LogPanelProps> = (props) => {
       <h2 class="panel-header">Log</h2>
       <div ref={scrollerRef} class="log-panel-scroller" onScroll={onScroll}>
         {scheduleSnap()}
-        <Show
-          when={!isEmpty()}
-          fallback={<div class="preview-panel-empty">No log lines yet.</div>}
-        >
+        <Show when={!isEmpty()} fallback={<div class="preview-panel-empty">No log lines yet.</div>}>
           <Show when={props.agentBackend === 'none'}>
             <div class="vibe-no-backend-banner" role="status">
               <div class="vibe-no-backend-banner-icon" aria-hidden="true">
@@ -90,8 +87,8 @@ export const LogPanel: Component<LogPanelProps> = (props) => {
                 <div class="vibe-no-backend-banner-body">
                   Sessions can be created but no agent will run. To enable real Codex agents,
                   install the Codex CLI and restart the dashboard with{' '}
-                  <code>SWT_VIBE_AGENT=codex swt</code>. v2.0 ships agents as opt-in until
-                  the prompt templates teach Codex to emit ASK_USER markers reliably.
+                  <code>SWT_VIBE_AGENT=codex swt</code>. v2.0 ships agents as opt-in until the
+                  prompt templates teach Codex to emit ASK_USER markers reliably.
                 </div>
               </div>
             </div>
@@ -152,9 +149,7 @@ const ConversationCard: Component<ConversationCardProps> = (props) => {
     await props.onReply({ kind: 'free_form', text });
   };
 
-  const submitPermission = async (
-    decision: 'once' | 'session' | 'deny',
-  ): Promise<void> => {
+  const submitPermission = async (decision: 'once' | 'session' | 'deny'): Promise<void> => {
     if (!props.onReply) return;
     const note = textValue().trim();
     await props.onReply({

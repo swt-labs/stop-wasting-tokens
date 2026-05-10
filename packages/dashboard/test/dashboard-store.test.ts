@@ -168,7 +168,11 @@ describe('vibe session lifecycle', () => {
   it('startVibeSession sets the active session and clears stale state', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-123', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-123',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
 
       const id = await actions.startVibeSession('build me a snake game');
       expect(id).toBe('sess-123');
@@ -212,7 +216,11 @@ describe('vibe session lifecycle', () => {
   it('agent.prompt event appends to conversation as pending when session_id matches', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
       await actions.startVibeSession('test');
 
       actions.applyEvent({
@@ -236,7 +244,11 @@ describe('vibe session lifecycle', () => {
   it('agent.prompt for a different session_id is ignored', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
       await actions.startVibeSession('test');
 
       actions.applyEvent({
@@ -255,7 +267,11 @@ describe('vibe session lifecycle', () => {
   it('replyToActivePrompt POSTs reply, updates conversation entry to answered', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
       postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
       await actions.startVibeSession('test');
       actions.applyEvent({
@@ -283,7 +299,11 @@ describe('vibe session lifecycle', () => {
   it('replyToActivePrompt returns false when no pending prompt exists', async () => {
     await createRoot(async (dispose) => {
       const [, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
       await actions.startVibeSession('test');
       const ok = await actions.replyToActivePrompt({ kind: 'free_form', text: 'a' });
       expect(ok).toBe(false);
@@ -295,7 +315,11 @@ describe('vibe session lifecycle', () => {
   it('agent.prompt.timeout flips matching pending entry to expired', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
       await actions.startVibeSession('test');
       actions.applyEvent({
         type: 'agent.prompt',
@@ -322,7 +346,11 @@ describe('vibe session lifecycle', () => {
   it('multiple sequential prompts stack as a conversation thread', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({ session_id: 'sess-A', state: 'idle', agent_backend: 'codex' });
+      postVibeStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        state: 'idle',
+        agent_backend: 'codex',
+      });
       postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
       await actions.startVibeSession('test');
 
@@ -360,10 +388,12 @@ describe('connection state transitions', () => {
       expect(state.connection).toBe('connecting');
 
       let onOpen: (() => void) | undefined;
-      openSseConnectionMock.mockImplementation((_url: unknown, handlers: { onOpen?: () => void }) => {
-        onOpen = handlers.onOpen;
-        return { close: () => {} };
-      });
+      openSseConnectionMock.mockImplementation(
+        (_url: unknown, handlers: { onOpen?: () => void }) => {
+          onOpen = handlers.onOpen;
+          return { close: () => {} };
+        },
+      );
       fetchSnapshotMock.mockResolvedValue(makeSnapshot());
 
       await actions.bootstrap();
@@ -404,10 +434,7 @@ describe('connection state transitions', () => {
       let onOpen: (() => void) | undefined;
       let onError: ((err: unknown) => void) | undefined;
       openSseConnectionMock.mockImplementation(
-        (
-          _url: unknown,
-          handlers: { onOpen?: () => void; onError?: (err: unknown) => void },
-        ) => {
+        (_url: unknown, handlers: { onOpen?: () => void; onError?: (err: unknown) => void }) => {
           onOpen = handlers.onOpen;
           onError = handlers.onError;
           return { close: () => {} };

@@ -102,10 +102,7 @@ export function registerVibeRoutes(app: Hono, opts: RegisterVibeRoutesOptions): 
     const raw: unknown = await c.req.json().catch(() => null);
     const parsed = VibeReplyBodySchema.safeParse(raw);
     if (!parsed.success) {
-      return c.json(
-        { ok: false, error: 'invalid_body', details: parsed.error.flatten() },
-        400,
-      );
+      return c.json({ ok: false, error: 'invalid_body', details: parsed.error.flatten() }, 400);
     }
     const result = registry.reply(session_id, parsed.data.prompt_id, parsed.data.answer);
     if (result.ok) {

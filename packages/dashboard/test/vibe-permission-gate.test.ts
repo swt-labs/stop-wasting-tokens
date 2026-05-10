@@ -8,14 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createEventBus, type EventBus } from '../src/server/event-bus.js';
 import { runMethodologyLoop } from '../src/server/vibe/loop.js';
 import { ScriptedAgent } from '../src/server/vibe/methodology-agent.js';
-import {
-  DashboardPermissionGate,
-  type ToolCall,
-} from '../src/server/vibe/permission-gate.js';
-import {
-  createSessionRegistry,
-  type SessionRegistry,
-} from '../src/server/vibe/session.js';
+import { DashboardPermissionGate, type ToolCall } from '../src/server/vibe/permission-gate.js';
+import { createSessionRegistry, type SessionRegistry } from '../src/server/vibe/session.js';
 
 const PROJECT_ROOT = '/tmp/test-proj';
 
@@ -88,18 +82,14 @@ describe('DashboardPermissionGate.classify (pure)', () => {
   });
 
   it('always requires-confirm for shell', () => {
-    expect(gate.classify({ operation: 'shell', target: 'echo hi' }).kind).toBe(
-      'requires-confirm',
-    );
-    expect(gate.classify({ operation: 'shell', target: 'rm -rf /' }).kind).toBe(
-      'requires-confirm',
-    );
+    expect(gate.classify({ operation: 'shell', target: 'echo hi' }).kind).toBe('requires-confirm');
+    expect(gate.classify({ operation: 'shell', target: 'rm -rf /' }).kind).toBe('requires-confirm');
   });
 
   it('always requires-confirm for network', () => {
-    expect(
-      gate.classify({ operation: 'network', target: 'https://api.openai.com' }).kind,
-    ).toBe('requires-confirm');
+    expect(gate.classify({ operation: 'network', target: 'https://api.openai.com' }).kind).toBe(
+      'requires-confirm',
+    );
   });
 
   it('always requires-confirm for process_spawn', () => {

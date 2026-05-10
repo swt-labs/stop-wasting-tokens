@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.1.0
+
+### Minor Changes
+
+- v2.1.0 — Repo-wide prettier sweep so the CI `format:check` gate
+  passes again. No runtime / behavior changes; published bundle
+  contents are byte-identical to v2.0.2.
+
+  **What broke:** the v2.0.2 release pipeline succeeded on the
+  `Release` workflow (npm publish landed cleanly after a Sigstore
+  transparency-log retry) but the parallel `CI` workflow failed at
+  the `pnpm format:check` step. 22 files in the repo were not
+  prettier-clean, including a stale code block in the CHANGELOG
+  for v1.6.6 that prettier couldn't reach a fixed point on (the
+  `'cli.mjs'` literal had backticks adjacent to text without
+  spaces, oscillating prettier between two indentation states).
+
+  **Fixes:**
+  - Ran `prettier --write .` on the whole tree. 21 files reformatted
+    automatically.
+  - Hand-edited the v1.6.6 CHANGELOG entry's `B-04` block to use
+    proper spacing around backticks so prettier converges.
+
+  **Why a 2.1 minor bump:** the CI failure didn't affect the npm
+  artifact (publish succeeded), but the `Release` + `CI` divergence
+  is a project-health signal worth a minor-version notice. The bump
+  also clears the way for the next batch of in-flight features
+  (agent-prompt template work, daemon restart resumption) to ship
+  off a green-CI baseline.
+
 ## 2.0.2
 
 ### Patch Changes
@@ -55,7 +85,6 @@
   payload (no side effects).
 
   **What changed under the hood:**
-
   - `packages/cli/src/commands/update.ts` — `PACKAGE_NAME` constant
     fixed; new `applyUpdate()` helper spawns the user's package
     manager via `node:child_process.spawnSync`. Tests inject a fake
@@ -76,7 +105,6 @@
   v2.0.0.
 
   **Fixes:**
-
   - **Command bar input clipping** — when the natural-language hint
     chip ("↵ Press enter to start a vibe session") was visible, it
     competed with the input for horizontal space and clipped typed
@@ -86,7 +114,7 @@
     and interactive-verb hints.
   - **"phase 1 of 0" display** — the TopBar status rendered
     `phase {phase_index} of {phase_count}` even when `phase_count
-    === 0` (brand-new project, no phases scoped). Now shows
+=== 0` (brand-new project, no phases scoped). Now shows
     "no phases yet" when phase_count is zero; the literal phase line
     only renders when there's at least one phase scoped.
   - **Silent idle vibe sessions** — v2.0.0 default behavior was to
@@ -107,13 +135,11 @@
     - A stderr log line also surfaces the same hint inline.
 
   **Schema additions:**
-
   - `VibeStartResponseSchema` gains optional `agent_backend` field
     in `@swt-labs/dashboard-core`. Optional for back-compat with
     v2.0.0 daemons.
 
   **What did NOT change:**
-
   - Wire format, session lifecycle, marker protocol, permission gate
     — all unchanged.
   - `swt` no-args dashboard launch + `SWT_NO_DASHBOARD=1` escape
@@ -138,7 +164,6 @@
   daemon and auto-opens your browser. Previously it printed help.
 
   **Migration from 1.x:**
-
   - `swt` (no args) → dashboard. Set `SWT_NO_DASHBOARD=1` to restore
     the legacy "print help on empty argv" behavior. `swt --help`,
     `swt --version`, and `swt help` are unaffected.
@@ -149,7 +174,6 @@
     unchanged — bare `swt` is now equivalent.
 
   **What's new:**
-
   - **Server-side vibe** (Phase 2). New `POST /api/vibe` endpoint
     accepts `{prompt}`, creates a session, spawns the methodology
     loop in the daemon process. Loop events (agent.spawn,
@@ -192,7 +216,6 @@
     reliably.
 
   **What did NOT ship in 2.0.0 (planned for follow-up):**
-
   - Agent-prompt template updates so real Codex emits ASK_USER
     markers without manual prompt engineering. Until this lands,
     `SWT_VIBE_AGENT=codex` runs Codex as usual but won't surface
@@ -208,7 +231,6 @@
   - Multi-session concurrency UI / session sidebar (deferred to v2.1).
 
   **Verification:**
-
   - `tsc --build` clean.
   - `eslint` clean on all touched .ts files.
   - `vitest run`: ~107 net new passing tests across the v2.0
@@ -223,7 +245,6 @@
     published v2.0.0 binary.
 
   **Architecture decisions locked in `.vbw-planning/research/`:**
-
   - `v2-permission-model.md` — file-write classification, inline-
     confirm UX, decision persistence, REQ-14 composition.
   - `v2-agent-prompt-protocol.md` — SSE event schema, reply endpoint,
@@ -243,7 +264,6 @@
   identical to v1.7.0. This patch refreshes user-facing surface only.
 
   **What changed:**
-
   - `README.md` — install section adds a version-pin example
     (`npm install -g stop-wasting-tokens@1.7.0`), an upgrade-path
     snippet, and a pointer to the in-repo Python smoke-tester
@@ -287,7 +307,6 @@
   adds Phase 03 (frontend polish + Vitest store-action coverage).
 
   **What changed in v1.7.0 itself (Phase 03 — `packages/dashboard/src/client/`):**
-
   - Connection pill gains a `'syncing'` state for the post-snapshot,
     pre-first-onOpen window (closes F-05). Eliminates the flash of
     `DISCONNECTED` on slow networks. The pill only flips to `'error'`
@@ -317,11 +336,11 @@
 
   **Cumulative v1.7.0 audit closure (Phases 01–03):**
 
-  | Phase | Audit IDs closed | Where |
-  |---|---|---|
-  | 01 — CLI surface (shipped in v1.6.8) | A5.b, A6.c, X-02, C-01, C-04 | `packages/cli/src/argv.ts`, `packages/cli/src/commands/{config,init,dashboard}.ts`, `packages/core/src/scaffold/init-project.ts` |
-  | 02 — Backend + schema (shipped in v1.6.8) | B-08, B-09, B-10, B-11, B-12, B-13, B-14, B-15, B-16, S-01, S-02, S-04 | `packages/dashboard/src/server/**`, `packages/dashboard-core/src/schemas/**` |
-  | 03 — Frontend + tests (this release) | F-05, F-06, F-10, T04 | `packages/dashboard/src/client/**`, `packages/dashboard/test/dashboard-store.test.ts` |
+  | Phase                                     | Audit IDs closed                                                       | Where                                                                                                                            |
+  | ----------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+  | 01 — CLI surface (shipped in v1.6.8)      | A5.b, A6.c, X-02, C-01, C-04                                           | `packages/cli/src/argv.ts`, `packages/cli/src/commands/{config,init,dashboard}.ts`, `packages/core/src/scaffold/init-project.ts` |
+  | 02 — Backend + schema (shipped in v1.6.8) | B-08, B-09, B-10, B-11, B-12, B-13, B-14, B-15, B-16, S-01, S-02, S-04 | `packages/dashboard/src/server/**`, `packages/dashboard-core/src/schemas/**`                                                     |
+  | 03 — Frontend + tests (this release)      | F-05, F-06, F-10, T04                                                  | `packages/dashboard/src/client/**`, `packages/dashboard/test/dashboard-store.test.ts`                                            |
 
   **What did NOT change:** server bundle and CLI bundle are byte-for-byte
   identical to v1.6.8 (Phase 03 is client-side + tests only). The npm
@@ -330,7 +349,6 @@
   source-only tree.
 
   **Verification:**
-
   - `tsc --build` clean.
   - `eslint` clean on touched `.ts` files.
   - `vitest run`: 42 failed / 572 passed (= same 42 pre-existing
@@ -475,10 +493,10 @@ version`).
     exceeds them.
   - `B-04 (S1)`: Spawn target is now the daemon's adjacent `cli.mjs`
     resolved via `import.meta.url`. Both bundles ship side-by-side in
-    `dist/` per `tsup.config.ts`, so `dirname(fileURLToPath(import.meta.url))
-    - 'cli.mjs'`is always reachable for`npm i -g`installs. Falls back
-to PATH`swt` only for in-repo dev where the daemon source runs
-      unbundled.
+    `dist/` per `tsup.config.ts`, so
+    `dirname(fileURLToPath(import.meta.url)) + '/cli.mjs'` is always
+    reachable for `npm i -g` installs. Falls back to PATH `swt` only
+    for in-repo dev where the daemon source runs unbundled.
   - `B-05/B-06/B-07 (S2)`: `FORBIDDEN_VERBS` denylist (which only blocked
     `dashboard` + `watch`) replaced with the inverse `ALLOWED_VERBS`
     allowlist. Eliminates the "stub verbs run and return NOT_IMPLEMENTED"

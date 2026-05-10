@@ -23,9 +23,7 @@ export const initHandler: CommandHandler = (parsed, io: CommandIO): ExitCode => 
     const result = initProject({
       cwd: io.cwd,
       name: name.trim(),
-      ...(description !== undefined && description.length > 0
-        ? { description }
-        : {}),
+      ...(description !== undefined && description.length > 0 ? { description } : {}),
     });
     io.stdout.write(`✓ Initialized .swt-planning/ at ${result.root}\n`);
     for (const file of result.files) {
