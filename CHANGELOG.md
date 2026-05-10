@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.3.2
+
+### Patch Changes
+
+- v2.3.2 — Docs-only catch-up so the bundled `README.md` matches
+  the published version. No code changes vs v2.3.1.
+
+  **What changed:**
+  - `README.md` — Status section bumped 2.3.1 → 2.3.2 with the
+    full v2.3 series story (panels + palette in 2.3.0, daemon
+    double-spawn fix in 2.3.1, README catch-up in 2.3.2). The
+    "Pin a specific version" example and the "Verify the install"
+    output comment also bumped to 2.3.2.
+  - `package.json:version` — 2.3.1 → 2.3.2.
+  - `.codex-plugin/plugin.json:version` — 2.3.1 → 2.3.2 to keep
+    `test/codex-plugin-manifest.test.ts > version field matches
+package.json` green.
+
+  **Why a publish (rather than docs-only push):** the npm tarball
+  bundles `README.md`, so users who run `npm i -g
+stop-wasting-tokens` and read the bundled docs would otherwise
+  see the v2.3.0 README until the next feature release. Cutting a
+  patch makes the bundled docs catch up to the published version.
+
+  **No behavior change.** The CLI bundle, the dashboard bundle,
+  and every test all match v2.3.1 — verified by `pnpm typecheck`
+  - `pnpm lint` + `pnpm format:check` + `pnpm test` + `pnpm build`
+    before push.
+
 ## 2.3.1
 
 ### Patch Changes
