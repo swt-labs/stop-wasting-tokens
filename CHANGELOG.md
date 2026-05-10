@@ -103,13 +103,20 @@
     escape hatch — unchanged.
 
   **Verification:**
-  - ~65 net-new vitest cases across the dashboard package
-    (route tests for all five new routes + the two new mutations,
-    the fuzzy-match unit, and `tools` sub-store coverage in
-    `dashboard-store.test.ts`). All green.
-  - `tsc --noEmit` clean on the server tsconfig. The client
-    tsconfig has a single pre-existing TS2322 in `LogPanel.tsx`
-    inherited from v2.1.0's prettier sweep — unrelated to v2.3.
+  - ~65 net-new vitest cases across the dashboard package (route
+    tests for all five new routes + the two new mutations, the
+    fuzzy-match unit, and `tools` sub-store coverage in
+    `dashboard-store.test.ts`) — all green. Repo-wide `pnpm test`
+    runs `765 passed / 39 failed`; the 39 failures are the
+    pre-existing jsdom-missing baseline (down from v2.2.0's 41,
+    thanks to a `pnpm docs:gen` sweep here).
+  - `pnpm typecheck` (`tsc --build`) clean across the workspace.
+  - `pnpm build` clean (`pnpm dashboard:client:build && tsup`).
+  - `pnpm lint` clean — repo-wide eslint passes after `eslint
+    --fix` on the v2.3 routes/tests and a one-line `tsconfig.eslint.json`
+    addition (`lib: ["ES2022", "DOM", "DOM.Iterable"]`) so client
+    `.ts` files like `dashboard-store.ts` get the DOM types
+    typescript-eslint needs.
   - `idiot_check.py` Track A: D7-D11 added for the five new HTTP
     endpoints. Run against the published v2.3.0 binary as part of
     the post-publish verification.

@@ -38,24 +38,24 @@ async function getUpdate(): Promise<{ status: number; body: unknown }> {
 }
 
 function buildFetchOk(version: string): typeof fetch {
-  return ((async () => {
+  return async () => {
     return new Response(JSON.stringify({ version }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
-  }) as unknown) as typeof fetch;
+  };
 }
 
 function buildFetchHttpStatus(httpStatus: number): typeof fetch {
-  return ((async () => {
+  return async () => {
     return new Response('', { status: httpStatus });
-  }) as unknown) as typeof fetch;
+  };
 }
 
 function buildFetchThrows(message: string): typeof fetch {
-  return ((async () => {
+  return async () => {
     throw new Error(message);
-  }) as unknown) as typeof fetch;
+  };
 }
 
 describe('GET /api/update', () => {

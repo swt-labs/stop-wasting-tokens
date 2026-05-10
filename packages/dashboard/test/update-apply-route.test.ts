@@ -38,7 +38,7 @@ async function postApply(): Promise<{ status: number; body: unknown }> {
 }
 
 function makeSpawn(result: ApplySpawnLike): ApplySpawnFn {
-  return ((): Promise<ApplySpawnLike> => Promise.resolve(result)) as ApplySpawnFn;
+  return ((): Promise<ApplySpawnLike> => Promise.resolve(result));
 }
 
 describe('POST /api/update/apply', () => {
