@@ -44,7 +44,16 @@ export async function queryLatestVersion(
         { at: number; value: { current: string; latest: string; status: RegistryStatus } }
       >;
       const entry = cache[packageName];
-      if (entry && now() - entry.at < CACHE_TTL_MS) {
+      // Cache hit is valid only when both:
+      //   1. TTL has not elapsed.
+      //   2. The cached snapshot was written for the SAME installed version
+      //      (`current`). Without this guard, a cache written when the user
+      //      was on v2.0.2 would still satisfy the TTL after they upgrade
+      //      to v2.3.1, returning the morning's `latest: 2.0.2` +
+      //      `status: up-to-date` — flatly wrong. Re-querying after a
+      //      version change is cheap and matches the user's mental model
+      //      ("I just upgraded; tell me if there's anything newer").
+      if (entry && now() - entry.at < CACHE_TTL_MS && entry.value.current === current) {
         return { ...entry.value, current, cached: true };
       }
     } catch {
