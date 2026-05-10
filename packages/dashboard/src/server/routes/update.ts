@@ -71,7 +71,7 @@ const defaultApplySpawn: ApplySpawnFn = (cmd, args, timeoutMs) =>
     });
     child.once('error', (err) => {
       clearTimeout(timer);
-      finish({ status: null, signal: null, error: err as NodeJS.ErrnoException, stdout, stderr });
+      finish({ status: null, signal: null, error: err, stdout, stderr });
     });
     child.once('exit', (code, signal) => {
       clearTimeout(timer);
