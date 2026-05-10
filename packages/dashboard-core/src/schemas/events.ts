@@ -13,7 +13,10 @@ const SnapshotReplaceEvent = z.object({
 const StateChangedEvent = z.object({
   type: z.literal('state.changed'),
   ts: TimestampSchema,
-  changed: z.array(z.enum(['phase', 'agents', 'artifacts', 'cost'])).min(1),
+  // v2.3 added 'config' to signal that .swt-planning/config.json mutated
+  // (via POST /api/config). The Config tools panel branches on this and
+  // re-fetches; other panels ignore it.
+  changed: z.array(z.enum(['phase', 'agents', 'artifacts', 'cost', 'config'])).min(1),
   snapshot: SnapshotSchema.partial(),
 });
 

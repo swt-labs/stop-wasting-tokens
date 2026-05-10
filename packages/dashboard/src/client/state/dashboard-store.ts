@@ -19,14 +19,18 @@ import {
   fetchSnapshot,
   fetchUpdate,
   postCommand,
+  postConfig,
   postInit,
   postUatCheckpoint,
+  postUpdateApply,
   postVibeReply,
   postVibeStart,
   type CommandResponse,
+  type ConfigUpdateBody,
   type InitBody,
   type RenderedArtifact,
   type UatCheckpointBody,
+  type UpdateApplyResponse,
 } from '../services/api.js';
 import { openSseConnection, type SseConnection } from '../services/sse.js';
 
@@ -146,6 +150,19 @@ export interface DashboardActions {
   refreshTools: () => Promise<void>;
   /** Fetch a single tools cell — used by the per-panel manual refresh button. */
   refreshToolsCell: (key: ToolsCellKey) => Promise<void>;
+  /**
+   * v2.3 Phase 03: POST a new config to the daemon. The server's
+   * `state.changed` SSE event with `changed: ['config']` re-fetches the
+   * Config cell automatically on success. Returns `{ok: true}` on success,
+   * `{error: string}` on validation/write failure (also pushed to errors[]).
+   */
+  applyConfigUpdate: (body: ConfigUpdateBody) => Promise<{ ok: true } | { error: string }>;
+  /**
+   * v2.3 Phase 03: trigger `npm i -g stop-wasting-tokens@latest` server-side.
+   * On success, refreshes the Update cell. Elevation case (EACCES) returns
+   * `requires_elevation: true` + `copyable_command` for the panel to surface.
+   */
+  applyUpdate: () => Promise<UpdateApplyResponse | { error: string }>;
   pushError: (message: string) => void;
   shutdown: () => void;
 }
@@ -253,6 +270,14 @@ export function createDashboardStore(
           if (!prev) return prev;
           return { ...prev, ...partial };
         });
+      }
+      // v2.3 Phase 03: when the server reports config mutated (via POST
+      // /api/config), refetch the Config cell so the panel reflects the
+      // new state. Other tools cells (doctor, detect-phase, update,
+      // commands) don't currently emit state.changed events; if they
+      // ever do, branch them here too.
+      if (evt.changed.includes('config')) {
+        void refreshToolsCell('config');
       }
       return;
     }
@@ -691,6 +716,60 @@ export function createDashboardStore(
     }
   };
 
+  /* ── v2.3 Phase 03 mutation actions ──────────────────────────────── */
+
+  const applyConfigUpdate = async (
+    body: ConfigUpdateBody,
+  ): Promise<{ ok: true } | { error: string }> => {
+    setState('tools', 'config', 'loading', true);
+    setState('tools', 'config', 'error', null);
+    try {
+      const response = await postConfig(body);
+      // Optimistic apply — the server's state.changed event will arrive
+      // shortly after and trigger a fresh refreshToolsCell, but updating
+      // here keeps the UI snappy and survives momentary SSE disconnects.
+      setState('tools', 'config', {
+        data: {
+          is_initialized: true,
+          config: response.config,
+          source: 'file',
+          generated_at: response.generated_at,
+        } as never,
+        loading: false,
+        error: null,
+        lastFetched: response.generated_at,
+      });
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('tools', 'config', 'loading', false);
+      setState('tools', 'config', 'error', message);
+      pushError(`config update failed: ${message}`);
+      return { error: message };
+    }
+  };
+
+  const applyUpdate = async (): Promise<UpdateApplyResponse | { error: string }> => {
+    setState('tools', 'update', 'loading', true);
+    setState('tools', 'update', 'error', null);
+    try {
+      const response = await postUpdateApply();
+      // Refresh the Update cell so it picks up the new "current_version"
+      // (which now matches "latest_version" on a successful upgrade).
+      // On elevation, the version hasn't changed yet — refresh anyway so
+      // last_checked timestamps stay current.
+      void refreshToolsCell('update');
+      setState('tools', 'update', 'loading', false);
+      return response;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('tools', 'update', 'loading', false);
+      setState('tools', 'update', 'error', message);
+      pushError(`update apply failed: ${message}`);
+      return { error: message };
+    }
+  };
+
   const shutdown = (): void => {
     sse?.close();
     sse = null;
@@ -713,6 +792,8 @@ export function createDashboardStore(
       replyToActivePrompt,
       refreshTools,
       refreshToolsCell,
+      applyConfigUpdate,
+      applyUpdate,
       pushError,
       shutdown,
     },
