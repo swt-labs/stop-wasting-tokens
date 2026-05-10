@@ -1,5 +1,5 @@
 import Resizable from '@corvu/resizable';
-import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
+import { Show, createMemo, onCleanup, onMount, type Component } from 'solid-js';
 
 import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
@@ -7,17 +7,14 @@ import { ArtifactTree } from './components/ArtifactTree.js';
 import { CostPanel } from './components/CostPanel.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
-import { OnboardingOverlay } from './components/OnboardingOverlay.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
-import { markOnboardingDismissed, shouldShowOnboarding } from './lib/onboarding-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
 
 export const App: Component = () => {
   const [state, actions] = createDashboardStore();
-  const [onboardingVisible, setOnboardingVisible] = createSignal(shouldShowOnboarding());
 
   onMount(() => {
     void actions.bootstrap();
@@ -25,14 +22,10 @@ export const App: Component = () => {
 
   onCleanup(() => actions.shutdown());
 
-  const dismissOnboarding = (): void => {
-    markOnboardingDismissed();
-    setOnboardingVisible(false);
-  };
-
   const phases = createMemo(() => state.snapshot?.phases ?? []);
   const selectedPhaseSlug = createMemo(() => state.selectedArtifact?.phase ?? null);
   const isInitialized = createMemo(() => state.snapshot?.is_initialized ?? false);
+  const isBrownfield = createMemo(() => state.snapshot?.brownfield_detected ?? false);
 
   const renderedArtifact = createMemo(() => {
     const sel = state.selectedArtifact;
@@ -67,7 +60,11 @@ export const App: Component = () => {
         when={isInitialized()}
         fallback={
           <main class="app-body app-body-greenfield">
-            <InitScreen submitting={state.initSubmitting} onInit={actions.initProject} />
+            <InitScreen
+              submitting={state.initSubmitting}
+              brownfield={isBrownfield()}
+              onInit={actions.initProject}
+            />
           </main>
         }
       >
@@ -224,7 +221,6 @@ export const App: Component = () => {
         onSubmit={(result, note) => void actions.submitUatCheckpoint(result, note)}
         onClose={() => actions.closeUatModal()}
       />
-      <OnboardingOverlay visible={onboardingVisible()} onDismiss={dismissOnboarding} />
     </div>
   );
 };
