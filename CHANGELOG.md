@@ -1,5 +1,55 @@
 # Changelog
 
+## 2.3.3
+
+### Patch Changes
+
+- v2.3.3 — Fix: `swt update` 24h cache returned stale `latest`
+  after an in-place version upgrade.
+
+  **Root cause.** `queryLatestVersion` in
+  `packages/cli/src/lib/npm-registry.ts` cached the registry
+  response for 24 hours under the package name as the cache key.
+  The freshness check was TTL-only — it did NOT compare the
+  cached `current` against the caller's installed `current`.
+  Result: a cache entry written at 08:59 (when the user was on
+  v2.0.2 and npm latest was v2.0.2 → cached `status: up-to-date`)
+  was still served as fresh at 17:46 after the user had upgraded
+  to v2.3.1 and npm had published v2.3.2. `swt update` reported
+  `up-to-date (v2.3.1)` instead of "v2.3.2 available."
+
+  **Fix.** Cache hit is now valid only when both:
+  1. The 24h TTL has not elapsed.
+  2. The cached snapshot's `current` matches the caller's
+     `current` (i.e., the cache was written for the same
+     installed version that's asking).
+
+  Re-querying after an in-place version change is cheap and
+  matches the user's mental model ("I just upgraded; tell me if
+  there's anything newer"). The `--no-cache` escape hatch is
+  unchanged.
+
+  **Tests.** Four new vitest cases in
+  `packages/cli/test/lib/npm-registry.test.ts`:
+  - cache hit when `current` matches and TTL is fresh
+  - cache invalidation when installed `current` differs from
+    cached `current` (the regression for this bug)
+  - cache invalidation when TTL has elapsed
+  - cache rewrite stores the new `current/latest` pair after a
+    fresh query
+
+  **Verification:**
+  - `pnpm typecheck`, `pnpm lint`, `pnpm format:check` clean.
+  - `pnpm test` 770 passed (+4 from the new cases) / 38
+    pre-existing baseline unchanged.
+  - `pnpm build` clean.
+
+  **Backwards compat.** Existing cache files on disk remain
+  parseable. The first `swt update` after upgrading to v2.3.3
+  re-queries npm (because the cached `current` won't match the
+  new installed `current`) and rewrites the cache with the
+  current pair. No user action required.
+
 ## 2.3.2
 
 ### Patch Changes

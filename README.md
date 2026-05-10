@@ -107,7 +107,7 @@ bun add -g stop-wasting-tokens
 To pin a specific version (e.g. for CI or reproducible installs):
 
 ```bash
-npm install -g stop-wasting-tokens@2.3.2
+npm install -g stop-wasting-tokens@2.3.3
 ```
 
 To upgrade an existing install to the latest published version:
@@ -138,7 +138,7 @@ Everything reachable from the CLI entry point is bundled in. There are no transi
 After install, run:
 
 ```bash
-swt --version          # prints: swt 2.3.2 (or whatever you installed)
+swt --version          # prints: swt 2.3.3 (or whatever you installed)
 swt --help             # lists the working command surface
 swt doctor             # checks: Node version, Codex CLI, jq, git
 ```
@@ -426,7 +426,7 @@ Check whether you're using v1.5.0 or earlier — the build pipeline didn't actua
 
 ## Status
 
-Currently shipping **v2.3.2** — Dashboard 1:1 CLI Parity Panels and cmd-K Command Palette. v2.3.0 introduced the panels + palette; v2.3.1 fixed a daemon double-spawn / EADDRINUSE crash; v2.3.2 catches the bundled README and version pins up to the published version. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 series notes. Bare `swt` opens the dashboard daemon (since v2.0); the dashboard now exposes the four read-only CLI surfaces (`config`, `doctor`, `detect-phase`, `update`) as live panels in a fifth Tools column, lets you edit `.swt-planning/config.json` and apply CLI updates without dropping into a terminal, and adds a global cmd-K palette so every dashboard-safe `swt` verb is one keystroke away. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 migration notes.
+Currently shipping **v2.3.3** — Dashboard 1:1 CLI Parity Panels and cmd-K Command Palette. v2.3.0 introduced the panels + palette; v2.3.1 fixed a daemon double-spawn / EADDRINUSE crash; v2.3.2 caught the bundled README up to the published version; v2.3.3 fixed `swt update`'s 24h cache returning stale `latest` after an in-place upgrade. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 series notes. Bare `swt` opens the dashboard daemon (since v2.0); the dashboard now exposes the four read-only CLI surfaces (`config`, `doctor`, `detect-phase`, `update`) as live panels in a fifth Tools column, lets you edit `.swt-planning/config.json` and apply CLI updates without dropping into a terminal, and adds a global cmd-K palette so every dashboard-safe `swt` verb is one keystroke away. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 migration notes.
 
 The terminal CLI surface is unchanged for power users — every verb still works as documented. `SWT_NO_DASHBOARD=1 swt` restores the legacy help screen.
 
