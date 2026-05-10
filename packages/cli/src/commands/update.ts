@@ -1,3 +1,5 @@
+import { spawnSync as nodeSpawnSync } from 'node:child_process';
+
 import { loadSwtConfig } from '@swt-labs/methodology';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
@@ -11,13 +13,45 @@ import type { CommandHandler, CommandIO } from '../router.js';
 
 import { CURRENT_VERSION } from './version.js';
 
-const PACKAGE_NAME = '@swt-labs/cli';
+// Published name on npm — used for both registry queries AND the upgrade
+// commands surfaced to the user. The internal workspace package
+// (`@swt-labs/cli`) is never published, so querying it always 404s.
+const PACKAGE_NAME = 'stop-wasting-tokens';
+
+/**
+ * Package managers we'll attempt in order when auto-applying an upgrade.
+ * `npm` is universally available with Node.js itself, so it's first.
+ * Each entry is `[binary, args-template]` where the args template ends
+ * with the package spec we'll resolve to `${PACKAGE_NAME}@latest`.
+ */
+const PACKAGE_MANAGERS: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['npm', ['install', '-g']],
+  ['pnpm', ['add', '-g']],
+  ['bun', ['add', '-g']],
+];
 
 const UPGRADE_COMMANDS = [
-  'npm install -g @swt-labs/cli@latest',
-  'pnpm add -g @swt-labs/cli@latest',
-  'bun add -g @swt-labs/cli@latest',
+  `npm install -g ${PACKAGE_NAME}@latest`,
+  `pnpm add -g ${PACKAGE_NAME}@latest`,
+  `bun add -g ${PACKAGE_NAME}@latest`,
 ];
+
+// Spawn signature compatible with node:child_process.spawnSync — pulled out
+// so tests can inject a fake. Returns enough of the SpawnSyncReturns shape
+// to drive the apply path.
+export interface SpawnLike {
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  error?: NodeJS.ErrnoException;
+}
+export type SpawnFn = (
+  cmd: string,
+  args: readonly string[],
+  options: { stdio: 'inherit' },
+) => SpawnLike;
+
+const defaultSpawnSync: SpawnFn = (cmd, args, options) =>
+  nodeSpawnSync(cmd, [...args], options);
 
 export interface UpdateHandlerOptions {
   readonly fetchImpl?: typeof fetch;
@@ -27,16 +61,66 @@ export interface UpdateHandlerOptions {
   readonly now?: () => number;
   /** Override config.marketplace.endpoint resolution (test seam). */
   readonly marketplaceEndpoint?: string | null;
+  /**
+   * Inject a spawn function for testing the auto-apply path. Defaults to
+   * `node:child_process.spawnSync`. Only used when an upgrade is actually
+   * applied (i.e. version is outdated AND --check / --json are NOT set).
+   */
+  readonly spawnSync?: SpawnFn;
+}
+
+/**
+ * Auto-apply an upgrade by spawning the user's package manager.
+ * Tries npm → pnpm → bun in order; the first one found and exiting 0 wins.
+ * Returns a structured result for the caller to render.
+ */
+function applyUpdate(
+  io: CommandIO,
+  spawnFn: SpawnFn,
+): { ok: true; manager: string } | { ok: false; reason: string } {
+  const triedMissing: string[] = [];
+  for (const [bin, baseArgs] of PACKAGE_MANAGERS) {
+    const args: readonly string[] = [...baseArgs, `${PACKAGE_NAME}@latest`];
+    io.stdout.write(`\n◆ Running: ${bin} ${args.join(' ')}\n`);
+    const result = spawnFn(bin, args, { stdio: 'inherit' });
+    if (result.error) {
+      const code = result.error.code ?? '';
+      if (code === 'ENOENT') {
+        triedMissing.push(bin);
+        io.stdout.write(`  ${bin} not found — trying next package manager...\n`);
+        continue;
+      }
+      return { ok: false, reason: `${bin}: ${result.error.message}` };
+    }
+    if (result.status === 0) {
+      return { ok: true, manager: bin };
+    }
+    return {
+      ok: false,
+      reason: `${bin} exited with code ${result.status ?? -1}${
+        result.signal !== null ? ` (signal ${result.signal})` : ''
+      }`,
+    };
+  }
+  return {
+    ok: false,
+    reason: `no package manager found on PATH (tried: ${triedMissing.join(', ')})`,
+  };
 }
 
 export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
     const json = parsed.flags.json === true;
     const strict = parsed.flags.strict === true;
+    const checkOnly = parsed.flags.check === true;
     const noCache = parsed.flags['no-cache'] === true;
     const noMarketplace = parsed.flags['no-marketplace'] === true;
     const registryFlag = parsed.flags.registry;
     const registry = typeof registryFlag === 'string' ? registryFlag : undefined;
+    const spawnFn = opts.spawnSync ?? defaultSpawnSync;
+    // JSON mode is meant for scripts/CI — never auto-apply, always behave
+    // like --check so the script can decide what to do with the result.
+    const shouldApply = !json && !checkOnly;
 
     const queryOpts: QueryOptions = {
       ...(registry !== undefined ? { registry } : {}),
@@ -116,10 +200,29 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
           break;
         case 'outdated':
           io.stdout.write(
-            `↑ Update available: v${result.current} → v${result.latest}\n\nUpgrade with one of:\n`,
+            `↑ Update available: v${result.current} → v${result.latest}\n`,
           );
-          for (const cmd of UPGRADE_COMMANDS) {
-            io.stdout.write(`  ${cmd}\n`);
+          if (shouldApply) {
+            const apply = applyUpdate(io, spawnFn);
+            if (apply.ok) {
+              io.stdout.write(
+                `\n✓ Upgraded to v${result.latest} via ${apply.manager}.\n` +
+                  `  Restart any running 'swt' processes to pick up the new bin.\n`,
+              );
+            } else {
+              io.stderr.write(`\n✗ Upgrade failed: ${apply.reason}\n\n`);
+              io.stderr.write(`Run one of these manually:\n`);
+              for (const cmd of UPGRADE_COMMANDS) {
+                io.stderr.write(`  ${cmd}\n`);
+              }
+              return EXIT.USAGE_ERROR;
+            }
+          } else {
+            io.stdout.write(`\nUpgrade with one of:\n`);
+            for (const cmd of UPGRADE_COMMANDS) {
+              io.stdout.write(`  ${cmd}\n`);
+            }
+            io.stdout.write(`\n(Or run \`swt update\` without --check to apply automatically.)\n`);
           }
           break;
         case 'unreachable':

@@ -1,5 +1,72 @@
 # Changelog
 
+## 2.0.2
+
+### Patch Changes
+
+- v2.0.2 — `swt update` actually works now. Previously broken in two
+  ways; fixed both.
+
+  **Bug 1 — wrong package name (HTTP 404).** `swt update` queried
+  `@swt-labs/cli` against npm. That's the internal workspace package
+  name and is never published, so every check returned HTTP 404 with
+  "could not check for updates." The published name is
+  `stop-wasting-tokens`. Fixed.
+
+  **Bug 2 — check-only, no auto-apply.** Even when the version check
+  worked, `swt update` only PRINTED the upgrade commands and made
+  the user run them by hand. Now `swt update` actually runs the
+  upgrade for you.
+
+  **New behavior:**
+
+  ```text
+  swt update
+  ```
+
+  Default flow (interactive):
+  1. Query npm registry for the latest `stop-wasting-tokens` version.
+  2. If you're already at latest: prints `✓ swt is up-to-date (vX.Y.Z)`
+     and exits.
+  3. If a newer version is available: prints the version delta, then
+     spawns `npm install -g stop-wasting-tokens@latest`. Falls back
+     to `pnpm` then `bun` if `npm` isn't on PATH. The package
+     manager's output streams through to your terminal so you see
+     progress in real time.
+  4. After successful install: prints `✓ Upgraded to vX.Y.Z via npm`
+     and reminds you to restart any running `swt` processes.
+  5. If no package manager is installed: prints the manual commands
+     and exits 1.
+
+  **`--check` flag (preserves old behavior):**
+
+  ```text
+  swt update --check
+  ```
+
+  Just queries the registry and prints the upgrade commands. Doesn't
+  run anything. Useful for CI / scripts that don't want surprise
+  installs.
+
+  **`--json` mode:**
+
+  Implies `--check`. Never auto-applies, regardless of flags. Scripts
+  consuming `swt update --json` always get a deterministic JSON
+  payload (no side effects).
+
+  **What changed under the hood:**
+
+  - `packages/cli/src/commands/update.ts` — `PACKAGE_NAME` constant
+    fixed; new `applyUpdate()` helper spawns the user's package
+    manager via `node:child_process.spawnSync`. Tests inject a fake
+    spawn for coverage; production uses the real one.
+  - `packages/cli/src/argv.ts` — registers `--check` and
+    `--no-marketplace` as known flags so strict parseArgs doesn't
+    reject them.
+  - 4 new Vitest cases in `packages/cli/test/commands/update.test.ts`
+    cover: default auto-apply via npm; npm-missing fallback to
+    pnpm; no-package-manager USAGE_ERROR; JSON mode never spawns.
+
 ## 2.0.1
 
 ### Patch Changes

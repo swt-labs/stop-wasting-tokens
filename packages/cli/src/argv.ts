@@ -28,6 +28,11 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       strict: { type: 'boolean', default: false },
       registry: { type: 'string' },
       'no-cache': { type: 'boolean', default: false },
+      // swt update: --check skips the auto-apply (just print, like the
+      // pre-2.0.2 behavior). Default behavior is now to actually run
+      // the upgrade via the user's package manager.
+      check: { type: 'boolean', default: false },
+      'no-marketplace': { type: 'boolean', default: false },
       port: { type: 'string' },
       host: { type: 'string' },
       'unsafe-public': { type: 'boolean', default: false },
