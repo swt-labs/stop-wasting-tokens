@@ -1805,3 +1805,43 @@
   opacity: 0.7;
 }
 
+.update-elevation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 64, 64, 0.06);
+  border: 1px solid rgba(255, 64, 64, 0.25);
+  border-radius: 3px;
+}
+
+.update-elevation-cmd {
+  display: block;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: rgba(255, 200, 200, 0.95);
+  user-select: all;
+  word-break: break-all;
+}
+
+.update-copy-btn {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid rgba(255, 128, 128, 0.4);
+  color: rgba(255, 200, 200, 0.95);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.update-copy-btn:hover {
+  background: rgba(255, 64, 64, 0.12);
+}
+
