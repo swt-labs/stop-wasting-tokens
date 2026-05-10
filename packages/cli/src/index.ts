@@ -6,6 +6,19 @@ export type { CommandHandler, CommandSpec, CommandIO } from './router.js';
 export { CommandRegistry, dispatch } from './router.js';
 export { EXIT } from './exit-codes.js';
 
+// v2.3: surface the npm-registry helper + the bundle's CURRENT_VERSION so
+// the dashboard's GET /api/update route can reuse the same code path the
+// CLI's `swt update --json` does. Public-API expansion only — no behavior
+// change for existing consumers.
+export {
+  queryLatestVersion,
+  defaultCachePath,
+  type RegistryResult,
+  type RegistryStatus,
+  type QueryOptions,
+} from './lib/npm-registry.js';
+export { CURRENT_VERSION } from './commands/version.js';
+
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 

@@ -5,5 +5,10 @@
     "outDir": "./dist/server"
   },
   "include": ["src/server/**/*"],
-  "references": [{ "path": "../dashboard-core" }]
+  "references": [
+    { "path": "../dashboard-core" },
+    { "path": "../core" },
+    { "path": "../methodology" },
+    { "path": "../cli" }
+  ]
 }
