@@ -107,7 +107,7 @@ bun add -g stop-wasting-tokens
 To pin a specific version (e.g. for CI or reproducible installs):
 
 ```bash
-npm install -g stop-wasting-tokens@1.7.0
+npm install -g stop-wasting-tokens@2.3.0
 ```
 
 To upgrade an existing install to the latest published version:
@@ -138,7 +138,7 @@ Everything reachable from the CLI entry point is bundled in. There are no transi
 After install, run:
 
 ```bash
-swt --version          # prints: swt 1.7.0 (or whatever you installed)
+swt --version          # prints: swt 2.3.0 (or whatever you installed)
 swt --help             # lists the working command surface
 swt doctor             # checks: Node version, Codex CLI, jq, git
 ```
@@ -426,11 +426,20 @@ Check whether you're using v1.5.0 or earlier — the build pipeline didn't actua
 
 ## Status
 
-Currently shipping **v1.6.0** — Localhost Dashboard. `swt dashboard` boots a Hono daemon + Solid SPA on `127.0.0.1` and renders live SWT project state (phases, plans, summaries, agent timeline, log stream, cost rollups) with chokidar file-watching and SSE-driven live updates. UAT CHECKPOINTs can be recorded from the browser. See [`docs/swt-dashboard.md`](docs/swt-dashboard.md) for the full subcommand reference, or run `swt dashboard --help`.
+Currently shipping **v2.3.0** — Dashboard 1:1 CLI Parity Panels and cmd-K Command Palette. Bare `swt` opens the dashboard daemon (since v2.0); the dashboard now exposes the four read-only CLI surfaces (`config`, `doctor`, `detect-phase`, `update`) as live panels in a fifth Tools column, lets you edit `.swt-planning/config.json` and apply CLI updates without dropping into a terminal, and adds a global cmd-K palette so every dashboard-safe `swt` verb is one keystroke away. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 migration notes.
 
-v1 milestones (1–15) plus the v1.5 tech-debt cleanup and the v1.6 dashboard are all shipped. v1.5 forward-compatibility is in place for additional backend drivers (Claude Code, Ollama) — see [`docs/roadmap/v1.5.md`](docs/roadmap/v1.5.md). v1 itself targets the Codex CLI only.
+The terminal CLI surface is unchanged for power users — every verb still works as documented. `SWT_NO_DASHBOARD=1 swt` restores the legacy help screen.
 
-**Carry-forward to v1.6.1:** Playwright e2e suite, `axe-cli` automated CI a11y gate, published `docs.stopwastingtokens.dev/swt-dashboard` site.
+**Recent milestones:**
+
+- **v2.3** — Dashboard CLI parity panels (Config / Doctor / Detect-phase / Update) + cmd-K command palette.
+- **v2.2** — Dashboard 1:1 with the CLI's init mechanic (brownfield detection in greenfield snapshot; merged welcome + InitScreen).
+- **v2.1** — Repo-wide prettier sweep + green CI baseline.
+- **v2.0** — Natural-Language-First Dashboard. Bare `swt` opens the dashboard daemon. Vibe sessions, agent-prompt SSE protocol, dashboard permission gate, natural-language command bar.
+- **v1.6** — Localhost Dashboard MVP (Hono + Solid + SSE + chokidar).
+- **v1.0–1.5** — Methodology runtime, six-agent SDLC, multi-backend forward-compat stubs.
+
+v1 itself targets the Codex CLI only; the Claude Code and Ollama backend drivers are forward-compat stubs (REQ-20) for v2.5+.
 
 Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md). Stable release notes are in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md).
 
