@@ -22,6 +22,8 @@ const fetchConfigMock = vi.fn();
 const fetchDoctorMock = vi.fn();
 const fetchDetectPhaseMock = vi.fn();
 const fetchUpdateMock = vi.fn();
+const postConfigMock = vi.fn();
+const postUpdateApplyMock = vi.fn();
 
 vi.mock('../src/client/services/api.js', () => ({
   fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
@@ -35,6 +37,8 @@ vi.mock('../src/client/services/api.js', () => ({
   fetchDoctor: (...args: unknown[]) => fetchDoctorMock(...args),
   fetchDetectPhase: (...args: unknown[]) => fetchDetectPhaseMock(...args),
   fetchUpdate: (...args: unknown[]) => fetchUpdateMock(...args),
+  postConfig: (...args: unknown[]) => postConfigMock(...args),
+  postUpdateApply: (...args: unknown[]) => postUpdateApplyMock(...args),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({
@@ -71,6 +75,8 @@ beforeEach(() => {
   fetchDoctorMock.mockReset();
   fetchDetectPhaseMock.mockReset();
   fetchUpdateMock.mockReset();
+  postConfigMock.mockReset();
+  postUpdateApplyMock.mockReset();
   openSseConnectionMock.mockReturnValue({ close: () => {} });
 });
 
@@ -709,5 +715,108 @@ describe('tools sub-state', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/* ── v2.3 Phase 03: mutation actions ───────────────────────────────── */
+
+describe('applyConfigUpdate', () => {
+  it('on success, optimistically updates state.tools.config.data', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postConfigMock.mockResolvedValue({
+        ok: true,
+        config: { effort: 'fast', autonomy: 'pure-vibe' },
+        generated_at: '2026-05-10T12:00:00.000Z',
+      });
+      const result = await actions.applyConfigUpdate({ config: { effort: 'fast' } });
+      expect(result).toEqual({ ok: true });
+      expect(postConfigMock).toHaveBeenCalledTimes(1);
+      const cfg = state.tools.config.data?.config as Record<string, unknown> | undefined;
+      expect(cfg?.['effort']).toBe('fast');
+      expect(state.tools.config.error).toBeNull();
+      dispose();
+    });
+  });
+
+  it('on POST failure, surfaces error and returns {error}', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postConfigMock.mockRejectedValue(new Error('invalid_config_schema: nope'));
+      const result = await actions.applyConfigUpdate({ config: { effort: 'wat' } });
+      expect('error' in result).toBe(true);
+      if ('error' in result) {
+        expect(result.error).toMatch(/invalid_config_schema/);
+      }
+      expect(state.tools.config.error).toMatch(/invalid_config_schema/);
+      dispose();
+    });
+  });
+});
+
+describe('applyUpdate', () => {
+  it('on success returns the daemon response and refreshes the update cell', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postUpdateApplyMock.mockResolvedValue({
+        ok: true,
+        exit_code: 0,
+        stdout: 'added 1 package',
+        stderr: '',
+        duration_ms: 3000,
+        requires_elevation: false,
+        copyable_command: null,
+      });
+      fetchUpdateMock.mockResolvedValue({
+        current_version: '2.3.0',
+        latest_version: '2.3.0',
+        update_available: false,
+        registry: 'npm',
+        last_checked: '2026-05-10T12:00:00.000Z',
+        error: null,
+      });
+      const result = await actions.applyUpdate();
+      expect('ok' in result).toBe(true);
+      if ('ok' in result) expect(result.ok).toBe(true);
+      // Wait one microtask for the void refreshToolsCell promise to land.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(fetchUpdateMock).toHaveBeenCalled();
+      expect(state.tools.update.loading).toBe(false);
+      dispose();
+    });
+  });
+
+  it('on EACCES, returns requires_elevation:true + copyable_command', async () => {
+    await createRoot(async (dispose) => {
+      const [, actions] = createDashboardStore();
+      postUpdateApplyMock.mockResolvedValue({
+        ok: false,
+        exit_code: 1,
+        stdout: '',
+        stderr: 'npm error code EACCES',
+        duration_ms: 800,
+        requires_elevation: true,
+        copyable_command: 'sudo npm install -g stop-wasting-tokens@latest',
+      });
+      const result = await actions.applyUpdate();
+      expect('requires_elevation' in result).toBe(true);
+      if ('requires_elevation' in result) {
+        expect(result.requires_elevation).toBe(true);
+        expect(result.copyable_command).toMatch(/^sudo /);
+      }
+      dispose();
+    });
+  });
+
+  it('on transport failure (POST throws), returns {error}', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postUpdateApplyMock.mockRejectedValue(new Error('HTTP 500: spawn ENOENT npm'));
+      const result = await actions.applyUpdate();
+      expect('error' in result).toBe(true);
+      expect(state.tools.update.error).toMatch(/spawn ENOENT/);
+      dispose();
+    });
   });
 });

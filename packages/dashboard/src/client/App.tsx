@@ -298,6 +298,7 @@ export const App: Component = () => {
                     error={state.tools.update.error}
                     lastFetched={state.tools.update.lastFetched}
                     onRefresh={() => void actions.refreshToolsCell('update')}
+                    onApply={() => actions.applyUpdate()}
                   />
                 </Resizable.Panel>
               </Resizable>
