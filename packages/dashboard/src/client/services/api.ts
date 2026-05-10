@@ -2,6 +2,8 @@ import {
   CommandBodySchema,
   CommandResponseSchema,
   ConfigSnapshotSchema,
+  ConfigUpdateBodySchema,
+  ConfigUpdateResponseSchema,
   DetectPhaseReportSchema,
   DoctorReportSchema,
   HealthResponseSchema,
@@ -10,6 +12,7 @@ import {
   SnapshotSchema,
   UatCheckpointBodySchema,
   UatCheckpointResponseSchema,
+  UpdateApplyResponseSchema,
   UpdateReportSchema,
   VibeReplyBodySchema,
   VibeReplyResponseSchema,
@@ -18,6 +21,8 @@ import {
   type CommandBody,
   type CommandResponse,
   type ConfigSnapshot,
+  type ConfigUpdateBody,
+  type ConfigUpdateResponse,
   type DetectPhaseReport,
   type DoctorReport,
   type HealthResponse,
@@ -26,6 +31,7 @@ import {
   type Snapshot,
   type UatCheckpointBody,
   type UatCheckpointResponse,
+  type UpdateApplyResponse,
   type UpdateReport,
   type VibeReplyBody,
   type VibeReplyResponse,
@@ -37,12 +43,15 @@ export type {
   CommandBody,
   CommandResponse,
   ConfigSnapshot,
+  ConfigUpdateBody,
+  ConfigUpdateResponse,
   DetectPhaseReport,
   DoctorReport,
   InitBody,
   InitResponse,
   UatCheckpointBody,
   UatCheckpointResponse,
+  UpdateApplyResponse,
   UpdateReport,
   VibeReplyBody,
   VibeReplyResponse,
@@ -106,6 +115,40 @@ export async function fetchDetectPhase(): Promise<DetectPhaseReport> {
 export async function fetchUpdate(): Promise<UpdateReport> {
   const raw = await jsonRequest<unknown>('/api/update');
   return UpdateReportSchema.parse(raw);
+}
+
+/* ── v2.3 Phase 03: mutation wrappers ─────────────────────────────────
+ * postConfig + postUpdateApply mirror the existing postInit / postCommand
+ * shape — validate body via the matching schema, POST, parse the response
+ * through its schema (or surface readable error message on non-2xx).
+ */
+
+export async function postConfig(body: ConfigUpdateBody): Promise<ConfigUpdateResponse> {
+  const validated = ConfigUpdateBodySchema.parse(body);
+  const res = await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return ConfigUpdateResponseSchema.parse(raw);
+}
+
+export async function postUpdateApply(): Promise<UpdateApplyResponse> {
+  const res = await fetch('/api/update/apply', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return UpdateApplyResponseSchema.parse(raw);
 }
 
 export async function fetchArtifactRendered(

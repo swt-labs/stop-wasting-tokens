@@ -153,7 +153,7 @@ export function createApp(
   // (after snapshot, before init/command) so a greenfield daemon still
   // exposes them — config defaults, doctor, detect-phase, update check,
   // and command registry all work without `.swt-planning/`.
-  registerConfigRoute(app, cwd);
+  registerConfigRoute(app, cwd, bus);
   registerDoctorRoute(app, cwd);
   registerDetectPhaseRoute(app, cwd);
   registerUpdateRoute(app);

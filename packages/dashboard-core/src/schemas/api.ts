@@ -261,6 +261,46 @@ export const CommandRegistrySchema = z.object({
 });
 export type CommandRegistry = z.infer<typeof CommandRegistrySchema>;
 
+/* ── v2.3 Phase 03: mutation routes ─────────────────────────────────── */
+
+/**
+ * `POST /api/config` body. The inner `config` carries the new SwtConfig
+ * shape; kept as `z.unknown()` here so dashboard-core stays decoupled
+ * from `@swt-labs/core`. The server validates via `parseConfig` after
+ * this layer's structural check.
+ */
+export const ConfigUpdateBodySchema = z
+  .object({
+    config: z.unknown(),
+  })
+  .strict();
+export type ConfigUpdateBody = z.infer<typeof ConfigUpdateBodySchema>;
+
+export const ConfigUpdateResponseSchema = z.object({
+  ok: z.literal(true),
+  config: z.unknown(),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type ConfigUpdateResponse = z.infer<typeof ConfigUpdateResponseSchema>;
+
+/**
+ * `POST /api/update/apply` response. Daemon attempts `npm i -g
+ * stop-wasting-tokens@latest`; on EACCES/EPERM the response carries
+ * `requires_elevation: true` + a `copyable_command` the panel can
+ * surface for the user to run via sudo.
+ */
+export const UpdateApplyResponseSchema = z.object({
+  ok: z.boolean(),
+  exit_code: z.number().int(),
+  stdout: z.string(),
+  stderr: z.string(),
+  duration_ms: z.number().int().nonnegative(),
+  requires_elevation: z.boolean(),
+  /** Null when `requires_elevation` is false. */
+  copyable_command: z.string().nullable(),
+});
+export type UpdateApplyResponse = z.infer<typeof UpdateApplyResponseSchema>;
+
 export const ApiSchemas = {
   '/api/health': {
     method: 'GET',
@@ -319,6 +359,15 @@ export const ApiSchemas = {
   '/api/commands': {
     method: 'GET',
     response: CommandRegistrySchema,
+  },
+  '/api/config:POST': {
+    method: 'POST',
+    body: ConfigUpdateBodySchema,
+    response: ConfigUpdateResponseSchema,
+  },
+  '/api/update/apply': {
+    method: 'POST',
+    response: UpdateApplyResponseSchema,
   },
 } as const;
 export type ApiSchemaMap = typeof ApiSchemas;

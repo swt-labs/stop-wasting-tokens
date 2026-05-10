@@ -2,19 +2,31 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigSnapshotSchema } from '@swt-labs/dashboard-core';
-import { Hono } from 'hono';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync, existsSync } from 'node:fs';
 
+import {
+  ConfigSnapshotSchema,
+  ConfigUpdateResponseSchema,
+  type SnapshotEvent,
+} from '@swt-labs/dashboard-core';
+import { Hono } from 'hono';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createEventBus, type EventBus } from '../src/server/event-bus.ts';
 import { registerConfigRoute } from '../src/server/routes/config.ts';
 
 let cwd: string;
 let app: Hono;
+let bus: EventBus;
+let busListener: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   cwd = mkdtempSync(join(tmpdir(), 'swt-config-route-'));
   app = new Hono();
-  registerConfigRoute(app, cwd);
+  bus = createEventBus();
+  busListener = vi.fn();
+  bus.subscribe(busListener);
+  registerConfigRoute(app, cwd, bus);
 });
 
 afterEach(() => {
@@ -97,5 +109,73 @@ describe('GET /api/config', () => {
     const t = new Date(parsed.generated_at).getTime();
     expect(Number.isFinite(t)).toBe(true);
     expect(t).toBeGreaterThan(0);
+  });
+});
+
+describe('POST /api/config', () => {
+  async function postConfig(body: unknown): Promise<{ status: number; body: unknown }> {
+    const res = await app.request('/api/config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, body: await res.json() };
+  }
+
+  it('writes the config to .swt-planning/config.json and returns the validated shape', async () => {
+    const { status, body } = await postConfig({
+      config: { effort: 'fast', autonomy: 'pure-vibe' },
+    });
+    expect(status).toBe(200);
+    const parsed = ConfigUpdateResponseSchema.parse(body);
+    expect(parsed.ok).toBe(true);
+    const cfg = parsed.config as Record<string, unknown>;
+    expect(cfg['effort']).toBe('fast');
+    expect(cfg['autonomy']).toBe('pure-vibe');
+    // Verify the file actually landed on disk.
+    const cfgPath = join(cwd, '.swt-planning', 'config.json');
+    expect(existsSync(cfgPath)).toBe(true);
+    const written = JSON.parse(readFileSync(cfgPath, 'utf8')) as Record<string, unknown>;
+    expect(written['effort']).toBe('fast');
+  });
+
+  it("publishes a state.changed event with changed:['config'] exactly once on success", async () => {
+    await postConfig({ config: { effort: 'fast' } });
+    expect(busListener).toHaveBeenCalledTimes(1);
+    const evt = busListener.mock.calls[0]?.[0] as SnapshotEvent;
+    expect(evt.type).toBe('state.changed');
+    if (evt.type === 'state.changed') {
+      expect(evt.changed).toEqual(['config']);
+    }
+  });
+
+  it('returns 400 invalid_config_body when the body is structurally wrong', async () => {
+    const { status, body } = await postConfig({ wrong: 'shape' });
+    expect(status).toBe(400);
+    const err = body as { error: string };
+    expect(err.error).toBe('invalid_config_body');
+  });
+
+  it('returns 400 invalid_config_schema when the inner config fails parseConfig', async () => {
+    const { status, body } = await postConfig({
+      config: { effort: 'nonsense-not-a-real-effort' },
+    });
+    expect(status).toBe(400);
+    const err = body as { error: string; detail: string };
+    expect(err.error).toBe('invalid_config_schema');
+    expect(err.detail).toBeTypeOf('string');
+  });
+
+  it('creates .swt-planning/ on demand for greenfield daemons', async () => {
+    // Confirm .swt-planning/ does not exist beforehand.
+    expect(existsSync(join(cwd, '.swt-planning'))).toBe(false);
+    const { status } = await postConfig({ config: { effort: 'turbo' } });
+    expect(status).toBe(200);
+    expect(existsSync(join(cwd, '.swt-planning', 'config.json'))).toBe(true);
+  });
+
+  it('does not publish a state.changed event when validation fails', async () => {
+    await postConfig({ wrong: 'shape' });
+    expect(busListener).not.toHaveBeenCalled();
   });
 });
