@@ -12,6 +12,7 @@ import { assertSafeBinding } from './lib/binding-guard.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerCommandRoute } from './routes/command.js';
+import { registerCommandsRoute } from './routes/commands.js';
 import { registerConfigRoute } from './routes/config.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
 import { registerDetectPhaseRoute } from './routes/detect-phase.js';
@@ -21,6 +22,7 @@ import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
+import { registerUpdateRoute } from './routes/update.js';
 import { registerVibeRoutes } from './routes/vibe.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
 import { CodexMethodologyAgent } from './vibe/codex-methodology-agent.js';
@@ -154,6 +156,8 @@ export function createApp(
   registerConfigRoute(app, cwd);
   registerDoctorRoute(app, cwd);
   registerDetectPhaseRoute(app, cwd);
+  registerUpdateRoute(app);
+  registerCommandsRoute(app);
   if (projectRoot) {
     registerArtifactRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
