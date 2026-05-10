@@ -1484,3 +1484,87 @@
   margin-bottom: 4px;
 }
 
+/* Doctor panel — per-check status rows */
+
+.doctor-status-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.doctor-status-pill-pass {
+  background: rgba(0, 255, 65, 0.18);
+  color: var(--terminal-green);
+}
+
+.doctor-status-pill-warn {
+  background: rgba(255, 176, 0, 0.16);
+  color: #ffb000;
+}
+
+.doctor-status-pill-fail {
+  background: rgba(255, 64, 64, 0.16);
+  color: var(--danger-red);
+}
+
+.doctor-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.doctor-check-row {
+  display: grid;
+  grid-template-columns: 16px max-content 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.doctor-check-row-pass {
+  background: rgba(0, 255, 65, 0.04);
+}
+
+.doctor-check-row-warn {
+  background: rgba(255, 176, 0, 0.06);
+}
+
+.doctor-check-row-fail {
+  background: rgba(255, 64, 64, 0.06);
+}
+
+.doctor-check-icon {
+  font-weight: 700;
+}
+
+.doctor-check-row-pass .doctor-check-icon {
+  color: var(--terminal-green);
+}
+
+.doctor-check-row-warn .doctor-check-icon {
+  color: #ffb000;
+}
+
+.doctor-check-row-fail .doctor-check-icon {
+  color: var(--danger-red);
+}
+
+.doctor-check-name {
+  color: rgba(0, 255, 65, 0.85);
+  font-weight: 600;
+}
+
+.doctor-check-detail {
+  color: rgba(0, 255, 65, 0.65);
+  word-break: break-word;
+  min-width: 0;
+}
+
