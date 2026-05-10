@@ -158,6 +158,109 @@ export const CommandResponseSchema = z.object({
 });
 export type CommandResponse = z.infer<typeof CommandResponseSchema>;
 
+/* ── v2.3: dashboard CLI parity panels ──────────────────────────────────
+ *
+ * Five new GET endpoints surface the CLI's `config show`, `doctor`,
+ * `detect-phase`, `update --json`, and `help` registry data inside the
+ * dashboard. Schemas live here so server and client share one wire
+ * contract; concrete inner shapes (e.g. `SwtConfig`, `PhaseDetectResult`)
+ * stay typed in their owning packages (`@swt-labs/core`,
+ * `@swt-labs/methodology`) and ride through these envelopes as
+ * `z.unknown()` to keep `dashboard-core` decoupled from those packages.
+ *
+ * Phase 1 of v2.3 ships the routes only — read-only, pull-on-demand, no
+ * SSE event types. Phase 3 adds writable counterparts (`POST /api/config`,
+ * `POST /api/update/apply`).
+ */
+
+export const ConfigSnapshotSchema = z.object({
+  /**
+   * False when the daemon found no `.swt-planning/config.json`. The
+   * embedded `config` falls back to `DEFAULT_CONFIG` from `@swt-labs/core`
+   * so the dashboard can still render fields against the schema.
+   */
+  is_initialized: z.boolean(),
+  /**
+   * Concrete shape is `SwtConfig` from `@swt-labs/core`. Kept as
+   * `z.unknown()` here to avoid cross-package coupling — clients import
+   * `SwtConfig` directly from `@swt-labs/core` and assert on this field.
+   */
+  config: z.unknown(),
+  source: z.enum(['file', 'default']),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type ConfigSnapshot = z.infer<typeof ConfigSnapshotSchema>;
+
+export const DoctorCheckSchema = z.object({
+  /** Stable id for client-side keying; e.g. 'node-version'. */
+  id: z.string().min(1),
+  /** Human-readable check name; e.g. 'Node ≥ 20'. */
+  name: z.string().min(1),
+  status: z.enum(['pass', 'fail', 'warn']),
+  /** One-line freeform detail; the panel surfaces this verbatim. */
+  detail: z.string(),
+});
+export type DoctorCheck = z.infer<typeof DoctorCheckSchema>;
+
+export const DoctorReportSchema = z.object({
+  checks: z.array(DoctorCheckSchema),
+  /** `pass` only when every check passes; `fail` if any fails; else `warn`. */
+  overall_status: z.enum(['pass', 'fail', 'warn']),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type DoctorReport = z.infer<typeof DoctorReportSchema>;
+
+export const DetectPhaseReportSchema = z.object({
+  /**
+   * Concrete shape is `PhaseDetectResult` from `@swt-labs/methodology`.
+   * Kept as `z.unknown()` here for the same decoupling reason as
+   * `ConfigSnapshot.config`.
+   */
+  result: z.unknown(),
+  is_initialized: z.boolean(),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type DetectPhaseReport = z.infer<typeof DetectPhaseReportSchema>;
+
+export const UpdateReportSchema = z.object({
+  current_version: z.string().min(1),
+  /** Null when the registry was unreachable. Always-present when reachable. */
+  latest_version: z.string().nullable(),
+  update_available: z.boolean(),
+  /** v2.3 ships npm only. Marketplace dispatch lands in a future milestone. */
+  registry: z.literal('npm'),
+  last_checked: z.string().datetime({ offset: true }),
+  /** Null on success; non-null when `latest_version: null` to explain why. */
+  error: z.string().nullable(),
+});
+export type UpdateReport = z.infer<typeof UpdateReportSchema>;
+
+export const CommandSpecSchema = z.object({
+  name: z.string().min(1),
+  description: z.string(),
+  /** Argv usage suffix from the CLI registry; null when verb takes none. */
+  usage: z.string().nullable(),
+  /**
+   * - `core` — verb has a real CLI handler (config / doctor / detect-phase / etc).
+   * - `stub` — verb is a roadmap placeholder (init / plan / execute / etc).
+   * - `interactive` — verb requires a TTY (vibe / watch / dashboard).
+   */
+  category: z.enum(['core', 'stub', 'interactive']),
+  /**
+   * True when the verb can run from the dashboard's `POST /api/command`
+   * route without blocking on stdin or recursing the daemon. Mirrors the
+   * server-side `ALLOWED_NON_INTERACTIVE_VERBS` set.
+   */
+  dashboard_safe: z.boolean(),
+});
+export type CommandSpec = z.infer<typeof CommandSpecSchema>;
+
+export const CommandRegistrySchema = z.object({
+  verbs: z.array(CommandSpecSchema),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type CommandRegistry = z.infer<typeof CommandRegistrySchema>;
+
 export const ApiSchemas = {
   '/api/health': {
     method: 'GET',
@@ -196,6 +299,26 @@ export const ApiSchemas = {
     method: 'POST',
     body: VibeReplyBodySchema,
     response: VibeReplyResponseSchema,
+  },
+  '/api/config': {
+    method: 'GET',
+    response: ConfigSnapshotSchema,
+  },
+  '/api/doctor': {
+    method: 'GET',
+    response: DoctorReportSchema,
+  },
+  '/api/detect-phase': {
+    method: 'GET',
+    response: DetectPhaseReportSchema,
+  },
+  '/api/update': {
+    method: 'GET',
+    response: UpdateReportSchema,
+  },
+  '/api/commands': {
+    method: 'GET',
+    response: CommandRegistrySchema,
   },
 } as const;
 export type ApiSchemaMap = typeof ApiSchemas;
