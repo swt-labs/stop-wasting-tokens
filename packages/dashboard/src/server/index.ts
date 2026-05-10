@@ -12,6 +12,7 @@ import { assertSafeBinding } from './lib/binding-guard.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerCommandRoute } from './routes/command.js';
+import { registerConfigRoute } from './routes/config.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
@@ -143,6 +144,12 @@ export function createApp(
   // `is_initialized: false` snapshot. The cwd argument lets the route
   // detect brownfield-vs-pure-greenfield once at registration.
   registerSnapshotRoute(app, () => snapshotter, cwd);
+  // v2.3: read-only CLI parity routes. Each one mirrors a `swt` verb and
+  // serves data the dashboard's parity panels render. They register here
+  // (after snapshot, before init/command) so a greenfield daemon still
+  // exposes them — config defaults, doctor, detect-phase, update check,
+  // and command registry all work without `.swt-planning/`.
+  registerConfigRoute(app, cwd);
   if (projectRoot) {
     registerArtifactRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
