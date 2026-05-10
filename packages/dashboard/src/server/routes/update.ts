@@ -191,7 +191,11 @@ export function registerUpdateRoute(app: Hono, opts: RegisterUpdateRouteOptions 
   const applyTimeoutMs = opts.applyTimeoutMs ?? APPLY_TIMEOUT_MS;
   app.post('/api/update/apply', async (c) => {
     const startedAt = Date.now();
-    const result = await spawnFn('npm', ['install', '-g', `${PACKAGE_NAME}@latest`], applyTimeoutMs);
+    const result = await spawnFn(
+      'npm',
+      ['install', '-g', `${PACKAGE_NAME}@latest`],
+      applyTimeoutMs,
+    );
     const duration_ms = Date.now() - startedAt;
     const errCode = result.error?.code ?? '';
     const elevation =

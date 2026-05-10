@@ -678,7 +678,7 @@ describe('tools sub-state', () => {
     }
   });
 
-  it("refreshTools() short-circuits when snapshot.is_initialized is false", async () => {
+  it('refreshTools() short-circuits when snapshot.is_initialized is false', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: false }));
@@ -692,7 +692,7 @@ describe('tools sub-state', () => {
     });
   });
 
-  it("loading flag flips true during the fetch and back to false after", async () => {
+  it('loading flag flips true during the fetch and back to false after', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       let resolveCfg: (v: ConfigSnapshot) => void = () => {};

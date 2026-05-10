@@ -38,7 +38,7 @@ async function postApply(): Promise<{ status: number; body: unknown }> {
 }
 
 function makeSpawn(result: ApplySpawnLike): ApplySpawnFn {
-  return ((): Promise<ApplySpawnLike> => Promise.resolve(result));
+  return (): Promise<ApplySpawnLike> => Promise.resolve(result);
 }
 
 describe('POST /api/update/apply', () => {
@@ -85,7 +85,8 @@ describe('POST /api/update/apply', () => {
         status: 1,
         signal: null,
         stdout: '',
-        stderr: 'npm error code EPERM\nnpm error syscall mkdir\nnpm error path /usr/local/lib/node_modules/.stop-wasting-tokens\n',
+        stderr:
+          'npm error code EPERM\nnpm error syscall mkdir\nnpm error path /usr/local/lib/node_modules/.stop-wasting-tokens\n',
       }),
     );
     const { body } = await postApply();
@@ -101,7 +102,8 @@ describe('POST /api/update/apply', () => {
         status: 1,
         signal: null,
         stdout: '',
-        stderr: 'npm error code ENETUNREACH\nnpm error errno ENETUNREACH\nnpm error network connect ECONNREFUSED\n',
+        stderr:
+          'npm error code ENETUNREACH\nnpm error errno ENETUNREACH\nnpm error network connect ECONNREFUSED\n',
       }),
     );
     const { body } = await postApply();

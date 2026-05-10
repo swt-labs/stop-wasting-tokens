@@ -101,9 +101,7 @@ export const DetectPhasePanel: Component<DetectPhasePanelProps> = (props) => {
                 QA: {display().qa_status}
               </span>
             </Show>
-            <Show
-              when={display().qa_attention_status && display().qa_attention_status !== 'none'}
-            >
+            <Show when={display().qa_attention_status && display().qa_attention_status !== 'none'}>
               <span class="detect-phase-chip detect-phase-chip-attention">
                 QA attention: {display().qa_attention_status}
               </span>
