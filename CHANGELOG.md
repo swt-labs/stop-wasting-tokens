@@ -1,5 +1,91 @@
 # Changelog
 
+## 2.2.0
+
+### Minor Changes
+
+- v2.2.0 — Dashboard 1:1 with the CLI's init mechanic (Plan A slice).
+  Two changes that close the biggest first-30-seconds gap a non-
+  technical user hits when they open the dashboard fresh.
+
+  **Brownfield detection.** The daemon now notices when its cwd has
+  source files but no `.swt-planning/` (i.e. you ran `swt` inside an
+  existing repo). The greenfield snapshot carries a new
+  `brownfield_detected: true` flag, and the InitScreen adapts
+  accordingly:
+  - Pure greenfield (empty dir, or only hidden / build-artifact
+    entries): "Welcome to SWT" + "Name your project to scaffold a
+    fresh `.swt-planning/`."
+  - Brownfield (a `package.json`, `README.md`, source dirs, etc.):
+    "Set up SWT around your existing project" — amber-accented copy +
+    a "✓ Initialize SWT for this codebase" CTA. Step-circle palette
+    flips to warm-amber so users visually distinguish "fresh project"
+    from "around existing code."
+
+  The detection rule mirrors `/vbw:init`'s heuristic: any non-hidden,
+  non-ignored file or directory in cwd counts as "existing codebase."
+  Hidden entries (`.git`, `.DS_Store`, `.swt-planning`) and build
+  artifacts (`node_modules`, `dist`, `build`, `coverage`, `target`,
+  `.next`, `.venv`, `vendor`, `__pycache__`) are excluded so a
+  freshly-cloned repo without source still reads as greenfield.
+
+  **Merged welcome + init.** The standalone `OnboardingOverlay`
+  (3-step explainer card) is gone. Its content is now the left side
+  of a redesigned `InitScreen` split-card; the project-name +
+  description form is the right side. One first-time surface instead
+  of two competing for the user's attention.
+
+  Layout: row on wide viewports, stacks vertically at < 760px. The
+  left column is bordered off from the form so the steps read as
+  "what you're about to start" not "another modal."
+
+  **What changed under the hood:**
+  - `packages/dashboard-core` — `SnapshotSchema.brownfield_detected`
+    (optional boolean, back-compat with v2.1.x daemons).
+  - `packages/dashboard/src/server/lib/detect-brownfield.ts` (new) —
+    `detectBrownfield(cwd: string): boolean` helper. Single
+    `fs.readdir`, cached at route registration.
+  - `packages/dashboard/src/server/snapshot/empty.ts` —
+    `emptySnapshot(brownfield = false)` includes the flag in the
+    synthetic greenfield response.
+  - `packages/dashboard/src/server/routes/snapshot.ts` —
+    `registerSnapshotRoute(app, getSnapshotter, cwd)` calls the
+    detector once at registration; threads the result through.
+  - `packages/dashboard/src/client/components/InitScreen.tsx` —
+    rebuilt as a split card with the brownfield variant.
+  - `packages/dashboard/src/client/App.tsx` — derives `isBrownfield()`
+    from the snapshot, passes through to InitScreen. Drops the
+    OnboardingOverlay render + visibility signal + dismiss handler.
+  - **Removed:** `OnboardingOverlay.tsx`, `onboarding-storage.ts`,
+    `onboarding-storage.test.ts` — all dead code now that the
+    overlay is gone.
+
+  **What did NOT change:**
+  - `POST /api/init` request/response shape, validation rules, error
+    envelopes — all unchanged.
+  - The terminal-side `swt init` flow is unchanged for power users.
+  - Default `swt` no-args dashboard launch + `SWT_NO_DASHBOARD=1`
+    escape hatch unchanged.
+  - Vibe + permission boundary — unchanged from v2.0.
+
+  **Verification:**
+  - 9 new Vitest cases in
+    `packages/dashboard/test/detect-brownfield.test.ts` cover all
+    classification branches.
+  - tsc + eslint clean on all touched files. Prettier converges.
+  - vitest run: 41 failed / 697 passed (= same 41 pre-existing
+    failures + 9 new from Phase 1; Phase 2 deleted the 6
+    onboarding-storage tests, so net deltas reconcile to zero new
+    regressions).
+  - `idiot_check.py` Track A 29/29 against the published v2.2.0
+    binary (D2 greenfield snapshot now returns
+    `brownfield_detected: false` in the test's pure tmpdir).
+
+  **Out of scope for v2.2** (deferred to v2.3+):
+  - CLI surface parity beyond init (config / doctor / detect-phase /
+    update panels in the dashboard).
+  - Command palette in the dashboard surfacing every CLI verb.
+
 ## 2.1.0
 
 ### Minor Changes
