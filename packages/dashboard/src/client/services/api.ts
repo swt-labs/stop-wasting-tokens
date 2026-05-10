@@ -1,24 +1,32 @@
 import {
   CommandBodySchema,
   CommandResponseSchema,
+  ConfigSnapshotSchema,
+  DetectPhaseReportSchema,
+  DoctorReportSchema,
   HealthResponseSchema,
   InitBodySchema,
   InitResponseSchema,
   SnapshotSchema,
   UatCheckpointBodySchema,
   UatCheckpointResponseSchema,
+  UpdateReportSchema,
   VibeReplyBodySchema,
   VibeReplyResponseSchema,
   VibeStartBodySchema,
   VibeStartResponseSchema,
   type CommandBody,
   type CommandResponse,
+  type ConfigSnapshot,
+  type DetectPhaseReport,
+  type DoctorReport,
   type HealthResponse,
   type InitBody,
   type InitResponse,
   type Snapshot,
   type UatCheckpointBody,
   type UatCheckpointResponse,
+  type UpdateReport,
   type VibeReplyBody,
   type VibeReplyResponse,
   type VibeStartBody,
@@ -28,10 +36,14 @@ import {
 export type {
   CommandBody,
   CommandResponse,
+  ConfigSnapshot,
+  DetectPhaseReport,
+  DoctorReport,
   InitBody,
   InitResponse,
   UatCheckpointBody,
   UatCheckpointResponse,
+  UpdateReport,
   VibeReplyBody,
   VibeReplyResponse,
   VibeStartBody,
@@ -67,6 +79,33 @@ export async function fetchHealth(): Promise<HealthResponse> {
 export async function fetchSnapshot(): Promise<Snapshot> {
   const raw = await jsonRequest<unknown>('/api/snapshot');
   return SnapshotSchema.parse(raw);
+}
+
+/* ── v2.3: read-only CLI parity routes ─────────────────────────────────
+ * Each fetcher is a thin GET wrapper around its server-side route from
+ * Phase 01. Validates the response through the matching schema in
+ * @swt-labs/dashboard-core so panel components see fully-typed data
+ * (and any wire-protocol drift surfaces here, not in the panel JSX).
+ */
+
+export async function fetchConfig(): Promise<ConfigSnapshot> {
+  const raw = await jsonRequest<unknown>('/api/config');
+  return ConfigSnapshotSchema.parse(raw);
+}
+
+export async function fetchDoctor(): Promise<DoctorReport> {
+  const raw = await jsonRequest<unknown>('/api/doctor');
+  return DoctorReportSchema.parse(raw);
+}
+
+export async function fetchDetectPhase(): Promise<DetectPhaseReport> {
+  const raw = await jsonRequest<unknown>('/api/detect-phase');
+  return DetectPhaseReportSchema.parse(raw);
+}
+
+export async function fetchUpdate(): Promise<UpdateReport> {
+  const raw = await jsonRequest<unknown>('/api/update');
+  return UpdateReportSchema.parse(raw);
 }
 
 export async function fetchArtifactRendered(

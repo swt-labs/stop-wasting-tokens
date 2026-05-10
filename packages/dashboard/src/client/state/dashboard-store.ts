@@ -1,15 +1,23 @@
 import type {
   AgentPromptContext,
   AgentPromptOption,
+  ConfigSnapshot,
+  DetectPhaseReport,
+  DoctorReport,
   Snapshot,
   SnapshotEvent,
+  UpdateReport,
   VibeReplyBody,
 } from '@swt-labs/dashboard-core';
 import { createStore } from 'solid-js/store';
 
 import {
   fetchArtifactRendered,
+  fetchConfig,
+  fetchDetectPhase,
+  fetchDoctor,
   fetchSnapshot,
+  fetchUpdate,
   postCommand,
   postInit,
   postUatCheckpoint,
@@ -76,6 +84,29 @@ export interface VibeSessionState {
   agent_backend: 'none' | 'codex' | 'scripted';
 }
 
+/**
+ * Per-cell lifecycle state for the v2.3 tools sub-store. Each of the four
+ * read-only parity panels (Config / Doctor / Detect-phase / Update) owns
+ * one cell of this shape.
+ */
+export interface ToolsCellState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+  /** ISO-8601 timestamp of the last successful fetch. Null until the first
+   * fetch lands; stays at the previous successful value during reload errors. */
+  lastFetched: string | null;
+}
+
+export interface ToolsState {
+  config: ToolsCellState<ConfigSnapshot>;
+  doctor: ToolsCellState<DoctorReport>;
+  detectPhase: ToolsCellState<DetectPhaseReport>;
+  update: ToolsCellState<UpdateReport>;
+}
+
+export type ToolsCellKey = keyof ToolsState;
+
 export interface DashboardState {
   connection: ConnectionState;
   reconnectAttempt: number;
@@ -93,6 +124,7 @@ export interface DashboardState {
   vibeStarting: boolean;
   vibeReplying: boolean;
   errors: DashboardErrorEntry[];
+  tools: ToolsState;
 }
 
 export interface DashboardActions {
@@ -106,8 +138,31 @@ export interface DashboardActions {
   runCommand: (input: string) => Promise<CommandResponse | null>;
   startVibeSession: (prompt: string) => Promise<string | null>;
   replyToActivePrompt: (answer: VibeReplyBody['answer']) => Promise<boolean>;
+  /**
+   * Fetch all four tools cells in parallel. No-op when the snapshot reports
+   * `is_initialized: false` (greenfield daemons have no project to inspect
+   * yet, and the App.tsx gate hides the column anyway).
+   */
+  refreshTools: () => Promise<void>;
+  /** Fetch a single tools cell — used by the per-panel manual refresh button. */
+  refreshToolsCell: (key: ToolsCellKey) => Promise<void>;
   pushError: (message: string) => void;
   shutdown: () => void;
+}
+
+/**
+ * Optional hooks for tests: deterministic timestamps + shorter polling
+ * intervals. Production callers omit and get the real defaults.
+ */
+export interface CreateDashboardStoreOptions {
+  pollIntervalMs?: number;
+  now?: () => Date;
+}
+
+const DEFAULT_TOOLS_POLL_INTERVAL_MS = 60_000;
+
+function emptyToolsCell<T>(): ToolsCellState<T> {
+  return { data: null, loading: false, error: null, lastFetched: null };
 }
 
 const ARTIFACT_CACHE_LIMIT = 32;
@@ -122,7 +177,12 @@ function cacheKey(phase: string, name: string): string {
   return `${phase}/${name}`;
 }
 
-export function createDashboardStore(): [DashboardState, DashboardActions] {
+export function createDashboardStore(
+  opts: CreateDashboardStoreOptions = {},
+): [DashboardState, DashboardActions] {
+  const pollIntervalMs = opts.pollIntervalMs ?? DEFAULT_TOOLS_POLL_INTERVAL_MS;
+  const nowFn = opts.now ?? ((): Date => new Date());
+
   const [state, setState] = createStore<DashboardState>({
     connection: 'connecting',
     reconnectAttempt: 0,
@@ -140,11 +200,23 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     vibeStarting: false,
     vibeReplying: false,
     errors: [],
+    tools: {
+      config: emptyToolsCell<ConfigSnapshot>(),
+      doctor: emptyToolsCell<DoctorReport>(),
+      detectPhase: emptyToolsCell<DetectPhaseReport>(),
+      update: emptyToolsCell<UpdateReport>(),
+    },
   });
 
   let sse: SseConnection | null = null;
   let logSeq = 0;
   let sseHasOpened = false;
+
+  // v2.3 tools polling: one timer drives all four cells, so a 60 s poll
+  // means a single batched refresh, not four staggered ones. Pause when
+  // the tab is hidden to keep idle laptops cool.
+  let toolsTimer: ReturnType<typeof setInterval> | null = null;
+  let toolsVisibilityHandler: (() => void) | null = null;
 
   const pushError = (message: string): void => {
     setState('errors', (prev) => {
@@ -240,6 +312,89 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
     }
   };
 
+  /* ── v2.3 tools sub-store ─────────────────────────────────────────── */
+
+  type ToolsFetcher = {
+    config: typeof fetchConfig;
+    doctor: typeof fetchDoctor;
+    detectPhase: typeof fetchDetectPhase;
+    update: typeof fetchUpdate;
+  };
+  const toolsFetchers: ToolsFetcher = {
+    config: fetchConfig,
+    doctor: fetchDoctor,
+    detectPhase: fetchDetectPhase,
+    update: fetchUpdate,
+  };
+  const TOOLS_KEYS: ToolsCellKey[] = ['config', 'doctor', 'detectPhase', 'update'];
+
+  const refreshToolsCell = async (key: ToolsCellKey): Promise<void> => {
+    setState('tools', key, 'loading', true);
+    setState('tools', key, 'error', null);
+    try {
+      const data = await toolsFetchers[key]();
+      // Solid's setStore can't infer the union when setting `data` across
+      // four different cell types in a single call site; cast through the
+      // store's per-key typed setter to keep the assignment narrowly typed.
+      setState('tools', key, {
+        data: data as never,
+        loading: false,
+        error: null,
+        lastFetched: nowFn().toISOString(),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('tools', key, 'loading', false);
+      setState('tools', key, 'error', message);
+    }
+  };
+
+  const refreshTools = async (): Promise<void> => {
+    if (state.snapshot?.is_initialized !== true) return;
+    await Promise.all(TOOLS_KEYS.map((k) => refreshToolsCell(k)));
+  };
+
+  const startToolsPolling = (): void => {
+    if (toolsTimer !== null) return;
+    toolsTimer = setInterval(() => {
+      void refreshTools();
+    }, pollIntervalMs);
+  };
+
+  const stopToolsPolling = (): void => {
+    if (toolsTimer !== null) {
+      clearInterval(toolsTimer);
+      toolsTimer = null;
+    }
+  };
+
+  /**
+   * `document.visibilitychange` keeps the polling loop quiet while the user
+   * isn't looking at the dashboard. Hidden tab → clear the timer; visible
+   * again → restart it AND fire one immediate refresh so the panels show
+   * fresh data the moment the user comes back.
+   */
+  const installToolsVisibilityHandler = (): void => {
+    if (toolsVisibilityHandler !== null) return;
+    if (typeof document === 'undefined') return; // SSR / non-browser test runs
+    toolsVisibilityHandler = (): void => {
+      if (document.hidden) {
+        stopToolsPolling();
+      } else {
+        startToolsPolling();
+        void refreshTools();
+      }
+    };
+    document.addEventListener('visibilitychange', toolsVisibilityHandler);
+  };
+
+  const removeToolsVisibilityHandler = (): void => {
+    if (toolsVisibilityHandler === null) return;
+    if (typeof document === 'undefined') return;
+    document.removeEventListener('visibilitychange', toolsVisibilityHandler);
+    toolsVisibilityHandler = null;
+  };
+
   const bootstrap = async (): Promise<void> => {
     setState('connection', 'connecting');
     try {
@@ -287,6 +442,16 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
         },
       },
     );
+
+    // v2.3 tools polling — only meaningful once the daemon reports
+    // is_initialized. refreshTools() itself short-circuits on greenfield,
+    // but skipping the timer setup entirely keeps the dashboard quiet
+    // until init lands.
+    if (state.snapshot?.is_initialized === true) {
+      void refreshTools();
+      startToolsPolling();
+      installToolsVisibilityHandler();
+    }
   };
 
   const selectArtifact = async (phase: string, name: string): Promise<void> => {
@@ -529,6 +694,8 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
   const shutdown = (): void => {
     sse?.close();
     sse = null;
+    stopToolsPolling();
+    removeToolsVisibilityHandler();
   };
 
   return [
@@ -544,6 +711,8 @@ export function createDashboardStore(): [DashboardState, DashboardActions] {
       runCommand,
       startVibeSession,
       replyToActivePrompt,
+      refreshTools,
+      refreshToolsCell,
       pushError,
       shutdown,
     },

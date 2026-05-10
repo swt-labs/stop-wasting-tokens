@@ -1,4 +1,12 @@
-import type { CommandResponse, InitResponse, Snapshot } from '@swt-labs/dashboard-core';
+import type {
+  CommandResponse,
+  ConfigSnapshot,
+  DetectPhaseReport,
+  DoctorReport,
+  InitResponse,
+  Snapshot,
+  UpdateReport,
+} from '@swt-labs/dashboard-core';
 import { createRoot } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +18,10 @@ const fetchArtifactRenderedMock = vi.fn();
 const postVibeStartMock = vi.fn();
 const postVibeReplyMock = vi.fn();
 const openSseConnectionMock = vi.fn();
+const fetchConfigMock = vi.fn();
+const fetchDoctorMock = vi.fn();
+const fetchDetectPhaseMock = vi.fn();
+const fetchUpdateMock = vi.fn();
 
 vi.mock('../src/client/services/api.js', () => ({
   fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
@@ -19,6 +31,10 @@ vi.mock('../src/client/services/api.js', () => ({
   fetchArtifactRendered: (...args: unknown[]) => fetchArtifactRenderedMock(...args),
   postVibeStart: (...args: unknown[]) => postVibeStartMock(...args),
   postVibeReply: (...args: unknown[]) => postVibeReplyMock(...args),
+  fetchConfig: (...args: unknown[]) => fetchConfigMock(...args),
+  fetchDoctor: (...args: unknown[]) => fetchDoctorMock(...args),
+  fetchDetectPhase: (...args: unknown[]) => fetchDetectPhaseMock(...args),
+  fetchUpdate: (...args: unknown[]) => fetchUpdateMock(...args),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({
@@ -51,6 +67,10 @@ beforeEach(() => {
   postVibeStartMock.mockReset();
   postVibeReplyMock.mockReset();
   openSseConnectionMock.mockReset();
+  fetchConfigMock.mockReset();
+  fetchDoctorMock.mockReset();
+  fetchDetectPhaseMock.mockReset();
+  fetchUpdateMock.mockReset();
   openSseConnectionMock.mockReturnValue({ close: () => {} });
 });
 
@@ -447,6 +467,224 @@ describe('connection state transitions', () => {
       expect(state.connection).toBe('connected');
       onError?.(new Error('drop'));
       expect(state.connection).toBe('error');
+      dispose();
+    });
+  });
+});
+
+/* ── v2.3 Phase 02: tools sub-state ───────────────────────────────── */
+
+function makeConfigSnapshot(): ConfigSnapshot {
+  return {
+    is_initialized: true,
+    config: { effort: 'thorough', autonomy: 'pure-vibe' },
+    source: 'file',
+    generated_at: '2026-05-10T12:00:00.000Z',
+  };
+}
+
+function makeDoctorReport(): DoctorReport {
+  return {
+    checks: [
+      { id: 'node-version', name: 'Node ≥ 20', status: 'pass', detail: 'Node 22.0.0' },
+      { id: 'codex-cli', name: 'Codex CLI on PATH', status: 'pass', detail: 'Codex 0.124.0' },
+      { id: 'planning-dir', name: '.swt-planning/ present', status: 'pass', detail: 'found' },
+    ],
+    overall_status: 'pass',
+    generated_at: '2026-05-10T12:00:00.000Z',
+  };
+}
+
+function makeDetectPhaseReport(): DetectPhaseReport {
+  return {
+    result: { phase_count: 4, next_phase_state: 'needs_plan_and_execute' },
+    is_initialized: true,
+    generated_at: '2026-05-10T12:00:00.000Z',
+  };
+}
+
+function makeUpdateReport(): UpdateReport {
+  return {
+    current_version: '2.3.0',
+    latest_version: '2.3.0',
+    update_available: false,
+    registry: 'npm',
+    last_checked: '2026-05-10T12:00:00.000Z',
+    error: null,
+  };
+}
+
+describe('tools sub-state', () => {
+  it('initializes all four cells empty', async () => {
+    await createRoot(async (dispose) => {
+      const [state] = createDashboardStore();
+      expect(state.tools.config.data).toBeNull();
+      expect(state.tools.config.loading).toBe(false);
+      expect(state.tools.config.error).toBeNull();
+      expect(state.tools.config.lastFetched).toBeNull();
+      expect(state.tools.doctor.data).toBeNull();
+      expect(state.tools.detectPhase.data).toBeNull();
+      expect(state.tools.update.data).toBeNull();
+      dispose();
+    });
+  });
+
+  it('bootstrap on initialized snapshot triggers refreshTools (all 4 fetches fire)', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+      fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+      fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+      fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+      fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      await actions.bootstrap();
+      // Wait one microtask for the void refreshTools() Promise chain to settle.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(fetchConfigMock).toHaveBeenCalledTimes(1);
+      expect(fetchDoctorMock).toHaveBeenCalledTimes(1);
+      expect(fetchDetectPhaseMock).toHaveBeenCalledTimes(1);
+      expect(fetchUpdateMock).toHaveBeenCalledTimes(1);
+      expect(state.tools.config.data).not.toBeNull();
+      expect(state.tools.config.lastFetched).toBeTypeOf('string');
+      actions.shutdown();
+      dispose();
+    });
+  });
+
+  it('bootstrap on greenfield snapshot does NOT fetch tools', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: false }));
+      await actions.bootstrap();
+      await Promise.resolve();
+      expect(fetchConfigMock).not.toHaveBeenCalled();
+      expect(fetchDoctorMock).not.toHaveBeenCalled();
+      expect(fetchDetectPhaseMock).not.toHaveBeenCalled();
+      expect(fetchUpdateMock).not.toHaveBeenCalled();
+      expect(state.tools.config.data).toBeNull();
+      actions.shutdown();
+      dispose();
+    });
+  });
+
+  it("refreshToolsCell('config') only triggers fetchConfig (not the others)", async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+      await actions.refreshToolsCell('config');
+      expect(fetchConfigMock).toHaveBeenCalledTimes(1);
+      expect(fetchDoctorMock).not.toHaveBeenCalled();
+      expect(fetchDetectPhaseMock).not.toHaveBeenCalled();
+      expect(fetchUpdateMock).not.toHaveBeenCalled();
+      expect(state.tools.config.data).not.toBeNull();
+      expect(state.tools.config.loading).toBe(false);
+      dispose();
+    });
+  });
+
+  it('error in one cell does not pollute the others', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+      fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+      fetchDoctorMock.mockRejectedValue(new Error('codex missing'));
+      fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+      fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      await actions.bootstrap();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(state.tools.config.error).toBeNull();
+      expect(state.tools.config.data).not.toBeNull();
+      expect(state.tools.doctor.error).toMatch(/codex missing/);
+      expect(state.tools.doctor.data).toBeNull();
+      expect(state.tools.detectPhase.data).not.toBeNull();
+      expect(state.tools.update.data).not.toBeNull();
+      actions.shutdown();
+      dispose();
+    });
+  });
+
+  it('60s polling timer fires refreshTools after each interval tick', async () => {
+    vi.useFakeTimers();
+    try {
+      await createRoot(async (dispose) => {
+        const [, actions] = createDashboardStore({ pollIntervalMs: 1000 });
+        fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+        fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+        fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+        fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+        fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+        await actions.bootstrap();
+        // First fetch from bootstrap.
+        await vi.advanceTimersByTimeAsync(0);
+        const baselineCalls = fetchConfigMock.mock.calls.length;
+        // Advance past one polling tick.
+        await vi.advanceTimersByTimeAsync(1100);
+        expect(fetchConfigMock.mock.calls.length).toBeGreaterThan(baselineCalls);
+        actions.shutdown();
+        dispose();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shutdown stops the polling timer (no fetches after)', async () => {
+    vi.useFakeTimers();
+    try {
+      await createRoot(async (dispose) => {
+        const [, actions] = createDashboardStore({ pollIntervalMs: 1000 });
+        fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+        fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+        fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+        fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+        fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+        await actions.bootstrap();
+        await vi.advanceTimersByTimeAsync(0);
+        actions.shutdown();
+        const callsAtShutdown = fetchConfigMock.mock.calls.length;
+        // Advance well past several polling ticks.
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(fetchConfigMock.mock.calls.length).toBe(callsAtShutdown);
+        dispose();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refreshTools() short-circuits when snapshot.is_initialized is false", async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: false }));
+      await actions.bootstrap();
+      // Try a direct refreshTools call — it must still no-op on greenfield.
+      await actions.refreshTools();
+      expect(fetchConfigMock).not.toHaveBeenCalled();
+      expect(state.tools.config.data).toBeNull();
+      actions.shutdown();
+      dispose();
+    });
+  });
+
+  it("loading flag flips true during the fetch and back to false after", async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      let resolveCfg: (v: ConfigSnapshot) => void = () => {};
+      fetchConfigMock.mockReturnValue(
+        new Promise<ConfigSnapshot>((resolve) => {
+          resolveCfg = resolve;
+        }),
+      );
+      const refreshPromise = actions.refreshToolsCell('config');
+      // Microtask flush — loading flag set immediately, before the promise resolves.
+      await Promise.resolve();
+      expect(state.tools.config.loading).toBe(true);
+      resolveCfg(makeConfigSnapshot());
+      await refreshPromise;
+      expect(state.tools.config.loading).toBe(false);
+      expect(state.tools.config.data).not.toBeNull();
       dispose();
     });
   });
