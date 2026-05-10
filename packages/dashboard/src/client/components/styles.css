@@ -1342,3 +1342,145 @@
     animation: none;
   }
 }
+
+/* ── v2.3 Phase 02: tools panels (Config / Doctor / Detect-phase / Update) ── */
+
+.tools-panel {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tools-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tools-refresh-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.tools-refresh-btn:hover:not([disabled]) {
+  background: rgba(0, 255, 65, 0.12);
+}
+
+.tools-refresh-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tools-panel-meta {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.6);
+}
+
+.tools-panel-banner {
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: rgba(255, 176, 0, 0.08);
+  border-left: 2px solid #ffb000;
+  font-size: 11px;
+  color: #ffb000;
+}
+
+.tools-panel-error {
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: rgba(255, 64, 64, 0.08);
+  border-left: 2px solid var(--danger-red);
+  font-size: 11px;
+  color: var(--danger-red);
+}
+
+.tools-panel-empty {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.55);
+  font-style: italic;
+}
+
+/* Config panel — JSON-tree renderer */
+
+.config-tree {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+
+.config-tree-key {
+  margin: 0;
+  color: rgba(0, 255, 65, 0.85);
+  font-weight: 600;
+}
+
+.config-tree-leaf,
+.config-tree dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.config-tree-value-bool {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.config-tree-value-bool-true {
+  background: rgba(0, 255, 65, 0.18);
+  color: var(--terminal-green);
+}
+
+.config-tree-value-bool-false {
+  background: rgba(255, 64, 64, 0.16);
+  color: var(--danger-red);
+}
+
+.config-tree-value-num {
+  color: #ffb000;
+}
+
+.config-tree-value-str {
+  color: rgba(0, 255, 65, 0.7);
+}
+
+.config-tree-value-null {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+.config-tree-nested {
+  margin: 2px 0;
+}
+
+.config-tree-nested-summary {
+  cursor: pointer;
+  color: rgba(0, 255, 65, 0.7);
+  font-size: 11px;
+}
+
+.config-tree-nested[open] > .config-tree-nested-summary {
+  margin-bottom: 4px;
+}
+
