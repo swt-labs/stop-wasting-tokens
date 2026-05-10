@@ -1568,3 +1568,159 @@
   min-width: 0;
 }
 
+/* Detect-phase panel — phase routing summary */
+
+.detect-phase-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detect-phase-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.detect-phase-pos {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--terminal-green);
+  letter-spacing: 1px;
+}
+
+.detect-phase-state {
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.7);
+  font-style: italic;
+}
+
+.detect-phase-slug {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.55);
+  word-break: break-word;
+}
+
+.detect-phase-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.detect-phase-stats li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  background: rgba(0, 255, 65, 0.04);
+  border-radius: 3px;
+}
+
+.detect-phase-stat-label {
+  font-size: 10px;
+  color: rgba(0, 255, 65, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detect-phase-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--terminal-green);
+}
+
+.detect-phase-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.detect-phase-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.detect-phase-chip-qa-passed,
+.detect-phase-chip-qa-remediated {
+  background: rgba(0, 255, 65, 0.12);
+  color: var(--terminal-green);
+}
+
+.detect-phase-chip-qa-pending,
+.detect-phase-chip-qa-remediating {
+  background: rgba(255, 176, 0, 0.14);
+  color: #ffb000;
+}
+
+.detect-phase-chip-qa-failed {
+  background: rgba(255, 64, 64, 0.14);
+  color: var(--danger-red);
+}
+
+.detect-phase-chip-attention {
+  background: rgba(255, 176, 0, 0.14);
+  color: #ffb000;
+}
+
+.detect-phase-chip-uat {
+  background: rgba(255, 64, 64, 0.14);
+  color: var(--danger-red);
+}
+
+/* Update panel — version status + disabled apply button */
+
+.update-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.update-status {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.update-status-up-to-date {
+  background: rgba(0, 255, 65, 0.1);
+  color: var(--terminal-green);
+}
+
+.update-status-outdated {
+  background: rgba(255, 176, 0, 0.12);
+  color: #ffb000;
+}
+
+.update-status-error {
+  background: rgba(255, 64, 64, 0.1);
+  color: var(--danger-red);
+}
+
+.update-apply-btn {
+  align-self: flex-start;
+  padding: 6px 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--terminal-green);
+  background: var(--terminal-green);
+  color: var(--deep-void);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.update-apply-btn[disabled] {
+  background: transparent;
+  color: rgba(0, 255, 65, 0.5);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
