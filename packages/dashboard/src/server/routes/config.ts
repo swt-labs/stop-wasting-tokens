@@ -35,11 +35,7 @@ export function registerConfigRoute(app: Hono, cwd: string, bus?: EventBus): voi
     try {
       raw = await readFile(cfgPath, 'utf8');
     } catch (err) {
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        (err as { code?: string }).code === 'ENOENT'
-      ) {
+      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
         const response: ConfigSnapshot = {
           is_initialized: false,
           config: DEFAULT_CONFIG,
@@ -98,10 +94,7 @@ export function registerConfigRoute(app: Hono, cwd: string, bus?: EventBus): voi
     const raw: unknown = await c.req.json().catch(() => null);
     const parsed = ConfigUpdateBodySchema.safeParse(raw);
     if (!parsed.success) {
-      return c.json(
-        { error: 'invalid_config_body', detail: parsed.error.flatten() },
-        400,
-      );
+      return c.json({ error: 'invalid_config_body', detail: parsed.error.flatten() }, 400);
     }
     let validated;
     try {

@@ -28,8 +28,7 @@ export const DoctorPanel: Component<DoctorPanelProps> = (props) => {
     const s = props.data?.overall_status;
     return s ? s.toUpperCase() : '—';
   };
-  const passCount = (): number =>
-    props.data?.checks.filter((c) => c.status === 'pass').length ?? 0;
+  const passCount = (): number => props.data?.checks.filter((c) => c.status === 'pass').length ?? 0;
   const totalCount = (): number => props.data?.checks.length ?? 0;
 
   return (

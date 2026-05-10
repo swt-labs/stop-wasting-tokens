@@ -141,9 +141,7 @@ function ConfigEditLeaf(props: {
         value={typeof props.value === 'string' ? props.value : ''}
         onChange={(e): void => props.onChange(e.currentTarget.value)}
       >
-        <For each={enumOptions}>
-          {(opt): JSX.Element => <option value={opt}>{opt}</option>}
-        </For>
+        <For each={enumOptions}>{(opt): JSX.Element => <option value={opt}>{opt}</option>}</For>
       </select>
     );
   }

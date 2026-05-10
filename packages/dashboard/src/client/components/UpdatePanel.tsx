@@ -142,11 +142,7 @@ export const UpdatePanel: Component<UpdatePanelProps> = (props) => {
                 <Show when={outcome()!.copyable_command}>
                   <div class="update-elevation">
                     <code class="update-elevation-cmd">{outcome()!.copyable_command}</code>
-                    <button
-                      type="button"
-                      class="update-copy-btn"
-                      onClick={() => void handleCopy()}
-                    >
+                    <button type="button" class="update-copy-btn" onClick={() => void handleCopy()}>
                       {copied() ? '✓ Copied' : 'Copy'}
                     </button>
                   </div>

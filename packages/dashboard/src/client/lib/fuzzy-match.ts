@@ -26,10 +26,7 @@ const MAX_BASE_SCORE = 100;
  * passes everything through with score 0 in the original input order
  * (lets the palette show "all verbs" before the user types).
  */
-export function fuzzyMatch(
-  query: string,
-  candidates: ReadonlyArray<string>,
-): FuzzyMatchResult[] {
+export function fuzzyMatch(query: string, candidates: ReadonlyArray<string>): FuzzyMatchResult[] {
   const q = query.trim().toLowerCase();
   if (q.length === 0) {
     return candidates.map((value) => ({ value, score: 0 }));

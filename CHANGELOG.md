@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.3.1
+
+### Patch Changes
+
+- v2.3.1 — Fix: dashboard daemon double-spawn / EADDRINUSE crash on
+  fresh installs of v2.3.0.
+
+  **Root cause.** v2.3.0's new `/api/update` route imported
+  `queryLatestVersion` + `CURRENT_VERSION` from `@swt-labs/cli`,
+  which caused tsup to inline the CLI's `packages/cli/src/index.ts`
+  into the `dashboard-server.mjs` bundle. That file has a
+  `if (isDirectInvocation()) main()` side-effect intended only for
+  the CLI binary. The check compared `argv[1]` to `import.meta.url`
+  via `realpathSync` — which incorrectly returned true inside the
+  daemon bundle because both resolved to `dashboard-server.mjs`'s
+  path. Result: when the daemon spawned, the CLI's `main()` also
+  ran inside the daemon process, dispatched the no-args default
+  (`dashboard` since v2.0), and tried to spawn a second daemon.
+  The recursive child crashed with `EADDRINUSE: 127.0.0.1:54320`,
+  taking the original listener with it. Symptoms: `swt dashboard`
+  prints "Listening on …" then immediately fails to respond on
+  `/api/health`; `install-smoke` CI fails on the v2.3.0 tag.
+
+  **Fix.** Tightened `isDirectInvocation()` in
+  `packages/cli/src/index.ts` to additionally check the binary's
+  basename (`cli.mjs` / `cli.js` / `index.ts`). The bundled
+  side-effect now only fires when the CLI binary itself is the
+  invocation entry, never when the dashboard bundle inlines this
+  module. One-line guard, no API change, no v2.3 feature regression.
+
+  **Also in this patch (CI hygiene):**
+  - `pnpm format` sweep across the v2.3 surface: ConfigPanel,
+    DetectPhasePanel, DoctorPanel, UpdatePanel, styles.css,
+    fuzzy-match.ts, config.ts, update.ts, config-route.test.ts,
+    dashboard-store.test.ts, update-apply-route.test.ts, plus
+    auto-gen reference docs (artifacts/cli/config mdx). Resolves
+    the `pnpm format:check` step that failed on v2.3.0's CI run
+    (15 files).
+
+  **Verification:**
+  - Local rebuild + `node dist/dashboard-server.mjs`: single
+    "Listening" line, daemon stays alive, `/api/health`,
+    `/api/config`, `/api/commands` all respond as expected.
+  - `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
+    `pnpm format:check` all clean.
+
 ## 2.3.0
 
 ### Minor Changes
@@ -47,7 +93,7 @@
     every other connected panel.
   - **Update apply** — the apply button is no longer disabled. POST
     `/api/update/apply` spawns `npm install -g
-    stop-wasting-tokens@latest` server-side with a 60 s timeout,
+stop-wasting-tokens@latest` server-side with a 60 s timeout,
     detects EACCES/EPERM elevation paths, and surfaces a copyable
     `sudo …` command (with a one-click Copy button) when the global
     npm path is root-owned.
@@ -67,13 +113,13 @@
     `UpdateApplyResponse`) and the `state.changed` `changed` enum
     extended with `'config'`.
   - `packages/dashboard/src/server/routes/{config,doctor,detect-phase,
-    update,commands}.ts` — five new GET routes plus POST
+update,commands}.ts` — five new GET routes plus POST
     `/api/config` and POST `/api/update/apply`.
   - `packages/dashboard/src/server/lib/{detect-codex,
-    command-registry-mirror}.ts` — hand-mirrored CLI helpers,
+command-registry-mirror}.ts` — hand-mirrored CLI helpers,
     same precedent as `lib/allowed-verbs.ts`.
   - `packages/dashboard/src/client/components/{ConfigPanel,
-    DoctorPanel,DetectPhasePanel,UpdatePanel,CommandPalette}.tsx` —
+DoctorPanel,DetectPhasePanel,UpdatePanel,CommandPalette}.tsx` —
     five new Solid components.
   - `packages/dashboard/src/client/state/dashboard-store.ts` — new
     `tools` sub-store with five cells, `applyConfigUpdate`,
@@ -113,7 +159,7 @@
   - `pnpm typecheck` (`tsc --build`) clean across the workspace.
   - `pnpm build` clean (`pnpm dashboard:client:build && tsup`).
   - `pnpm lint` clean — repo-wide eslint passes after `eslint
-    --fix` on the v2.3 routes/tests and a one-line `tsconfig.eslint.json`
+--fix` on the v2.3 routes/tests and a one-line `tsconfig.eslint.json`
     addition (`lib: ["ES2022", "DOM", "DOM.Iterable"]`) so client
     `.ts` files like `dashboard-store.ts` get the DOM types
     typescript-eslint needs.
