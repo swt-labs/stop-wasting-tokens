@@ -46,11 +46,7 @@ export const ALLOWED_NON_INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
  * (stdin, TTY, or both). Rejected from the command bar with
  * `routing_decision: 'rejected_interactive'`.
  */
-export const INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
-  'vibe',
-  'watch',
-  'dashboard',
-]);
+export const INTERACTIVE_VERBS: ReadonlySet<string> = new Set(['vibe', 'watch', 'dashboard']);
 
 /**
  * Union of all known verbs (allowlist + interactive). Everything else is

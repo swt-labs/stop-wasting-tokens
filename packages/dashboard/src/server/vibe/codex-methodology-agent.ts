@@ -1,10 +1,6 @@
 import { spawn as childSpawn } from 'node:child_process';
 
-import {
-  createLineBuffer,
-  formatUserReplyMarker,
-  type ParsedMarker,
-} from './markers.js';
+import { createLineBuffer, formatUserReplyMarker, type ParsedMarker } from './markers.js';
 import type {
   AskUserReply,
   AskUserRequest,
@@ -184,9 +180,7 @@ export class CodexMethodologyAgent implements MethodologyAgent {
     }
     const tail = stderrTail.slice(-this.#stderrTail).join('\n').trim();
     const reason =
-      signal !== null
-        ? `codex killed by signal ${signal}`
-        : `codex exited with code ${exitCode}`;
+      signal !== null ? `codex killed by signal ${signal}` : `codex exited with code ${exitCode}`;
     return {
       success: false,
       error: tail.length > 0 ? `${reason}: ${tail}` : reason,

@@ -7,10 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createEventBus, type EventBus } from '../src/server/event-bus.js';
 import { registerVibeRoutes } from '../src/server/routes/vibe.js';
-import {
-  createSessionRegistry,
-  type SessionRegistry,
-} from '../src/server/vibe/session.js';
+import { createSessionRegistry, type SessionRegistry } from '../src/server/vibe/session.js';
 
 let app: Hono;
 let registry: SessionRegistry;
@@ -30,10 +27,7 @@ afterEach(() => {
   rmSync(planning_path, { recursive: true, force: true });
 });
 
-async function postJSON(
-  path: string,
-  body: unknown,
-): Promise<{ status: number; body: any }> {
+async function postJSON(path: string, body: unknown): Promise<{ status: number; body: any }> {
   const res = await app.request(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -179,9 +173,7 @@ describe('POST /api/vibe/:session_id/reply', () => {
       answer: { kind: 'permission', decision: 'session' },
     });
     expect(status).toBe(200);
-    expect(registry.get(session_id)!.permission_allowlist.has('shell::npm install')).toBe(
-      true,
-    );
+    expect(registry.get(session_id)!.permission_allowlist.has('shell::npm install')).toBe(true);
   });
 
   it('end-to-end: POST /api/vibe → emitPrompt → POST /reply → state.running', async () => {

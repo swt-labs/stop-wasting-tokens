@@ -50,8 +50,7 @@ export type SpawnFn = (
   options: { stdio: 'inherit' },
 ) => SpawnLike;
 
-const defaultSpawnSync: SpawnFn = (cmd, args, options) =>
-  nodeSpawnSync(cmd, [...args], options);
+const defaultSpawnSync: SpawnFn = (cmd, args, options) => nodeSpawnSync(cmd, [...args], options);
 
 export interface UpdateHandlerOptions {
   readonly fetchImpl?: typeof fetch;
@@ -199,9 +198,7 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
           io.stdout.write(`✓ swt is up-to-date (v${result.current})\n`);
           break;
         case 'outdated':
-          io.stdout.write(
-            `↑ Update available: v${result.current} → v${result.latest}\n`,
-          );
+          io.stdout.write(`↑ Update available: v${result.current} → v${result.latest}\n`);
           if (shouldApply) {
             const apply = applyUpdate(io, spawnFn);
             if (apply.ok) {

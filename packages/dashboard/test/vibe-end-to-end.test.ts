@@ -36,10 +36,7 @@ async function readUntilEvent(
     const { value, done } = await Promise.race([
       reader.read(),
       new Promise<{ value: undefined; done: true }>((resolve) =>
-        setTimeout(
-          () => resolve({ value: undefined, done: true }),
-          Math.max(remaining, 1),
-        ),
+        setTimeout(() => resolve({ value: undefined, done: true }), Math.max(remaining, 1)),
       ),
     ]);
     if (done) break;
@@ -102,11 +99,7 @@ describe('vibe end-to-end through HTTP + SSE + ScriptedAgent', () => {
       const startJson = (await startRes.json()) as { session_id: string };
       const sessionId = startJson.session_id;
 
-      const promptEvt = await readUntilEvent(
-        reader,
-        (e) => e.event === 'agent.prompt',
-        1000,
-      );
+      const promptEvt = await readUntilEvent(reader, (e) => e.event === 'agent.prompt', 1000);
       const promptData = JSON.parse(promptEvt.data ?? '{}') as {
         prompt_id: string;
         question: string;

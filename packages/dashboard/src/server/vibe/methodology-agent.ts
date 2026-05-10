@@ -68,8 +68,10 @@ export interface MethodologyAgent {
  * `/api/vibe` route swap implementations between test (`ScriptedAgent`)
  * and production (`CodexMethodologyAgent`) without import cycles.
  */
-export type MethodologyAgentFactory = (input: { prompt: string; project_root: string }) =>
-  MethodologyAgent;
+export type MethodologyAgentFactory = (input: {
+  prompt: string;
+  project_root: string;
+}) => MethodologyAgent;
 
 // ──────────────────────────────────────────────────────────────────────────
 // ScriptedAgent — test-double

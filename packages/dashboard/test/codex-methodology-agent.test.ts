@@ -8,13 +8,8 @@ import {
   type SpawnedProcess,
   type SpawnFn,
 } from '../src/server/vibe/codex-methodology-agent.js';
-import {
-  formatAskUserMarker,
-} from '../src/server/vibe/markers.js';
-import type {
-  AskUserReply,
-  AskUserRequest,
-} from '../src/server/vibe/methodology-agent.js';
+import { formatAskUserMarker } from '../src/server/vibe/markers.js';
+import type { AskUserReply, AskUserRequest } from '../src/server/vibe/methodology-agent.js';
 
 interface FakeChild {
   stdout: Readable;
@@ -314,9 +309,7 @@ describe('CodexMethodologyAgent — stdout marker round-trip', () => {
     await Promise.resolve();
     // A USER_REPLY arriving on stdout would be a wire-format violation;
     // the agent should drop it silently without invoking askUser.
-    fakeChildRef!.emitStdout(
-      '<<<USER_REPLY:{"kind":"free_form","text":"echo"}>>>\n',
-    );
+    fakeChildRef!.emitStdout('<<<USER_REPLY:{"kind":"free_form","text":"echo"}>>>\n');
     await new Promise((r) => setTimeout(r, 5));
     expect(askUserCalls).toHaveLength(0);
     fakeChildRef!.emitExit(0);
