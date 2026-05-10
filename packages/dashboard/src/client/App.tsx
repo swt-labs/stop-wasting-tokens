@@ -1,9 +1,10 @@
 import Resizable from '@corvu/resizable';
-import { Show, createMemo, onCleanup, onMount, type Component } from 'solid-js';
+import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
 import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
+import { CommandPalette } from './components/CommandPalette.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
 import { CostPanel } from './components/CostPanel.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
@@ -19,12 +20,31 @@ import { createDashboardStore } from './state/dashboard-store.js';
 
 export const App: Component = () => {
   const [state, actions] = createDashboardStore();
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+
+  // v2.3 Phase 03: cmd-K (mac) / ctrl-K (linux/win) opens the command
+  // palette. The browser may capture cmd-K in some keyboard layouts
+  // (e.g. focus URL bar); preventDefault overrides that within the
+  // dashboard window. Removed in onCleanup so HMR doesn't leak listeners.
+  const isPaletteShortcut = (e: KeyboardEvent): boolean =>
+    e.key === 'k' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
+
+  const handleKeydown = (e: KeyboardEvent): void => {
+    if (isPaletteShortcut(e)) {
+      e.preventDefault();
+      setPaletteOpen((open) => !open);
+    }
+  };
 
   onMount(() => {
     void actions.bootstrap();
+    window.addEventListener('keydown', handleKeydown);
   });
 
-  onCleanup(() => actions.shutdown());
+  onCleanup(() => {
+    actions.shutdown();
+    window.removeEventListener('keydown', handleKeydown);
+  });
 
   const phases = createMemo(() => state.snapshot?.phases ?? []);
   const selectedPhaseSlug = createMemo(() => state.selectedArtifact?.phase ?? null);
@@ -311,6 +331,14 @@ export const App: Component = () => {
         submitting={state.uatSubmitting}
         onSubmit={(result, note) => void actions.submitUatCheckpoint(result, note)}
         onClose={() => actions.closeUatModal()}
+      />
+      <CommandPalette
+        open={paletteOpen()}
+        onClose={() => setPaletteOpen(false)}
+        onRun={async (verb) => {
+          await actions.runCommand(verb);
+        }}
+        verbs={state.tools.commands.data?.verbs ?? []}
       />
     </div>
   );

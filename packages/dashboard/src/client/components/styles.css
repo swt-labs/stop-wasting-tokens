@@ -1845,3 +1845,130 @@
   background: rgba(255, 64, 64, 0.12);
 }
 
+/* v2.3 Phase 03: cmd-K command palette */
+
+.command-palette-backdrop {
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+
+.command-palette {
+  width: min(640px, 90vw);
+  background: var(--deep-void);
+  border: 1px solid rgba(0, 255, 65, 0.4);
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+
+.command-palette-input {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 14px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+  color: var(--terminal-green);
+  padding: 12px 16px;
+  outline: none;
+}
+
+.command-palette-input::placeholder {
+  color: rgba(0, 255, 65, 0.4);
+}
+
+.command-palette-input:focus {
+  border-bottom-color: var(--terminal-green);
+}
+
+.command-palette-results {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.command-palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.command-palette-row {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr max-content;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.command-palette-row.is-selected {
+  background: rgba(0, 255, 65, 0.12);
+}
+
+.command-palette-row[data-safe='false'] {
+  opacity: 0.7;
+}
+
+.command-palette-name {
+  color: var(--terminal-green);
+  font-weight: 700;
+}
+
+.command-palette-usage {
+  color: rgba(0, 255, 65, 0.55);
+  font-size: 11px;
+}
+
+.command-palette-desc {
+  color: rgba(0, 255, 65, 0.7);
+  font-size: 11px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.command-palette-flag {
+  color: rgba(255, 176, 0, 0.85);
+  font-size: 11px;
+}
+
+.command-palette-empty {
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  color: rgba(0, 255, 65, 0.5);
+  font-style: italic;
+}
+
+.command-palette-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-top: 1px solid rgba(0, 255, 65, 0.2);
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.6);
+}
+
+.command-palette-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.command-palette-toggle input {
+  accent-color: var(--terminal-green);
+  cursor: pointer;
+}
+
+.command-palette-hint {
+  font-size: 10px;
+  color: rgba(0, 255, 65, 0.4);
+}
+

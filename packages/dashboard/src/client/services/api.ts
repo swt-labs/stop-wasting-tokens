@@ -1,5 +1,6 @@
 import {
   CommandBodySchema,
+  CommandRegistrySchema,
   CommandResponseSchema,
   ConfigSnapshotSchema,
   ConfigUpdateBodySchema,
@@ -19,7 +20,9 @@ import {
   VibeStartBodySchema,
   VibeStartResponseSchema,
   type CommandBody,
+  type CommandRegistry,
   type CommandResponse,
+  type CommandSpec,
   type ConfigSnapshot,
   type ConfigUpdateBody,
   type ConfigUpdateResponse,
@@ -41,7 +44,9 @@ import {
 
 export type {
   CommandBody,
+  CommandRegistry,
   CommandResponse,
+  CommandSpec,
   ConfigSnapshot,
   ConfigUpdateBody,
   ConfigUpdateResponse,
@@ -115,6 +120,11 @@ export async function fetchDetectPhase(): Promise<DetectPhaseReport> {
 export async function fetchUpdate(): Promise<UpdateReport> {
   const raw = await jsonRequest<unknown>('/api/update');
   return UpdateReportSchema.parse(raw);
+}
+
+export async function fetchCommands(): Promise<CommandRegistry> {
+  const raw = await jsonRequest<unknown>('/api/commands');
+  return CommandRegistrySchema.parse(raw);
 }
 
 /* ── v2.3 Phase 03: mutation wrappers ─────────────────────────────────
