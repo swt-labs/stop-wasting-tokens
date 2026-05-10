@@ -1,5 +1,138 @@
 # Changelog
 
+## 2.3.0
+
+### Minor Changes
+
+- v2.3.0 — Dashboard 1:1 CLI parity panels + cmd-K command palette.
+  The dashboard now exposes the four read-only CLI surfaces (`config`,
+  `doctor`, `detect-phase`, `update`) as live panels, lets you edit
+  `.swt-planning/config.json` and apply CLI updates without dropping
+  into a terminal, and adds a cmd-K palette so every dashboard-safe
+  CLI verb is one keystroke away.
+
+  **Dashboard CLI parity panels.** A new fifth column ("Tools") on the
+  right edge of the dashboard renders four panels backed by the new
+  HTTP routes:
+  - **Config** mirrors `swt config show` — full `.swt-planning/config.json`
+    tree, with the source (`file` / `default`) and `is_initialized` flag
+    surfaced explicitly. Greenfield daemons render the DEFAULT_CONFIG
+    preview rather than blanking out.
+  - **Doctor** mirrors `swt doctor` — Node version check, Codex CLI
+    detection (with a 3 s spawn cap), and `.swt-planning/` presence,
+    aggregated into an `overall_status` of `pass` / `warn` / `fail`.
+  - **Detect-Phase** mirrors `swt detect-phase` JSON mode — full
+    `PhaseDetectResult` from `@swt-labs/methodology` with an
+    `is_initialized` envelope flag for greenfield branching.
+  - **Update** mirrors `swt update --json` — current vs. latest npm
+    version with the existing 24 h on-disk cache. Network failures
+    fold into `latest_version: null + error: <message>` instead of
+    crashing.
+
+  Layout-storage bumps to v2 (5-column main + a separate `tools`
+  array). Polling lifecycle is 60 s with a `document.visibilitychange`
+  pause so backgrounded tabs don't churn.
+
+  **Mutations + cmd-K palette.** The Config and Update panels gain
+  user-initiated mutations:
+  - **Config edit** — Edit toggles the panel into a per-leaf form
+    with type-aware inputs (booleans → checkboxes, numbers →
+    number-inputs, strings → text inputs, eight enum keys
+    [`effort`, `autonomy`, `verification_tier`, `model_profile`,
+    `backend`, `prefer_teams`, `planning_tracking`, `auto_push`] →
+    `<select>` dropdowns). Save POSTs to `/api/config`, which
+    validates structurally (Zod) + semantically (`parseConfig` from
+    `@swt-labs/core`) and rewrites the file atomically. A
+    `state.changed` SSE event with `changed: ['config']` notifies
+    every other connected panel.
+  - **Update apply** — the apply button is no longer disabled. POST
+    `/api/update/apply` spawns `npm install -g
+    stop-wasting-tokens@latest` server-side with a 60 s timeout,
+    detects EACCES/EPERM elevation paths, and surfaces a copyable
+    `sudo …` command (with a one-click Copy button) when the global
+    npm path is root-owned.
+  - **cmd-K command palette** — `cmd-K` (mac) / `ctrl-K` (linux/win)
+    opens a centered modal with a search input. Hand-rolled fuzzy
+    match (subsequence + consecutive bonus) ranks the full CLI verb
+    registry from `/api/commands`; dashboard-safe verbs run inline
+    via the existing `/api/command` route, while stubs and
+    interactive verbs (`vibe`, `watch`, `dashboard`) are dimmed and
+    hidden by default behind a "Show all" toggle. ↑/↓/Enter/Esc
+    keyboard nav throughout.
+
+  **What changed under the hood:**
+  - `packages/dashboard-core` — seven new schemas
+    (`ConfigSnapshot`, `DoctorReport`, `DetectPhaseReport`,
+    `UpdateReport`, `CommandRegistry`, `ConfigUpdateBody/Response`,
+    `UpdateApplyResponse`) and the `state.changed` `changed` enum
+    extended with `'config'`.
+  - `packages/dashboard/src/server/routes/{config,doctor,detect-phase,
+    update,commands}.ts` — five new GET routes plus POST
+    `/api/config` and POST `/api/update/apply`.
+  - `packages/dashboard/src/server/lib/{detect-codex,
+    command-registry-mirror}.ts` — hand-mirrored CLI helpers,
+    same precedent as `lib/allowed-verbs.ts`.
+  - `packages/dashboard/src/client/components/{ConfigPanel,
+    DoctorPanel,DetectPhasePanel,UpdatePanel,CommandPalette}.tsx` —
+    five new Solid components.
+  - `packages/dashboard/src/client/state/dashboard-store.ts` — new
+    `tools` sub-store with five cells, `applyConfigUpdate`,
+    `applyUpdate`, 60 s polling lifecycle with visibility pause,
+    cmd-K `paletteOpen` wiring, and the `state.changed` `config`
+    branch.
+  - `packages/dashboard/src/client/lib/fuzzy-match.ts` — hand-rolled
+    subsequence matcher with consecutive-character bonus.
+  - `packages/dashboard/src/client/lib/layout-storage.ts` — bumped
+    to v2 (5-column `main` + `tools: number[]`).
+  - `packages/cli/src/index.ts` — public re-exports for
+    `queryLatestVersion`, `defaultCachePath`, `CURRENT_VERSION`,
+    `RegistryResult`, `RegistryStatus`, `QueryOptions` so the daemon
+    can reuse the CLI's update-check primitives.
+  - `packages/dashboard/tsconfig.json` — project references for
+    `core`, `methodology`, `cli` alongside `dashboard-core`.
+  - `packages/dashboard/package.json` — declared
+    `@swt-labs/{cli,core,methodology}` as `workspace:*` deps.
+
+  **What did NOT change:**
+  - The terminal-side `swt` CLI surface for power users — every
+    verb still works as documented.
+  - `POST /api/init` / `POST /api/command` request and response
+    shapes and validation rules.
+  - Vibe + permission boundary — unchanged from v2.0.
+  - Default `swt` no-args dashboard launch + `SWT_NO_DASHBOARD=1`
+    escape hatch — unchanged.
+
+  **Verification:**
+  - ~65 net-new vitest cases across the dashboard package
+    (route tests for all five new routes + the two new mutations,
+    the fuzzy-match unit, and `tools` sub-store coverage in
+    `dashboard-store.test.ts`). All green.
+  - `tsc --noEmit` clean on the server tsconfig. The client
+    tsconfig has a single pre-existing TS2322 in `LogPanel.tsx`
+    inherited from v2.1.0's prettier sweep — unrelated to v2.3.
+  - `idiot_check.py` Track A: D7-D11 added for the five new HTTP
+    endpoints. Run against the published v2.3.0 binary as part of
+    the post-publish verification.
+
+  **Permission gate deviation (documented).** Phase 03's POST
+  routes (`/api/config`, `/api/update/apply`) intentionally do NOT
+  route through `DashboardPermissionGate`. The gate (250 LOC at
+  `packages/dashboard/src/server/vibe/permission-gate.ts`) is
+  session-keyed for vibe-spawned agents and emits prompts via
+  `registry.emitPrompt(session_id, …)`. Direct UI button-click
+  mutations have no `session_id`. The new POST routes follow the
+  existing `/api/init` / `/api/command` pattern (localhost-only
+  daemon + user-initiated). A future milestone wanting gated UI
+  mutations should ship a separate `UiPermissionGate` class with
+  its own protocol.
+
+  **Out of scope for v2.3** (deferred to v2.4+):
+  - CLI surface parity beyond the four read panels + palette
+    (no `swt phase` / `swt audit` panels yet).
+  - Mobile-friendly dashboard layout (desktop-only by design).
+  - Multi-session concurrency UI.
+  - Signed-tag verification panel.
+
 ## 2.2.0
 
 ### Minor Changes
