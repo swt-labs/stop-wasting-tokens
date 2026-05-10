@@ -14,6 +14,7 @@ import { registerArtifactRoute } from './routes/artifact.js';
 import { registerCommandRoute } from './routes/command.js';
 import { registerConfigRoute } from './routes/config.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
+import { registerDetectPhaseRoute } from './routes/detect-phase.js';
 import { registerDoctorRoute } from './routes/doctor.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
@@ -152,6 +153,7 @@ export function createApp(
   // and command registry all work without `.swt-planning/`.
   registerConfigRoute(app, cwd);
   registerDoctorRoute(app, cwd);
+  registerDetectPhaseRoute(app, cwd);
   if (projectRoot) {
     registerArtifactRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
