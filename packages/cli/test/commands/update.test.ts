@@ -69,7 +69,7 @@ describe('updateCommand', () => {
     expect(stdout.output).toContain('v0.1.0');
   });
 
-  it('reports outdated with all three upgrade commands when current < latest', async () => {
+  it('reports outdated with all three upgrade commands when current < latest (--check)', async () => {
     const fetchImpl = makeFetch({
       ok: true,
       status: 200,
@@ -77,14 +77,115 @@ describe('updateCommand', () => {
     });
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
     const { stdout, io } = makeIO();
-    const exit = await handler(parsedFlags({}), io);
+    const exit = await handler(parsedFlags({ check: true }), io);
     expect(exit).toBe(0);
     expect(stdout.output).toContain('Update available');
     expect(stdout.output).toContain('v0.1.0');
     expect(stdout.output).toContain('v0.2.0');
-    expect(stdout.output).toContain('npm install -g @swt-labs/cli@latest');
-    expect(stdout.output).toContain('pnpm add -g @swt-labs/cli@latest');
-    expect(stdout.output).toContain('bun add -g @swt-labs/cli@latest');
+    expect(stdout.output).toContain('npm install -g stop-wasting-tokens@latest');
+    expect(stdout.output).toContain('pnpm add -g stop-wasting-tokens@latest');
+    expect(stdout.output).toContain('bun add -g stop-wasting-tokens@latest');
+  });
+
+  it('default (no --check) auto-applies via npm and reports success', async () => {
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.2.0' }),
+    });
+    const spawnCalls: Array<{ cmd: string; args: readonly string[] }> = [];
+    const spawnSync = ((cmd: string, args: readonly string[]) => {
+      spawnCalls.push({ cmd, args });
+      return { status: 0, signal: null };
+    }) as Parameters<typeof updateHandler>[0]['spawnSync'];
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      currentVersion: '0.1.0',
+      spawnSync,
+    });
+    const { stdout, io } = makeIO();
+    const exit = await handler(parsedFlags({}), io);
+    expect(exit).toBe(0);
+    expect(spawnCalls).toHaveLength(1);
+    expect(spawnCalls[0]?.cmd).toBe('npm');
+    expect(spawnCalls[0]?.args).toEqual(['install', '-g', 'stop-wasting-tokens@latest']);
+    expect(stdout.output).toContain('Upgraded to v0.2.0 via npm');
+  });
+
+  it('falls back to pnpm when npm is missing (ENOENT)', async () => {
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.2.0' }),
+    });
+    const spawnCalls: string[] = [];
+    const spawnSync = ((cmd: string) => {
+      spawnCalls.push(cmd);
+      if (cmd === 'npm') {
+        const err = new Error('npm not found') as NodeJS.ErrnoException;
+        err.code = 'ENOENT';
+        return { status: null, signal: null, error: err };
+      }
+      return { status: 0, signal: null };
+    }) as Parameters<typeof updateHandler>[0]['spawnSync'];
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      currentVersion: '0.1.0',
+      spawnSync,
+    });
+    const { stdout, io } = makeIO();
+    const exit = await handler(parsedFlags({}), io);
+    expect(exit).toBe(0);
+    expect(spawnCalls).toEqual(['npm', 'pnpm']);
+    expect(stdout.output).toContain('Upgraded to v0.2.0 via pnpm');
+  });
+
+  it('returns USAGE_ERROR when no package manager is available', async () => {
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.2.0' }),
+    });
+    const spawnSync = (() => {
+      const err = new Error('not found') as NodeJS.ErrnoException;
+      err.code = 'ENOENT';
+      return { status: null, signal: null, error: err };
+    }) as Parameters<typeof updateHandler>[0]['spawnSync'];
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      currentVersion: '0.1.0',
+      spawnSync,
+    });
+    const { stderr, io } = makeIO();
+    const exit = await handler(parsedFlags({}), io);
+    expect(exit).toBe(1);
+    expect(stderr.output).toContain('no package manager found');
+    expect(stderr.output).toContain('npm install -g stop-wasting-tokens@latest');
+  });
+
+  it('--json mode skips auto-apply (script-safe behavior)', async () => {
+    const fetchImpl = makeFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.2.0' }),
+    });
+    let spawnCallCount = 0;
+    const spawnSync = (() => {
+      spawnCallCount++;
+      return { status: 0, signal: null };
+    }) as Parameters<typeof updateHandler>[0]['spawnSync'];
+    const handler = updateHandler({
+      fetchImpl,
+      cachePath,
+      currentVersion: '0.1.0',
+      spawnSync,
+    });
+    const { io } = makeIO();
+    await handler(parsedFlags({ json: true }), io);
+    expect(spawnCallCount).toBe(0); // never auto-applies in JSON mode
   });
 
   it('warns to stderr when registry is unreachable (default warn-only)', async () => {
@@ -145,7 +246,7 @@ describe('updateCommand', () => {
     writeFileSync(
       cachePath,
       JSON.stringify({
-        '@swt-labs/cli': {
+        'stop-wasting-tokens': {
           at: Date.now(),
           value: { current: '0.1.0', latest: '0.1.0', status: 'up-to-date' },
         },
@@ -176,8 +277,8 @@ describe('updateCommand', () => {
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
     await handler(parsedFlags({ json: true }), makeIO().io);
     const cache = JSON.parse(readFileSync(cachePath, 'utf8'));
-    expect(cache['@swt-labs/cli'].value.latest).toBe('0.3.0');
-    expect(cache['@swt-labs/cli'].value.status).toBe('outdated');
+    expect(cache['stop-wasting-tokens'].value.latest).toBe('0.3.0');
+    expect(cache['stop-wasting-tokens'].value.status).toBe('outdated');
   });
 
   it('marketplace endpoint configured + same version → annotation in plain output', async () => {
