@@ -1,6 +1,7 @@
 import type {
   AgentPromptContext,
   AgentPromptOption,
+  CommandRegistry,
   ConfigSnapshot,
   DetectPhaseReport,
   DoctorReport,
@@ -13,6 +14,7 @@ import { createStore } from 'solid-js/store';
 
 import {
   fetchArtifactRendered,
+  fetchCommands,
   fetchConfig,
   fetchDetectPhase,
   fetchDoctor,
@@ -107,6 +109,13 @@ export interface ToolsState {
   doctor: ToolsCellState<DoctorReport>;
   detectPhase: ToolsCellState<DetectPhaseReport>;
   update: ToolsCellState<UpdateReport>;
+  /**
+   * v2.3 Phase 03: the cmd-K command palette consumes this cell to
+   * populate its fuzzy-search list. Polled like the other cells but
+   * the palette also reads it on every open in case the panel hasn't
+   * been visible for a while.
+   */
+  commands: ToolsCellState<CommandRegistry>;
 }
 
 export type ToolsCellKey = keyof ToolsState;
@@ -222,6 +231,7 @@ export function createDashboardStore(
       doctor: emptyToolsCell<DoctorReport>(),
       detectPhase: emptyToolsCell<DetectPhaseReport>(),
       update: emptyToolsCell<UpdateReport>(),
+      commands: emptyToolsCell<CommandRegistry>(),
     },
   });
 
@@ -344,14 +354,16 @@ export function createDashboardStore(
     doctor: typeof fetchDoctor;
     detectPhase: typeof fetchDetectPhase;
     update: typeof fetchUpdate;
+    commands: typeof fetchCommands;
   };
   const toolsFetchers: ToolsFetcher = {
     config: fetchConfig,
     doctor: fetchDoctor,
     detectPhase: fetchDetectPhase,
     update: fetchUpdate,
+    commands: fetchCommands,
   };
-  const TOOLS_KEYS: ToolsCellKey[] = ['config', 'doctor', 'detectPhase', 'update'];
+  const TOOLS_KEYS: ToolsCellKey[] = ['config', 'doctor', 'detectPhase', 'update', 'commands'];
 
   const refreshToolsCell = async (key: ToolsCellKey): Promise<void> => {
     setState('tools', key, 'loading', true);

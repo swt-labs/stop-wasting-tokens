@@ -22,6 +22,7 @@ const fetchConfigMock = vi.fn();
 const fetchDoctorMock = vi.fn();
 const fetchDetectPhaseMock = vi.fn();
 const fetchUpdateMock = vi.fn();
+const fetchCommandsMock = vi.fn();
 const postConfigMock = vi.fn();
 const postUpdateApplyMock = vi.fn();
 
@@ -37,6 +38,7 @@ vi.mock('../src/client/services/api.js', () => ({
   fetchDoctor: (...args: unknown[]) => fetchDoctorMock(...args),
   fetchDetectPhase: (...args: unknown[]) => fetchDetectPhaseMock(...args),
   fetchUpdate: (...args: unknown[]) => fetchUpdateMock(...args),
+  fetchCommands: (...args: unknown[]) => fetchCommandsMock(...args),
   postConfig: (...args: unknown[]) => postConfigMock(...args),
   postUpdateApply: (...args: unknown[]) => postUpdateApplyMock(...args),
 }));
@@ -75,6 +77,7 @@ beforeEach(() => {
   fetchDoctorMock.mockReset();
   fetchDetectPhaseMock.mockReset();
   fetchUpdateMock.mockReset();
+  fetchCommandsMock.mockReset();
   postConfigMock.mockReset();
   postUpdateApplyMock.mockReset();
   openSseConnectionMock.mockReturnValue({ close: () => {} });
@@ -521,7 +524,7 @@ function makeUpdateReport(): UpdateReport {
 }
 
 describe('tools sub-state', () => {
-  it('initializes all four cells empty', async () => {
+  it('initializes all five cells empty (config, doctor, detectPhase, update, commands)', async () => {
     await createRoot(async (dispose) => {
       const [state] = createDashboardStore();
       expect(state.tools.config.data).toBeNull();
@@ -531,11 +534,12 @@ describe('tools sub-state', () => {
       expect(state.tools.doctor.data).toBeNull();
       expect(state.tools.detectPhase.data).toBeNull();
       expect(state.tools.update.data).toBeNull();
+      expect(state.tools.commands.data).toBeNull();
       dispose();
     });
   });
 
-  it('bootstrap on initialized snapshot triggers refreshTools (all 4 fetches fire)', async () => {
+  it('bootstrap on initialized snapshot triggers refreshTools (all 5 cells fetch)', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
@@ -543,6 +547,18 @@ describe('tools sub-state', () => {
       fetchDoctorMock.mockResolvedValue(makeDoctorReport());
       fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
       fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      fetchCommandsMock.mockResolvedValue({
+        verbs: [
+          {
+            name: 'doctor',
+            description: 'Check prereqs',
+            usage: null,
+            category: 'core',
+            dashboard_safe: true,
+          },
+        ],
+        generated_at: '2026-05-10T12:00:00.000Z',
+      });
       await actions.bootstrap();
       // Wait one microtask for the void refreshTools() Promise chain to settle.
       await Promise.resolve();
@@ -551,7 +567,9 @@ describe('tools sub-state', () => {
       expect(fetchDoctorMock).toHaveBeenCalledTimes(1);
       expect(fetchDetectPhaseMock).toHaveBeenCalledTimes(1);
       expect(fetchUpdateMock).toHaveBeenCalledTimes(1);
+      expect(fetchCommandsMock).toHaveBeenCalledTimes(1);
       expect(state.tools.config.data).not.toBeNull();
+      expect(state.tools.commands.data?.verbs).toHaveLength(1);
       expect(state.tools.config.lastFetched).toBeTypeOf('string');
       actions.shutdown();
       dispose();
