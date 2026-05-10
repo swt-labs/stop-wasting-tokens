@@ -100,5 +100,14 @@ export const SnapshotSchema = z.object({
    * longer load-bearing.
    */
   is_initialized: z.boolean(),
+  /**
+   * True when the daemon's cwd has source files / a project structure but
+   * no `.swt-planning/` yet (e.g., user ran `swt` inside an existing repo
+   * that's never been touched by SWT). Lets the SPA show a brownfield-
+   * aware InitScreen instead of the pure-greenfield "name a fresh project"
+   * variant. Optional for back-compat with v2.1.x daemons that don't emit
+   * it; clients should default to false.
+   */
+  brownfield_detected: z.boolean().optional(),
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;

@@ -133,19 +133,20 @@ export function createApp(
       void greenfieldWatcher.close();
     });
   }
-  // Snapshot route registers unconditionally with a getter so a post-init
-  // snapshotter is picked up on the next request without re-registration.
-  // When the getter returns null, the route serves a synthetic
-  // `is_initialized: false` snapshot.
-  registerSnapshotRoute(app, () => snapshotter);
-  if (projectRoot) {
-    registerArtifactRoute(app, projectRoot);
-    registerUatCheckpointRoute(app, projectRoot);
-  }
   // Init + command always register — they're how a greenfield user goes from
   // "no .swt-planning/" to a connected dashboard, and how power users invoke
   // arbitrary `swt` verbs from the TopBar input.
   const cwd = projectRoot ?? process.cwd();
+  // Snapshot route registers unconditionally with a getter so a post-init
+  // snapshotter is picked up on the next request without re-registration.
+  // When the getter returns null, the route serves a synthetic
+  // `is_initialized: false` snapshot. The cwd argument lets the route
+  // detect brownfield-vs-pure-greenfield once at registration.
+  registerSnapshotRoute(app, () => snapshotter, cwd);
+  if (projectRoot) {
+    registerArtifactRoute(app, projectRoot);
+    registerUatCheckpointRoute(app, projectRoot);
+  }
   registerInitRoute(
     app,
     cwd,
