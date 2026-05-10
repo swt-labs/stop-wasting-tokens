@@ -246,6 +246,7 @@ export const App: Component = () => {
                     error={state.tools.config.error}
                     lastFetched={state.tools.config.lastFetched}
                     onRefresh={() => void actions.refreshToolsCell('config')}
+                    onSave={(config) => actions.applyConfigUpdate({ config })}
                   />
                 </Resizable.Panel>
                 <Resizable.Handle

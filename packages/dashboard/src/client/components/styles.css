@@ -1484,6 +1484,87 @@
   margin-bottom: 4px;
 }
 
+/* v2.3 Phase 03: Config edit form */
+
+.tools-panel-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.config-edit-btn,
+.config-save-btn,
+.config-cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.config-edit-btn:hover:not([disabled]),
+.config-save-btn:hover:not([disabled]),
+.config-cancel-btn:hover:not([disabled]) {
+  background: rgba(0, 255, 65, 0.12);
+}
+
+.config-save-btn {
+  background: rgba(0, 255, 65, 0.18);
+}
+
+.config-cancel-btn {
+  border-color: rgba(255, 64, 64, 0.4);
+  color: rgba(255, 128, 128, 0.85);
+}
+
+.config-edit-btn[disabled],
+.config-save-btn[disabled],
+.config-cancel-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.config-edit-input,
+.config-edit-select {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.config-edit-input:focus,
+.config-edit-select:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.config-edit-input[disabled],
+.config-edit-select[disabled] {
+  opacity: 0.5;
+}
+
+.config-edit-toggle {
+  accent-color: var(--terminal-green);
+  cursor: pointer;
+}
+
+.config-edit-toggle[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* Doctor panel — per-check status rows */
 
 .doctor-status-pill {
