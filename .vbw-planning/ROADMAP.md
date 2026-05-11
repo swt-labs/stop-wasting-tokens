@@ -8,14 +8,19 @@
 
 ## Progress
 
-| Phase | Status | Plans | Tasks | Commits |
-|-------|--------|-------|-------|---------|
-| 1 (M1 Foundation) | Pending | 0 | 0 | 0 |
-| 2 (M2 Single-agent) | Pending | 0 | 0 | 0 |
-| 3 (M3 Worktree dispatcher) | Pending | 0 | 0 | 0 |
-| 4 (M4 Token meter & cache discipline) | Pending | 0 | 0 | 0 |
-| 5 (M5 Multi-provider) | Pending | 0 | 0 | 0 |
-| 6 (M6 Decommission, benchmark, ship) | Pending | 0 | 0 | 0 |
+| Phase | Status  | Plans written / executed | Tasks | Commits |
+|-------|---------|-------------------------|-------|---------|
+| 1 (M1 Foundation) | **Planned** (ready to execute) | 3 / 0 | 15 / 0 | 0 |
+| 2 (M2 Single-agent) | Pending | 0 / 0 | 0 / 0 | 0 |
+| 3 (M3 Worktree dispatcher) | Pending | 0 / 0 | 0 / 0 | 0 |
+| 4 (M4 Token meter & cache discipline) | Pending | 0 / 0 | 0 / 0 | 0 |
+| 5 (M5 Multi-provider) | Pending | 0 / 0 | 0 / 0 | 0 |
+| 6 (M6 Decommission, benchmark, ship) | Pending | 0 / 0 | 0 / 0 | 0 |
+
+**Phase 1 plan breakdown:**
+- `01-01-PLAN.md` (wave 1): 5 tasks — PR-01a, PR-01b, PR-02, PR-03, PR-04 — entry-gate edge breaks + architectural scaffolding
+- `01-02-PLAN.md` (wave 2): 5 tasks — PR-05, PR-06, PR-07, PR-08, PR-09 — driver cleanup + test infrastructure + first e2e
+- `01-03-PLAN.md` (wave 3): 5 tasks — PR-10 (Tasks 1–3), PR-11 (Tasks 4–5) — docs + CI hardening + ADRs 006..013
 
 ---
 
