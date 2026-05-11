@@ -9,12 +9,14 @@ import { ConfigPanel } from './components/ConfigPanel.js';
 import { CostPanel } from './components/CostPanel.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
 import { DoctorPanel } from './components/DoctorPanel.js';
+import { ExtensionDefenseBanner } from './components/ExtensionDefenseBanner.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { UpdatePanel } from './components/UpdatePanel.js';
+import { detectExtensionInterference } from './lib/detect-extension-interference.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
 
@@ -70,8 +72,16 @@ export const App: Component = () => {
   };
   const persist = (): void => saveLayout(layout);
 
+  // v2.3.4: detect browser extensions that inject scripts into the page
+  // (MetaMask, Yoroi, Phantom, Rabby, SES lockdown). Primary defense is the
+  // server-side CSP header in `lib/csp.ts` — this detector is the safety
+  // net for cases where CSP is bypassed (older browsers, vendor edge
+  // cases). Result is memoized at boot; we don't react to extension
+  // changes mid-session because that requires a page reload anyway.
+  const extensionDetection = detectExtensionInterference();
   return (
     <div class="app-shell">
+      <ExtensionDefenseBanner detection={extensionDetection} />
       <TopBar
         project={state.snapshot?.project ?? null}
         milestone={state.snapshot?.milestone ?? null}
