@@ -1,24 +1,22 @@
 import { randomUUID } from 'node:crypto';
 
-import type { SwtSession, SwtSessionOptions, SwtEvent } from './types.js';
+import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
 import { mapPiEvent } from './events.js';
 
 /**
  * Session factory.
  *
- * PR-02 ships a mock-shape stub: the returned `SwtSession` exposes the full
- * vendor-neutral surface (prompt, subscribe, dispose, sessionId) but does
- * not actually call Pi. PR-06 (Plan 01-02) swaps the body to invoke
- * `createAgentSession()` from `@earendil-works/pi-coding-agent` and wires
- * subscribe → `mapPiEvent` for the event normalisation pipeline. PR-06 also
- * reintroduces the type-only `import type { AgentSession } from
- * '@earendil-works/pi-coding-agent'` boundary check that this file would carry
- * if it had any reason to reference Pi's types in PR-02 (it doesn't yet — the
- * mock doesn't talk to Pi at all).
+ * PR-02 shipped a mock-shape stub. PR-07 wires the meter bridge:
+ * `TASK_TOKEN_USAGE` events flow into the attached `TokenMeter`, with
+ * task / phase / milestone / role / tier dimensions carried via
+ * `SwtSessionOptions.meterContext` (defaulted to empty strings when the
+ * session is constructed outside of a TaskBrief).
  *
- * The meter-injection contract is locked in here: when `opts.meter` is set,
- * future PR-07 will record per-turn usage into it. PR-02 just preserves the
- * reference; it is not exercised yet (no real prompts flow).
+ * The real Pi wiring (createAgentSession + subscribe + dispose) lands in
+ * PR-09's first end-to-end integration. Until then, prompt() stays a
+ * no-op but the meter bridge is fully active — tests can drive synthetic
+ * `TASK_TOKEN_USAGE` events through `subscribe`'s injection point and
+ * assert against the meter snapshot.
  */
 export async function createSession(opts: SwtSessionOptions): Promise<SwtSession> {
   return makeMockSwtSession(opts);
@@ -27,13 +25,20 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
 function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   const sessionId = randomUUID();
   const listeners: Array<(event: SwtEvent) => void> = [];
-  // Silence "unused" lint until PR-06 wires Pi for real. The references are kept
-  // so the meter injection contract is type-checked end-to-end today.
-  void opts.meter;
+  const meter = opts.meter;
   void opts.ephemeral;
   void opts.cwd;
 
   let disposed = false;
+
+  // Meter bridge: subscribe internally so externally-attached subscribers
+  // don't have to know about meter routing. This is the same fan-out path
+  // that PR-09's real Pi-driven event stream will go through.
+  if (meter !== undefined) {
+    listeners.push((event) => {
+      routeUsageToMeter(event, meter, opts.meterContext);
+    });
+  }
 
   return {
     sessionId,
@@ -41,8 +46,6 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
       if (disposed) {
         throw new Error('SwtSession: prompt() called after dispose()');
       }
-      // No-op until PR-06. Emitting AGENT_START/END here would lie about a
-      // session that didn't actually run; better to stay silent.
       return Promise.resolve();
     },
     subscribe(listener) {
@@ -60,7 +63,44 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
 }
 
 /**
- * Internal helper exported for the future PR-06 swap-in: maps a stream of
+ * Translate a TASK_TOKEN_USAGE event into a MeterRecord row and push it
+ * into the attached meter. Cost is left at 0 here — the cost calculation
+ * runs in the dashboard / cli surface where the provider rate card is
+ * resolved (kept out of the runtime so the runtime stays Pi-only).
+ *
+ * The function is module-private but exported for unit tests in
+ * `runtime/test/meter/`.
+ */
+export function routeUsageToMeter(
+  event: SwtEvent,
+  meter: TokenMeter,
+  ctx: SwtSessionOptions['meterContext'],
+): void {
+  if (event.type !== 'TASK_TOKEN_USAGE') return;
+  const u = event.usage;
+  const now = new Date().toISOString();
+  meter.record(
+    {
+      timestamp: now,
+      milestone: ctx?.milestone ?? '',
+      phase: ctx?.phase ?? '',
+      task_id: ctx?.task_id ?? '',
+      role: ctx?.role ?? '',
+      tier: ctx?.tier ?? '',
+      provider: u.provider,
+      model: u.model,
+      turn: u.turn,
+      input: u.input,
+      output: u.output,
+      cacheRead: u.cacheRead,
+      cacheWrite: u.cacheWrite,
+    },
+    0,
+  );
+}
+
+/**
+ * Internal helper exported for the future PR-09 swap-in: maps a stream of
  * Pi events into SwtEvents and fans them out to subscribers. Not exported
  * from the public surface yet (kept out of `index.ts`).
  */

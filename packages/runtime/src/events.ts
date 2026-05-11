@@ -1,13 +1,13 @@
+import { extractUsage } from './providers/extractors/index.js';
 import type { SwtEvent } from './types.js';
 
 /**
  * Normalise Pi's raw AgentSessionEvent stream into vendor-neutral SwtEvents.
  *
- * Plan 01-02 PR-07 extends this with `turn_end` → `TASK_TOKEN_USAGE` mapping
- * (provider-specific token extractors live alongside in
- * `packages/runtime/src/providers/extractors/<provider>.ts`). PR-02 ships the
- * structural foundation only: a single mapper function that handles the small
- * set of events used by the first end-to-end test (PR-09).
+ * PR-07 wires `turn_end` → `TASK_TOKEN_USAGE` (per-provider field extraction
+ * lives in `packages/runtime/src/providers/extractors/<provider>.ts`). PR-02
+ * shipped the structural foundation; subsequent PRs will add `turn_start`
+ * + `queue_update` mappings as the orchestration layer grows.
  *
  * Per Pi docs (TDD2 §5.5) the 14 events are:
  *   message_update, tool_execution_{start,update,end},
@@ -19,15 +19,20 @@ import type { SwtEvent } from './types.js';
  */
 
 // Loose shape — Pi's AgentSessionEvent is a discriminated union we'll
-// narrow with `type` once the cassette infra (PR-06) gives us realistic
-// event payloads to assert against. For PR-02 the mapper only inspects
-// `type` + a handful of common fields, so an `unknown` upgrade path is fine.
+// narrow once the cassette infra (PR-06) gives us realistic event payloads
+// to assert against. For now the mapper inspects `type` + a handful of
+// common fields, so an `unknown` upgrade path is fine.
 interface PiEventLike {
   readonly type: string;
   readonly sessionId?: string;
   readonly delta?: { readonly text?: string };
   readonly toolCall?: { readonly name: string };
   readonly toolResult?: { readonly name: string };
+  readonly turn?: number;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly usage?: unknown;
+  readonly message?: { readonly usage?: unknown };
 }
 
 export function mapPiEvent(raw: unknown, sessionId: string): SwtEvent | undefined {
@@ -53,9 +58,20 @@ export function mapPiEvent(raw: unknown, sessionId: string): SwtEvent | undefine
         return { type: 'TOOL_RESULT', sessionId, name: e.toolResult.name };
       }
       return undefined;
+    case 'turn_end': {
+      // Pi carries token usage on `event.message.usage` (AgentMessage.usage,
+      // per Pi's docs). Some adapter shapes also surface it at the event
+      // root as `event.usage`. Inspect both.
+      const usage = e.message?.usage ?? e.usage;
+      const provider = e.provider ?? 'unknown';
+      const model = e.model ?? 'unknown';
+      const turn = typeof e.turn === 'number' ? e.turn : 0;
+      const extracted = extractUsage(provider, usage, { turn, provider, model });
+      if (extracted === undefined) return undefined;
+      return { type: 'TASK_TOKEN_USAGE', sessionId, usage: extracted };
+    }
     default:
-      // turn_*, queue_*, compaction_*, auto_retry_* not surfaced from PR-02.
-      // PR-07 adds turn_end → TASK_TOKEN_USAGE; later PRs may add more.
+      // turn_start, queue_*, compaction_*, auto_retry_* not surfaced yet.
       return undefined;
   }
 }
