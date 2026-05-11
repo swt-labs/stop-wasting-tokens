@@ -5,6 +5,7 @@ import {
   EMPTY_DISCOVERY,
   buildSwtProjectDocBody,
   readDiscovery,
+  writeAgentsMdBlock,
   writeAtomically,
   writeDiscovery,
   writeProject,
@@ -12,7 +13,6 @@ import {
   writeRoadmap,
   writeState,
 } from '@swt-labs/artifacts';
-import { writeAgentsMdBlock } from '@swt-labs/codex-driver';
 import type { Prompter } from '@swt-labs/core';
 
 import { runDiscussionEngine } from '../../discussion/engine.js';

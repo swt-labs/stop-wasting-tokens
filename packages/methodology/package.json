@@ -12,7 +12,6 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@swt-labs/artifacts": "workspace:*",
-    "@swt-labs/codex-driver": "workspace:*",
     "@swt-labs/core": "workspace:*",
     "zod": "^3.23.8"
   },

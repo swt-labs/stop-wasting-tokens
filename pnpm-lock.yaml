@@ -232,9 +232,6 @@ importers:
       '@swt-labs/artifacts':
         specifier: workspace:*
         version: link:../artifacts
-      '@swt-labs/codex-driver':
-        specifier: workspace:*
-        version: link:../codex-driver
       '@swt-labs/core':
         specifier: workspace:*
         version: link:../core

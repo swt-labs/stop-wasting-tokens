@@ -7,7 +7,7 @@ export * from './toml/emit.js';
 export * from './toml/agents.js';
 export * from './toml/permissions.js';
 export * from './toml/features.js';
-export * from './agents-md/writer.js';
+// agents-md/writer moved to @swt-labs/artifacts (PR-01a) — vendor-neutral file writer.
 export * from './hooks/writer.js';
 export * from './hooks/codex-schema.js';
 export * from './skills/installer.js';

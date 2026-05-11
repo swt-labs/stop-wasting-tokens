@@ -11,3 +11,4 @@ export * from './milestones/archive.js';
 export * from './milestones/derive-slug.js';
 export * from './bootstrap/index.js';
 export * from './qa/index.js';
+export * from './agents-md/writer.js';
