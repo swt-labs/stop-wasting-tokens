@@ -8,13 +8,10 @@ const REPO_ROOT = join(__dirname, '..', '..', '..');
 const PACKAGES = [
   'core',
   'cli',
-  'codex-driver',
   'methodology',
   'artifacts',
   'verification',
   'telemetry',
-  'claude-code-driver',
-  'ollama-driver',
 ] as const;
 
 describe('publishConfig parity', () => {

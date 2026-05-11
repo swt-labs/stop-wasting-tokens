@@ -1,0 +1,31 @@
+{
+  "phase": 1,
+  "phase_name": "01-m1-foundation",
+  "status": "running",
+  "started_at": "2026-05-11T17:53:34Z",
+  "wave": 1,
+  "total_waves": 3,
+  "correlation_id": "ea93b611-2994-4d30-a27f-0d65c56d5a1d",
+  "effort": "turbo",
+  "phase_effort": "balanced",
+  "plans": [
+    {
+      "id": "01-01",
+      "title": "M1 Entry Gate + Architectural Scaffolding (PR-01a → PR-04)",
+      "wave": 1,
+      "status": "complete"
+    },
+    {
+      "id": "01-02",
+      "title": "Driver Cleanup + Test Infrastructure + First End-to-End (PR-05 → PR-09)",
+      "wave": 2,
+      "status": "pending"
+    },
+    {
+      "id": "01-03",
+      "title": "Documentation + CI Hardening + ADR Acceptance (PR-10 + PR-11)",
+      "wave": 3,
+      "status": "pending"
+    }
+  ]
+}

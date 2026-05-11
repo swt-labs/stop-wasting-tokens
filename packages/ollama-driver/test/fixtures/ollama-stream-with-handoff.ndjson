@@ -1,4 +1,0 @@
-{"model":"llama3.2","created_at":"2026-05-07T01:00:00Z","message":{"role":"assistant","content":"{\"from\":\"scout\",\"to\":\"lead\","},"done":false}
-{"model":"llama3.2","created_at":"2026-05-07T01:00:01Z","message":{"role":"assistant","content":"\"kind\":\"scout-findings\",\"payload\":{\"phase\":\"03\",\"plan\":\"03\",\"title\":\"ollama wiring\",\"findings\":[\"chat endpoint\"]},"},"done":false}
-{"model":"llama3.2","created_at":"2026-05-07T01:00:02Z","message":{"role":"assistant","content":"\"metadata\":{\"created_at\":\"2026-05-07T01:00:00.000Z\"}}"},"done":false}
-{"model":"llama3.2","created_at":"2026-05-07T01:00:03Z","message":{"role":"assistant","content":""},"done":true,"total_duration":2222222,"prompt_eval_count":3140,"eval_count":284}

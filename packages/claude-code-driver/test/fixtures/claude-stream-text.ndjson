@@ -1,4 +1,0 @@
-{"type":"assistant","message":{"content":[{"type":"text","text":"Investigating the auth module."}]}}
-{"type":"assistant","message":{"content":[{"type":"text","text":"\nFound the issue."}]}}
-{"type":"assistant","message":{"content":[{"type":"text","text":"\nDone."}]}}
-{"type":"result","usage":{"input_tokens":2104,"output_tokens":156}}
