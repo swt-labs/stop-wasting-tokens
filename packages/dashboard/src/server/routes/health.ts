@@ -1,4 +1,4 @@
-import type { HealthResponse } from '@swt-labs/dashboard-core';
+import type { HealthResponse } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 export function registerHealthRoute(app: Hono, startedAt: number): void {

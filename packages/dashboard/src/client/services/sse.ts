@@ -2,7 +2,7 @@ import {
   SNAPSHOT_EVENT_TYPES,
   SnapshotEventSchema,
   type SnapshotEvent,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 
 export interface SseHandlers {
   onOpen?: () => void;

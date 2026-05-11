@@ -9,7 +9,7 @@ import type { CommandHandler, CommandIO } from '../router.js';
 /**
  * Local shape kept compatible with the historical `CodexVersion` so the
  * `DoctorReport.codex` field still satisfies `DoctorReportSchema` in
- * `@swt-labs/dashboard-core`. PR-01b removes the `@swt-labs/codex-driver` import
+ * `@swt-labs/shared`. PR-01b removes the `@swt-labs/codex-driver` import
  * that previously sourced this type; the runtime probe (PR-02+) populates the
  * field via `DoctorDeps.spawnerEnv` instead.
  */

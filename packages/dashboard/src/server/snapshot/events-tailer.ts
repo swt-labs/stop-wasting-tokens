@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { SnapshotEventSchema, type SnapshotEvent } from '@swt-labs/dashboard-core';
+import { SnapshotEventSchema, type SnapshotEvent } from '@swt-labs/shared';
 
 import type { EventBus } from '../event-bus.js';
 import { createFileTailer, type FileTailer } from '../lib/tail-file.js';

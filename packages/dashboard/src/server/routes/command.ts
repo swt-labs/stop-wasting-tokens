@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CommandBodySchema, type CommandResponse } from '@swt-labs/dashboard-core';
+import { CommandBodySchema, type CommandResponse } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 import { classifyVerb } from '../lib/allowed-verbs.js';

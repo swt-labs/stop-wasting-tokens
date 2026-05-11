@@ -1,4 +1,4 @@
-import type { CommandRegistry } from '@swt-labs/dashboard-core';
+import type { CommandRegistry } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 import { COMMAND_REGISTRY_ENTRIES } from '../lib/command-registry-mirror.js';

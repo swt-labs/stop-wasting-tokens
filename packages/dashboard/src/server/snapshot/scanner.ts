@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import type { ArtifactKind } from '@swt-labs/dashboard-core';
+import type { ArtifactKind } from '@swt-labs/shared';
 
 const PLANNING_DIR_NAME = '.swt-planning';
 const PHASES_DIR_NAME = 'phases';

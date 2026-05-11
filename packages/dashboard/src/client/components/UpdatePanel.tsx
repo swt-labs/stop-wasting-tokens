@@ -1,4 +1,4 @@
-import type { UpdateApplyResponse, UpdateReport } from '@swt-labs/dashboard-core';
+import type { UpdateApplyResponse, UpdateReport } from '@swt-labs/shared';
 import { Show, createSignal, type Component, type JSX } from 'solid-js';
 
 export interface UpdatePanelProps {

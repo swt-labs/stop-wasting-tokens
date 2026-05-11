@@ -1,4 +1,4 @@
-import type { ConfigSnapshot } from '@swt-labs/dashboard-core';
+import type { ConfigSnapshot } from '@swt-labs/shared';
 import { For, Show, createSignal, type Component, type JSX } from 'solid-js';
 
 export interface ConfigPanelProps {

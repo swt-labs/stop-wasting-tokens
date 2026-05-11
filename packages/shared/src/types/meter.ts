@@ -1,12 +1,9 @@
 /**
- * Token meter contract — forward declaration only. PR-07 (Plan 01-02) ships
- * the concrete `createTokenMeter()` implementation; PR-02 just needs the
- * interface so `SwtSessionOptions.meter` can typecheck against the eventual
- * implementation.
+ * Token meter contract. Migrated from `runtime/src/meter-types.ts` in PR-04.
  *
- * Pi emits per-turn usage via the `turn_end` event with `AgentMessage.usage`;
- * the meter normalises across providers (Anthropic native fields vs OpenAI
- * fields vs OpenRouter passthrough) into a single `MeterRecord` shape.
+ * PR-07 (Plan 01-02) ships the concrete `createTokenMeter()` implementation;
+ * shared/ just declares the interface so `SwtSessionOptions.meter` and
+ * dashboard panels can typecheck against the eventual impl.
  */
 
 export interface MeterRecord {

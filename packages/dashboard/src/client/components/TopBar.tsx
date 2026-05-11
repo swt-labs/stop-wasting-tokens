@@ -1,6 +1,6 @@
 import { Show, createMemo, createSignal, type Component } from 'solid-js';
 
-import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/dashboard-core';
+import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 
 import type { ConnectionState } from '../state/dashboard-store.js';
 

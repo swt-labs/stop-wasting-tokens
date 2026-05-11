@@ -6,7 +6,7 @@ import {
   ConfigUpdateBodySchema,
   type ConfigSnapshot,
   type ConfigUpdateResponse,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 import type { EventBus } from '../event-bus.js';

@@ -40,7 +40,7 @@ import {
   type VibeReplyResponse,
   type VibeStartBody,
   type VibeStartResponse,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 
 export type {
   CommandBody,
@@ -98,7 +98,7 @@ export async function fetchSnapshot(): Promise<Snapshot> {
 /* ── v2.3: read-only CLI parity routes ─────────────────────────────────
  * Each fetcher is a thin GET wrapper around its server-side route from
  * Phase 01. Validates the response through the matching schema in
- * @swt-labs/dashboard-core so panel components see fully-typed data
+ * @swt-labs/shared so panel components see fully-typed data
  * (and any wire-protocol drift surfaces here, not in the panel JSX).
  */
 

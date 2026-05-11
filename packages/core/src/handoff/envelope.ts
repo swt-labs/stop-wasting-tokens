@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { AGENT_ROLES, type AgentRole } from '../types/agent-role.js';
+import { AGENT_ROLES, type AgentRole } from '../types/index.js';
 
 export const HANDOFF_KINDS = [
   'scout-findings',

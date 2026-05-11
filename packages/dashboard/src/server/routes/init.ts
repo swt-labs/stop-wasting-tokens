@@ -1,5 +1,5 @@
 import { AlreadyInitializedError, initProject } from '@swt-labs/core';
-import { InitBodySchema, type InitResponse, type Snapshot } from '@swt-labs/dashboard-core';
+import { InitBodySchema, type InitResponse, type Snapshot } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 const PLANNING_DIR = '.swt-planning';

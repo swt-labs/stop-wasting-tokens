@@ -1,4 +1,4 @@
-import type { DetectPhaseReport } from '@swt-labs/dashboard-core';
+import type { DetectPhaseReport } from '@swt-labs/shared';
 import { Show, type Component } from 'solid-js';
 
 export interface DetectPhasePanelProps {

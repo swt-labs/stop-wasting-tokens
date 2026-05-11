@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import type { SnapshotEvent } from '@swt-labs/dashboard-core';
+import type { SnapshotEvent } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createEventBus } from '../src/server/event-bus.ts';

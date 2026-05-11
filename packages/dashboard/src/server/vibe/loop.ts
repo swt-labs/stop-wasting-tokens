@@ -2,7 +2,7 @@ import type {
   AgentPromptContext,
   AgentPromptOption,
   SnapshotEvent,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 
 import type { EventBus } from '../event-bus.js';
 

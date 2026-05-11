@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 import { ConfigError } from '../errors/SwtError.js';
-import { AGENT_ROLES, type AgentRole } from '../types/agent-role.js';
-import { AUTONOMY_TIERS } from '../types/autonomy.js';
-import { EFFORTS } from '../types/effort.js';
-import { VERIFICATION_TIERS } from '../types/verification.js';
+import { AGENT_ROLES, type AgentRole } from '../types/index.js';
+import { AUTONOMY_TIERS } from '../types/index.js';
+import { EFFORTS } from '../types/index.js';
+import { VERIFICATION_TIERS } from '../types/index.js';
 
 const AgentRoleEnum = z.enum(AGENT_ROLES as unknown as [AgentRole, ...AgentRole[]]);
 

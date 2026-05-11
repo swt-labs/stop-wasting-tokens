@@ -1,4 +1,4 @@
-import type { AgentRole } from '../types/agent-role.js';
+import type { AgentRole } from '../types/index.js';
 import type { CodexReasoningEffort } from '../types/codex-reasoning-effort.js';
 
 export interface AgentSpec {

@@ -7,7 +7,7 @@ import {
   type QueryOptions,
   type RegistryResult,
 } from '@swt-labs/cli';
-import type { UpdateApplyResponse, UpdateReport } from '@swt-labs/dashboard-core';
+import type { UpdateApplyResponse, UpdateReport } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 const PACKAGE_NAME = 'stop-wasting-tokens';

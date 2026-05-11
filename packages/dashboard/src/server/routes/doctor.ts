@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { DoctorCheck, DoctorReport } from '@swt-labs/dashboard-core';
+import type { DoctorCheck, DoctorReport } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 import { detectCodexVersion, type CodexVersion } from '../lib/detect-codex.js';

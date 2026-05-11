@@ -1,4 +1,4 @@
-import type { DoctorReport } from '@swt-labs/dashboard-core';
+import type { DoctorReport } from '@swt-labs/shared';
 import { For, Show, type Component, type JSX } from 'solid-js';
 
 export interface DoctorPanelProps {

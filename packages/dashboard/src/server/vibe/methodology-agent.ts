@@ -1,4 +1,4 @@
-import type { AgentPromptContext, AgentPromptOption } from '@swt-labs/dashboard-core';
+import type { AgentPromptContext, AgentPromptOption } from '@swt-labs/shared';
 
 import type { ApprovalDecision, ToolCall } from './permission-gate.js';
 

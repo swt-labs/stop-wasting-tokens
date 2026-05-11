@@ -1,14 +1,18 @@
 {
   "files": [],
   "references": [
+    { "path": "./packages/shared" },
     { "path": "./packages/core" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/orchestration" },
     { "path": "./packages/cli" },
     { "path": "./packages/codex-driver" },
+    { "path": "./packages/claude-code-driver" },
+    { "path": "./packages/ollama-driver" },
     { "path": "./packages/methodology" },
     { "path": "./packages/artifacts" },
     { "path": "./packages/verification" },
     { "path": "./packages/telemetry" },
-    { "path": "./packages/dashboard-core" },
     { "path": "./packages/dashboard" }
   ]
 }

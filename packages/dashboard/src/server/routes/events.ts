@@ -1,4 +1,4 @@
-import type { Snapshot, SnapshotEvent } from '@swt-labs/dashboard-core';
+import type { Snapshot, SnapshotEvent } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 

@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { isAbsolute, relative, resolve } from 'node:path';
 
-import type { AgentPromptContext } from '@swt-labs/dashboard-core';
+import type { AgentPromptContext } from '@swt-labs/shared';
 
 import type { ReplyKind, SessionRegistry } from './session.js';
 

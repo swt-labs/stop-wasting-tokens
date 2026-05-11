@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@swt-labs/core": "workspace:*",
+    "@swt-labs/shared": "workspace:*",
     "@swt-labs/runtime": "workspace:*"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { SnapshotSchema } from '@swt-labs/dashboard-core';
+import { SnapshotSchema } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
 import { snapshotsEqual } from '../src/server/snapshot/diff.js';

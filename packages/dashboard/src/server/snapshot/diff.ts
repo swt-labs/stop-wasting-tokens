@@ -1,4 +1,4 @@
-import type { Snapshot } from '@swt-labs/dashboard-core';
+import type { Snapshot } from '@swt-labs/shared';
 
 /**
  * Deterministic structural equality for two Snapshot values. We stringify

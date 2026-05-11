@@ -1,4 +1,4 @@
-import { CommandRegistrySchema } from '@swt-labs/dashboard-core';
+import { CommandRegistrySchema } from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
 

@@ -1,4 +1,4 @@
-import type { CommandSpec } from '@swt-labs/dashboard-core';
+import type { CommandSpec } from '@swt-labs/shared';
 import { For, Show, createMemo, createSignal, onCleanup, type Component, type JSX } from 'solid-js';
 
 import { fuzzyMatch } from '../lib/fuzzy-match.js';

@@ -1,6 +1,6 @@
 import { For, Show, createSignal, onMount, type Component } from 'solid-js';
 
-import type { VibeReplyBody } from '@swt-labs/dashboard-core';
+import type { VibeReplyBody } from '@swt-labs/shared';
 
 import { ansiToHtml } from '../lib/ansi-to-html.js';
 import type { ConversationEntry } from '../state/dashboard-store.js';

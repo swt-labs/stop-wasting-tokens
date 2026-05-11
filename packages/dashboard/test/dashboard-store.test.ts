@@ -6,7 +6,7 @@ import type {
   InitResponse,
   Snapshot,
   UpdateReport,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 import { createRoot } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

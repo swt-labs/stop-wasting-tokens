@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@swt-labs/core": "workspace:*",
+    "@swt-labs/shared": "workspace:*",
     "@earendil-works/pi-coding-agent": "^0.74.0"
   },
   "peerDependencies": {

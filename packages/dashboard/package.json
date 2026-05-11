@@ -24,7 +24,7 @@
     "@shikijs/rehype": "^1.20.0",
     "@swt-labs/cli": "workspace:*",
     "@swt-labs/core": "workspace:*",
-    "@swt-labs/dashboard-core": "workspace:*",
+    "@swt-labs/shared": "workspace:*",
     "@swt-labs/methodology": "workspace:*",
     "chokidar": "^4.0.0",
     "gray-matter": "^4.0.3",

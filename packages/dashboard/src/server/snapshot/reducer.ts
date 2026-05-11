@@ -7,7 +7,7 @@ import {
   type QaStatus,
   SnapshotSchema,
   type Snapshot,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 
 import { type RawArtifact, type RawPhase, scan } from './scanner.js';
 

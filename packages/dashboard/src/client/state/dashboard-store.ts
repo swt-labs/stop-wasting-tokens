@@ -9,7 +9,7 @@ import type {
   SnapshotEvent,
   UpdateReport,
   VibeReplyBody,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 import { createStore } from 'solid-js/store';
 
 import {

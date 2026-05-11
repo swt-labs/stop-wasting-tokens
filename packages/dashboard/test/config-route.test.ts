@@ -7,7 +7,7 @@ import {
   ConfigSnapshotSchema,
   ConfigUpdateResponseSchema,
   type SnapshotEvent,
-} from '@swt-labs/dashboard-core';
+} from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

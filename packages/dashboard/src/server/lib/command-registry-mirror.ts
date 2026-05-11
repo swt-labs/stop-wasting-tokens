@@ -1,4 +1,4 @@
-import type { CommandSpec } from '@swt-labs/dashboard-core';
+import type { CommandSpec } from '@swt-labs/shared';
 
 import { ALLOWED_NON_INTERACTIVE_VERBS, INTERACTIVE_VERBS } from './allowed-verbs.js';
 

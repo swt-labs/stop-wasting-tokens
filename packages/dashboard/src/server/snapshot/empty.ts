@@ -1,4 +1,4 @@
-import type { Snapshot } from '@swt-labs/dashboard-core';
+import type { Snapshot } from '@swt-labs/shared';
 
 /**
  * Synthetic snapshot for greenfield daemons (no `.swt-planning/` in cwd or

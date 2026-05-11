@@ -1,6 +1,6 @@
 import { For, type Component } from 'solid-js';
 
-import type { PhaseState, PhaseSummary } from '@swt-labs/dashboard-core';
+import type { PhaseState, PhaseSummary } from '@swt-labs/shared';
 
 const STATE_CLASS: Record<PhaseState, string> = {
   needs_discussion: 'phase-pending',

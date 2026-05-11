@@ -1,4 +1,4 @@
-import { DebugEmitBodySchema, type DebugEmitResponse } from '@swt-labs/dashboard-core';
+import { DebugEmitBodySchema, type DebugEmitResponse } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 import type { EventBus } from '../event-bus.js';

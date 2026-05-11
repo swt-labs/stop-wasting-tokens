@@ -1,4 +1,4 @@
-import type { SnapshotEvent } from '@swt-labs/dashboard-core';
+import type { SnapshotEvent } from '@swt-labs/shared';
 
 export type EventBusListener = (event: SnapshotEvent) => void;
 export type Unsubscribe = () => void;
