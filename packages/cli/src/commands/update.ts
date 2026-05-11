@@ -112,7 +112,17 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
     const json = parsed.flags.json === true;
     const strict = parsed.flags.strict === true;
     const checkOnly = parsed.flags.check === true;
-    const noCache = parsed.flags['no-cache'] === true;
+    // v2.3.5: explicit user invocations of `swt update` default to a fresh
+    // network query — the cache from v2.3.0–2.3.4 was useful for the
+    // dashboard's background polling but caused real-world confusion when
+    // a user ran `swt update` minutes after a release and got told
+    // they were up-to-date based on a cache written before the release
+    // landed. Pass `--cache` to opt back into the disk cache (useful on
+    // flaky/offline networks). `--no-cache` is preserved as a no-op alias
+    // for backward compat with scripts that already pass it.
+    const useCache = parsed.flags.cache === true;
+    const explicitNoCache = parsed.flags['no-cache'] === true;
+    const noCache = explicitNoCache || !useCache;
     const noMarketplace = parsed.flags['no-marketplace'] === true;
     const registryFlag = parsed.flags.registry;
     const registry = typeof registryFlag === 'string' ? registryFlag : undefined;

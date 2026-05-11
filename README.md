@@ -107,7 +107,7 @@ bun add -g stop-wasting-tokens
 To pin a specific version (e.g. for CI or reproducible installs):
 
 ```bash
-npm install -g stop-wasting-tokens@2.3.4
+npm install -g stop-wasting-tokens@2.3.5
 ```
 
 To upgrade an existing install to the latest published version:
@@ -138,7 +138,7 @@ Everything reachable from the CLI entry point is bundled in. There are no transi
 After install, run:
 
 ```bash
-swt --version          # prints: swt 2.3.4 (or whatever you installed)
+swt --version          # prints: swt 2.3.5 (or whatever you installed)
 swt --help             # lists the working command surface
 swt doctor             # checks: Node version, Codex CLI, jq, git
 ```
@@ -426,7 +426,7 @@ Check whether you're using v1.5.0 or earlier — the build pipeline didn't actua
 
 ## Status
 
-Currently shipping **v2.3.4** — Dashboard 1:1 CLI Parity Panels and cmd-K Command Palette, hardened against browser-extension interference. v2.3.0 introduced the panels + palette; v2.3.1 fixed a daemon double-spawn / EADDRINUSE crash; v2.3.2 caught the bundled README up to the published version; v2.3.3 fixed `swt update`'s 24h cache returning stale `latest` after an in-place upgrade; v2.3.4 added a strict CSP header to block Manifest V3 wallet-extension script injection (MetaMask / Yoroi / Phantom / Rabby) plus a client-side detector banner as a safety net. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 series notes. Bare `swt` opens the dashboard daemon (since v2.0); the dashboard now exposes the four read-only CLI surfaces (`config`, `doctor`, `detect-phase`, `update`) as live panels in a fifth Tools column, lets you edit `.swt-planning/config.json` and apply CLI updates without dropping into a terminal, and adds a global cmd-K palette so every dashboard-safe `swt` verb is one keystroke away. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 migration notes.
+Currently shipping **v2.3.5** — Dashboard 1:1 CLI Parity Panels and cmd-K Command Palette, hardened against browser-extension interference and update-check staleness. v2.3.5 makes `swt update` always query npm fresh (no implicit disk cache) so users see the truth the moment they ask; the dashboard panel keeps a short 5-minute cache for its background polling. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 series notes (panels + palette in 2.3.0; daemon double-spawn fix in 2.3.1; bundled README catch-up in 2.3.2; cache-keyed-by-current fix in 2.3.3; wallet-extension CSP + detector in 2.3.4; asymmetric cache in 2.3.5). Bare `swt` opens the dashboard daemon (since v2.0); the dashboard now exposes the four read-only CLI surfaces (`config`, `doctor`, `detect-phase`, `update`) as live panels in a fifth Tools column, lets you edit `.swt-planning/config.json` and apply CLI updates without dropping into a terminal, and adds a global cmd-K palette so every dashboard-safe `swt` verb is one keystroke away. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 migration notes.
 
 The terminal CLI surface is unchanged for power users — every verb still works as documented. `SWT_NO_DASHBOARD=1 swt` restores the legacy help screen.
 

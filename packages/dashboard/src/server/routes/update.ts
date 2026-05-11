@@ -3,6 +3,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import {
   CURRENT_VERSION,
   queryLatestVersion,
+  SHORT_CACHE_TTL_MS,
   type QueryOptions,
   type RegistryResult,
 } from '@swt-labs/cli';
@@ -124,6 +125,12 @@ export function registerUpdateRoute(app: Hono, opts: RegisterUpdateRouteOptions 
   app.get('/api/update', async (c) => {
     const current = opts.currentVersion ?? CURRENT_VERSION;
     const queryOpts: QueryOptions = {
+      // v2.3.5: shorter cache TTL for the dashboard's background polling
+      // path. The panel polls every 60s; a 24h cache means active sessions
+      // can see stale `latest` for hours after a real release. 5 minutes
+      // is short enough to surface new versions quickly while still
+      // absorbing burst traffic within a session.
+      cacheTtlMs: SHORT_CACHE_TTL_MS,
       ...(opts.fetchImpl !== undefined ? { fetchImpl: opts.fetchImpl } : {}),
       ...(opts.cachePath !== undefined ? { cachePath: opts.cachePath } : {}),
       ...(opts.now !== undefined ? { now: opts.now } : {}),

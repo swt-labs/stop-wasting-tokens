@@ -222,7 +222,30 @@ describe('updateCommand', () => {
     expect(payload.upgrade_commands).toHaveLength(3);
   });
 
-  it('uses cache on second call within TTL', async () => {
+  // v2.3.5: `swt update` defaults to a fresh network query — the cache
+  // from v2.3.0–2.3.4 caused real-world confusion when users ran
+  // `swt update` minutes after a release and got told they were
+  // up-to-date based on a cache written before the release landed. The
+  // dashboard's /api/update background poller keeps using the cache
+  // (with a shorter 5-min TTL). The `--cache` flag opts back into
+  // disk caching for flaky-network workflows.
+  it('default behavior queries fresh every time (no implicit cache use)', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.1.0' }),
+    })) as unknown as typeof fetch;
+
+    const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
+    await handler(parsedFlags({ json: true }), makeIO().io);
+    const { stdout, io } = makeIO();
+    await handler(parsedFlags({ json: true }), io);
+    const payload = JSON.parse(stdout.output);
+    expect(payload.cached).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // both calls hit the network
+  });
+
+  it('--cache opt-in serves the cache on subsequent calls within TTL', async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -230,11 +253,11 @@ describe('updateCommand', () => {
     })) as unknown as typeof fetch;
 
     const handler = updateHandler({ fetchImpl, cachePath, currentVersion: '0.1.0' });
-    await handler(parsedFlags({ json: true }), makeIO().io);
+    await handler(parsedFlags({ json: true, cache: true }), makeIO().io);
     expect(existsSync(cachePath)).toBe(true);
 
     const { stdout, io } = makeIO();
-    await handler(parsedFlags({ json: true }), io);
+    await handler(parsedFlags({ json: true, cache: true }), io);
     const payload = JSON.parse(stdout.output);
     expect(payload.cached).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1); // only first call hit network
