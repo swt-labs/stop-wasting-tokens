@@ -59,9 +59,11 @@ See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category tes
 | Thinking-level resolution is per-ROLE, not per-tier (`resolveThinkingLevelForRole`) | 2026-05-11 | Plans review caught: two roles can share a tier but want different thinking levels (Architect vs Dev both `quality`/`balanced` per TDD2 §10.5). |
 | Repository pivot: `main` = v3 design + plans; v2.3.5 preserved on `v2-archive` branch | 2026-05-11 | User decision (this session). v2 LTS continues via `release/v2.3-*` branches; dependabot retargeted via main's new `.github/dependabot.yml`. |
 | Single-agent planning output (no Scout/Lead subagent pipeline used) | 2026-05-11 | Task tool unavailable in this Claude Code harness — TDD2 + plans authored as single-agent output. Documented as caveat in plan headers; functionally equivalent artifacts. |
+| Defer `CodexReasoningEffort` → `ThinkingLevel` cascade rename to M2 | 2026-05-11 | PR-04's "consolidate types" scope did not include the cross-package contract change (touches `AgentSpec.reasoning_effort`, methodology's `agent-spec-resolver.ts`, every `AgentSpec` instantiation). `shared/src/types/thinking-level.ts` is in place as the destination vocabulary; `core/src/types/codex-reasoning-effort.ts` remains live until M2 deletes both files together. Tracked in `## Todos` for visibility when M2 planning starts. |
 
 ## Todos
-None.
+- **M2 (carry-forward from Plan 01-01 PR-04 deviation):** Rename `AgentSpec.reasoning_effort: CodexReasoningEffort` → `AgentSpec.thinking_level: ThinkingLevel`. Touches `packages/core/src/abstractions/AgentSpawner.ts`, `packages/core/src/types/codex-reasoning-effort.ts` (delete), `packages/methodology/src/vibe/orchestration/agent-spec-resolver.ts` (TOML validation), plus any `AgentSpec` instantiation in methodology. `shared/src/types/thinking-level.ts` is the destination vocabulary (already in place). Delete `codex-reasoning-effort.ts` in the same change so the two files don't drift. Tracked here for visibility when M2 phase planning starts via `/vbw:vibe --plan 2`.
+- **M1 PR-11 (carry-forward from v2.3.5):** ~20 pre-existing v2.3.5 test failures verified via `git stash` baseline (9 methodology bootstrap/handler tests + 11 cli publishConfig/config-doc-drift); the recon counted 33 total — the remaining ~13 cluster in other packages and surface during PR-11's full-pipeline run. Classified during PR-11 as `fixable` / `prettier-fixture-drift` / `obsolete` / `skip-with-issue` per the plan. After PR-11, `ci.yml`'s Test step becomes required.
 
 ## Blockers
 None.

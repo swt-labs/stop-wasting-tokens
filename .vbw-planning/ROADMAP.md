@@ -10,7 +10,7 @@
 
 | Phase | Status  | Plans written / executed | Tasks | Commits |
 |-------|---------|-------------------------|-------|---------|
-| 1 (M1 Foundation) | **Planned** (ready to execute) | 3 / 0 | 15 / 0 | 0 |
+| 1 (M1 Foundation) | **In progress** (Plan 01-01 complete) | 3 / 1 | 15 / 5 | 5 |
 | 2 (M2 Single-agent) | Pending | 0 / 0 | 0 / 0 | 0 |
 | 3 (M3 Worktree dispatcher) | Pending | 0 / 0 | 0 / 0 | 0 |
 | 4 (M4 Token meter & cache discipline) | Pending | 0 / 0 | 0 / 0 | 0 |
@@ -18,9 +18,9 @@
 | 6 (M6 Decommission, benchmark, ship) | Pending | 0 / 0 | 0 / 0 | 0 |
 
 **Phase 1 plan breakdown:**
-- `01-01-PLAN.md` (wave 1): 5 tasks — PR-01a, PR-01b, PR-02, PR-03, PR-04 — entry-gate edge breaks + architectural scaffolding
-- `01-02-PLAN.md` (wave 2): 5 tasks — PR-05, PR-06, PR-07, PR-08, PR-09 — driver cleanup + test infrastructure + first e2e
-- `01-03-PLAN.md` (wave 3): 5 tasks — PR-10 (Tasks 1–3), PR-11 (Tasks 4–5) — docs + CI hardening + ADRs 006..013
+- `01-01-PLAN.md` (wave 1): 5 tasks — PR-01a, PR-01b, PR-02, PR-03, PR-04 — entry-gate edge breaks + architectural scaffolding. **✓ COMPLETE** as of 2026-05-11 (commits `08579dc`, `e0bc8ce`, `3050410`, `74c757c`, `0a623d2`; SUMMARY at `phases/01-m1-foundation/01-01-SUMMARY.md` documents 8 deviations + 17/19 pass on ac_results).
+- `01-02-PLAN.md` (wave 2): 5 tasks — PR-05, PR-06, PR-07, PR-08, PR-09 — driver cleanup + test infrastructure + first e2e. **⏳ Next.** Cassette recording (PR-06) requires a one-time developer-local run against a real provider API (Anthropic or OpenRouter fallback) — see plan body.
+- `01-03-PLAN.md` (wave 3): 5 tasks — PR-10 (Tasks 1–3), PR-11 (Tasks 4–5) — docs reorg + CI hardening + ADRs 006..013 + ESLint enforcement + `.vbw-planning/v3-tracking.md`. **⏳ After 01-02.** Note: the v3.0.0-alpha.1 CHANGELOG section + the v3-redesign README banner already pre-shipped in commit `c5b3b9a` (within Plan 01-01's docs commit batch); PR-10 Task 1's remaining scope is the full `docs/` topical reorganization per TDD2 §18.1 + the driver-mention purge from existing README body.
 
 ---
 
