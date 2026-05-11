@@ -1,0 +1,43 @@
+{
+  "name": "@swt-labs/runtime",
+  "version": "0.0.0",
+  "description": "Layer 1 — thin adapter over @earendil-works/pi-coding-agent. Session factory, event normalization, tool factories, mock spawner environment. Token meter + provider quirks land in Plan 01-02.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@swt-labs/core": "workspace:*",
+    "@earendil-works/pi-coding-agent": "^0.74.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swt-labs/stop-wasting-tokens.git",
+    "directory": "packages/runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
+  },
+  "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
+  "author": "Tiago Serôdio (@yidakee)",
+  "private": true
+}

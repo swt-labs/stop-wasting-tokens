@@ -1,8 +1,5 @@
-import type {
-  AgentSpawner,
-  SpawnerEnvironment,
-  SpawnerProbeResult,
-} from '@swt-labs/core';
+import type { SpawnerEnvironment } from '@swt-labs/core';
+import { MockSpawnerEnvironment } from '@swt-labs/runtime';
 
 import { parseSwtArgv } from './argv.js';
 import { configHandler } from './commands/config.js';
@@ -27,33 +24,17 @@ export interface MainDeps {
   readonly version?: string;
   readonly registry?: CommandRegistry;
   /**
-   * Optional override for the SpawnerEnvironment threaded into CommandIO. PR-01b ships a
-   * fail-fast stub; PR-02 swaps the default for `MockSpawnerEnvironment` from
-   * `@swt-labs/runtime`; PR-03 swaps to `PiSpawnerEnvironment` from `@swt-labs/orchestration`.
+   * Optional override for the SpawnerEnvironment threaded into CommandIO.
+   *
+   * Default chain across the M1 PR sequence:
+   *   PR-01b: `Pr01bStubSpawnerEnvironment` (probe → unavailable, getSpawner → throws)
+   *   PR-02:  `MockSpawnerEnvironment` from `@swt-labs/runtime`
+   *            (probe → available with name `pi-runtime-mock`, getSpawner → throws with
+   *             a pointer to PR-03)
+   *   PR-03:  `PiSpawnerEnvironment` from `@swt-labs/orchestration`
+   *            (probe → real Pi-installed check, getSpawner → real dispatcher-backed)
    */
   readonly spawnerEnv?: SpawnerEnvironment;
-}
-
-/**
- * PR-01b stub. Probe reports unavailable with a clear pointer to PR-02; `getSpawner` throws
- * if anything actually tries to spawn. `swt doctor` runs cleanly with this stub (it gets
- * `undefined` for the legacy `codex` field); `swt vibe` fails fast before any methodology
- * handler attempts to dispatch.
- */
-class Pr01bStubSpawnerEnvironment implements SpawnerEnvironment {
-  async probe(): Promise<SpawnerProbeResult> {
-    return {
-      available: false,
-      name: 'none',
-      reason: 'PR-02 not yet merged — runtime adapter (packages/runtime/) is not present yet.',
-    };
-  }
-  async getSpawner(): Promise<AgentSpawner> {
-    throw new Error(
-      'SpawnerEnvironment stub: real spawner lands in M1 PR-02 (mock Pi) → PR-03 (PiSpawnerEnvironment). ' +
-        '`swt vibe` is intentionally non-functional between PR-01b and PR-02.',
-    );
-  }
 }
 
 export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistry {
@@ -135,7 +116,7 @@ export async function main(
     cwd: deps.cwd ?? process.cwd(),
     stdout: deps.stdout ?? process.stdout,
     stderr: deps.stderr ?? process.stderr,
-    spawnerEnv: deps.spawnerEnv ?? new Pr01bStubSpawnerEnvironment(),
+    spawnerEnv: deps.spawnerEnv ?? new MockSpawnerEnvironment(),
   };
   const registry = deps.registry ?? buildRegistry(deps.version);
 
