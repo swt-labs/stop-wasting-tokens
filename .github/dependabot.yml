@@ -1,0 +1,50 @@
+version: 2
+
+# main is now the v3 design branch (no package.json yet). Dependabot
+# reads its configuration from the default branch (main) but
+# `target-branch: v2-archive` redirects it to:
+#   - scan v2-archive for dependency manifests
+#   - raise pull requests against v2-archive
+#
+# This keeps the v2.3.x LTS line getting dependency updates per
+# TDD2 §17.6's 6-month support window. When v3 code starts shipping
+# on its own branch and lands its own package.json, add a parallel
+# `updates:` entry without `target-branch:` (defaults to main) to
+# scan v3 deps too.
+#
+# Mirrors the grouping config from v2-archive's own .github/dependabot.yml
+# so PR shape stays consistent for v2 reviewers.
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: v2-archive
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      typescript-stack:
+        patterns:
+          - 'typescript'
+          - '@typescript-eslint/*'
+          - 'tsup'
+          - 'tsx'
+      eslint-stack:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - 'prettier'
+          - 'prettier-*'
+      vitest-stack:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: v2-archive
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
