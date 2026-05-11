@@ -1,3 +1,9 @@
+import type {
+  AgentSpawner,
+  SpawnerEnvironment,
+  SpawnerProbeResult,
+} from '@swt-labs/core';
+
 import { parseSwtArgv } from './argv.js';
 import { configHandler } from './commands/config.js';
 import { registerDashboard } from './commands/dashboard.js';
@@ -20,6 +26,34 @@ export interface MainDeps {
   readonly stderr?: NodeJS.WritableStream;
   readonly version?: string;
   readonly registry?: CommandRegistry;
+  /**
+   * Optional override for the SpawnerEnvironment threaded into CommandIO. PR-01b ships a
+   * fail-fast stub; PR-02 swaps the default for `MockSpawnerEnvironment` from
+   * `@swt-labs/runtime`; PR-03 swaps to `PiSpawnerEnvironment` from `@swt-labs/orchestration`.
+   */
+  readonly spawnerEnv?: SpawnerEnvironment;
+}
+
+/**
+ * PR-01b stub. Probe reports unavailable with a clear pointer to PR-02; `getSpawner` throws
+ * if anything actually tries to spawn. `swt doctor` runs cleanly with this stub (it gets
+ * `undefined` for the legacy `codex` field); `swt vibe` fails fast before any methodology
+ * handler attempts to dispatch.
+ */
+class Pr01bStubSpawnerEnvironment implements SpawnerEnvironment {
+  async probe(): Promise<SpawnerProbeResult> {
+    return {
+      available: false,
+      name: 'none',
+      reason: 'PR-02 not yet merged — runtime adapter (packages/runtime/) is not present yet.',
+    };
+  }
+  async getSpawner(): Promise<AgentSpawner> {
+    throw new Error(
+      'SpawnerEnvironment stub: real spawner lands in M1 PR-02 (mock Pi) → PR-03 (PiSpawnerEnvironment). ' +
+        '`swt vibe` is intentionally non-functional between PR-01b and PR-02.',
+    );
+  }
 }
 
 export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistry {
@@ -101,6 +135,7 @@ export async function main(
     cwd: deps.cwd ?? process.cwd(),
     stdout: deps.stdout ?? process.stdout,
     stderr: deps.stderr ?? process.stderr,
+    spawnerEnv: deps.spawnerEnv ?? new Pr01bStubSpawnerEnvironment(),
   };
   const registry = deps.registry ?? buildRegistry(deps.version);
 

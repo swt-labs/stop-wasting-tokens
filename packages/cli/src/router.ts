@@ -1,3 +1,5 @@
+import type { SpawnerEnvironment } from '@swt-labs/core';
+
 import type { ParsedArgv } from './argv.js';
 import type { ExitCode } from './exit-codes.js';
 import { EXIT } from './exit-codes.js';
@@ -6,6 +8,13 @@ export interface CommandIO {
   readonly stdout: NodeJS.WritableStream;
   readonly stderr: NodeJS.WritableStream;
   readonly cwd: string;
+  /**
+   * Optional runtime adapter (PR-01b). When wired, `vibe` and `doctor` use this to
+   * acquire spawners and probe Pi installation instead of source-importing from
+   * `@swt-labs/codex-driver` etc. PR-01b ships a fail-fast stub; PR-02 swaps it for the
+   * mock Pi-backed impl from `@swt-labs/runtime`; PR-03 swaps to `PiSpawnerEnvironment`.
+   */
+  readonly spawnerEnv?: SpawnerEnvironment;
 }
 
 export type CommandHandler = (parsed: ParsedArgv, io: CommandIO) => Promise<ExitCode> | ExitCode;

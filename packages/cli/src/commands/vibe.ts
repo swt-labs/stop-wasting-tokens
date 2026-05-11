@@ -1,7 +1,5 @@
 import { join } from 'node:path';
 
-import { ClaudeCodeAgentSpawner } from '@swt-labs/claude-code-driver';
-import { CodexAgentSpawner } from '@swt-labs/codex-driver';
 import type { AgentRole, AgentSpawner } from '@swt-labs/core';
 import {
   allDoneHandler,
@@ -28,7 +26,6 @@ import {
   type RouteArgs,
   type VibeRoute,
 } from '@swt-labs/methodology';
-import { OllamaAgentSpawner } from '@swt-labs/ollama-driver';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import { ReadlinePrompter } from '../prompters/readline.js';
@@ -88,20 +85,29 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
   const planningDir = join(io.cwd, '.swt-planning');
   const config = await loadSwtConfig(planningDir);
   const templatesDir = getBundledAgentTemplatesDir();
-  const backend = resolveBackend(parsed.flags.backend, config.backend);
-  let baseSpawner: AgentSpawner;
-  switch (backend) {
-    case 'codex':
-      baseSpawner = new CodexAgentSpawner();
-      break;
-    case 'claude-code':
-      baseSpawner = new ClaudeCodeAgentSpawner();
-      break;
-    case 'ollama':
-      baseSpawner = new OllamaAgentSpawner();
-      break;
+
+  // PR-01b: source-import edges to {codex,claude-code,ollama}-driver are broken. The CLI
+  // now consumes a SpawnerEnvironment threaded through CommandIO. PR-01b ships a stub env
+  // in main.ts that fails-fast; PR-02 wires the mock Pi-backed env from packages/runtime;
+  // PR-03 swaps in PiSpawnerEnvironment (real probe + dispatcher-backed spawner).
+  if (io.spawnerEnv === undefined) {
+    io.stderr.write(
+      'swt vibe: no SpawnerEnvironment wired into CommandIO. This usually means the CLI ' +
+        'bootstrap is missing the env factory (PR-02 wires the mock runtime adapter).\n',
+    );
+    return EXIT.RUNTIME_ERROR;
   }
-  io.stdout.write(`◆ Backend: ${backend}\n\n`);
+  const probe = await io.spawnerEnv.probe();
+  if (!probe.available) {
+    io.stderr.write(
+      `swt vibe: SpawnerEnvironment unavailable — ${probe.name}` +
+        (probe.reason !== undefined ? ` (${probe.reason})` : '') +
+        '\n',
+    );
+    return EXIT.RUNTIME_ERROR;
+  }
+  io.stdout.write(`◆ Spawner: ${probe.name}${probe.version !== undefined ? ` ${probe.version}` : ''}\n\n`);
+  const baseSpawner: AgentSpawner = await io.spawnerEnv.getSpawner();
   const spawner = new LazyInstallSpawner(baseSpawner, (role: AgentRole) =>
     resolveAgentSpec({ role, config, templates_dir: templatesDir }),
   );
@@ -191,16 +197,4 @@ function formatRouteBanner(route: VibeRoute): string {
 
 function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-type Backend = 'codex' | 'claude-code' | 'ollama';
-
-function resolveBackend(flag: string | boolean | undefined, configBackend: Backend): Backend {
-  if (
-    typeof flag === 'string' &&
-    (flag === 'codex' || flag === 'claude-code' || flag === 'ollama')
-  ) {
-    return flag;
-  }
-  return configBackend;
 }
