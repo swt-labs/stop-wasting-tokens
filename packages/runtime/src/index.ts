@@ -20,3 +20,30 @@ export type {
   MeterSnapshot,
   MeterUpdate,
 } from '@swt-labs/shared';
+
+// PR-08: provider-layer surface — tier vocabulary, role resolver, quirks-extension factory.
+// Per TDD2 §7.1.1 (role→tier→model chain) and §7.5 (provider quirks JSON shape).
+export {
+  resolveModelForRole,
+  resolveTierForRole,
+  resolveThinkingLevelForRole,
+  getDefaultTierMap,
+  DEFAULT_ROLE_TIERS,
+  DEFAULT_ROLE_THINKING_LEVELS,
+  TIERS,
+  SDLC_ROLES,
+  isTier,
+  isSDLCRole,
+  type Tier,
+  type SDLCRole,
+  type ThinkingLevel,
+  type RoleTierMap,
+  type DefaultTierMap,
+  type ProviderQuirk,
+  type ProviderQuirks,
+  type ResolveModelOverrides,
+} from './providers/index.js';
+export {
+  default as providerOverridesExtension,
+  buildAllProviderConfigs,
+} from './extensions/provider-overrides.js';

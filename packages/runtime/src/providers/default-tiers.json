@@ -1,0 +1,39 @@
+{
+  "_comment": "Illustrative SWT-tier → provider-specific model ID map. Per TDD2 §7.1: methodology speaks tiers; this file is the canonical resolution. Models reflect the May 2026 provider landscape. v3.x ships incremental refreshes; v4 plans to generate this file at build time from Pi's provider registry. _comment is ignored at parse time (no quirks-style schema validation).",
+  "anthropic": {
+    "cheap-fast": "claude-haiku-4-5",
+    "balanced": "claude-sonnet-4-6",
+    "quality": "claude-opus-4-7",
+    "reasoning": "claude-opus-4-7"
+  },
+  "openai": {
+    "cheap-fast": "gpt-5-mini",
+    "balanced": "gpt-5",
+    "quality": "gpt-5-pro",
+    "reasoning": "o4"
+  },
+  "openrouter": {
+    "cheap-fast": "meta-llama/llama-3.2-3b-instruct:free",
+    "balanced": "deepseek/deepseek-v3",
+    "quality": "anthropic/claude-opus-4-7",
+    "reasoning": "openai/o4"
+  },
+  "google": {
+    "cheap-fast": "gemini-2.5-flash",
+    "balanced": "gemini-2.5-pro",
+    "quality": "gemini-2.5-pro",
+    "reasoning": "gemini-2.5-pro"
+  },
+  "bedrock": {
+    "cheap-fast": "anthropic.claude-haiku-4-5-v1:0",
+    "balanced": "anthropic.claude-sonnet-4-6-v1:0",
+    "quality": "anthropic.claude-opus-4-7-v1:0",
+    "reasoning": "anthropic.claude-opus-4-7-v1:0"
+  },
+  "ollama": {
+    "cheap-fast": "llama3.2:3b",
+    "balanced": "llama3.3:70b",
+    "quality": "llama3.3:70b",
+    "reasoning": "deepseek-r1:70b"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "_comment": "Per-provider quirks overrides applied via Pi's pi.registerProvider Extension API. Per TDD2 §7.5 + ADR-003. CRITICAL: thinkingLevelMap keys are Pi ThinkingLevel values (off/minimal/low/medium/high/xhigh), NOT SWT tier names. The SWT-tier → ThinkingLevel chain happens in role-resolver.ts via resolveThinkingLevelForRole; this file is one layer downstream.",
+  "anthropic": {
+    "models": {
+      "claude-opus-4-7": {
+        "thinkingLevelMap": {
+          "off": null,
+          "minimal": null,
+          "low": null,
+          "medium": "low",
+          "high": "medium",
+          "xhigh": "high"
+        }
+      },
+      "claude-sonnet-4-6": {
+        "thinkingLevelMap": {
+          "off": null,
+          "minimal": null,
+          "low": null,
+          "medium": "low",
+          "high": "medium",
+          "xhigh": "high"
+        }
+      }
+    },
+    "compat": {
+      "supportsLongCacheRetention": true
+    }
+  },
+  "openai": {
+    "models": {
+      "gpt-5*": {
+        "compat": {
+          "maxTokensField": "max_completion_tokens",
+          "supportsDeveloperRole": true,
+          "supportsReasoningEffort": true
+        },
+        "thinkingLevelMap": {
+          "off": null,
+          "minimal": "minimal",
+          "low": "low",
+          "medium": "medium",
+          "high": "high",
+          "xhigh": "high"
+        }
+      },
+      "o4": {
+        "compat": {
+          "maxTokensField": "max_completion_tokens",
+          "supportsReasoningEffort": true
+        },
+        "thinkingLevelMap": {
+          "off": null,
+          "minimal": "minimal",
+          "low": "low",
+          "medium": "medium",
+          "high": "high",
+          "xhigh": "high"
+        }
+      }
+    }
+  },
+  "openrouter": {
+    "models": {
+      "deepseek/*": {
+        "compat": {
+          "thinkingFormat": "deepseek"
+        }
+      },
+      "moonshotai/*": {
+        "compat": {
+          "thinkingFormat": "openai"
+        }
+      },
+      "anthropic/*": {
+        "thinkingLevelMap": {
+          "off": null,
+          "minimal": null,
+          "low": null,
+          "medium": "low",
+          "high": "medium",
+          "xhigh": "high"
+        }
+      },
+      "openai/*": {
+        "compat": {
+          "maxTokensField": "max_completion_tokens",
+          "supportsReasoningEffort": true
+        }
+      }
+    }
+  },
+  "google": {
+    "models": {
+      "gemini-2.5-pro": {
+        "compat": {
+          "supportsReasoningEffort": true
+        }
+      }
+    }
+  }
+}
