@@ -6,7 +6,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
-_(Nothing yet — the workspace is ready for M1 execution in the real SWT repo.)_
+_(Nothing yet — the repo is ready for M1 PR-01a execution from a `v3-foundation` branch cut from `v2-archive`.)_
+
+## [0.2.0] — 2026-05-11 (repository pivot)
+
+### Changed
+
+**`main` is now v3.** The `swt-labs/stop-wasting-tokens` repository has been pivoted: `main` now reflects the v3 redesign in progress (this workspace). The v2.3.5 codebase is preserved on the **`v2-archive`** branch and at all release tags `v1.0.0` through `v2.3.5`.
+
+This is a repository-organization change, not a code/binary change:
+- `stop-wasting-tokens@2.3.5` on npm is unaffected (its source is immutable in npm's registry).
+- All v2 release tags remain intact and resolvable.
+- The full v2 codebase is one click away on the `v2-archive` branch.
+- All v2 GitHub issues and dependabot branches still exist; their `main`-referencing context is now stale-but-harmless (they target a branch that has moved on).
+
+Open PRs (mostly dependabot dep bumps) targeting `main` will need to be re-targeted at `v2-archive` if their changes still apply; otherwise they can be closed as historical.
+
+### Rationale
+
+v3.0 has not shipped yet, but the v3 design (TDD2.md) is final and the M1 foundation plans are written. Making `main` the v3 default surfaces the design as the canonical entry point for new contributors, the executor (human or AI), and visitors browsing the repo. v2 stays first-class via `v2-archive` and tags — fully preserved for LTS patches per TDD2 §17.6.
 
 ## [0.1.0] — 2026-05-11
 
