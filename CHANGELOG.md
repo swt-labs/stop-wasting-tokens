@@ -1,5 +1,71 @@
 # Changelog
 
+## 2.3.5
+
+### Patch Changes
+
+- v2.3.5 — `swt update` defaults to a fresh network query; dashboard
+  panel keeps a short 5-minute cache.
+
+  **Why.** v2.3.0–2.3.4 used the same 24h disk-cache for both
+  callers of `queryLatestVersion`:
+  1. The CLI's `swt update` command (explicit user ask, infrequent).
+  2. The dashboard `/api/update` panel poll (every 60s while the
+     panel is mounted).
+
+  One cache, two use cases. The TTL had to compromise between them
+  and ended up too long for the CLI path. Users who ran `swt update`
+  minutes after a release saw "up-to-date" because the cache had
+  been written by an earlier check — even when the registry already
+  had a newer version. v2.3.3 mitigated this for the in-place
+  upgrade path (cache invalidates when installed `current` shifts),
+  but the broader issue — explicit user checks reading stale cache —
+  remained.
+
+  **Fix — asymmetric defaults by caller intent.**
+  - **CLI `swt update`** now defaults to `noCache: true`. Every
+    invocation queries npm fresh. ~200ms one-off cost per check
+    is negligible; the upside is users always see the truth.
+    The new `--cache` flag opts back into disk caching for
+    flaky-network / offline workflows. `--no-cache` is preserved
+    as a no-op alias for scripts that already pass it.
+
+  - **Dashboard `/api/update` panel** keeps the disk cache (panel
+    polls every 60s and we don't want to spam the registry) but
+    drops the TTL from 24 h to **5 minutes** via the new
+    `cacheTtlMs` option on `queryLatestVersion`. A new release
+    surfaces in the panel within 5 min of the user's next refresh.
+
+  **API additions:**
+  - `QueryOptions.cacheTtlMs` (number, default 24h) — per-call
+    TTL override.
+  - `SHORT_CACHE_TTL_MS` exported from `@swt-labs/cli` — the
+    5-minute constant the dashboard route uses, also reusable
+    for plugin authors.
+
+  **Tests.** 2 new + 1 updated in `packages/cli/test/lib/npm-
+registry.test.ts` and `packages/cli/test/commands/update.test.ts`:
+  - Custom `cacheTtlMs` (5 min) invalidates after 10 min, serves
+    cache within 1 min.
+  - `swt update` (default) queries the network twice on two
+    sequential calls — no implicit cache.
+  - `--cache` flag opts back into the disk cache.
+
+  **Verification:**
+  - `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`,
+    `pnpm build` all clean.
+
+  **Migration note for users still on v2.3.3.** v2.3.3's
+  `swt update` will continue to report itself as up-to-date even
+  after this v2.3.5 release, for up to 24 h — because v2.3.3's
+  cache TTL is what it is. To force the upgrade through:
+
+  ```bash
+  npm install -g stop-wasting-tokens@latest
+  # or:
+  swt update --no-cache
+  ```
+
 ## 2.3.4
 
 ### Patch Changes

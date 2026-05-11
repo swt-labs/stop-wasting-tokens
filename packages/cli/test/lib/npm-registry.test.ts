@@ -113,6 +113,65 @@ describe('queryLatestVersion cache invalidation', () => {
     expect(result.status).toBe('outdated');
   });
 
+  it('honors a custom cacheTtlMs (5 minutes) so a long-running session sees fresh data', async () => {
+    // v2.3.5: dashboard /api/update passes SHORT_CACHE_TTL_MS (5 min) so
+    // active sessions don't see stale `latest` for hours after a release.
+    const cachePath = makeCacheFile();
+    mkdirSync(join(cachePath, '..'), { recursive: true });
+    writeFileSync(
+      cachePath,
+      JSON.stringify({
+        'stop-wasting-tokens': {
+          at: 1_000_000,
+          value: { current: '2.3.4', latest: '2.3.4', status: 'up-to-date' },
+        },
+      }),
+    );
+
+    // 10 minutes later — beyond the 5-minute custom TTL but well inside
+    // the 24h default. Must re-query.
+    const result = await queryLatestVersion('stop-wasting-tokens', '2.3.4', {
+      cachePath,
+      now: () => 1_000_000 + 10 * 60 * 1000,
+      cacheTtlMs: 5 * 60 * 1000,
+      fetchImpl: fakeFetch('2.3.5'),
+    });
+
+    expect(result.cached).toBeUndefined();
+    expect(result.latest).toBe('2.3.5');
+    expect(result.status).toBe('outdated');
+  });
+
+  it('still serves the cache within a custom cacheTtlMs window', async () => {
+    const cachePath = makeCacheFile();
+    mkdirSync(join(cachePath, '..'), { recursive: true });
+    writeFileSync(
+      cachePath,
+      JSON.stringify({
+        'stop-wasting-tokens': {
+          at: 1_000_000,
+          value: { current: '2.3.4', latest: '2.3.4', status: 'up-to-date' },
+        },
+      }),
+    );
+
+    // 1 minute later — within the 5-minute custom TTL. Cache hit.
+    let fetchCalls = 0;
+    const result = await queryLatestVersion('stop-wasting-tokens', '2.3.4', {
+      cachePath,
+      now: () => 1_000_000 + 60 * 1000,
+      cacheTtlMs: 5 * 60 * 1000,
+      fetchImpl: ((..._args: unknown[]) => {
+        fetchCalls++;
+        throw new Error('should not have been called');
+      }) as unknown as typeof fetch,
+    });
+
+    expect(fetchCalls).toBe(0);
+    expect(result.cached).toBe(true);
+    expect(result.latest).toBe('2.3.4');
+  });
+
   it('rewrites the cache with the new current/latest pair after a fresh query', async () => {
     const cachePath = makeCacheFile();
     mkdirSync(join(cachePath, '..'), { recursive: true });

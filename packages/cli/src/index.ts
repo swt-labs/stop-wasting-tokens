@@ -13,6 +13,7 @@ export { EXIT } from './exit-codes.js';
 export {
   queryLatestVersion,
   defaultCachePath,
+  SHORT_CACHE_TTL_MS,
   type RegistryResult,
   type RegistryStatus,
   type QueryOptions,
