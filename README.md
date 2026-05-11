@@ -308,8 +308,7 @@ The knobs that matter most:
 | `autonomy`               | `cautious` / `standard` / `confident` / `pure-vibe` | `standard` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error      |
 | `verification_tier`      | `quick` / `standard` / `deep`                       | `standard` | What QA runs. `quick` = smoke + lint + types; `standard` = +unit tests + must-have evidence; `deep` = +integration + cross-phase traceability |
 | `model_profile`          | `quality` / `balanced` / `cost`                     | `quality`  | Coarse cost/quality switch applied across all six agents                                                                                      |
-| `backend`                | `codex` / `claude-code` / `ollama`                  | `codex`    | Which CLI runtime SWT orchestrates against (Codex is fully shipped; Claude Code and Ollama drivers land in v1.6+)                             |
-| `prefer_teams`           | `auto` / `always` / `never`                         | `auto`     | Use parallel agent teams (when supported by your Codex CLI version)                                                                           |
+| `prefer_teams`           | `auto` / `always` / `never`                         | `auto`     | Use parallel agent teams (when supported by your runtime).                                                                                    |
 | `auto_uat`               | `true` / `false`                                    | `false`    | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`)                                                                        |
 | `auto_push`              | `never` / `after_phase` / `always`                  | `never`    | When to push commits to `origin`                                                                                                              |
 | `planning_tracking`      | `manual` / `ignore` / `commit`                      | `manual`   | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints)         |
@@ -442,11 +441,31 @@ The terminal CLI surface is unchanged for power users — every verb still works
 - **v1.6** — Localhost Dashboard MVP (Hono + Solid + SSE + chokidar).
 - **v1.0–1.5** — Methodology runtime, six-agent SDLC, multi-backend forward-compat stubs.
 
-v1 itself targets the Codex CLI only; the Claude Code and Ollama backend drivers are forward-compat stubs (REQ-20) for v2.5+.
+v2.x targeted the Codex CLI as its runtime backend. v3 (in progress on the `v3-foundation` branch) replaces that with the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) runtime; methodology is preserved, but the model-runtime layer is wholly rewritten. See [TDD2.md](./TDD2.md) for the v3 design and [docs/operations/migrating-from-v2.md](./docs/operations/migrating-from-v2.md) for the upgrade path.
 
 Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md). Stable release notes are in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md).
 
 ---
+
+## Migrating from v2.x?
+
+If you're upgrading from a v2.3.x project to v3.0, the canonical guide is
+[`docs/operations/migrating-from-v2.md`](./docs/operations/migrating-from-v2.md).
+TL;DR: `npm install -g stop-wasting-tokens@3` + `swt migrate --to=v3`. The
+migration script (M6 PR-49) rewrites `.swt-planning/config.json` to drop the
+`backend:` field, adds `roles[*].tier` + `router_strategy:`, and adds the
+top-level `schema_version: 1` marker. v2.3.x receives 6 months of security
++ critical-bug patches per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md);
+plan your migration before that window closes.
+
+## Design
+
+The authoritative design document for v3 is [`TDD2.md`](./TDD2.md) at the
+repo root. It supersedes the v2-era TDD.md. Read [`docs/design/README.md`](./docs/design/README.md)
+for the suggested reading order; the 13 Architecture Decision Records that
+anchor v3 are indexed at [`docs/decisions/README.md`](./docs/decisions/README.md).
+Live planning state for the current milestone lives in
+[`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.md` is the entry point.
 
 ## Contributing, security, license
 

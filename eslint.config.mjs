@@ -47,6 +47,98 @@ export default [
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },
+  // PR-10 Task 1: layered-architecture enforcement per TDD2 §4.3 From→May-import table.
+  // Matches the §4.3 layering exactly: shared = leaf (no other workspace pkg);
+  // core / runtime each import only shared; orchestration may import core+runtime+shared;
+  // dashboard may import core+orchestration+runtime+shared (NOT cli); cli may import
+  // dashboard+core+orchestration+runtime+shared. test-utils may import any (it's the
+  // test seam package, not a layer).
+  {
+    files: ['packages/**/*.{ts,tsx,mts,cts}'],
+    plugins: { import: importPlugin },
+    rules: {
+      'import/no-restricted-paths': [
+        'error',
+        {
+          zones: [
+            { target: 'packages/shared', from: 'packages', except: ['packages/shared'] },
+            { target: 'packages/core', from: 'packages', except: ['packages/core', 'packages/shared'] },
+            {
+              target: 'packages/runtime',
+              from: 'packages',
+              except: ['packages/runtime', 'packages/shared'],
+            },
+            {
+              target: 'packages/orchestration',
+              from: 'packages',
+              except: [
+                'packages/orchestration',
+                'packages/core',
+                'packages/runtime',
+                'packages/shared',
+              ],
+            },
+            {
+              target: 'packages/dashboard',
+              from: 'packages',
+              except: [
+                'packages/dashboard',
+                'packages/core',
+                'packages/orchestration',
+                'packages/runtime',
+                'packages/shared',
+              ],
+            },
+            {
+              target: 'packages/cli',
+              from: 'packages',
+              except: [
+                'packages/cli',
+                'packages/dashboard',
+                'packages/core',
+                'packages/orchestration',
+                'packages/runtime',
+                'packages/shared',
+                'packages/artifacts',
+                'packages/methodology',
+                'packages/telemetry',
+                'packages/verification',
+              ],
+            },
+          ],
+        },
+      ],
+      // Principle 1 enforcement (TDD2 §4.3): only runtime/ may import @earendil-works/*.
+      // Other packages must go through runtime's exported helpers (e.g., probePiAvailable).
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@earendil-works/*'],
+              message:
+                'Principle 1: only packages/runtime/ may import from @earendil-works/*. See TDD2 §4.3 + ADR-001.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Override @earendil-works ban for runtime/ — it's THE Pi adapter.
+  {
+    files: ['packages/runtime/**/*.{ts,tsx,mts,cts}'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
+  // test-utils is the test-seam package and may cross layer lines for fixtures.
+  {
+    files: ['packages/test-utils/**/*.{ts,tsx,mts,cts}'],
+    rules: {
+      'import/no-restricted-paths': 'off',
+      'no-restricted-imports': 'off',
+    },
+  },
   {
     files: ['**/*.config.{ts,mts,js,mjs}', '**/vitest.config.ts', '**/tsup.config.ts'],
     rules: {
