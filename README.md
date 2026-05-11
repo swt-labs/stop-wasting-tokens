@@ -6,6 +6,9 @@
 
 > A spec-driven harness for the OpenAI Codex CLI, built around a single obsession: **stop wasting tokens**.
 
+> **⚠ v3 redesign in progress on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch.** The published binary on npm is still v2.3.5 (this README + the [`main`](https://github.com/swt-labs/stop-wasting-tokens) branch describe v2.x). v3 is a full runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved, Codex/Claude-Code/Ollama backends being retired. Read [`TDD2.md`](./TDD2.md) for the design; see [`CHANGELOG.md`](./CHANGELOG.md#300-alpha1--in-development-not-yet-published) for the v3 commit trail; see [`.vbw-planning/ROADMAP.md`](./.vbw-planning/ROADMAP.md) for the 6-milestone plan (M1 Foundation is in progress; v3.0 ships at M6). v2.3.x stays on LTS (security fixes via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive)) per ADR-012.
+
+
 `swt` is a Node/TypeScript CLI you install once. It wraps every Codex session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
 
 If you've ever watched Codex re-read your codebase three times in one session, hallucinate an architecture you already rejected, or chase a fix in circles because the goal drifted mid-stream — that's the waste this tool is engineered to eliminate.

@@ -1,5 +1,56 @@
 # Changelog
 
+## 3.0.0-alpha.1 — IN DEVELOPMENT (not yet published)
+
+_The v3 redesign is being built on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch. The currently-published binary on npm remains v2.3.5. This entry tracks what has shipped to v3-foundation so far; M1 Foundation is the active milestone._
+
+**Authoritative design:** [`TDD2.md`](./TDD2.md). **Active plans:** [`.vbw-planning/`](./.vbw-planning/). **Roadmap:** [`.vbw-planning/ROADMAP.md`](./.vbw-planning/ROADMAP.md).
+
+### Changed — architecture pivot
+
+- **Runtime substrate** switched from Codex CLI subprocess (v2.x) to [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) (`^0.74.0` pinned, `*` peer). Methodology / orchestration / dashboard / cli are now vendor-neutral; only `@swt-labs/runtime` imports Pi directly. See ADR-001 + ADR-004.
+- **Methodology** preserved verbatim. The six-agent SDLC, `.swt-planning/` artefact schemas, phase lifecycle, must-haves, goal-backward QA — all unchanged. The runtime layer is replaced; the methodology is not.
+
+### Added — new workspace packages
+
+- `@swt-labs/runtime` (PR-02, commit `3050410`) — Layer 1 Pi adapter. `createSession`, `mapPiEvent`, `createCodingTools` / `createReadOnlyTools`, `MockSpawnerEnvironment`, `probePiAvailable`. Pi declared as peerDep `*` + pinned-range dep `^0.74.0` per ADR-001 + ADR-010 (reproducible builds).
+- `@swt-labs/orchestration` (PR-03, commit `74c757c`) — Layer 2 dispatcher. `createDispatcher()` returns a sequential `Dispatcher`; `PiSpawnerEnvironment` probes Pi via the runtime helper and returns a `Dispatcher`-backed `AgentSpawner`. Parallel batches land in M3.
+- `@swt-labs/shared` (PR-04, commit `0a623d2`) — leaf package. 9 vendor-neutral types (session, meter, dispatcher, agent-role, autonomy, effort, verification, thinking-level, plus `SwtEvent` in session). 7 Zod schemas (snapshot, events, api migrated from dashboard-core; new task-result, plan, claim, budget per TDD2 §9.4). Zero internal workspace deps beyond zod.
+
+### Added — new abstractions
+
+- `packages/core/src/abstractions/SpawnerEnvironment.ts` (PR-01b, commit `e0bc8ce`) — `SpawnerEnvironment` interface with `probe()` and `getSpawner()`. The CLI (`vibe`, `doctor`) consumes a spawner through this abstraction instead of source-importing from any `@swt-labs/*-driver` package.
+- Three ADRs landed alongside their implementing PRs per the audit-reconciled §22.14 schedule:
+  - **ADR-001** Pi SDK adoption — Accepted (PR-02)
+  - **ADR-002** Extension result protocol via `swt_report_result` custom tool with closure-captured `pi.appendEntry` — Proposed; auto-promotes to Accepted when M1 PR-09 ships the implementation
+  - **ADR-004** `cache_control` at provider-shim layer (not Pi-level) — Accepted (PR-02)
+
+### Removed
+
+- **M1 entry-gate constitutional debt cleared.** The source-import edges from `methodology → @swt-labs/codex-driver` and `cli → @swt-labs/{codex,claude-code,ollama}-driver` are broken. The grep invariant `grep -rE "from '@swt-labs/(codex|claude-code|ollama)-driver'" packages/ --exclude-dir={codex,claude-code,ollama}-driver --exclude-dir=dist` returns zero hits.
+- **`@swt-labs/dashboard-core`** package deleted wholesale (PR-04). The three schemas it owned (snapshot, events, api) moved to `@swt-labs/shared` via `git mv` with 100% similarity (history preserved). 21+ consumer files across runtime / orchestration / core / cli / dashboard rewired in the same PR.
+
+### Deferred
+
+- The three driver packages (`@swt-labs/codex-driver`, `@swt-labs/claude-code-driver`, `@swt-labs/ollama-driver`) still exist on disk; nothing outside them imports them in source. Plan 01-02 PR-05 deletes them per ADR-005.
+- `CodexReasoningEffort` → `ThinkingLevel` cascade rename of `AgentSpec.reasoning_effort` deferred to M2 (touches the methodology agent-spec-resolver — bigger scope than PR-04's consolidation). `shared/src/types/thinking-level.ts` is in place as the destination vocabulary today.
+
+### Fixed
+
+- **VBW pre-push hook data corruption** (issue [#635](https://github.com/swt-labs/vibe-better-with-claude-code-vbw/issues/635), VBW PR [#636](https://github.com/swt-labs/vibe-better-with-claude-code-vbw/pull/636), shipped as VBW v1.37.1). The VBW v1.37.0 pre-push hook called `bash scripts/bump-version.sh --verify` against any repo with that script, including non-VBW repos. SWT v2.3.5's `scripts/bump-version.sh` treats `$1` as a new semver string, so `--verify` was being persisted as a literal `"--verify"` into every `package.json` `version` field on every push. Local defence-in-depth landed at commit `2dd44ee` — adds a `--verify` short-circuit to SWT's `bump-version.sh` that does workspace consistency checking with no mutation. Upstream fix mirrors `validate-commit.sh`'s plugin-name guard and is published as VBW v1.37.1.
+
+### Plan 01-01 commit trail on `v3-foundation`
+
+| PR | Commit | Subject |
+| :---: | :---: | :--- |
+| PR-01a | [`08579dc`](https://github.com/swt-labs/stop-wasting-tokens/commit/08579dc) | `refactor(methodology)`: break codex-driver source-import edge |
+| PR-01b | [`e0bc8ce`](https://github.com/swt-labs/stop-wasting-tokens/commit/e0bc8ce) | `refactor(cli)`: break {codex,claude-code,ollama}-driver edges + SpawnerEnvironment |
+| PR-02 | [`3050410`](https://github.com/swt-labs/stop-wasting-tokens/commit/3050410) | `feat(runtime)`: scaffold `@swt-labs/runtime` + Pi mock + ADRs 001/002/004 |
+| PR-03 | [`74c757c`](https://github.com/swt-labs/stop-wasting-tokens/commit/74c757c) | `feat(orchestration)`: scaffold `@swt-labs/orchestration` + PiSpawnerEnvironment |
+| PR-04 | [`0a623d2`](https://github.com/swt-labs/stop-wasting-tokens/commit/0a623d2) | `feat(shared)`: consolidate types + Zod schemas; delete `@swt-labs/dashboard-core` |
+
+Test posture: runtime 5/5, orchestration 5/5, cli 71/82 (the 11 remaining are pre-existing v2.3.5 carry-forwards verified via `git stash` baseline comparison; remediated in M1 Plan 01-03 PR-11). `pnpm typecheck` green workspace-wide. M1 entry-gate invariant clean.
+
 ## 2.3.5
 
 ### Patch Changes
