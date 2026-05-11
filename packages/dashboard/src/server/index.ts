@@ -9,6 +9,7 @@ import { Hono } from 'hono';
 
 import { createEventBus, type EventBus } from './event-bus.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
+import { securityHeadersMiddleware } from './lib/csp.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerCommandRoute } from './routes/command.js';
@@ -100,6 +101,20 @@ export function createApp(
   const bus = opts.bus ?? createEventBus();
   const startedAt = opts.startedAt ?? Date.now();
   const app = new Hono();
+  // v2.3.4: defense-in-depth security headers — must be registered before
+  // any route so every response (incl. static SPA assets + 404s) is covered.
+  // The CSP directive blocks browser-extension MAIN_WORLD script injection
+  // (MetaMask / Yoroi / Phantom / Rabby), which otherwise drops SES lockdown
+  // into the page and breaks Solid reactivity + the natural-language
+  // classifier. `SWT_DASHBOARD_NO_CSP=1` opts out for users who need to
+  // load custom scripts (e.g., during dev). See lib/csp.ts for the full
+  // rationale + directive list.
+  app.use(
+    '*',
+    securityHeadersMiddleware({
+      disableCsp: process.env['SWT_DASHBOARD_NO_CSP'] === '1',
+    }),
+  );
   registerHealthRoute(app, startedAt);
   // B-09: pass a snapshot getter so SSE writes an initial snapshot.replace
   // frame on connect. The getter reads the live `snapshotter` closure so

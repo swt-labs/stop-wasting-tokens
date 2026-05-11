@@ -1,5 +1,93 @@
 # Changelog
 
+## 2.3.4
+
+### Patch Changes
+
+- v2.3.4 — Defense-in-depth against browser-extension interference.
+
+  **Why.** Web3 wallet extensions (MetaMask, Yoroi, Phantom, Rabby,
+  Brave Wallet, Coinbase Wallet, etc.) inject scripts into every
+  `http://` page they encounter — including localhost. Most of them
+  additionally drop SES (Secure ECMAScript) lockdown into the page
+  to freeze JS primordials for security. SES lockdown interferes
+  with Solid's reactivity primitives and standard Set-membership
+  patterns the dashboard's natural-language command-bar classifier
+  depends on. The visible symptom: the command bar silently routes
+  every input to `/api/command` instead of `/api/vibe`, so describing
+  what you want to build fails with "unknown command 'I'".
+
+  **Fix — two-layer defense:**
+  1. **Server-side CSP header (primary, free).** Hono middleware in
+     `packages/dashboard/src/server/lib/csp.ts` sets a strict CSP
+     header on every response. Chromium-based browsers (Chrome, Edge,
+     Brave, Arc, Opera) respect MAIN_WORLD content-script CSP since
+     2023, so wallet extensions get blocked at the browser level
+     and never inject. SES never runs. The classifier works.
+
+     Directives:
+
+     ```
+     default-src 'self'
+     script-src 'self' 'wasm-unsafe-eval'
+     style-src 'self' 'unsafe-inline'
+     img-src 'self' data:
+     font-src 'self' data:
+     connect-src 'self'
+     frame-ancestors 'none'
+     base-uri 'none'
+     form-action 'self'
+     ```
+
+     Plus belt-and-suspenders: `X-Content-Type-Options: nosniff`,
+     `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
+
+     `SWT_DASHBOARD_NO_CSP=1` opt-out for users who need custom
+     scripts (e.g., dev with a third-party wallet integration).
+
+  2. **Client-side detector banner (safety net).**
+     `packages/dashboard/src/client/lib/detect-extension-interference.ts`
+     probes for known wallet globals (`window.ethereum`,
+     `window.cardano`, `window.phantom`, `window.solana`, `window.tronWeb`)
+     and SES indicators (`globalThis.lockdown`, `globalThis.harden`,
+     `Object.isFrozen(Array.prototype)`). If any are detected, a
+     dismissable amber banner renders at the top of the dashboard
+     with a clear remediation message ("open in Incognito or disable
+     wallet extensions for 127.0.0.1"). Catches the small slice of
+     cases where CSP doesn't block injection (older browsers, vendor
+     edge cases, future extension classes).
+
+     `ExtensionDefenseBanner.tsx` is the rendering component;
+     sessionStorage-backed dismissal so it doesn't nag after the
+     user acknowledges it once.
+
+  **Future-proofing.** Adding a new wallet to the detector is one
+  entry in `KNOWN_WALLET_GLOBALS` (id + label + probe function).
+  The CSP directives are exported as `DEFAULT_CSP` and parameter-
+  overridable via `securityHeadersMiddleware({csp})` for v2.5+
+  plugin scenarios that need to loosen the policy.
+
+  **Tests.** 16 new vitest cases:
+  - `security-headers.test.ts` (6): default CSP shape, script-src
+    restrictions, supplementary headers, disableCsp behavior,
+    custom CSP override.
+  - `detect-extension-interference.test.ts` (10): clean baseline,
+    each wallet probe individually, multi-wallet coexistence, SES
+    via both function and frozen-prototype paths, remediation
+    string content, defensive-against-throwing-getter guarantee.
+
+  **Verification:**
+  - `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`
+    all clean (16 new tests, 0 regressions).
+  - `pnpm build` clean.
+  - Live test: `swt dashboard` in Chrome with MetaMask + Yoroi
+    installed → banner renders, Incognito works without banner.
+
+  **No behavior change for users without wallets.** Detector returns
+  `interferenceDetected: false`, banner renders nothing. CSP header
+  is set unconditionally but only affects requests the dashboard
+  never makes anyway.
+
 ## 2.3.3
 
 ### Patch Changes
