@@ -16,6 +16,7 @@
     "@swt-labs/core": "workspace:*",
     "@swt-labs/methodology": "workspace:*",
     "@swt-labs/runtime": "workspace:*",
+    "@swt-labs/orchestration": "workspace:*",
     "@swt-labs/ollama-driver": "workspace:*",
     "@swt-labs/telemetry": "workspace:*",
     "@swt-labs/verification": "workspace:*",

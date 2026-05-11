@@ -1,0 +1,24 @@
+/**
+ * Public surface for `@swt-labs/orchestration` — Layer 2.
+ *
+ * What's exported in PR-03 (Plan 01-01):
+ *   - `createDispatcher` + types (`Dispatcher`, `TaskBrief`, `TaskResult`)
+ *   - `PiSpawnerEnvironment` (consumed by `cli/main.ts` — swaps PR-02's MockSpawnerEnvironment)
+ *
+ * What lands later in this plan:
+ *   - PR-04: type migration to `@swt-labs/shared`; orchestration re-exports
+ *     `Dispatcher` / `TaskBrief` / `TaskResult` from there.
+ * What lands in Plan 01-02:
+ *   - PR-09: `result-harvest.ts` — reads `swt_report_result` entries from Pi
+ *     session files and validates against `TaskResultSchema`.
+ * What lands in M3:
+ *   - PR-22..PR-29: `worktree-manager`, `claim-registry`, `dag-resolver`,
+ *     `lock-files`. Parallel batches inside `dispatchBatch`.
+ *
+ * Per Principle 2 (TDD2 §4.3): orchestration may depend on runtime, core,
+ * and shared (when shared lands). It must NOT depend on cli or dashboard.
+ */
+
+export { createDispatcher, type SessionFactory } from './dispatcher.js';
+export { PiSpawnerEnvironment } from './PiSpawnerEnvironment.js';
+export type { Dispatcher, TaskBrief, TaskResult } from './types.js';

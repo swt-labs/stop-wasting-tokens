@@ -1,0 +1,40 @@
+{
+  "name": "@swt-labs/orchestration",
+  "version": "0.0.0",
+  "description": "Layer 2 — orchestration: sequential dispatcher (PR-03), PiSpawnerEnvironment, claim registry + DAG resolver (M3). Bridges methodology's `AgentSpawner` requests into runtime `createSession` calls.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@swt-labs/core": "workspace:*",
+    "@swt-labs/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swt-labs/stop-wasting-tokens.git",
+    "directory": "packages/orchestration"
+  },
+  "bugs": {
+    "url": "https://github.com/swt-labs/stop-wasting-tokens/issues"
+  },
+  "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
+  "author": "Tiago Serôdio (@yidakee)",
+  "private": true
+}

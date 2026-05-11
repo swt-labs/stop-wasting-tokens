@@ -110,6 +110,9 @@ importers:
       '@swt-labs/ollama-driver':
         specifier: workspace:*
         version: link:../ollama-driver
+      '@swt-labs/orchestration':
+        specifier: workspace:*
+        version: link:../orchestration
       '@swt-labs/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -250,6 +253,19 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
+
+  packages/orchestration:
+    dependencies:
+      '@swt-labs/core':
+        specifier: workspace:*
+        version: link:../core
+      '@swt-labs/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.17)
 
   packages/runtime:
     dependencies:

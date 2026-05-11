@@ -22,6 +22,7 @@
 export { createSession } from './session.js';
 export { createCodingTools, createReadOnlyTools } from './tools.js';
 export { mapPiEvent } from './events.js';
+export { probePiAvailable, type ProbePiResult } from './probe.js';
 export type { SwtSession, SwtSessionOptions, SwtEvent } from './types.js';
 export type { TokenMeter, MeterRecord, MeterSnapshot, MeterUpdate } from './meter-types.js';
 export { MockSpawnerEnvironment } from './mock/MockSpawnerEnvironment.js';

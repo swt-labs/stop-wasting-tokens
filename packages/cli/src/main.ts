@@ -1,5 +1,5 @@
 import type { SpawnerEnvironment } from '@swt-labs/core';
-import { MockSpawnerEnvironment } from '@swt-labs/runtime';
+import { PiSpawnerEnvironment } from '@swt-labs/orchestration';
 
 import { parseSwtArgv } from './argv.js';
 import { configHandler } from './commands/config.js';
@@ -116,7 +116,7 @@ export async function main(
     cwd: deps.cwd ?? process.cwd(),
     stdout: deps.stdout ?? process.stdout,
     stderr: deps.stderr ?? process.stderr,
-    spawnerEnv: deps.spawnerEnv ?? new MockSpawnerEnvironment(),
+    spawnerEnv: deps.spawnerEnv ?? new PiSpawnerEnvironment(),
   };
   const registry = deps.registry ?? buildRegistry(deps.version);
 
