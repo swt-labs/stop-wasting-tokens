@@ -24,7 +24,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           # Node 24 ships npm 11.x, which has the Trusted Publisher OIDC
           # publish flow (token exchange + registry PUT auth). Node 22
