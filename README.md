@@ -7,6 +7,7 @@ Methodology-first SDLC for vendor-agnostic coding agents.
 ## What you're looking at
 
 - **[`TDD2.md`](./TDD2.md)** — authoritative v3 technical design (≈266 KB). The full v3 plan; start here.
+- **[`docs/testing.md`](./docs/testing.md)** — one-page consolidation of the 12 test categories + 2 hard merge gates that v3 must cross before beta. Read this if your question is "how do we know the code works before beta?"
 - [`TDD.md`](./TDD.md) — original v3 design (historical record; superseded by TDD2).
 - [`CHANGELOG.md`](./CHANGELOG.md) — workspace + repo history.
 - [`CLAUDE.md`](./CLAUDE.md) — VBW context file (active milestone, plugin rules).
@@ -31,6 +32,19 @@ Methodology-first SDLC for vendor-agnostic coding agents.
 | M6 Decommission, benchmark, ship | v3.0 ships | Pending |
 
 Track progress in [`.vbw-planning/STATE.md`](./.vbw-planning/STATE.md).
+
+## How v3 proves correctness before beta
+
+Pre-beta confidence is enforced by a **layered gate system**, not a single test pass. The full breakdown is in **[`docs/testing.md`](./docs/testing.md)**; the short version:
+
+- **12 test categories** — unit, integration, e2e, cassette infrastructure, token-meter regression, v2 regression, provider matrix, golden artefact bundles, performance/TPAC, chaos/crash-recovery, static-check ladder, isolation rules.
+- **2 hard merge gates that cannot be bypassed:**
+  - **M1 PR-07** — token meter `delta = 0` on cassette replay (any non-determinism in token counting fails CI)
+  - **M4 PR-36** — TPAC −40% vs M2 baseline on `ref-fastapi` (the optimization must materialize, or the milestone-finishing PR cannot merge)
+- **Reproducible-build job** on every push to main — `pnpm build` twice; any byte-diff in `dist/` fails.
+- **Beta begins only after M6 exit gate passes** — full unit + integration + provider-matrix + regression + e2e + chaos + reproducible-build suites all green, plus published public benchmark.
+
+If beta surfaces a bug, the fix lands together with a new test that would have caught it. No exceptions.
 
 ## I'm here to use v2
 

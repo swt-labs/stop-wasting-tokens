@@ -9,6 +9,35 @@ Plans: 0/3
 Progress: 0%
 Status: ready
 
+## Reading the metrics
+
+The `Current Phase` block above is VBW's canonical schema. Here's what those numbers actually mean:
+
+- **`Phase: 1 of 6`** — we are in the first of six milestones (M1 Foundation). This is the design lifecycle position, not "1/6 complete."
+- **`Plans: 0/3`** — **0 plans EXECUTED of 3 plans WRITTEN**. The three plans (`01-01-PLAN.md`, `01-02-PLAN.md`, `01-03-PLAN.md`) are fully authored — 15 tasks across all of them, covering all 12 M1 PRs (PR-01a, PR-01b, PR-02..PR-11). Execution = landing each plan's tasks as real PRs against the `v3-foundation` branch cut from `v2-archive`. No code work has begun yet *by design* — plan-then-execute is the methodology.
+- **`Progress: 0%`** — refers to execution. Planning is at 100%. The percentage flips when SUMMARY.md files start landing.
+- **`Status: ready`** — VBW's state vocabulary for "plans written, ready to execute." Not "ready but waiting for something" — actually ready.
+
+**When PR-01a merges** (writes `01-01-SUMMARY.md`), this row flips to `Plans: 1/3, Progress: 33%`. M1 Foundation is complete when `Plans: 3/3, Status: complete`.
+
+### Pre-beta safety net (the hard gates that catch bad code before it ships)
+
+Before any code reaches "beta testing," it has to survive these gates that are baked into the plans:
+
+| Gate | What it asserts | Where | Plan |
+|---|---|---|---|
+| **Token-meter delta=0 on replay** | Cassette-replayed token counts equal recorded byte-for-byte. Any non-determinism fails the merge. | `runtime/test/meter/cassette-replay.int.test.ts` | 01-02 PR-07 |
+| **First end-to-end TaskResult** | Dispatcher → mocked Pi → harvest → parsed `TaskResult` validates against Zod schema | `orchestration/test/dispatcher.int.test.ts` | 01-02 PR-09 |
+| **Required test step** (no `continue-on-error`) | `pnpm test` failure blocks PR merge | `.github/workflows/ci.yml` | 01-03 PR-11 |
+| **Reproducible-build** | `pnpm build` twice produces byte-identical `dist/` | `.github/workflows/ci.yml` reproducible-build job | 01-03 PR-11 |
+| **TPAC −40% vs M2 baseline** | Tokens-per-acceptance-criterion measurement on ref-fastapi | `test/perf/tpac-baseline.perf.test.ts` | M4 PR-36 |
+| **Cache hit ≥70%** | Anthropic cassette replays show ≥70% cache-read ratio | dashboard `/api/cache-hits/sse` panel | M4 PR-33 |
+| **Crash recovery 100%** | SIGKILL injection at every FSM transition resumes cleanly | `test/chaos/*.chaos.test.ts` | M3 PR-28 |
+| **Provider matrix** | 6 providers × 3 scenarios identical TaskResult parsing | `test/provider-matrix/*.matrix.test.ts` | M5 PR-44 |
+| **Regression** | v2.3.5 golden runs replay byte-identical (modulo timestamps) | `test/regression/*.regression.test.ts` | M2 PR-18 |
+
+See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category test surface.
+
 ## Phase Status
 - **Phase 1 (M1 Foundation):** Planned
 - **Phase 2 (M2 Single Agent Path):** Pending
