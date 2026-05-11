@@ -1,11 +1,11 @@
-# stop-wasting-tokens
+# SWT v3 — Pi-Native Coding Harness
 
-**Core value:** Token-disciplined, methodology-first SDLC for the Codex CLI.
+**Core value:** Token-efficient methodology-driven coding harness, vendor-agnostic by construction
 
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** v2.3 Dashboard CLI Parity Panels + cmd-K Command Palette — `milestones/10-v2-3-dashboard-cli-parity-panels-and-cmd-k-palette` (4 phases / 4 plans / 18 tasks / 1 UAT CHECKPOINT / ~69 new passing tests / 22 commits / 4 deviations — shipped as a four-release series 2.3.0 → 2.3.3 with install-smoke matrix green on all patch versions across npm/pnpm/bun × ubuntu/macos. v2.3.0 was the feature ship: dashboard CLI parity panels (Config / Doctor / Detect-Phase / Update) in a fifth Tools column + global cmd-K command palette with hand-rolled fuzzy match. Phase 01: backend HTTP routes + dashboard-core schemas + hand-mirrored CLI helpers (detect-codex, command-registry-mirror) extending the v2.0 allowed-verbs.ts precedent. Phase 02: read-only Tools column with layout-storage v2 (5-column main + tools array) + 60s polling with `document.visibilitychange` pause. Phase 03: mutations (POST /api/config with Zod + parseConfig validation + state.changed SSE; POST /api/update/apply with EACCES-aware copyable sudo command) + cmd-K palette with subsequence fuzzy match. Phase 04: release v2.3 series — v2.3.1 fixed a daemon double-spawn / EADDRINUSE crash caused by tsup inlining the CLI's isDirectInvocation() side-effect into the dashboard bundle (fix tightened the basename check); v2.3.2 caught the bundled README up to the published version; v2.3.3 fixed a 24h cache stale-after-upgrade bug in `swt update` so users running between patches don't see stale `latest` (fix added cached `current` match to the freshness check + 4 vitest regression cases). Permission gate deviation documented: POSTs intentionally don't route through DashboardPermissionGate (session-keyed for vibes; UI clicks have no session_id; future UiPermissionGate class is the right path). Follow-up work (deferred to v2.4+): CLI surface parity beyond the four panels + palette, mobile layout, multi-session UI, signed-tag verification panel, UiPermissionGate for direct UI mutations, "did you mean…?" hint for unknown verbs. — 2026-05-11)
+**Last shipped:** _(none yet)_
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules
@@ -21,7 +21,6 @@
 ## Code Intelligence
 
 Prefer LSP over Search/Grep/Glob/Read for semantic code navigation — it's faster, precise, and avoids reading entire files:
-
 - `goToDefinition` / `goToImplementation` to jump to source
 - `findReferences` to see all usages across the codebase
 - `workspaceSymbol` to find where something is defined
