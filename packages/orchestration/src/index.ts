@@ -19,6 +19,23 @@
  * and shared (when shared lands). It must NOT depend on cli or dashboard.
  */
 
-export { createDispatcher, type SessionFactory } from './dispatcher.js';
+export {
+  createDispatcher,
+  type SessionFactory,
+  type HarvestStrategy,
+  type CreateDispatcherOptions,
+} from './dispatcher.js';
 export { PiSpawnerEnvironment } from './PiSpawnerEnvironment.js';
 export type { Dispatcher, TaskBrief, TaskResult } from './types.js';
+
+// PR-09 (Plan 01-02): result harvest from Pi session entries.
+// Per ADR-002 — the dispatched agent calls `swt_report_result` (registered
+// by `runtime/extensions/result-protocol.ts`); the harvester reads the
+// `custom` entry it persists via closure-captured `pi.appendEntry`.
+export {
+  harvestTaskResult,
+  harvestTaskResultFromEntries,
+  readSessionEntries,
+  MissingTaskResultError,
+  type PiSessionEntryLike,
+} from './result-harvest.js';

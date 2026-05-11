@@ -67,3 +67,28 @@ export {
   default as providerOverridesExtension,
   buildAllProviderConfigs,
 } from './extensions/provider-overrides.js';
+
+// PR-09: result-protocol + journal extensions (ADR-002 Accepted).
+// The closure-captured `pi.appendEntry` pattern is encoded in `PiExtensionAPI`
+// (see `extensions/pi-types.ts`) — `PiExtensionContext` intentionally has NO
+// `appendEntry` field, so `ctx.appendEntry(...)` is a TS error.
+export {
+  buildResultProtocolExtension,
+  resultProtocolExtension,
+  SwtReportResultParamsSchema,
+  enrichWithFileMetadata,
+  getTaskIdFromCtx,
+  buildJournalExtension,
+  journalExtension,
+  FileJournalSink,
+  MemoryJournalSink,
+  type SwtReportResultParams,
+  type ResultProtocolExtensionOptions,
+  type JournalExtensionOptions,
+  type PiExtensionAPI,
+  type PiExtensionContext,
+  type PiSessionEntry,
+  type PiToolDefinition,
+  type PiToolExecuteResult,
+  type JournalSink,
+} from './extensions/index.js';

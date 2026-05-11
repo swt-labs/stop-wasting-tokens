@@ -1,5 +1,10 @@
 import { createSession, type SwtSession, type SwtSessionOptions } from '@swt-labs/runtime';
 
+import {
+  harvestTaskResult,
+  harvestTaskResultFromEntries,
+  type PiSessionEntryLike,
+} from './result-harvest.js';
 import type { Dispatcher, TaskBrief, TaskResult } from './types.js';
 
 /**
@@ -12,34 +17,84 @@ import type { Dispatcher, TaskBrief, TaskResult } from './types.js';
 export type SessionFactory = (opts: SwtSessionOptions) => Promise<SwtSession>;
 
 /**
+ * Result-harvest strategy passed at dispatcher-construction time.
+ *
+ * - `'stub'` (default) — dispatcher returns a synthetic success result
+ *   without inspecting any session state. This is the PR-03 behaviour and
+ *   it's what consumers without a real Pi session (or without a recorded
+ *   cassette) should keep using.
+ * - `{ kind: 'entries', getEntries: (task) => entries }` — dispatcher reads
+ *   the session's in-memory entry list (Pi's `sessionManager.getEntries()`
+ *   shape) and validates against `TaskResultSchema`. This is the path
+ *   used by the integration test in PR-09 once the cassette lands.
+ * - `{ kind: 'file', resolvePath: (task) => path }` — dispatcher reads the
+ *   per-session JSONL session file from disk. Used by M3+ when the
+ *   orchestrator drives Pi out-of-process.
+ *
+ * The strategy is purely declarative — the dispatcher invokes it after
+ * `session.prompt()` returns. Errors from `harvestTaskResult*` bubble up
+ * unchanged so the caller sees the precise validation failure.
+ */
+export type HarvestStrategy =
+  | 'stub'
+  | {
+      readonly kind: 'entries';
+      readonly getEntries: (task: TaskBrief) => ReadonlyArray<PiSessionEntryLike>;
+    }
+  | { readonly kind: 'file'; readonly resolvePath: (task: TaskBrief) => string };
+
+export interface CreateDispatcherOptions {
+  readonly sessionFactory?: SessionFactory;
+  /**
+   * How the dispatcher converts a finished session into a `TaskResult`.
+   * Defaults to `'stub'` — synthetic success, no session inspection.
+   */
+  readonly harvestStrategy?: HarvestStrategy;
+}
+
+/**
  * Sequential dispatcher.
  *
- * PR-03 is a stub: it creates a session, doesn't prompt, returns a synthetic
- * success `TaskResult`, and disposes the session. The wiring is real (session
- * lifecycle, error path via `try/finally`, dispatchBatch as serialised
- * `dispatch` calls); the contents are not (no Pi call, no methodology spec).
+ * PR-03 shipped a stub: it created a session, didn't prompt, returned a
+ * synthetic success, and disposed the session. PR-09 (this PR) adds the
+ * harvest surface: callers who wire a real Pi session (or replay a
+ * recorded cassette) can switch `harvestStrategy` from `'stub'` to
+ * `{ kind: 'entries' | 'file', ... }` so the dispatcher reads + validates
+ * the `swt-task-result` custom session entry per ADR-002. Real prompting
+ * + agent loop wiring lands in M2 PR-12 + PR-13.
  *
- * Real dispatching lands in M2 PR-12 (Lead role through dispatcher) + PR-13
- * (Dev role through dispatcher). M3 PR-22..PR-29 adds worktree isolation,
- * claim registry, DAG-based parallel batches. The `Dispatcher` interface
- * stays stable across those changes — only `dispatch`'s body grows.
+ * The session lifecycle (`try/finally session.dispose()`) is real today
+ * and survives the harvest path — failures during harvest don't leak a
+ * live session handle.
  */
-export function createDispatcher(opts?: { sessionFactory?: SessionFactory }): Dispatcher {
-  const factory: SessionFactory = opts?.sessionFactory ?? createSession;
+export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher {
+  const factory: SessionFactory = opts.sessionFactory ?? createSession;
+  const strategy: HarvestStrategy = opts.harvestStrategy ?? 'stub';
 
   const dispatch = async (task: TaskBrief): Promise<TaskResult> => {
     const session = await factory({ cwd: task.cwd, ephemeral: true });
     try {
-      // No prompt issued in PR-03. PR-12 (Plan 02) replaces this body with
-      // a real `session.prompt(buildPrompt(...))` + harvest of swt_report_result.
-      return {
-        schema_version: 1,
-        task_id: task.taskId,
-        status: 'success',
-        summary: '(M1 PR-03 stub dispatcher — real dispatch lands in M2 PR-12)',
-        files_changed: [],
-        must_haves: [],
-      };
+      // PR-09: session.prompt() is still a no-op (createSession ships a
+      // mock until M2 swaps in real Pi wiring). The harvest path runs
+      // anyway when the strategy is non-stub — that path is exercised by
+      // the integration test in PR-09 via injected mock entries.
+      if (strategy === 'stub') {
+        return {
+          schema_version: 1,
+          task_id: task.taskId,
+          status: 'success',
+          summary: '(M1 PR-09 stub dispatcher — real prompt wiring lands in M2 PR-12)',
+          files_changed: [],
+          must_haves: [],
+        };
+      }
+      if (strategy.kind === 'entries') {
+        const entries = strategy.getEntries(task);
+        return harvestTaskResultFromEntries(entries, `task ${task.taskId}`);
+      }
+      // strategy.kind === 'file'
+      const path = strategy.resolvePath(task);
+      return harvestTaskResult(path);
     } finally {
       session.dispose();
     }
@@ -48,7 +103,7 @@ export function createDispatcher(opts?: { sessionFactory?: SessionFactory }): Di
   return {
     dispatch,
     async dispatchBatch(tasks) {
-      // Sequential by design at PR-03. Parallel batches land in M3 PR-22..24
+      // Sequential by design at PR-09. Parallel batches land in M3 PR-22..24
       // (worktree-manager + claim-registry + dag-resolver). Same interface.
       const results: TaskResult[] = [];
       for (const t of tasks) results.push(await dispatch(t));
