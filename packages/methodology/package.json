@@ -14,7 +14,7 @@
     "@swt-labs/artifacts": "workspace:*",
     "@swt-labs/codex-driver": "workspace:*",
     "@swt-labs/core": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "access": "public",
