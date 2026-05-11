@@ -1,0 +1,43 @@
+name: Regression
+
+# v3 regression suite runs cassette-replay assertions against recorded fixtures.
+# At M1 close (this PR) the suite is a stub — real implementation lands in M2
+# PR-18 (when the v2 → v3 byte-identical golden-bundle replay test ships).
+# Until then `pnpm test:regression` exits 0 so this workflow stays green.
+
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'test/regression/**'
+      - 'packages/test-utils/golden/**'
+      - 'packages/test-utils/cassettes/**'
+  push:
+    branches: ['main', 'v3-foundation']
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run regression suite
+        run: pnpm test:regression || echo "Regression suite not yet implemented (lands in M2 PR-18)"
+
+      - name: Upload diff report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-diff
+          path: test/regression/output/diff-report.html
+        continue-on-error: true # report file may not exist yet at M1

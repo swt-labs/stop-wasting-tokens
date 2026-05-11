@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ['v2-archive', 'release/v2.3-*']
+    branches: ['main', 'v3-foundation', 'v2-archive', 'release/v2.3-*']
   pull_request:
-    branches: ['v2-archive', 'release/v2.3-*']
+    branches: ['main', 'v3-foundation', 'v2-archive', 'release/v2.3-*']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,10 +35,10 @@ jobs:
       # Typecheck is required as of v1.5.2 Phase 01.
       # Lint is required as of v1.5.2 Phase 02.
       # Format check is required as of v1.5.2 Phase 03.
-      # Test remains advisory pending a dedicated test-debt cleanup
-      # milestone (the 33 failures are documented v1.0/DEV-1D-class
-      # carryforward and partly Prettier-induced fixture drift; closing
-      # them is bigger than this milestone's scope).
+      # Test is required as of v3 M1 PR-11 Task A. Plan 01-03 PR-11 Task A
+      # remediates the 33 v2.3.5 carry-forward failures (fix / fixture-drift
+      # / skip-with-issue / obsolete-delete); after that PR, `continue-on-error`
+      # is removed from the Test step and any new failure blocks the merge.
       # Build is also required (it validates the published bundle compiles).
       - name: Typecheck
         run: pnpm typecheck
@@ -55,3 +55,38 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # ADR-010 — byte-identical dist/ outputs from the same commit.
+  # Runs on push-to-main / push-to-v3-foundation only (PR builds get the
+  # standard build matrix; main-bound merges additionally get reproducibility).
+  reproducible-build:
+    name: Reproducibility check
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v3-foundation')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build twice and diff dist/
+        run: |
+          pnpm build
+          mv dist dist-first
+          pnpm build
+          diff -r dist-first dist
+
+      - name: Upload first build on diff failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-first
+          path: dist-first

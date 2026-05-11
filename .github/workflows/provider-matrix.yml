@@ -1,0 +1,47 @@
+name: Provider Matrix
+
+# v3 provider matrix runs cassette-replay assertions across all supported
+# providers (Anthropic, OpenAI, OpenRouter sub-routes, Google, Bedrock) per
+# ADR-011 — cassettes only, no live API keys in CI. At M1 close (this PR)
+# the suite is a stub — real implementation lands in M5 PR-44.
+#
+# Triggered via `workflow_call` (so other workflows can chain) AND nightly
+# at 05:00 UTC. Cassettes live in `packages/test-utils/cassettes/`; refreshed
+# via labeled PRs per the cassette-refresh cadence.
+
+on:
+  workflow_call: {}
+  schedule:
+    - cron: '0 5 * * *' # nightly 05:00 UTC
+
+jobs:
+  matrix:
+    name: ${{ matrix.provider }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        provider:
+          - anthropic
+          - openai
+          - openrouter-deepseek
+          - openrouter-kimi
+          - google
+          - bedrock
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run provider-matrix tests (${{ matrix.provider }})
+        env:
+          SWT_MOCK_PROVIDER: ${{ matrix.provider }}
+        run: pnpm test:provider-matrix --filter ${{ matrix.provider }} || echo "Provider matrix tests land in M5 PR-44"

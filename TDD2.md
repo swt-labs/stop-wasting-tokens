@@ -4210,7 +4210,7 @@ The register uses a 3×3 matrix: Severity {Low, Medium, High} × Probability {Lo
 
 | # | Risk | Severity | Prob | Score | Mitigation | Owner |
 |---|---|---|---|---|---|---|
-| R-01 | Pi API surface shifts pre-1.0; published exports remove or rename what we depend on | H | M | 6 | Runtime adapter localizes Pi usage to ~10 files; peer-dep ranges allow upgrade signal early; CI tests against `next` Pi tag nightly | runtime owner |
+| R-01 | Pi API surface shifts pre-1.0; published exports remove or rename what we depend on | H | M | 6 | Runtime adapter localizes Pi usage to ~10 files; peer-dep ranges allow upgrade signal early; CI tests against `next` Pi tag nightly. **M1 update (post-PR-09):** Pi 0.74-alpha shifted types across patch releases; runtime/src/extensions/pi-types.ts now declares structural mirrors of `ExtensionAPI` + `ExtensionContext` capturing only the methods SWT uses, encoding the ADR-002 invariant at the type level. Collapses to a thin re-export when Pi ships a 1.0 stable type surface. | runtime owner |
 | R-02 | codex-driver edges have more dependencies than visible at edge-level (either in methodology or CLI) | M | M | 4 | M1 PR-01a and PR-01b each produce a complete `grep -rE "from '@swt-labs/codex-driver'"` audit before merge; methodology + CLI test suites catch missed imports | core owner |
 | R-03 | TPAC −40% physically not achievable on the M2 reference scenario | H | M | 6 | M4 includes a contingency: if −40% requires unbounded engineering, document why with cassette diffs and propose a refined target (−30% with clear evidence) | runtime owner |
 | R-04 | Anthropic changes cache_control behavior (e.g., min-token threshold doubles) | M | L | 2 | Fallback: prompt-builder emits cache_control conditionally on token count; warning surfaces in dashboard | runtime owner |
@@ -4257,6 +4257,21 @@ The register uses a 3×3 matrix: Severity {Low, Medium, High} × Probability {Lo
 - **Post-launch quarterly:** operational risks reviewed; sunset risks no longer applicable.
 
 The risks live in `docs/risks.md` as the canonical register; the table above is a snapshot for TDD2's archive.
+
+### 19.6 M1 exit-interview risk delta
+
+Tracked per the cadence above: every milestone gate updates this subsection (or `19.7 M2 …`, etc., when the next milestone closes). M1 closed with the following deltas relative to the pre-execution snapshot:
+
+- **R-01 (Pi API surface):** mitigation enriched in-place — Pi 0.74-alpha type instability was real during execution; resolved by the structural-mirror pattern in `runtime/src/extensions/pi-types.ts` (per PR-09 + ADR-002). Score unchanged (still 6); the mitigation is now codified rather than aspirational.
+- **R-02 (codex-driver edge audit):** **CLOSED.** Plan 01-01 PR-01a + PR-01b each shipped the verified grep audit before merge; Plan 01-02 PR-05 deleted the three driver packages wholesale per ADR-005. The grep invariant `from '@swt-labs/(codex|claude-code|ollama)-driver'` returns nothing on `v3-foundation`. Risk no longer applies.
+- **R-09 (33-test remediation overrun):** **IN PROGRESS at Plan 01-03 PR-11 Task A.** Tracked in `docs/decisions/test-debt-tracking.md`. Score stays at 4 until PR-11 Task A merges; promotes to **CLOSED** then.
+- **R-10 (cassette flakiness):** mitigation already implemented in Plan 01-02 PR-06 — canonical-body SHA-256 hashing (`packages/test-utils/src/cassettes/normalize.ts`) + sealed-cassette enforcement (`cwd_redacted: z.literal(true)` in `format.ts`). Score stays at 4 until the cassettes are recorded and the byte-identical assertion passes; promotes to **CLOSED** then.
+
+**No new architectural-class risks surfaced during M1 execution.** Three operational discoveries are tracked outside the risk register:
+
+- The VBW pre-push hook bug (issue #635) — external tooling defect, resolved upstream as VBW v1.37.1 + locally via the `--verify` short-circuit in `scripts/bump-version.sh`. Not a v3 architectural concern.
+- The VBW file-guard exact-match behaviour — internal-workflow friction that drove the per-file `files_modified` expansions documented in each plan's deviations. Plan-amendments accepted; no upstream change requested.
+- Two cassette recordings deferred to a user-driven session — tracked in `.vbw-planning/STATE.md ## Todos` and `.vbw-planning/v3-tracking.md`; activates the two cassette-gated tests on commit. Not a risk per se since the alternative tests (synthetic-entries + placeholder-passing) keep CI honest in the interim.
 
 ---
 

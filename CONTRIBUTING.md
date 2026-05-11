@@ -71,6 +71,33 @@ If a contribution is inspired by published documentation, blog posts, or open-so
 
 Maintainer-only. Releases are cut via the Changesets release workflow. See `docs/releasing.md` (added in Phase 9) for the full procedure.
 
+## Branch Protection (v3)
+
+The `main` and `v3-foundation` branches are protected as of M1 PR-11 merge. The protection rules below are configured in the GitHub Branch Protection UI (Settings → Branches → Branch protection rules); this section documents them so contributors know what to expect.
+
+**Required status checks** (all must pass before merge):
+
+- `build (ubuntu-latest / Node 22)`
+- `build (macos-latest / Node 22)`
+- `build (windows-latest / Node 22)`
+- `reproducible-build` — ADR-010 byte-identical dist/ check; runs on push-to-main / push-to-v3-foundation.
+- `CodeQL` — security analysis.
+- `Vale` — prose linting on docs/.
+
+**Required reviews:**
+
+- 1 reviewer minimum for changes outside `packages/runtime/`.
+- 2 reviewers for changes to `packages/runtime/` (Pi adapter layer — Principle 1 boundary).
+
+**Repository rules:**
+
+- Linear history required (no merge commits).
+- No force-push to `main` or `v3-foundation`.
+- Main + v3-foundation branches cannot be deleted.
+- Admin bypass disabled for protected branches except for hotfix release tags.
+
+After PR-11 Task A lands, the `Test` step in `ci.yml` becomes required (no `continue-on-error: true`). Pre-existing v2.3.5 test failures are either fixed, marked `it.skip(...)` with a tracking issue, or deleted as obsolete — see `docs/decisions/test-debt-tracking.md` for the inventory.
+
 ## Getting help
 
 - Open a question issue for project-related questions.
