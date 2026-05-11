@@ -6,7 +6,7 @@ on:
       - 'docs/**'
       - '.github/workflows/vale.yml'
   push:
-    branches: [main]
+    branches: ['v2-archive', 'release/v2.3-*']
     paths:
       - 'docs/**'
       - '.github/workflows/vale.yml'
