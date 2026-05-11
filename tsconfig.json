@@ -29,6 +29,9 @@
       "path": "./packages/telemetry"
     },
     {
+      "path": "./packages/test-utils"
+    },
+    {
       "path": "./packages/dashboard"
     }
   ]
