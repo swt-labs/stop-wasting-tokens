@@ -60,3 +60,18 @@ export {
   type ComputeTpacOptions,
   type RoleSummary,
 } from './tpac-meter.js';
+
+// PR-22 (M3): worktree lifecycle FSM. Per TDD2 §9.1. Standalone FSM —
+// per-worktree Pi session wiring lands in a dedicated follow-up PR.
+export {
+  WorktreeManager,
+  IllegalTransitionError,
+  WorktreeNotFoundError,
+  GitOperationError,
+  DEFAULT_PARALLEL_ROOT,
+  DEFAULT_JOURNAL_ROOT,
+  type AgentOutcome,
+  type GitRunner,
+  type GitRunResult,
+  type WorktreeManagerOptions,
+} from './worktree-manager.js';

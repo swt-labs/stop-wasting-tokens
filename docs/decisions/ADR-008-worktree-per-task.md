@@ -1,8 +1,9 @@
 ---
 adr: 008
 title: One git worktree per dispatched task
-status: Proposed
+status: Accepted
 decided: 2026-05-11
+accepted: 2026-05-12
 pr: M3 PR-22
 supersedes: TDD2 §9.2
 related: ADR-009
@@ -10,7 +11,7 @@ related: ADR-009
 
 # ADR-008 — One git worktree per dispatched task
 
-**Status:** Proposed (promotes to Accepted when M3 PR-22 lands the implementation)
+**Status:** Accepted (2026-05-12 — M3 PR-22 landed the `WorktreeManager` lifecycle FSM at `packages/orchestration/src/worktree-manager.ts`)
 
 ## Context
 

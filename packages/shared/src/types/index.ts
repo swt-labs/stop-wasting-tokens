@@ -24,3 +24,4 @@ export * from './effort.js';
 export * from './verification.js';
 export * from './thinking-level.js';
 export * from './agent-spec.js';
+export * from './worktree.js';
