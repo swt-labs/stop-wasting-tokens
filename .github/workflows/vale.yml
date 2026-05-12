@@ -45,6 +45,13 @@ jobs:
           fi
 
       - name: Lint docs prose
+        # Per docs/decisions/STYLE-GUIDE.md: Vale alerts are advisory and do
+        # not fail CI. The Vale.Terms / Vale.Spelling built-in rules fire at
+        # error-level on project vocabulary (SWT, VBW, Zod, npm capitalization,
+        # etc.) and on Mintlify .mdx prose that was never groomed for prose
+        # discipline; the violations are surfaced for reviewers + operators
+        # but do not block the merge.
+        continue-on-error: true
         run: |
           cd docs
           vale --output=line .
