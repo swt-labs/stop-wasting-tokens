@@ -672,7 +672,19 @@ First PR of Plan 06-01 (M6 Decommission, benchmark, ship per TDD2 §13.6). v2-er
 - **`CodexMethodologyAgent` deleted** — `packages/dashboard/src/server/vibe/codex-methodology-agent.ts` + its test (10 tests). No consumers since M1 PR-05. The closing bookend on ADR-005.
 - **Test cascades** — `dashboard-store.test.ts` (8 `agent_backend: 'codex'` → `'pi'` sites), `snapshot-reducer.test.ts` (1 `backend.toBe('codex')` → `'pi'`). Auto-regenerated `docs/reference/config.mdx`.
 
-**Test posture at PR-45 close: 1150 passing / 46 skipped / 0 failed** (−10 from PR-44's 1160: 10 codex-methodology-agent tests deleted alongside the source). Commit: `<pending>`.
+**Test posture at PR-45 close: 1150 passing / 46 skipped / 0 failed** (−10 from PR-44's 1160: 10 codex-methodology-agent tests deleted alongside the source). Commit: `6cfcbfb`.
+
+### Added (M6 — Plan 06-01 — PR-46, 2026-05-12)
+
+Second PR of Plan 06-01. Trim redundant stubs from `STUB_SPECS`.
+
+- **`worktree` + `lease` stubs removed** from `packages/cli/src/commands/stubs.ts`. Both verbs are now covered by real v3 surfaces:
+  - `worktree` (v2 design: "Manage milestone worktrees") → covered by `swt cleanup` (M3 PR-29) which handles list / force-remove / prune-locks across the per-task worktrees.
+  - `lease` (v2 design: "Acquire / release file locks") → an internal concern of `packages/orchestration/src/lock-files.ts` since M3 PR-25. Operators don't manage leases directly; `swt cleanup --prune-locks` is the only operator-facing escape hatch.
+- **18 remaining stubs preserved** (`plan`, `execute`, `qa`, `map`, `debug`, `fix`, `archive`, `release`, `resume`, `pause`, `audit`, `assumptions`, `research`, `discuss`, `phase`, `todo`, `skills`, `whats-new`, `uninstall`). All genuine post-release roadmap items (M7+ work). They continue returning `EXIT.NOT_IMPLEMENTED` with a pointer to the roadmap phase.
+- **Auto-regenerated `docs/reference/cli.mdx`** via `pnpm docs:gen` — the new file omits the trimmed entries.
+
+**Test posture at PR-46 close: 1150 passing / 46 skipped / 0 failed** (unchanged — stub removal doesn't affect tests). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

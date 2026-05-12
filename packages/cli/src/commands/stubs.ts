@@ -46,6 +46,8 @@ export const STUB_SPECS: readonly StubSpec[] = [
   { name: 'whats-new', description: 'Show recent SWT release notes', roadmap_phase: 'Phase 9' },
   // `update` is registered as a real command in main.ts (Phase 04 / Plan 04-02 added marketplace dispatch alongside npm); the stub entry was pre-existing v1.0 carryforward and removed here to fix the duplicate-registration error that surfaced when scripts/docs-gen.ts called buildRegistry().
   { name: 'uninstall', description: 'Uninstall SWT', roadmap_phase: 'Phase 10' },
-  { name: 'worktree', description: 'Manage milestone worktrees', roadmap_phase: 'Phase 7' },
-  { name: 'lease', description: 'Acquire / release file locks', roadmap_phase: 'Phase 7' },
+  // M6 PR-46: `worktree` + `lease` stubs removed. `swt cleanup` (M3 PR-29)
+  // handles worktree retention + lock-file pruning; leases are an internal
+  // concern of `packages/orchestration/src/lock-files.ts`. Stubs for both
+  // verbs would shadow the real verbs that operators actually use.
 ];
