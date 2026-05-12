@@ -549,7 +549,24 @@ First PR of Plan 05-01 (M5 Multi-provider per TDD2 §13.5). OpenRouter shim end-
   - **End-to-end through TokenMeter + computeCacheHitRatio (1 test)** — 2 turns through different OpenRouter sub-routes; asserts the meter snapshot aggregates them as 2 distinct cache-hit rows with per-row ratios (Anthropic 1800/2100 ≈ 0.857, OpenAI 600/1000 = 0.6).
 - **No code changes.** The shim was structurally in place; PR-39 is the regression test that locks it in.
 
-**Test posture at PR-39 close: 1113 passing / 46 skipped / 0 failed** (+9 from PR-38's 1104). Commit: `<pending>`.
+**Test posture at PR-39 close: 1113 passing / 46 skipped / 0 failed** (+9 from PR-38's 1104). Commit: `51e4cd1`.
+
+### Added (M5 — Plan 05-01 — PR-40, 2026-05-12)
+
+Second PR of Plan 05-01. Optional Gemini shim with Google Terms-of-Service warnings. Google's free Gemini API tier reserves the right to use prompts + completions for model training unless the operator explicitly opts out — operators who select `gemini-*` from `default-tiers.json` need to know what they're consenting to before their PROJECT.md + REQUIREMENTS.md artefacts go out the wire.
+
+- **`packages/runtime/src/providers/gemini-warnings.ts`** (NEW) — `getGeminiTosWarning(model: string): GeminiTosWarning | null` returns a structured warning when the model ID starts with `gemini-`. Fields:
+  - `severity: 'info'` (operators decide whether to proceed)
+  - `message` (one-line summary)
+  - `tos_url: 'https://ai.google.dev/terms'`
+  - `data_retention_note` (free + paid tier semantics — free retains for training; Vertex AI follows enterprise contracts)
+  - `training_opt_out_url: 'https://console.cloud.google.com/ai/generative-language/safety'`
+  - Non-Gemini models return `null`. Case-insensitive on the prefix; whitespace-trimmed. Conservative prefix-only match — `my-gemini-model` does NOT trigger the warning, only models that actually start with `gemini-`.
+- **`getProviderWarning(model)`** — convenience wrapper that today delegates to `getGeminiTosWarning` but is the future-proof entry point for any provider needing similar ToS notices.
+- **Re-exported from `@swt-labs/runtime`** so the methodology layer + CLI surface can consume it before the first Gemini dispatch.
+- **9 tests** (`packages/runtime/test/providers/gemini-warnings.test.ts`) — Gemini variants (2.5-pro + 2.5-flash from default-tiers.json) trigger the warning; non-Gemini models return null; case-insensitivity; empty / whitespace inputs return null; partial substrings (`my-gemini-model`, `gemini2-pro`, `gemini` without trailing hyphen) all return null; warning fields are all non-empty strings + URLs use https.
+
+**Test posture at PR-40 close: 1122 passing / 46 skipped / 0 failed** (+9 from PR-39's 1113). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

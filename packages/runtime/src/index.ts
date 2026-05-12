@@ -87,6 +87,15 @@ export {
   type PromptBlockLike,
 } from './providers/cache-control.js';
 
+// PR-40 (M5): Gemini ToS warning emitter. Operators selecting a
+// Gemini-family model get a structured warning about Google's
+// training-default-on policy before the first dispatch.
+export {
+  getGeminiTosWarning,
+  getProviderWarning,
+  type GeminiTosWarning,
+} from './providers/gemini-warnings.js';
+
 // PR-35 (M4): Budget Gate. Per TDD2 §8.4 + ADR-007. Subscribes to a
 // TokenMeter; fires budget.warning at 70%, budget.pause at 95%,
 // budget.resume after bumpCeiling drops pressure below the warning
