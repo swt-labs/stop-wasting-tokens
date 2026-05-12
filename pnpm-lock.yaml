@@ -20,6 +20,12 @@ importers:
       '@swt-labs/core':
         specifier: workspace:*
         version: link:packages/core
+      '@swt-labs/orchestration':
+        specifier: workspace:*
+        version: link:packages/orchestration
+      '@swt-labs/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       '@types/node':
         specifier: ^22.7.4
         version: 22.19.17

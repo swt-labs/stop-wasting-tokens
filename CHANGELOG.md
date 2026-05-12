@@ -354,7 +354,26 @@ Second PR of Plan 03-04. `swt cleanup` ships per TDD2 §9.7 — the operator's e
 - **8 tests** (`packages/cli/test/commands/cleanup.test.ts`) — `--list`: missing-planning-dir → NOT_IMPLEMENTED, empty-journal → "No active worktrees", populated journal+lock → table with state + pid + liveness. `--force`: full-cleanup (worktree + journal + lock all removed), USAGE_ERROR on missing `--task-id`, partial-state (no parallel dir) still cleans up journal+lock. `--prune-locks`: removes only dead-PID locks via injected `pidChecker`, "No stale locks found" when all alive.
 - **Docs** at `docs/cli/verbs/cleanup.md` (sample `--list` output, `--force` + `--prune-locks` semantics, exit codes, Principle 1 invariant note). `docs/reference/cli.mdx` auto-regenerated via `pnpm docs:gen`.
 
-**Test posture at PR-29 close: 1020 passing / 46 skipped / 0 failed** (+8 from PR-27's 1012). Commit: `<pending>`.
+**Test posture at PR-29 close: 1020 passing / 46 skipped / 0 failed** (+8 from PR-27's 1012). Commit: `7b76beb`.
+
+### Added (M3 close — Plan 03-04 — PR-28, 2026-05-12)
+
+Third PR of Plan 03-04. Chaos suite ships per TDD2 §13.3.3 — the M3 EXIT GATE asserts "Crash recovery 100% on every FSM transition", and this suite encodes that property as testable invariants.
+
+- **`test/chaos/worktree-fsm.chaos.test.ts`** (9 tests) — walks every legal FSM transition (TDD2 §9.1) and asserts the on-disk journal's last entry is the deterministic recovery signal a future SWT process can use to reconstruct state without trusting any predecessor's in-memory FSM. Coverage:
+  - Forward path: `(none) → created → claimed → dispatched → agent_running → agent_complete → harvested → removed` — 7 transitions, each one asserts the journal mirrors the new state immediately after the manager's method returns. Plus a sanity check that every entry's `from` matches the previous entry's `to`.
+  - All 6 `failed`-from-non-terminal paths (parameterised via `it.each`): `created → failed`, `claimed → failed`, …, `harvested → failed`. Each preserves the source state in the journal entry's `from` field so post-mortem can reconstruct the failure point.
+  - `git worktree add` failure path: `(none) → failed` with `operation: create`, `reason: git_worktree_add_failed`, and the stderr captured in `details`.
+  - Concurrent managers on disjoint task IDs: two `WorktreeManager` instances over the same `parallelRoot/journalRoot` with interleaved `create→claim→dispatch` for separate tasks produce 3 entries each with no cross-contamination — proves the FSM comment's invariant: "journal writes are append-only and per-task."
+- **`test/chaos/lock-recovery.chaos.test.ts`** (4 tests) — partner invariants for the `swt cleanup --prune-locks` path:
+  - Alive → dead PID transition: acquire (alive) → flip PID checker to dead → `purgeStaleLocks` drops the lock → fresh acquire on the same taskId succeeds. The slot is reclaimed without operator intervention.
+  - Corrupt-envelope defence: truncated JSON lock survives a `purgeStaleLocks` without `purgeCorrupt`, gets purged when `purgeCorrupt: true`. Forensic preservation by default; explicit opt-in for forceful cleanup.
+  - Mixed lock pool: live + dead + corrupt all present; `purgeCorrupt: true` removes dead + corrupt and preserves live. Synthetic distinct PIDs (11111 alive, 99999 dead) let the PID-checker mock differentiate without depending on the host process table.
+  - Idempotency: running `purgeStaleLocks` twice on the same pool is a no-op on the second run. Cron- + systemd-timer-safe.
+- **`pnpm test:chaos`** script in root `package.json` (`vitest run test/chaos/`) replaces the prior stub at `scripts/stub-test-chaos.mjs`. The chaos suite also runs as part of the default `pnpm test` (already matched by the existing `test/**/*.test.ts` glob).
+- **Root `package.json` workspace deps** — added `@swt-labs/orchestration` + `@swt-labs/shared` as workspace devDeps so the top-level `test/chaos/` files can resolve `import { WorktreeManager, ... } from '@swt-labs/orchestration'` without relative-path imports. Test isolation: chaos tests use injected `gitRunner` mocks (no real `git` binary) and injected `pidChecker` mocks (no real process-table queries).
+
+**Test posture at PR-28 close: 1033 passing / 46 skipped / 0 failed** (+13 from PR-29's 1020: 9 worktree-fsm + 4 lock-recovery). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
