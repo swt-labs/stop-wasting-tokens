@@ -90,10 +90,9 @@ jobs:
       # passed; this satisfies even the strictest "disallow tokens" 2FA
       # setting on the package because OIDC trusted publishing is exempt.
       #
-      # npm CLI 11.5.1+ is required for trusted-publisher OIDC exchange.
-      # Node 22 bundles npm 10.x, so we upgrade explicitly.
-      - name: Upgrade npm CLI for trusted-publisher OIDC support
-        run: npm install -g npm@latest
-
+      # Trusted-publisher OIDC exchange needs npm CLI 11.5.1+. Node 22 bundles
+      # npm 10.x, and `npm install -g npm@latest` hits a known self-upgrade
+      # bug (Cannot find module 'promise-retry'). Workaround: fetch npm@latest
+      # via npx so it runs from a fresh sandboxed install.
       - name: Publish to npm via OIDC trusted publishing
-        run: npm publish --tag ${{ steps.dist_tag.outputs.dist_tag }} --provenance --access public
+        run: npx -y npm@latest publish --tag ${{ steps.dist_tag.outputs.dist_tag }} --provenance --access public
