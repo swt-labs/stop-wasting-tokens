@@ -1,16 +1,13 @@
 # State
 
 **Project:** SWT v3 — Pi-Native Coding Harness
-**Milestone:** M1 Foundation
+**Milestone:** M2 Single-agent path (M1 Foundation closed 2026-05-12)
 
 ## Current Phase
-
-Phase: 1 of 6 (M1 Foundation) — **CLOSED 2026-05-12**
-Plans: 3/3
-Progress: 100%
-Status: complete
-
-**Next:** Phase 2 (M2 Single-agent path) — planning starts via `/vbw:vibe --plan 2`. M2 entry conditions per TDD2 §13.1.5 are all met.
+Phase: 2 of 6 (M2 Single Agent Path)
+Plans: 0/2
+Progress: 0%
+Status: ready
 
 ## Reading the metrics
 
@@ -44,9 +41,8 @@ Before any code reaches "beta testing," it has to survive these gates that are b
 See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category test surface.
 
 ## Phase Status
-
-- **Phase 1 (M1 Foundation):** **Complete** (15/15 tasks, 15 commits on `v3-foundation`, M1 exit gate reached 2026-05-12)
-- **Phase 2 (M2 Single Agent Path):** Pending (ready to plan)
+- **Phase 1 (M1 Foundation):** ✓ **Complete** (15/15 tasks, 15 work commits + 3 congruency-pass commits on `v3-foundation`, M1 exit gate reached 2026-05-12)
+- **Phase 2 (M2 Single-agent path):** **Planned** (2/2 plans authored 2026-05-12; 10 PRs queued; execution starts via `/vbw:vibe --execute 2`)
 - **Phase 3 (M3 Worktree Dispatcher):** Pending
 - **Phase 4 (M4 Token Meter Cache Discipline):** Pending
 - **Phase 5 (M5 Multi Provider):** Pending
