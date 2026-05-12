@@ -136,3 +136,17 @@ export {
   type RouterStrategy,
   type Tier as RouterTier,
 } from './provider-router.js';
+
+// PR-42 (M5): provider fallback chain + retry budget. Composes with
+// the router (PR-41) — router makes the first decision; fallback
+// chain handles retry-on-failure for Pi's auto_retry_503/429/500
+// events. Per TDD2 §7.3.
+export {
+  createFallbackChain,
+  FallbackChainExhaustedError,
+  type FallbackChain,
+  type FallbackChainOptions,
+  type FallbackFailureReason,
+  type FallbackSelection,
+  type ProviderFallbackEvent,
+} from './provider-fallback.js';

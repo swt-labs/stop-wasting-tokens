@@ -584,7 +584,36 @@ Third PR of Plan 05-01. Provider router strategies per TDD2 §7.3. Pure stateles
 
 PR-42 (next) wraps the router in a fallback chain that handles 503/429/500 retry semantics.
 
-**Test posture at PR-41 close: 1135 passing / 46 skipped / 0 failed** (+13 from PR-40's 1122). Commit: `<pending>`.
+**Test posture at PR-41 close: 1135 passing / 46 skipped / 0 failed** (+13 from PR-40's 1122). Commit: `7aee524`.
+
+### Added (M5 — Plan 05-01 — PR-42, 2026-05-12)
+
+Fourth PR of Plan 05-01. Provider fallback chain + retry budget per TDD2 §7.3. Composes with PR-41's router — the router makes the FIRST decision; the fallback chain handles retry-on-failure when Pi emits `auto_retry_503` / `auto_retry_429` / `auto_retry_500`.
+
+- **`packages/orchestration/src/provider-fallback.ts`** (NEW) — `createFallbackChain({primary, fallbacks, retryBudget, publish?}): FallbackChain` returns:
+  - `.select(task) → {provider, attempt, isLast}` — current provider to dispatch against (1-based `attempt`; `isLast: true` when no further fallback exists). Throws `FallbackChainExhaustedError` once cursor exceeds `maxAttempts = min(sequence.length, retryBudget)`.
+  - `.recordFailure(provider, reason, task) → boolean` — advances the cursor; emits `provider.fallback_fired` event via `publish` when a next provider exists; returns `true` if the chain can continue, `false` if exhausted.
+  - `.attemptsTaken() → number` — current cursor position.
+- **`FallbackFailureReason = '503' | '429' | '500' | 'other'`** — covers Pi's `auto_retry_*` envelopes + catch-all for network timeouts.
+- **`ProviderFallbackEvent`** — `{type: 'provider.fallback_fired', ts, task_id, from, to, reason, attempt}`. Dashboards consume the event stream to track per-provider failure rates.
+- **`FallbackChainExhaustedError`** — thrown by `select()` when every chain slot has been used. Carries `taskId`, `attempts`, `retryBudget`.
+- **Construction validation** — `retryBudget < 1` throws at construction.
+- **Telemetry semantics** — events fire ONLY on successful transitions to a next provider. The final failure (no next provider) returns `false` from `recordFailure` without emitting an event; the next `select()` throws `FallbackChainExhaustedError`.
+- **9 tests** (`packages/orchestration/test/provider-fallback.test.ts`):
+  - **Happy path** — primary stays selected; no failure → no advance.
+  - **Single fallback on 503** — event recorded with `{from: 'anthropic', to: 'openai', reason: '503', attempt: 2}`.
+  - **Reason routing** — `429` and `500` route through the same advance path with the correct reason field.
+  - **Multiple sequential fallbacks** — events fire in order; final selection is `{provider: <last>, isLast: true}`.
+  - **Exhaustion** — every provider fails → `FallbackChainExhaustedError` with the correct context; the terminal failure emits no event.
+  - **retryBudget < providers.length** — caps the chain shorter than the full fallback list.
+  - **Construction validation** — `retryBudget: 0` and `retryBudget: -1` throw.
+  - **Primary-only chain** — empty `fallbacks` works; `isLast: true` on the first select; failure exhausts immediately.
+  - **No publisher** — state advances correctly without events.
+- **Re-exported from `@swt-labs/orchestration`** so the dispatcher (composing with PR-44's failover sim) can wire it.
+
+PR-43 (next) ships the per-provider cost panel; PR-44 wires the fallback chain into the failover simulation.
+
+**Test posture at PR-42 close: 1144 passing / 46 skipped / 0 failed** (+9 from PR-41's 1135). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
