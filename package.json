@@ -1,7 +1,7 @@
 {
   "name": "stop-wasting-tokens",
   "version": "3.0.0-alpha.1",
-  "description": "Token-disciplined, methodology-first SDLC for the OpenAI Codex CLI.",
+  "description": "Token-disciplined, methodology-first SDLC harness for AI coding agents. Vendor-neutral via Pi runtime — 25+ providers (Anthropic, OpenAI, OpenRouter, Google, Ollama, ...).",
   "license": "MIT",
   "author": "Tiago Serôdio (@yidakee)",
   "repository": {
@@ -14,10 +14,16 @@
   "homepage": "https://github.com/swt-labs/stop-wasting-tokens#readme",
   "keywords": [
     "cli",
-    "codex",
     "methodology",
     "agents",
+    "ai-coding",
     "vibe-coding",
+    "vendor-neutral",
+    "pi-coding-agent",
+    "anthropic",
+    "openai",
+    "openrouter",
+    "ollama",
     "typescript"
   ],
   "type": "module",
