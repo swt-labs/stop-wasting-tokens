@@ -33,6 +33,19 @@ import type { WorktreeJournalEntry, WorktreeState } from '@swt-labs/shared';
 export const DEFAULT_PARALLEL_ROOT = '.swt-planning/parallel';
 export const DEFAULT_JOURNAL_ROOT = '.swt-planning/journal';
 
+/**
+ * Maximum length (in characters) of a worktree path as passed to
+ * `git worktree add` per ADR-009. Windows' legacy `MAX_PATH = 260`
+ * doesn't leave room for a project's own files inside the worktree;
+ * 200 reserves ~60 chars of headroom for the deepest file path the
+ * worktree's content might contain.
+ *
+ * The manager fails fast with `WorktreePathTooLongError` before
+ * invoking `git worktree add` — git's "path too long" / "could not
+ * lock config file" surfaces opaquely on Windows.
+ */
+export const WORKTREE_PATH_MAX_CHARS = 200;
+
 export type AgentOutcome = 'success' | 'failed' | 'blocked';
 
 export interface GitRunResult {
@@ -139,6 +152,21 @@ export class GitOperationError extends Error {
 }
 
 /**
+ * Thrown by `WorktreeManager.create` when the resolved worktree path
+ * would exceed `WORKTREE_PATH_MAX_CHARS`. Per ADR-009 — fails fast so
+ * the operator gets a readable error instead of the opaque git error
+ * Windows surfaces past `MAX_PATH = 260`.
+ */
+export class WorktreePathTooLongError extends Error {
+  constructor(worktreePath: string) {
+    super(
+      `WorktreeManager: worktree path exceeds the ${WORKTREE_PATH_MAX_CHARS}-char cap on Windows (length=${worktreePath.length}): ${worktreePath}`,
+    );
+    this.name = 'WorktreePathTooLongError';
+  }
+}
+
+/**
  * Worktree lifecycle FSM. One instance manages many tasks; state for
  * each task is keyed by taskId and journaled to its own file. Two
  * concurrent `WorktreeManager` instances against the same roots are
@@ -173,6 +201,9 @@ export class WorktreeManager {
   async create(taskId: string, baseRef: string): Promise<{ worktreePath: string }> {
     this.assertCanTransition(taskId, 'created');
     const worktreePath = posix.join(this.parallelRoot, `wt-${taskId}`);
+    if (worktreePath.length > WORKTREE_PATH_MAX_CHARS) {
+      throw new WorktreePathTooLongError(worktreePath);
+    }
     const result = await this.gitRunner(['worktree', 'add', worktreePath, baseRef]);
     if (result.exitCode !== 0) {
       // Force-transition straight to `failed` for the create-failure case.

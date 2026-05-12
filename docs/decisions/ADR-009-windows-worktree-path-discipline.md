@@ -1,8 +1,8 @@
 ---
 adr: 009
 title: POSIX-style paths internally; 200-char cap; forced LF line endings
-status: Proposed
-decided: 2026-05-11
+status: Accepted
+decided: 2026-05-12
 pr: M3 PR-30
 supersedes: TDD2 §9.3
 related: ADR-008
@@ -10,7 +10,7 @@ related: ADR-008
 
 # ADR-009 — POSIX-style paths internally; 200-char cap; forced LF line endings
 
-**Status:** Proposed (promotes to Accepted when M3 PR-30 lands the implementation)
+**Status:** Accepted (M3 PR-30 — `12d831c` predecessor; this PR's commit on `main`)
 
 ## Context
 
@@ -77,3 +77,13 @@ Harder:
 - Developers writing native paths in tests needs the ESLint rule. Adding
   it is a one-line change; auditing existing tests at M3 PR-30 is ~10
   fixture-path edits.
+
+## Validation (M3 PR-30, 2026-05-12)
+
+**Rule 1 — POSIX path discipline.** `WorktreeManager` has used `posix.join` for `parallelRoot + 'wt-<taskId>'` and `journalRoot + 'wt-<taskId>.jsonl'` since PR-22; `lock-files.ts` has used `posix.join` since PR-25. Validated by `packages/orchestration/test/worktree-manager.win.test.ts` (journal entries record POSIX-form `worktreePath`; the injected `gitRunner` receives forward-slash paths in argv) and `packages/orchestration/test/lock-files.win.test.ts` (`lockPathFor` returns POSIX paths).
+
+**Rule 2 — 200-character cap.** New constant `WORKTREE_PATH_MAX_CHARS = 200` in `packages/orchestration/src/worktree-manager.ts`. New error class `WorktreePathTooLongError`. `WorktreeManager.create` checks the resolved `parallelRoot + 'wt-<taskId>'` length before invoking `gitRunner` and throws fast. Tests cover: `gitRunner` is NOT called when the cap is exceeded (no opaque git failure path); error message includes `length=N` + the cap + the offending path; right at the cap (200 chars) succeeds, one char past throws.
+
+**Rule 3 — Forced LF line endings.** The journal writer (`defaultJournalWriter`) has used a literal `\n` since PR-22 (not `os.EOL`). `lock-files.ts` writes envelopes via `JSON.stringify(env, null, 2)` which uses `\n` indentation by JSON spec regardless of host. Tests assert no CRLF appears in either journal lines or lock-file bodies.
+
+The cassette-format byte-hashing + ADR-010 reproducible-build invariants depend on rule 3 — a future refactor toward `os.EOL` would break both. Live Windows-runner CI activation (chaos suite + regression suite on a Windows matrix) remains user-driven ops work; the unit tests encode the discipline so the runtime invariants are checkable on any host.

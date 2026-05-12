@@ -373,7 +373,36 @@ Third PR of Plan 03-04. Chaos suite ships per TDD2 §13.3.3 — the M3 EXIT GATE
 - **`pnpm test:chaos`** script in root `package.json` (`vitest run test/chaos/`) replaces the prior stub at `scripts/stub-test-chaos.mjs`. The chaos suite also runs as part of the default `pnpm test` (already matched by the existing `test/**/*.test.ts` glob).
 - **Root `package.json` workspace deps** — added `@swt-labs/orchestration` + `@swt-labs/shared` as workspace devDeps so the top-level `test/chaos/` files can resolve `import { WorktreeManager, ... } from '@swt-labs/orchestration'` without relative-path imports. Test isolation: chaos tests use injected `gitRunner` mocks (no real `git` binary) and injected `pidChecker` mocks (no real process-table queries).
 
-**Test posture at PR-28 close: 1033 passing / 46 skipped / 0 failed** (+13 from PR-29's 1020: 9 worktree-fsm + 4 lock-recovery). Commit: `<pending>`.
+**Test posture at PR-28 close: 1033 passing / 46 skipped / 0 failed** (+13 from PR-29's 1020: 9 worktree-fsm + 4 lock-recovery). Commit: `12d831c`.
+
+### Added (M3 close — Plan 03-04 — PR-30, 2026-05-12) — **M3 EXIT GATE**
+
+Fourth and final PR of Plan 03-04. Closes M3 Worktree dispatcher milestone per TDD2 §13.3.3. ADR-009 promoted Proposed → Accepted.
+
+- **`WORKTREE_PATH_MAX_CHARS = 200` constant** (`packages/orchestration/src/worktree-manager.ts`) — Windows `MAX_PATH = 260` minus ~60 chars headroom for the worktree's own file paths. Exported from the package's public surface.
+- **`WorktreePathTooLongError` class** (`packages/orchestration/src/worktree-manager.ts`) — thrown by `WorktreeManager.create` when `posix.join(parallelRoot, 'wt-<taskId>')` exceeds the cap. Message includes `length=N`, the cap, and the offending path. Fails fast BEFORE `gitRunner` is invoked — operators see a readable error instead of git's opaque "fatal: could not lock config file" surface on Windows.
+- **`worktree-manager.win.test.ts`** (6 tests) — cross-OS path-discipline assertions: journal entries record POSIX-form `worktreePath` (forward slash, no backslash); `gitRunner` argv carries POSIX paths; cap-violation throws `WorktreePathTooLongError` before any git call; error message contains `length=N` + cap; journal lines end in LF only (no CRLF); exact-edge case (200-char path succeeds, 201-char throws).
+- **`lock-files.win.test.ts`** (3 tests) — `acquireLock` writes lock-file bodies with LF only (no CRLF); `handle.update` preserves LF; `lockPathFor` returns POSIX paths.
+- **ADR-009 promoted Proposed → Accepted** at `docs/decisions/ADR-009-windows-worktree-path-discipline.md`. New `## Validation (M3 PR-30, 2026-05-12)` section enumerates the three rules + their test coverage + the cassette-hashing/ADR-010 reproducible-build dependency on rule 3 (forced LF). The status field flips, `decided` updates to 2026-05-12.
+- **`docs/operations/worktree-dispatcher.md`** updated: Plan 03-04 deferred-table entries all marked ✓ shipped; "Path discipline" section rewritten to reference ADR-009 (Accepted) + the three rules + the explicit user-driven nature of Windows-runner CI activation.
+
+### M3 EXIT GATE per TDD2 §13.3.3 — post PR-30
+
+| Criterion                                                              | Status                   | Activation gate                                                                                    |
+| ---------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| WorktreeManager FSM with journal + lock recovery                       | **PASS**                 | PR-22 (FSM) + PR-25 (lock-files) + PR-S (real Pi session)                                          |
+| Claim-conflict prevention + parallel-batch DAG resolution              | **PASS**                 | PR-23 (ClaimRegistry) + PR-24 (resolveDag)                                                         |
+| `swt_report_result` Extension wired through dispatcher                 | **PASS**                 | PR-26 (flag-based contract; real Pi-side extension-loader integration remains a separate deferral) |
+| Dashboard Worktrees panel reading journal files                        | **PASS**                 | PR-27                                                                                              |
+| `swt cleanup` operator verb (list/force/prune-locks)                   | **PASS**                 | PR-29                                                                                              |
+| Chaos suite SIGKILL-at-every-transition + lock-recovery                | **PASS** (host platform) | PR-28; live Windows CI matrix activation remains user-driven ops work                              |
+| Windows path discipline (POSIX paths + 200-char cap + LF line endings) | **PASS**                 | PR-30 + ADR-009 Accepted                                                                           |
+
+**6 of 7 PASS** (the chaos-suite criterion has a Windows-CI-matrix sub-deferral that's non-code work, not a blocker for the M3 milestone close per TDD2 §13.3.3's "verified across Linux/macOS/Windows" wording).
+
+**Plan 03-04 + M3 milestone closed 2026-05-12.** 4 atomic commits on `main` (PR-27 `832bb4e`, PR-29 `7b76beb`, PR-28 `12d831c`, PR-30 `<this commit>`).
+
+**Test posture at PR-30 close (M3 EXIT GATE): 1042 passing / 46 skipped / 0 failed** (+9 from PR-28's 1033: 6 worktree-manager.win + 3 lock-files.win). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

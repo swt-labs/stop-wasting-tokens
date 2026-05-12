@@ -73,16 +73,22 @@ This test activates the moment both gates land: the Anthropic cassette set + the
 | `swt_report_result` Extension registration   | M3 PR-26 (`dispatcher.ts` hook) ✓                     |
 | Per-worktree Pi session creation             | Session-wiring follow-up (PR-S — landed 2026-05-12) ✓ |
 | `runMilestone` activation (real return path) | runMilestone follow-up (PR-T — landed 2026-05-12) ✓   |
-| Dashboard Worktrees panel                    | M3 PR-27 (Plan 03-04)                                 |
-| SIGKILL-at-every-transition chaos suite      | M3 PR-28 (Plan 03-04)                                 |
-| `swt cleanup` verb (worktree retention)      | M3 PR-29 (Plan 03-04)                                 |
-| Windows worktree path discipline (ADR-009)   | M3 PR-30 (Plan 03-04)                                 |
+| Dashboard Worktrees panel                    | M3 PR-27 (Plan 03-04 — landed 2026-05-12) ✓           |
+| `swt cleanup` verb (worktree retention)      | M3 PR-29 (Plan 03-04 — landed 2026-05-12) ✓           |
+| SIGKILL-at-every-transition chaos suite      | M3 PR-28 (Plan 03-04 — landed 2026-05-12) ✓           |
+| Windows worktree path discipline (ADR-009)   | M3 PR-30 (Plan 03-04 — landed 2026-05-12) ✓           |
 
 The `WorktreeManager.dispatch` method has an explicit `TODO(session-wiring follow-up)` comment marking the Pi session creation insertion point.
 
-## Path discipline
+## Path discipline (ADR-009)
 
-All paths handled by `WorktreeManager` are POSIX-style (`/`-separated). The `child_process.spawn` boundary converts to Win32 only when needed per TDD2 §9.1.1. Cross-OS testing — including the path-length cap + line-ending handling — lands at Plan 03-02 PR-30 along with ADR-009 promotion.
+All paths handled by `WorktreeManager` are POSIX-style (`/`-separated). The `child_process.spawn` boundary converts to Win32 only when needed per TDD2 §9.1.1. Per [ADR-009](../decisions/ADR-009-windows-worktree-path-discipline.md) (Accepted at M3 PR-30, 2026-05-12), three rules are enforced:
+
+1. **POSIX path discipline** — `WorktreeManager` + `lock-files.ts` use `posix.join` for everything persisted (journal entries, lock-file paths). Validated by `packages/orchestration/test/worktree-manager.win.test.ts` + `lock-files.win.test.ts`.
+2. **200-character cap** — `WORKTREE_PATH_MAX_CHARS = 200` constant; `WorktreeManager.create` throws `WorktreePathTooLongError` before invoking git when `parallelRoot + 'wt-<taskId>'` exceeds the cap. Fails fast with a readable message instead of git's opaque "fatal: could not lock config file" surface on Windows past `MAX_PATH = 260`.
+3. **Forced LF line endings** — journal writer uses literal `\n` (not `os.EOL`); lock files use `JSON.stringify(env, null, 2)` (LF-by-spec). Cassette-format byte-hashing + ADR-010 reproducible-build invariants depend on this.
+
+Live Windows-runner CI activation (chaos suite + regression suite on a Windows matrix) remains user-driven ops work.
 
 ## Operator workflow (future — once dispatcher integrates the manager)
 
