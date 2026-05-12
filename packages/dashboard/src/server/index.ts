@@ -12,6 +12,7 @@ import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactRoute } from './routes/artifact.js';
+import { registerCacheHitsRoute } from './routes/cache-hits.js';
 import { registerCommandRoute } from './routes/command.js';
 import { registerCommandsRoute } from './routes/commands.js';
 import { registerConfigRoute } from './routes/config.js';
@@ -182,6 +183,11 @@ export function createApp(
   // with a nullable projectRoot — the route returns 503 when projectRoot is
   // null (greenfield daemon) so the client can still discover the endpoint.
   registerWorktreesRoute(app, projectRoot);
+  // Plan 04-01 PR-33: cache-hit ratio SSE route. Registers unconditionally
+  // with a getMeter() getter that returns null until the methodology layer
+  // wires a live TokenMeter into the dashboard server (separate M4 follow-up).
+  // Empty state when null — the panel renders "No cache data yet".
+  registerCacheHitsRoute(app, () => null);
   registerInitRoute(
     app,
     cwd,

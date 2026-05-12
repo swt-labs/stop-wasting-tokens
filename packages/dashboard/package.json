@@ -26,6 +26,7 @@
     "@swt-labs/core": "workspace:*",
     "@swt-labs/shared": "workspace:*",
     "@swt-labs/methodology": "workspace:*",
+    "@swt-labs/runtime": "workspace:*",
     "chokidar": "^4.0.0",
     "gray-matter": "^4.0.3",
     "hono": "^4.6.0",

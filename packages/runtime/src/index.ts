@@ -29,9 +29,12 @@ export {
   createTokenMeter,
   groupRecordsByDimension,
   calculateCost,
+  computeCacheHitRatio,
+  ratioFromCounts,
   type CreateTokenMeterOptions,
   type UsageCounts,
   type ModelCost,
+  type CacheHitSummary,
 } from './meter/index.js';
 export {
   extractUsage,

@@ -447,7 +447,21 @@ The Anthropic extractor already captured `cache_read_input_tokens` + `cache_crea
 
 **Layer note (Principle 2):** Runtime is below orchestration in the stack, so this module accepts a structural `PromptBlockLike` shape rather than importing `PromptBlock` from `@swt-labs/orchestration`. The structural match works because `orchestration/src/prompt-builder.ts`'s `PromptBlock` and runtime's `PromptBlockLike` both expose `{kind: string, content: string}`.
 
-**Test posture at PR-32 close: 1063 passing / 46 skipped / 0 failed** (+12 from PR-31's 1051). Commit: `<pending>`.
+**Test posture at PR-32 close: 1063 passing / 46 skipped / 0 failed** (+12 from PR-31's 1051). Commit: `beb7a24`.
+
+### Added (M4 — Plan 04-01 — PR-33, 2026-05-12)
+
+Third PR of Plan 04-01. Cache-hit measurement + dashboard panel per TDD2 §12.3.2. PR-32's Anthropic `cache_control` wiring drives cacheRead/cacheWrite counters; PR-33 makes the resulting ratio observable in real time.
+
+- **`packages/runtime/src/meter/cache-hit.ts`** (NEW) — `computeCacheHitRatio(snapshot: MeterSnapshot) → CacheHitSummary[]` aggregates the meter's records into one summary per provider. Formula: `cacheRead / (cacheRead + cacheWrite + input)` per session. Excludes output tokens from the denominator (generated tokens aren't cacheable input). Zero-denominator returns `0` (no NaN). Deterministic alphabetical ordering by provider. Plus `ratioFromCounts(counts)` helper exported for sites needing the formula without the full aggregation pass.
+- **`packages/dashboard/src/server/routes/cache-hits.ts`** (NEW) — `GET /api/cache-hits/sse` route. Accepts a `getMeter: () => TokenMeter | null` getter at registration. On connect: emit a `cache-hit.snapshot` frame with the computed summaries (or empty array when `getMeter()` returns null). On every `METER_UPDATED` event (when wired): re-emit. Heartbeat every 30s + abort handler unsubscribes.
+- **`packages/dashboard/src/client/components/CacheHitPanel.tsx`** (NEW) — SolidJS panel: per-provider table with cacheRead / cacheWrite / fresh-input counts + the ratio colour-coded by the M4 EXIT GATE threshold (red < 50%, amber 50-69%, green ≥ 70%). Empty state "No cache data yet" for greenfield or pre-first-session projects.
+- **Mount + CSS** — `App.tsx` adds the panel beside `CostPanel` + `WorktreesPanel`. `styles.css` adds the colour mapping for cache-hit-ratio pills + table styling.
+- **Tests** — 9 unit tests (`packages/runtime/test/meter/cache-hit.test.ts`): per-provider aggregation, multi-provider partitioning, output excluded from denominator, zero-denominator → 0, empty snapshot → empty array, alphabetical ordering, M4 EXIT GATE target detection (ratio ≥ 0.70 on a high-cache-hit run), `ratioFromCounts` parity. 3 route tests (`packages/dashboard/test/cache-hits-route.test.ts`): empty snapshot on null meter, computed summaries on wired meter, re-emit on `METER_UPDATED`.
+- **Workspace dep** — dashboard package gains `@swt-labs/runtime` for `computeCacheHitRatio` + `TokenMeter` type.
+- **Live-meter wire-up deferred** — the actual `getMeter()` plumbing (registering a live `TokenMeter` ref on the dashboard server) is separate M4 ops work. Today the route registers with `() => null`; the panel renders the empty state.
+
+**Test posture at PR-33 close: 1075 passing / 46 skipped / 0 failed** (+12 from PR-32's 1063: 9 cache-hit unit + 3 route). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

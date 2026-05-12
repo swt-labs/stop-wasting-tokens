@@ -13,6 +13,7 @@ export {
   type CreateTokenMeterOptions,
 } from './token-meter.js';
 export { calculateCost, type UsageCounts, type ModelCost } from './cost-aggregator.js';
+export { computeCacheHitRatio, ratioFromCounts, type CacheHitSummary } from './cache-hit.js';
 export type {
   MeterRecord,
   MeterSnapshot,
