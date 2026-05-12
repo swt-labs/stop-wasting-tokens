@@ -1,16 +1,16 @@
 ---
 adr: 012
 title: v2.3.x receives 6 months of security + critical-bug patches post-v3.0
-status: Proposed
-decided: 2026-05-11
-pr: M6 PR-53
+status: Accepted
+decided: 2026-05-12
+pr: M1 PR-10 (drafted Proposed) → M6 PR-53 (promoted Accepted)
 supersedes: TDD2 §17.5
 related: ADR-005
 ---
 
 # ADR-012 — v2.3.x receives 6 months of security + critical-bug patches post-v3.0
 
-**Status:** Proposed (promotes to Accepted when M6 PR-53 lands the LTS branch cut)
+**Status:** Accepted (M6 PR-53 promoted at Plan 06-01 close alongside `docs/operations/lts-policy.md` operator-facing reference)
 
 ## Context
 
@@ -78,3 +78,15 @@ Harder:
 - The v3 team must staff backport reviews. Mitigation: batched release cuts.
 - Users who can't migrate by month 6 are out of support. Mitigation: the
   migration guide + `swt migrate --to=v3` script land in M6.
+
+## Validation (M6 PR-53, 2026-05-12)
+
+Three layers of validation operationalize the policy:
+
+**Layer 1 — Migration path (M6 PR-49).** `swt migrate --to=v3` ships as a structural verb in `packages/cli/src/commands/migrate.ts` with 8 fixture-driven tests. Out-of-place + idempotent. JSON `backend`/`agent_backend` enum rewrites + markdown frontmatter `reasoning_effort → thinking_level` rename. Operators can migrate at any point during the 6-month LTS window without manual config edits.
+
+**Layer 2 — Operator-facing reference (M6 PR-53, this commit).** [`docs/operations/lts-policy.md`](../operations/lts-policy.md) documents the SLA matrix (7-day security / 14-day data-loss / 30-day regression / N/A features) + EOL date computation rule (v3.0.0 release date + 6 calendar months) + backport routing (`release/v2.3-*` branches → `v2-archive` branch) + how operators report a CVE / data-loss / regression issue against v2.3.x. The README on `main` carries the EOL date in the project-status section.
+
+**Layer 3 — Infrastructure already in place.** `v2-archive` branch exists from the 2026-05-12 repository pivot (the M2 baseline before the runtime rewrite started). Dependabot is retargeted to `v2-archive` per `dependabot.yml` so transitive-dep updates keep flowing without disturbing `main`. The `release/v2.3-*` branch convention (one short-lived branch per backport batch) follows the standard semantic-versioning patch flow.
+
+The LTS commitment is observable from the README on `main` + the operator runbook + the migration script. Operators who cannot migrate on day one have a defined support window with explicit deadlines; the v3 team has a defined engineering scope ceiling at 6 months.

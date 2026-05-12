@@ -769,7 +769,46 @@ The 46 skipped tests are the cassette-recording-deferred suite — they auto-act
 
 **3 of 6 PASS, 3 DEFERRED on user-driven release operations.** The deferred criteria have no code component left — the M6 scaffolding is structurally complete. When the user runs the cassette recording + `pnpm release` + homepage update, all six criteria flip to PASS without any further code changes.
 
-**Test posture at PR-51 close: 1158 passing / 46 skipped / 0 failed** (unchanged — signoff PR). Commit: `<pending>`.
+**Test posture at PR-51 close: 1158 passing / 46 skipped / 0 failed** (unchanged — signoff PR). Commit: `b54cf00`.
+
+### Added (M6 — Plan 06-01 — PR-52 + PR-53, 2026-05-12) — **v3 SDLC STRUCTURAL CLOSE**
+
+Eighth + ninth (final) PRs of Plan 06-01. **v3 STRUCTURALLY COMPLETE.**
+
+**PR-52 — Vale config + ADR style guide.** New `.vale.ini` operator-facing prose-linter config (write-good + Microsoft styles at suggestion level; skips CHANGELOG + auto-regenerated reference docs + synthetic benchmark tables). New `docs/decisions/STYLE-GUIDE.md` documents ADR authoring conventions: file naming, frontmatter schema with field rules, 4-state lifecycle (Proposed/Accepted/Deferred/Superseded), body structure (Context / Decision / Consequences with Easier+Harder split / Validation required for Accepted / optional Lifecycle), voice + style rules (active voice, present tense, concrete over abstract, cite the test, one decision per ADR), 7-item promotion checklist. Commit: `2ed174c`.
+
+**PR-53 — ADR-012 Accepted + LTS operator guide + Plan 06-01 close.**
+
+- **ADR-012 (v2.3.x 6-month LTS) Proposed → Accepted** at `docs/decisions/ADR-012-six-month-lts-policy.md`. New 3-layer Validation section: migration path (PR-49 `swt migrate --to=v3`), operator-facing reference (PR-53), infrastructure already in place (`v2-archive` branch from the 2026-05-11 pivot + Dependabot retargeted).
+- **`docs/operations/lts-policy.md`** (NEW) ships the full operator reference: SLA matrix (7-day security / 14-day data-loss / 30-day regression / N/A features), EOL date computation (v3.0.0 + 6 calendar months), how-to-report-issue per severity (private security advisory / GitHub issue with labels), backport routing diagram (`main → release/v2.3-* → v2-archive`), "prefer migration over LTS" rationale.
+- **Plan 06-01 SUMMARY** written at `.vbw-planning/phases/06-m6-decommission-benchmark-ship/06-01-SUMMARY.md`.
+
+### v3.0 STRUCTURAL CLOSE — 2026-05-12
+
+**The v3 development workflow is structurally complete.** Across 6 milestones (M1..M6), 14 plans, and 57 atomic commits on `main` (PR-01a..PR-53 + PR-S + PR-T):
+
+- Pi-native runtime adapter (Layer 3)
+- Six-layer architecture with Principle 1 enforcement
+- Worktree-per-task FSM + chaos suite
+- Cache discipline (Anthropic `cache_control` + OpenAI auto-cache)
+- Budget Gate with 70%/95% thresholds
+- Multi-provider routing + fallback chain
+- Per-task TPAC measurement
+- Dashboard panels (Worktrees + CacheHits + Budget + TPAC + ProviderCost)
+- `swt migrate --to=v3` migration path
+- 12 Accepted ADRs documenting every load-bearing decision
+
+**ADR matrix at v3.0 close: 12 Accepted (001-012) + 1 Deferred (013).**
+
+The remaining work is user-driven release operations:
+
+1. **Cassette recording** (~30-45 min × 3-6 providers, ~$5-$10 total spend) — unlocks the M2 baseline + M4 PR-36 −40% target check + M5 full provider matrix + public benchmark numbers.
+2. **`pnpm release`** — npm publish with provenance + signed tag.
+3. **GitHub release** with `RELEASE-NOTES-v3.0.md` attached.
+4. **`v2-archive` branch confirm** at the last v2.3.5 commit (already in place from the 2026-05-11 pivot).
+5. **Homepage update** with public benchmark numbers + v2.3.x EOL date.
+
+**Test posture at PR-53 close (v3 structural completion): 1158 passing / 46 skipped / 0 failed.** Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
