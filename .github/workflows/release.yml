@@ -83,7 +83,17 @@ jobs:
             echo "Publishing stable $TAG_VERSION under dist-tag latest"
           fi
 
-      - name: Publish to npm with provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm publish --tag ${{ steps.dist_tag.outputs.dist_tag }} --no-git-checks
+      # OIDC trusted publishing is configured on npm side
+      # (swt-labs/stop-wasting-tokens trusts this repo's release.yml).
+      # Combined with `permissions: id-token: write` above, npm exchanges the
+      # GHA OIDC token for short-lived publish credentials. No NPM_TOKEN is
+      # passed; this satisfies even the strictest "disallow tokens" 2FA
+      # setting on the package because OIDC trusted publishing is exempt.
+      #
+      # npm CLI 11.5.1+ is required for trusted-publisher OIDC exchange.
+      # Node 22 bundles npm 10.x, so we upgrade explicitly.
+      - name: Upgrade npm CLI for trusted-publisher OIDC support
+        run: npm install -g npm@latest
+
+      - name: Publish to npm via OIDC trusted publishing
+        run: npm publish --tag ${{ steps.dist_tag.outputs.dist_tag }} --provenance --access public
