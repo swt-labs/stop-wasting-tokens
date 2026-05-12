@@ -92,3 +92,9 @@ export {
   type PiToolExecuteResult,
   type JournalSink,
 } from './extensions/index.js';
+
+// PR-20 (M2): Pi RPC-mode delegator per TDD2 §3.2 + §5. Surfaces Pi's
+// JSON-RPC protocol mode under the `swt rpc` binary name. Pi import +
+// delegation shape locked here; real `AgentSessionRuntime` construction
+// activates at M3 PR-22.
+export { runRpc, RpcModeUnavailableError, type RunRpcOptions } from './rpc-runner.js';

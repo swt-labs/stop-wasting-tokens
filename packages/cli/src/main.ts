@@ -7,6 +7,7 @@ import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
+import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
 import { updateHandler } from './commands/update.js';
@@ -94,6 +95,11 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     name: 'watch',
     description: 'Open an Ink TUI dashboard scoped to the active milestone',
     handler: defaultWatchHandler,
+  });
+  registry.register({
+    name: 'rpc',
+    description: "Delegate to Pi's JSON-RPC mode (stdout reserved for protocol stream)",
+    handler: rpcHandler,
   });
   registerDashboard(registry);
 

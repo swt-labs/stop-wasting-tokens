@@ -11,14 +11,18 @@
 
 The v2-era reference docs at `docs/reference/cli.mdx` describe the working v1 verb set verbatim and stay accurate for v3 until each verb's v3 changes ship. v3 verb deltas land in their owning milestones:
 
-| Milestone                | Verbs becoming real (or changing)                                                                                         |
-| :----------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| M1 (Plans 01-01 + 01-02) | `doctor` (Pi peer-dep check), `init` (preserved), `vibe` (preserved with new spawner)                                     |
-| M2                       | `plan`, `qa`, `map`, `research`, `phase`, `todo`, `assumptions` (+ `execute`/`fix`/`discuss`/`resume` folded into `vibe`) |
-| M3                       | `debug`, `worktree`, `lease`, `cleanup` (new)                                                                             |
-| M4                       | `pause` (Budget Gate-triggered)                                                                                           |
-| M5                       | `skills` (Pi skill install + discovery)                                                                                   |
-| M6                       | `archive`, `audit`, `whats-new`, `uninstall`, `migrate` (new)                                                             |
+| Milestone                | Verbs becoming real (or changing)                                                                                                                                                                                                |
+| :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 (Plans 01-01 + 01-02) | `doctor` (Pi peer-dep check), `init` (preserved), `vibe` (preserved with new spawner)                                                                                                                                            |
+| M2                       | `plan`, `qa`, `map`, `research`, `phase`, `todo`, `assumptions` (+ `execute`/`fix`/`discuss`/`resume` folded into `vibe`), [**`rpc`** ✓](./verbs/rpc.md) (PR-20 — Pi RPC delegation, activates at M3 PR-22), **`bench`** (PR-21) |
+| M3                       | `debug`, `worktree`, `lease`, `cleanup` (new). Activates `rpc` (full `AgentSessionRuntime` wired).                                                                                                                               |
+| M4                       | `pause` (Budget Gate-triggered)                                                                                                                                                                                                  |
+| M5                       | `skills` (Pi skill install + discovery)                                                                                                                                                                                          |
+| M6                       | `archive`, `audit`, `whats-new`, `uninstall`, `migrate` (new)                                                                                                                                                                    |
+
+## Per-verb reference
+
+- [**`swt rpc`**](./verbs/rpc.md) (M2 PR-20) — delegate to Pi's JSON-RPC mode for external orchestrators. Structurally complete; live activation at M3 PR-22.
 
 ## What lives elsewhere
 
