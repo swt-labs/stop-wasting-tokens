@@ -1,8 +1,10 @@
 # Changelog
 
-## 3.0.0-alpha.1 — IN DEVELOPMENT (not yet published)
+## 3.0.0 — STRUCTURALLY COMPLETE 2026-05-12 (npm publish pending release operations)
 
-_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12**, **M2 Single-agent path closed 2026-05-12 (all 10 PRs landed; live TPAC baseline pending user cassette recording)**, **M3 Worktree dispatcher Plan 03-01 closed 2026-05-12**, **session-wiring follow-up (PR-S) shipped 2026-05-12** — real Pi `createSession` + `swt rpc` live, and **runMilestone activation follow-up (PR-T) shipped 2026-05-12** — `runVibe` programmatic entry + meter threading + `swt bench` live emit._
+_All 6 milestones (M1..M6) shipped on `main`. Plan 06-01 closing PRs land at this section. Release notes: [RELEASE-NOTES-v3.0.md](./RELEASE-NOTES-v3.0.md). The npm publish + GitHub release + v2-archive branch cut are user-driven operations gated on cassette recording + the public benchmark run._
+
+**M1 Foundation closed 2026-05-12.** **M2 Single-agent path closed 2026-05-12.** **M3 Worktree dispatcher closed 2026-05-12** (Plan 03-01 + session-wiring follow-up + runMilestone activation follow-up + Plan 03-04). **M4 Token meter + cache discipline structurally closed 2026-05-12** (PR-31..PR-35, PR-37, PR-38; PR-36 hard-deferred on M2 baseline). **M5 Multi-provider structurally closed 2026-05-12.** **M6 Decommission + ship in progress** (Plan 06-01).
 
 > **Branch strategy note (2026-05-12):** v3 development was previously on a `v3-foundation` integration branch with the plan to merge into `main` at the M6 release gate. That branch has been retired; `main` is now the sole development surface for v3. The per-plan "commit trail on `v3-foundation`" section titles below are kept as historical record — the commits themselves are now on `main`'s history.
 
@@ -721,7 +723,18 @@ Fifth PR of Plan 06-01. `swt migrate --to=v3` ships per TDD2 §13.6.1 — the ca
 - **8 tests** — happy path (3 fields rewritten + input untouched), missing-fields pass-through, already-v3 idempotency, nested `agent_backend` recursion, 4 argument-validation cases.
 - **Docs** at `docs/cli/verbs/migrate.md` (operator workflow + migration scope table + exit codes). Auto-regenerated `docs/reference/cli.mdx`.
 
-**Test posture at PR-49 close: 1158 passing / 46 skipped / 0 failed** (+8 from PR-46/47/48's 1150). Commit: `<pending>`.
+**Test posture at PR-49 close: 1158 passing / 46 skipped / 0 failed** (+8 from PR-46/47/48's 1150). Commit: `4d1b4c1`.
+
+### Added (M6 — Plan 06-01 — PR-50, 2026-05-12) — **Release notes**
+
+Sixth PR of Plan 06-01. v3.0.0 release notes prep.
+
+- **`RELEASE-NOTES-v3.0.md`** (NEW) — operator-facing release notes covering: what's new (vendor-neutral runtime, parallel worktrees, Anthropic prompt caching, Budget Gate, multi-provider routing, per-task TPAC, `swt migrate`); what's removed (the three legacy drivers, `.codex-plugin/`, `backend: 'codex'\|'claude-code'\|'ollama'` enums, `agentBackendTag: 'scripted'`, `CodexMethodologyAgent`, `SWT_VIBE_AGENT=codex` env shortcut); 6-layer architecture reference; v2 → v3 migration workflow; v2.3.x LTS policy summary; full ADR matrix at v3.0 (11 Accepted + 1 Deferred); test posture pin at 1158/46/0; remaining release-operation deferrals; release-operations checklist for the operator running `pnpm release`.
+- **CHANGELOG.md** header rewritten: `3.0.0-alpha.1 — IN DEVELOPMENT` flipped to `3.0.0 — STRUCTURALLY COMPLETE 2026-05-12`. The detailed per-PR entries underneath remain in place; the section is now read as the canonical v3.0.0 release entry pending npm publish.
+
+The npm publish + GitHub release + v2-archive branch cut are user-driven release operations gated on user-driven cassette recording + the public benchmark run.
+
+**Test posture at PR-50 close: 1158 passing / 46 skipped / 0 failed** (unchanged — docs-only PR). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
