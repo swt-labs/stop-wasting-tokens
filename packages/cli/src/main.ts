@@ -9,6 +9,7 @@ import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
+import { migrateHandler } from './commands/migrate.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
@@ -114,6 +115,12 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[--list] | [--force --task-id <id>] | [--prune-locks]',
     description: 'List, force-remove, or prune-locks for parallel-task worktrees',
     handler: cleanupHandler,
+  });
+  registry.register({
+    name: 'migrate',
+    usage: '--to=v3 --input <v2-planning-dir> --output <v3-planning-dir>',
+    description: 'Migrate a v2.x `.swt-planning/` to v3 schema (backend + thinking_level rename)',
+    handler: migrateHandler,
   });
   registerDashboard(registry);
 

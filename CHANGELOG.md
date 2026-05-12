@@ -706,7 +706,22 @@ Commit: `10aa2a4`.
 
 Real recording is user-driven release-time work; the scaffolding consumes reports automatically the moment they land.
 
-**Test posture at PR-47/PR-48 close: 1150 passing / 46 skipped / 0 failed** (unchanged — both PRs are docs + script additions). Commit: `<pending>`.
+**Test posture at PR-47/PR-48 close: 1150 passing / 46 skipped / 0 failed** (unchanged — both PRs are docs + script additions). PR-48 commit: `5675bd8`.
+
+### Added (M6 — Plan 06-01 — PR-49, 2026-05-12)
+
+Fifth PR of Plan 06-01. `swt migrate --to=v3` ships per TDD2 §13.6.1 — the canonical v2 → v3 `.swt-planning/` migration path.
+
+- **`packages/cli/src/commands/migrate.ts`** (NEW) — `migrateHandler` accepts `--to=v3` (optional) + `--input <v2-planning-dir>` (required) + `--output <v3-planning-dir>` (required). **Out-of-place** (input never mutated) + **idempotent** (already-v3 input → 0 rewrites). Walks the output tree:
+  - **JSON files** — recursive traversal: `backend: 'codex'\|'claude-code'\|'ollama' → 'pi'`; `agent_backend: 'codex'\|'scripted' → 'pi'`. Nested objects + arrays traversed.
+  - **Markdown frontmatter** — `reasoning_effort: X → thinking_level: X` within the leading `---` block (regex-scoped; markdown body never touched).
+- **Migration report** — stdout emits `files_scanned`, `fields_rewritten`, per-file notes.
+- **Registered as `swt migrate` in `main.ts`**. Usage: `swt migrate --to=v3 --input <v2-planning-dir> --output <v3-planning-dir>`.
+- **Exit codes** — 0 success; 1 USAGE_ERROR (missing `--input`/`--output` or non-`v3` `--to`); 2 NOT_IMPLEMENTED (input dir missing); 3 RUNTIME_ERROR.
+- **8 tests** — happy path (3 fields rewritten + input untouched), missing-fields pass-through, already-v3 idempotency, nested `agent_backend` recursion, 4 argument-validation cases.
+- **Docs** at `docs/cli/verbs/migrate.md` (operator workflow + migration scope table + exit codes). Auto-regenerated `docs/reference/cli.mdx`.
+
+**Test posture at PR-49 close: 1158 passing / 46 skipped / 0 failed** (+8 from PR-46/47/48's 1150). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
