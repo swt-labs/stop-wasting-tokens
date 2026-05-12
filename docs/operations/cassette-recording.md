@@ -117,3 +117,77 @@ itself is too large and should be split.
   no proprietary customer data, no internal-only product details.
 - The `@swt-labs/test-utils` package is `"private": true`. It can never
   be published to npm regardless of `publishConfig`.
+
+## Recording the `ref-fastapi-empty` cassettes for the M2 regression baseline
+
+The M2 PR-18 regression suite (`test/regression/ref-fastapi.regression.test.ts`)
+asserts that running the frozen `packages/test-utils/golden/ref-fastapi/spec/`
+fixture on v3 produces byte-identical artefacts (modulo allowed drift)
+versus a v2.3.5 baseline. Two **one-time** recordings are needed:
+
+### Step 1 — Record the v2.3.5 baseline
+
+```bash
+# Install the v2.3.5 stable binary in an isolated location
+npm install -g stop-wasting-tokens@2.3.5
+
+# Copy the frozen spec to a tmpdir
+WORK=$(mktemp -d -t ref-fastapi-v2)
+cp -r packages/test-utils/golden/ref-fastapi/spec/* "$WORK/"
+cd "$WORK"
+
+# Run a full milestone (Scout → Architect → Lead → Dev × N → QA → archive)
+swt vibe
+# ... interactive flow; ~30-45 minutes for the full milestone ...
+
+# Copy the resulting .swt-planning/ tree back into the repo
+cp -r .swt-planning <repo>/packages/test-utils/golden/ref-fastapi/v2-baseline/
+```
+
+### Step 2 — Record the v3 Anthropic cassettes against the same spec
+
+```bash
+# Anthropic API key required (cassette recorder makes live calls)
+export ANTHROPIC_API_KEY=...
+
+# Run the recorder against the same spec; one cassette per role-dispatch
+pnpm --filter @swt-labs/test-utils run record \
+  --fixture packages/test-utils/golden/ref-fastapi/spec \
+  --output packages/test-utils/golden/ref-fastapi/cassettes
+
+# The recorder writes one .jsonl per Pi session (scout-*.jsonl,
+# architect-*.jsonl, lead-*.jsonl, dev-NN.jsonl, qa-*.jsonl, etc.).
+# Verify cwd_redacted: true on every cassette before committing.
+```
+
+### Step 3 — Activate the regression test
+
+Once both `v2-baseline/.swt-planning/` and `cassettes/*.jsonl` exist,
+`test/regression/ref-fastapi.regression.test.ts`'s `skipIf(!READY)`
+flips automatically — the test activates on the next `pnpm test:regression`
+run. No code changes required.
+
+### When to re-record
+
+- **Spec change**: any modification to `packages/test-utils/golden/ref-fastapi/spec/`
+  invalidates both the baseline and the cassettes. Re-record both.
+  (Best practice: don't change the spec — it's the frozen contract.)
+- **v2.3.5 LTS patch with output-changing behaviour**: re-record only
+  the baseline. The Anthropic cassettes are bound to the spec, not to
+  the v2 binary version.
+- **Cassette drift (Anthropic API change)**: re-record only the
+  cassettes. The v2 baseline doesn't change.
+
+### Why one cassette per role-dispatch
+
+A full milestone runs ~6-10 distinct Pi sessions (depending on plan
+fan-out). Recording each as a separate `.jsonl` keeps:
+
+- Diffs reviewable when one role's prompt changes.
+- Per-role replay isolation (test failures point at a specific role).
+- File sizes manageable (each cassette stays under ~500 KB).
+
+The `runMilestone` harness in `packages/test-utils/src/run-milestone.ts`
+installs the replay interceptor for every cassette before invoking the
+methodology, so the methodology layer sees the recordings as live
+Anthropic responses.

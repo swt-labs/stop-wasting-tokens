@@ -4,7 +4,6 @@
 **Milestone:** M2 Single-agent path (M1 Foundation closed 2026-05-12)
 
 ## Current Phase
-
 Phase: 2 of 6 (M2 Single Agent Path)
 Plans: 1/2
 Progress: 50%
@@ -44,7 +43,7 @@ See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category tes
 ## Phase Status
 
 - **Phase 1 (M1 Foundation):** Complete (closed 2026-05-12)
-- **Phase 2 (M2 Single Agent Path):** In progress (Plan 02-01 complete; Plan 02-02 PR-17 of 5 landed)
+- **Phase 2 (M2 Single Agent Path):** In progress (Plan 02-01 complete; Plan 02-02 PR-17 + PR-18 landed; PR-19/20/21 pending)
 - **Phase 3 (M3 Worktree Dispatcher):** Pending
 - **Phase 4 (M4 Token Meter Cache Discipline):** Pending
 - **Phase 5 (M5 Multi Provider):** Pending

@@ -1,0 +1,6 @@
+# Anthropic cassettes (recording deferred)
+
+When the user-driven Anthropic recording session runs (Anthropic API
+key required), one cassette per role-dispatch (Scout → Architect →
+Lead → Dev × N → QA) lands here as `.jsonl` files. See `../README.md`
+for the recording walkthrough.
