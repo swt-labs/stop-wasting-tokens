@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/artifacts",
-  "version": "0.0.0",
+  "version": "3.0.0-alpha.1",
   "description": "PROJECT/REQUIREMENTS/ROADMAP/STATE artefact engine plus phase directory and milestone archive helpers.",
   "license": "MIT",
   "type": "module",
