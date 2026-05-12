@@ -328,7 +328,9 @@ function walkMarkdownFiles(root: string): string[] {
       if (st.isDirectory()) {
         walk(full);
       } else if (st.isFile() && entry.endsWith('.md')) {
-        out.push(relative(root, full));
+        // ADR-009: emit POSIX-separator relPaths; node:path.relative returns
+        // platform-native separators on Windows.
+        out.push(relative(root, full).split(sep).join('/'));
       }
     }
   };

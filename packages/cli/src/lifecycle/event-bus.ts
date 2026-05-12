@@ -76,12 +76,14 @@ const DEFAULT_BUFFER_MS = 50;
  * The directory is created on first emit if it does not exist.
  */
 export function createCliEventBus(options: CliEventBusOptions): CliEventBus {
-  const projectRoot = path.resolve(options.projectRoot);
+  // ADR-009: emit POSIX-separator paths so consumers can match on `/`-style
+  // suffixes regardless of host OS.
+  const projectRoot = path.resolve(options.projectRoot).replace(/\\/g, '/');
   const sessionId = options.sessionId ?? globalThis.crypto.randomUUID();
   const bufferMs = options.bufferMs ?? DEFAULT_BUFFER_MS;
 
-  const eventsDir = path.join(projectRoot, PLANNING_DIR, EVENTS_DIR);
-  const filePath = path.join(eventsDir, `${sessionId}.jsonl`);
+  const eventsDir = path.posix.join(projectRoot, PLANNING_DIR, EVENTS_DIR);
+  const filePath = path.posix.join(eventsDir, `${sessionId}.jsonl`);
 
   let stream: WriteStream | null = null;
   let buffer: string[] = [];

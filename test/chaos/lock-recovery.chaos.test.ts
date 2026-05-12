@@ -25,7 +25,7 @@
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { posix } from 'node:path';
 
 import { acquireLock, purgeStaleLocks, readLocks, type PidChecker } from '@swt-labs/orchestration';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -36,8 +36,12 @@ interface Fixture {
 }
 
 function setupFixture(): Fixture {
-  const root = mkdtempSync(path.join(tmpdir(), 'swt-chaos-lock-'));
-  const locksRoot = path.join(root, 'locks');
+  // ADR-009: keep paths POSIX-form even on Windows runners. tmpdir() returns
+  // a platform-native path; normalize to POSIX so downstream posix.join calls
+  // (in both fixture + production) produce consistent separators.
+  const tmpPosix = tmpdir().replace(/\\/g, '/');
+  const root = mkdtempSync(posix.join(tmpPosix, 'swt-chaos-lock-')).replace(/\\/g, '/');
+  const locksRoot = posix.join(root, 'locks');
   mkdirSync(locksRoot, { recursive: true });
   return { root, locksRoot };
 }
@@ -120,7 +124,7 @@ describe('lock-file PID-liveness chaos invariant', () => {
    */
   it('corrupt-envelope lock is purged when purgeCorrupt: true', async () => {
     if (fixture === undefined) throw new Error('fixture not set');
-    const corruptPath = path.join(fixture.locksRoot, 'task-T-CORRUPT.lock');
+    const corruptPath = posix.join(fixture.locksRoot, 'task-T-CORRUPT.lock');
     writeFileSync(corruptPath, '{"schema_version": 1, "task_id": "T-CORRUPT", "pi'); // truncated
 
     // Without purgeCorrupt, the lock survives (forensics-preserved).
@@ -154,14 +158,14 @@ describe('lock-file PID-liveness chaos invariant', () => {
     const LIVE_PID = 11111;
     const DEAD_PID = 99999;
     const liveRaw = `{"schema_version":1,"task_id":"T-LIVE","pid":${LIVE_PID},"started_at":"2026-05-12T10:00:00.000Z","worktree_path":"parallel/wt-T-LIVE/","state":"dispatched"}`;
-    const livePath = path.join(fixture.locksRoot, 'task-T-LIVE.lock');
+    const livePath = posix.join(fixture.locksRoot, 'task-T-LIVE.lock');
     writeFileSync(livePath, liveRaw);
 
     const deadRaw = `{"schema_version":1,"task_id":"T-DEAD","pid":${DEAD_PID},"started_at":"2026-05-12T10:00:00.000Z","worktree_path":"parallel/wt-T-DEAD/","state":"agent_running"}`;
-    const deadPath = path.join(fixture.locksRoot, 'task-T-DEAD.lock');
+    const deadPath = posix.join(fixture.locksRoot, 'task-T-DEAD.lock');
     writeFileSync(deadPath, deadRaw);
 
-    const corruptPath = path.join(fixture.locksRoot, 'task-T-CORRUPT.lock');
+    const corruptPath = posix.join(fixture.locksRoot, 'task-T-CORRUPT.lock');
     writeFileSync(corruptPath, 'not json');
 
     const purged = await purgeStaleLocks({
@@ -185,7 +189,7 @@ describe('lock-file PID-liveness chaos invariant', () => {
     if (fixture === undefined) throw new Error('fixture not set');
 
     const deadRaw = `{"schema_version":1,"task_id":"T-DEAD","pid":99999,"started_at":"2026-05-12T10:00:00.000Z","worktree_path":"parallel/wt-T-DEAD/","state":"dispatched"}`;
-    const deadPath = path.join(fixture.locksRoot, 'task-T-DEAD.lock');
+    const deadPath = posix.join(fixture.locksRoot, 'task-T-DEAD.lock');
     writeFileSync(deadPath, deadRaw);
 
     const first = await purgeStaleLocks({

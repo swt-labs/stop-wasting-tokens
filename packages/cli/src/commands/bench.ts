@@ -29,7 +29,7 @@
  */
 
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { posix } from 'node:path';
 
 import { computeTpac, NoSatisfiedCriteriaError } from '@swt-labs/orchestration';
 import { TpacReportSchema, type TpacReport } from '@swt-labs/shared';
@@ -120,7 +120,8 @@ function stringFlag(value: string | boolean | undefined): string | undefined {
 
 function resolveFixtureDir(cwd: string, fixture: string): string {
   const dir = FIXTURE_DIRS[fixture] ?? fixture;
-  return join(cwd, 'packages', 'test-utils', 'golden', dir);
+  // ADR-009: keep fixture paths POSIX-form even on Windows runners.
+  return posix.join(cwd.replace(/\\/g, '/'), 'packages', 'test-utils', 'golden', dir);
 }
 
 function emitReport(io: CommandIO, outputPath: string | undefined, report: TpacReport): void {
