@@ -2,6 +2,7 @@ import type { SpawnerEnvironment } from '@swt-labs/core';
 import { PiSpawnerEnvironment } from '@swt-labs/orchestration';
 
 import { parseSwtArgv } from './argv.js';
+import { benchHandler } from './commands/bench.js';
 import { configHandler } from './commands/config.js';
 import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
@@ -100,6 +101,12 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     name: 'rpc',
     description: "Delegate to Pi's JSON-RPC mode (stdout reserved for protocol stream)",
     handler: rpcHandler,
+  });
+  registry.register({
+    name: 'bench',
+    usage: '[--fixture=<name>] [--provider=<name>] [--cassettes=<path>] [--output=<file>]',
+    description: 'Replay the TPAC reference scenario and emit a validated TpacReport',
+    handler: benchHandler,
   });
   registerDashboard(registry);
 

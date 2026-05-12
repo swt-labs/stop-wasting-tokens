@@ -95,9 +95,15 @@ importers:
       '@swt-labs/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@swt-labs/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@swt-labs/telemetry':
         specifier: workspace:*
         version: link:../telemetry
+      '@swt-labs/test-utils':
+        specifier: workspace:*
+        version: link:../test-utils
       '@swt-labs/verification':
         specifier: workspace:*
         version: link:../verification

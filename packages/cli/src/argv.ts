@@ -44,6 +44,14 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       'bash-format': { type: 'boolean', default: false },
       // swt init [<name>] [--description "..."]: scaffold .swt-planning/.
       description: { type: 'string' },
+      // swt bench [--fixture <name>] [--provider <name>] [--cassettes <path>]
+      // [--output <file>] [--milestone <id>]: TPAC reference benchmark.
+      // Per M2 PR-21 / TDD2 §3.2 + §14.9.
+      fixture: { type: 'string' },
+      provider: { type: 'string' },
+      cassettes: { type: 'string' },
+      output: { type: 'string' },
+      milestone: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,
