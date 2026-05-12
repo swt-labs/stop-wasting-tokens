@@ -461,7 +461,22 @@ Third PR of Plan 04-01. Cache-hit measurement + dashboard panel per TDD2 §12.3.
 - **Workspace dep** — dashboard package gains `@swt-labs/runtime` for `computeCacheHitRatio` + `TokenMeter` type.
 - **Live-meter wire-up deferred** — the actual `getMeter()` plumbing (registering a live `TokenMeter` ref on the dashboard server) is separate M4 ops work. Today the route registers with `() => null`; the panel renders the empty state.
 
-**Test posture at PR-33 close: 1075 passing / 46 skipped / 0 failed** (+12 from PR-32's 1063: 9 cache-hit unit + 3 route). Commit: `<pending>`.
+**Test posture at PR-33 close: 1075 passing / 46 skipped / 0 failed** (+12 from PR-32's 1063: 9 cache-hit unit + 3 route). Commit: `1bfc894`.
+
+### Added (M4 — Plan 04-01 — PR-34, 2026-05-12)
+
+Fourth PR of Plan 04-01. OpenAI auto-cache observation. Unlike Anthropic (which requires explicit `cache_control` markers per PR-32), OpenAI auto-caches prompts ≥1024 tokens transparently — the only thing v3 needs to do is observe `prompt_tokens_details.cached_tokens` and route it into the meter's `cacheRead` bucket. The `extractOpenAI` function already did this since PR-07 (the subtraction `input = prompt_tokens - cached_tokens` was in place from day one); PR-34 pins the auto-cache contract with explicit + end-to-end tests.
+
+- **`packages/runtime/test/providers/openai-auto-cache.test.ts`** (NEW, 6 tests) — focused auto-cache test file that complements the general `extractors.test.ts` coverage:
+  - **Cached_tokens routing** — explicit assertion that `prompt_tokens_details.cached_tokens` goes to `TaskTokenUsage.cacheRead` + `input = prompt_tokens - cached_tokens` + `cacheWrite = 0` (no cache-write dimension at the OpenAI API surface).
+  - **Fully-cached prompt** — `cached_tokens === prompt_tokens` → `input: 0`, `cacheRead: N`. Steady-state pattern for sustained-context agents.
+  - **Below-auto-cache-minimum** — sub-1024-token prompts have `cached_tokens: 0` (OpenAI auto-caches only ≥1024). Extractor still produces a valid row.
+  - **Missing `prompt_tokens_details`** — treated as zero cache reads; `input` uses raw `prompt_tokens`.
+  - **End-to-end aggregation** — 3-turn sequence (cold → partial cache → full cache) recorded into `createTokenMeter` + aggregated by `computeCacheHitRatio` produces the exact expected ratio.
+  - **M4 EXIT GATE detection** — 10-turn sustained-cache run (90% prefix hit on turns 2-10) aggregates to a ratio ≥ 0.70, validating the M4 target is reachable on OpenAI without any `cache_control` wiring.
+- No extractor changes — the contract was already in place. Live-meter wire-up to the dashboard remains the M4 ops follow-up.
+
+**Test posture at PR-34 close: 1081 passing / 46 skipped / 0 failed** (+6 from PR-33's 1075). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
