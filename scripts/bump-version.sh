@@ -84,13 +84,25 @@ fi
 NEW_VERSION="${1:?usage: bump-version.sh <semver> [--dry-run] | --verify}"
 DRY_RUN="${2:-}"
 
-PACKAGES=(core cli codex-driver methodology artifacts verification telemetry claude-code-driver ollama-driver)
+# Enumerate workspace packages by glob (same pattern as --verify mode above).
+# Replaces the v2-era hardcoded list that drifted as packages were added
+# (runtime, orchestration, shared, dashboard, test-utils) and removed
+# (codex-driver, claude-code-driver, ollama-driver deleted at M1 PR-05).
+MANIFESTS=()
+for manifest in "$ROOT"/packages/*/package.json; do
+  [ -f "$manifest" ] || continue
+  MANIFESTS+=("$manifest")
+done
 
 if [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "Would bump root + ${#PACKAGES[@]} packages to v${NEW_VERSION}"
-  echo "(packages: ${PACKAGES[*]})"
-  for p in "${PACKAGES[@]}"; do
-    echo "  - packages/$p/package.json"
+  echo "Would bump root + ${#MANIFESTS[@]} workspace packages to v${NEW_VERSION}"
+  echo ""
+  echo "  Workspace packages:"
+  for manifest in "${MANIFESTS[@]}"; do
+    name=$(node -e "console.log(require('$manifest').name || '')")
+    rel="${manifest#$ROOT/}"
+    private=$(node -e "console.log(require('$manifest').private === true ? '(private)' : '(public)')")
+    printf "    %-40s %s  %s\n" "$name" "$private" "$rel"
   done
   echo "  - package.json (root)"
   exit 0
@@ -98,15 +110,15 @@ fi
 
 echo "Bumping all packages to v${NEW_VERSION}..."
 
-for p in "${PACKAGES[@]}"; do
-  manifest="$ROOT/packages/$p/package.json"
+for manifest in "${MANIFESTS[@]}"; do
   node -e "
     const fs = require('fs');
     const m = JSON.parse(fs.readFileSync('$manifest'));
     m.version = '$NEW_VERSION';
     fs.writeFileSync('$manifest', JSON.stringify(m, null, 2) + '\\n');
   "
-  echo "  ✓ packages/$p/package.json"
+  rel="${manifest#$ROOT/}"
+  echo "  ✓ $rel"
 done
 
 # Bump root
@@ -118,11 +130,14 @@ node -e "
 "
 echo "  ✓ package.json (root)"
 
+TOTAL=$((${#MANIFESTS[@]} + 1))
 echo ""
-echo "✓ All 10 manifests at v${NEW_VERSION}"
+echo "✓ All ${TOTAL} manifests at v${NEW_VERSION}"
 echo ""
 echo "Next steps (user-driven):"
-echo "  1. git diff                                 # review"
+echo "  1. git diff                                       # review"
 echo "  2. git add -A && git commit -m 'chore(release): v${NEW_VERSION}'"
 echo "  3. git tag v${NEW_VERSION}"
-echo "  4. git push origin main v${NEW_VERSION}    # triggers release.yml"
+echo "  4. git push origin main                           # ship the bump"
+echo "  5. git push origin v${NEW_VERSION}                # publish the tag"
+echo "  6. pnpm publish --access public --provenance      # npm publish (manual)"
