@@ -49,3 +49,14 @@ export {
   type BuiltPrompt,
   type PromptBlock,
 } from './prompt-builder.js';
+
+// PR-19 (M2): TPAC aggregator. Per TDD2 §8.1. Reduces a MeterSnapshot
+// into a milestone-scoped TpacReport for `swt bench` (PR-21) emit + the
+// dashboard Milestones panel + the M4 PR-32 −40% target check.
+export {
+  computeTpac,
+  summariseRoles,
+  NoSatisfiedCriteriaError,
+  type ComputeTpacOptions,
+  type RoleSummary,
+} from './tpac-meter.js';

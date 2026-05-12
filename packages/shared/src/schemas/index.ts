@@ -20,3 +20,4 @@ export * from './task-result.js';
 export * from './plan.js';
 export * from './claim.js';
 export * from './budget.js';
+export * from './tpac-report.js';
