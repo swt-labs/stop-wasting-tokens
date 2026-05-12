@@ -18,17 +18,17 @@ date: 2026-05-11
 
 v2.3.5 has two source-import edges that violate Principle 1 (methodology vendor-neutrality) and Principle 3 (provider as parameter). Both must be discharged as the M1 **entry gate** before any new `packages/runtime/` work begins.
 
-| Edge | Concrete site | Type | Symbol(s) imported |
-|---|---|---|---|
-| methodology → codex-driver | `packages/methodology/src/vibe/handlers/bootstrap.ts` | source import | `writeAgentsMdBlock` |
-| cli → codex-driver (1) | `packages/cli/src/commands/vibe.ts` | source import | `CodexAgentSpawner` |
-| cli → codex-driver (2) | `packages/cli/src/commands/doctor.ts` | source import | `detectCodexVersion`, `CodexVersion` |
+| Edge                       | Concrete site                                         | Type          | Symbol(s) imported                   |
+| -------------------------- | ----------------------------------------------------- | ------------- | ------------------------------------ |
+| methodology → codex-driver | `packages/methodology/src/vibe/handlers/bootstrap.ts` | source import | `writeAgentsMdBlock`                 |
+| cli → codex-driver (1)     | `packages/cli/src/commands/vibe.ts`                   | source import | `CodexAgentSpawner`                  |
+| cli → codex-driver (2)     | `packages/cli/src/commands/doctor.ts`                 | source import | `detectCodexVersion`, `CodexVersion` |
 
 Beyond source imports, `packages/cli/package.json` declares `@swt-labs/claude-code-driver` and `@swt-labs/ollama-driver` as workspace deps but contains no source imports for them — those dependency rows vanish trivially with PR-05 (driver-package deletion).
 
 ### F-02 · `core/abstractions/AgentSpawner` already exists (verified)
 
-`packages/core/src/abstractions/AgentSpawner.ts` is the v2.3.5 abstraction that the methodology was *intended* to depend on before the codex-driver edge sneaked in. Re-routing `bootstrap.ts` to use this abstraction (rather than calling `writeAgentsMdBlock` directly) is the discharge for the methodology edge.
+`packages/core/src/abstractions/AgentSpawner.ts` is the v2.3.5 abstraction that the methodology was _intended_ to depend on before the codex-driver edge sneaked in. Re-routing `bootstrap.ts` to use this abstraction (rather than calling `writeAgentsMdBlock` directly) is the discharge for the methodology edge.
 
 The CLI edges need a sibling abstraction. TDD2§13.1.2 specifies `core/abstractions/SpawnerEnvironment` (new minimal adapter) for `doctor.probe()` and `vibe`'s spawner-request surface.
 
@@ -53,16 +53,16 @@ For M1 (no worktrees, no parallel, no real LLM calls — just the scaffolding), 
 
 ```ts
 import {
-  createAgentSession,           // factory: returns AgentSession
-  createAgentSessionRuntime,    // wraps for run modes
-  runPrintMode,                 // CLI-style one-shot
-  defineTool,                   // for custom tools (M3 will use this for swt_report_result)
-  SessionManager,               // .inMemory() for ephemeral sessions in tests
-  createCodingTools,            // bound to a cwd
-  createReadOnlyTools,          // for Scout role (M2+)
+  createAgentSession, // factory: returns AgentSession
+  createAgentSessionRuntime, // wraps for run modes
+  runPrintMode, // CLI-style one-shot
+  defineTool, // for custom tools (M3 will use this for swt_report_result)
+  SessionManager, // .inMemory() for ephemeral sessions in tests
+  createCodingTools, // bound to a cwd
+  createReadOnlyTools, // for Scout role (M2+)
   type AgentSession,
   type AgentSessionEvent,
-  type ExtensionAPI,            // for M3+ extensions
+  type ExtensionAPI, // for M3+ extensions
 } from '@earendil-works/pi-coding-agent';
 ```
 
@@ -72,21 +72,21 @@ The full Pi reference is TDD2§5; M1 only needs `createAgentSession`, event subs
 
 v2.3.5 contains 11 packages (verified via `ls packages/`):
 
-| v2 package | M1 disposition | v3 location |
-|---|---|---|
-| `@swt-labs/core` | preserve (split abstractions/handoff/scaffold remain in core; types→shared) | `@swt-labs/core/abstractions/` etc. |
-| `@swt-labs/artifacts` | preserve (renamed to British) | `@swt-labs/core/artefacts/` |
-| `@swt-labs/methodology` | preserve (dep-edge break in PR-01a) | `@swt-labs/core/methodology/` |
-| `@swt-labs/verification` | preserve | `@swt-labs/core/verification/` |
-| `@swt-labs/telemetry` | preserve | `@swt-labs/core/telemetry/` |
-| `@swt-labs/dashboard-core` | fold | `@swt-labs/shared/schemas/` |
-| `@swt-labs/cli` | preserve (dep-edge break in PR-01b) | unchanged |
-| `@swt-labs/dashboard` | preserve | unchanged |
-| `@swt-labs/codex-driver` | **DELETE** | (gone) |
-| `@swt-labs/claude-code-driver` | **DELETE** | (gone) |
-| `@swt-labs/ollama-driver` | **DELETE** | (gone) |
+| v2 package                     | M1 disposition                                                              | v3 location                         |
+| ------------------------------ | --------------------------------------------------------------------------- | ----------------------------------- |
+| `@swt-labs/core`               | preserve (split abstractions/handoff/scaffold remain in core; types→shared) | `@swt-labs/core/abstractions/` etc. |
+| `@swt-labs/artifacts`          | preserve (renamed to British)                                               | `@swt-labs/core/artefacts/`         |
+| `@swt-labs/methodology`        | preserve (dep-edge break in PR-01a)                                         | `@swt-labs/core/methodology/`       |
+| `@swt-labs/verification`       | preserve                                                                    | `@swt-labs/core/verification/`      |
+| `@swt-labs/telemetry`          | preserve                                                                    | `@swt-labs/core/telemetry/`         |
+| `@swt-labs/dashboard-core`     | fold                                                                        | `@swt-labs/shared/schemas/`         |
+| `@swt-labs/cli`                | preserve (dep-edge break in PR-01b)                                         | unchanged                           |
+| `@swt-labs/dashboard`          | preserve                                                                    | unchanged                           |
+| `@swt-labs/codex-driver`       | **DELETE**                                                                  | (gone)                              |
+| `@swt-labs/claude-code-driver` | **DELETE**                                                                  | (gone)                              |
+| `@swt-labs/ollama-driver`      | **DELETE**                                                                  | (gone)                              |
 
-PR-05's delete is mechanical *after* PR-01a/b run.
+PR-05's delete is mechanical _after_ PR-01a/b run.
 
 ### F-06 · 130 test files; 33 of them fail in v2.3.5 CI
 
@@ -193,10 +193,10 @@ This research feeds all three. Plan 01-01 is written in this `/vbw:vibe` invocat
 
 ### Rec-04 · This planning workspace and the real SWT repo are separate
 
-Plans authored here are *design artifacts*. The actual code changes for PR-01a, PR-01b, etc. land in `swt-labs/stop-wasting-tokens` (cloned at `.vbw-planning/research/swt-v2-source/` for reference, but that clone is read-only). The execution path for each plan:
+Plans authored here are _design artifacts_. The actual code changes for PR-01a, PR-01b, etc. land in `swt-labs/stop-wasting-tokens` (cloned at `.vbw-planning/research/swt-v2-source/` for reference, but that clone is read-only). The execution path for each plan:
 
 1. Read the plan in this repo.
-2. Switch to the real SWT repo working copy (a separate clone, *not* `.vbw-planning/research/swt-v2-source/`).
+2. Switch to the real SWT repo working copy (a separate clone, _not_ `.vbw-planning/research/swt-v2-source/`).
 3. Execute the plan there (manually, or by initializing VBW in that repo and running `/vbw:vibe --execute`).
 
 This separation is intentional — see ADR-013 (deferred) for whether to merge the planning workspace into the SWT repo or keep it standalone.

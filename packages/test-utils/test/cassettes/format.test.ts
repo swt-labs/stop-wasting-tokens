@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  CassetteHeaderSchema,
-  CassetteInteractionSchema,
-} from '../../src/cassettes/index.js';
+import { CassetteHeaderSchema, CassetteInteractionSchema } from '../../src/cassettes/index.js';
 
 describe('cassette format schemas', () => {
   describe('CassetteHeaderSchema', () => {

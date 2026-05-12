@@ -20,12 +20,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import type {
-  MeterRecord,
-  MeterSnapshot,
-  MeterUpdate,
-  TokenMeter,
-} from '@swt-labs/shared';
+import type { MeterRecord, MeterSnapshot, MeterUpdate, TokenMeter } from '@swt-labs/shared';
 
 export interface CreateTokenMeterOptions {
   /** When true, every record() also appends a JSONL row to persistPath. */

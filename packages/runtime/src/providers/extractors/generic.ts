@@ -44,7 +44,8 @@ export function extractGeneric(
   const input = firstDefined(u.input_tokens, u.prompt_tokens, u.inputTokens);
   const output = firstDefined(u.output_tokens, u.completion_tokens, u.outputTokens);
   if (input === undefined && output === undefined) return undefined;
-  const cacheRead = firstDefined(u.cache_read_input_tokens, u.cached_tokens, u.cacheReadInputTokens) ?? 0;
+  const cacheRead =
+    firstDefined(u.cache_read_input_tokens, u.cached_tokens, u.cacheReadInputTokens) ?? 0;
   const cacheWrite = firstDefined(u.cache_creation_input_tokens, u.cacheWriteInputTokens) ?? 0;
   return {
     input: input ?? 0,

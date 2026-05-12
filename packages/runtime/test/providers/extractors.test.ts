@@ -74,7 +74,7 @@ describe('@swt-labs/runtime — extractors/openai', () => {
     expect(extractOpenAI(undefined, CTX)).toBeUndefined();
   });
 
-  it('Math.max guard: if cached > prompt (shouldn\'t happen, but...) input clamps to 0', () => {
+  it("Math.max guard: if cached > prompt (shouldn't happen, but...) input clamps to 0", () => {
     const out = extractOpenAI(
       {
         prompt_tokens: 100,

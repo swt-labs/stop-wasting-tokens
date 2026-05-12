@@ -1,6 +1,5 @@
-import { For, Show, createSignal, type Component } from 'solid-js';
-
 import type { ArtifactKind, PhaseSummary } from '@swt-labs/shared';
+import { For, Show, createSignal, type Component } from 'solid-js';
 
 const KIND_CLASS: Record<ArtifactKind, string> = {
   research: 'artifact-research',

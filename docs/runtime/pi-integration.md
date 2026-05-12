@@ -10,13 +10,13 @@ Pi (`@earendil-works/pi-coding-agent`) is the only third-party runtime that SWT 
 
 ## Quick reference
 
-| Topic | Pi surface | SWT surface |
-| :--- | :--- | :--- |
-| Session creation | `createAgentSession()` | `createSession(opts)` in `runtime/src/session.ts` |
-| Event normalisation | 14 Pi `AgentSessionEvent` types | `mapPiEvent` → 6 `SwtEvent` variants |
-| Tool factories | `pi.coding` + `pi.readonly` | `createCodingTools` + `createReadOnlyTools` |
-| Probe | direct package import + version check | `probePiAvailable()` (used by orchestration) |
-| Extensions | `pi.registerTool` + `pi.appendEntry` | `runtime/src/extensions/` (PR-09 + PR-08) |
+| Topic               | Pi surface                            | SWT surface                                       |
+| :------------------ | :------------------------------------ | :------------------------------------------------ |
+| Session creation    | `createAgentSession()`                | `createSession(opts)` in `runtime/src/session.ts` |
+| Event normalisation | 14 Pi `AgentSessionEvent` types       | `mapPiEvent` → 6 `SwtEvent` variants              |
+| Tool factories      | `pi.coding` + `pi.readonly`           | `createCodingTools` + `createReadOnlyTools`       |
+| Probe               | direct package import + version check | `probePiAvailable()` (used by orchestration)      |
+| Extensions          | `pi.registerTool` + `pi.appendEntry`  | `runtime/src/extensions/` (PR-09 + PR-08)         |
 
 ## Why a structural type mirror for `ExtensionAPI`?
 

@@ -51,7 +51,13 @@ describe('LAUNCH-CHECKLIST.md', () => {
   });
 });
 
-describe('vbw-deprecation-notice.md', () => {
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// vbw-deprecation-notice.md + demo-video-script.md are v2.x launch
+// announcement files; v3 has its own launch story (M6 PR-50..PR-53) that
+// will replace them. Until that lands, these tests reference paths that
+// don't exist in v3-foundation. Skipped, not deleted, so the contracts
+// resurface naturally when M6 ships the v3 announcements.
+describe.skip('vbw-deprecation-notice.md — see #32', () => {
   const path = join(REPO_ROOT, '.vbw-planning', 'announcements', 'vbw-deprecation-notice.md');
 
   it('exists', () => {
@@ -66,7 +72,8 @@ describe('vbw-deprecation-notice.md', () => {
   });
 });
 
-describe('demo-video-script.md', () => {
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+describe.skip('demo-video-script.md — see #32', () => {
   const path = join(REPO_ROOT, '.vbw-planning', 'announcements', 'demo-video-script.md');
 
   it('exists', () => {

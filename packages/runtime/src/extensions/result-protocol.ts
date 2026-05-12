@@ -24,9 +24,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { z } from 'zod';
-
 import { TaskResultSchema } from '@swt-labs/shared';
+import { z } from 'zod';
 
 import type {
   PiExtensionAPI,

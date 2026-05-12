@@ -1,3 +1,4 @@
+import type { SwtSession } from '@swt-labs/runtime';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -7,7 +8,6 @@ import {
   type TaskBrief,
   type TaskResult,
 } from '../src/index.js';
-import type { SwtSession } from '@swt-labs/runtime';
 
 /**
  * Test seam: an in-memory `SessionFactory` that records calls and returns a
@@ -40,10 +40,12 @@ function makeRecordingSessionFactory(): {
     };
     return session;
   };
-  return { factory, calls, get disposals() { return disposals; } } as {
-    factory: SessionFactory;
-    calls: Array<{ cwd: string; ephemeral?: boolean }>;
-    disposals: number;
+  return {
+    factory,
+    calls,
+    get disposals() {
+      return disposals;
+    },
   };
 }
 
@@ -77,9 +79,7 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
         role: 'dev',
         cwd: '/tmp/orchestration-test/dev',
       });
-      expect(recording.calls).toEqual([
-        { cwd: '/tmp/orchestration-test/dev', ephemeral: true },
-      ]);
+      expect(recording.calls).toEqual([{ cwd: '/tmp/orchestration-test/dev', ephemeral: true }]);
     });
 
     it('dispatchBatch runs tasks sequentially in order', async () => {
@@ -94,11 +94,7 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
 
       expect(results.length).toBe(3);
       expect(results.map((r) => r.task_id)).toEqual(['T-1', 'T-2', 'T-3']);
-      expect(recording.calls.map((c) => c.cwd)).toEqual([
-        '/tmp/a',
-        '/tmp/b',
-        '/tmp/c',
-      ]);
+      expect(recording.calls.map((c) => c.cwd)).toEqual(['/tmp/a', '/tmp/b', '/tmp/c']);
     });
   });
 

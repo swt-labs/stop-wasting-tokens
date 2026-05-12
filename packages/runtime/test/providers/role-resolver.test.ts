@@ -67,9 +67,7 @@ describe('@swt-labs/runtime — providers/role-resolver', () => {
           reasoning: 'custom-think',
         },
       };
-      expect(resolveModelForRole('dev', 'custom', { tierModel: customMap })).toBe(
-        'custom-medium',
-      );
+      expect(resolveModelForRole('dev', 'custom', { tierModel: customMap })).toBe('custom-medium');
     });
 
     it('throws for an unknown provider', () => {

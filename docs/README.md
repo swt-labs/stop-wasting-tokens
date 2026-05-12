@@ -10,16 +10,16 @@ This is the in-tree documentation for SWT v3 — Pi-Native Coding Harness. Per [
 
 The in-tree docs follow the TDD2 §18.1 topical structure. Each top-level folder is one architectural layer or one operational concern; each file is one user-facing topic.
 
-| Folder | Topic | Read this if you want to know… |
-| :--- | :--- | :--- |
-| [`methodology/`](./methodology/) | The six-agent SDLC + plan-then-execute lifecycle | How SWT's methodology layer is organised; what's preserved from v2 vs new in v3. |
-| [`runtime/`](./runtime/) | The Pi runtime adapter | How SWT talks to Pi; how providers map to tiers; how the meter and extractors work. |
-| [`orchestration/`](./orchestration/) | Dispatcher + worktrees + claims + DAG | How v3 will run parallel Dev tasks (M3); how crash recovery works. |
-| [`dashboard/`](./dashboard/) | Localhost web dashboard panels + actions | What panels render; how `Cmd-K` navigation works; how permission gates render. |
-| [`cli/`](./cli/) | `swt` verb reference | What each verb does; which verbs are real vs placeholders this milestone. |
-| [`operations/`](./operations/) | Migrating from v2 + observability + budget + failover + cassette recording | How to migrate, run, monitor, recover, and record proof. |
-| [`decisions/`](./decisions/) | 13 Architecture Decision Records | Why specific architectural choices were made; status lifecycle. |
-| [`design/`](./design/) | Design archive + TDD2 reading-order guide | Where to start when reading TDD2.md end-to-end. |
+| Folder                               | Topic                                                                      | Read this if you want to know…                                                      |
+| :----------------------------------- | :------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+| [`methodology/`](./methodology/)     | The six-agent SDLC + plan-then-execute lifecycle                           | How SWT's methodology layer is organised; what's preserved from v2 vs new in v3.    |
+| [`runtime/`](./runtime/)             | The Pi runtime adapter                                                     | How SWT talks to Pi; how providers map to tiers; how the meter and extractors work. |
+| [`orchestration/`](./orchestration/) | Dispatcher + worktrees + claims + DAG                                      | How v3 will run parallel Dev tasks (M3); how crash recovery works.                  |
+| [`dashboard/`](./dashboard/)         | Localhost web dashboard panels + actions                                   | What panels render; how `Cmd-K` navigation works; how permission gates render.      |
+| [`cli/`](./cli/)                     | `swt` verb reference                                                       | What each verb does; which verbs are real vs placeholders this milestone.           |
+| [`operations/`](./operations/)       | Migrating from v2 + observability + budget + failover + cassette recording | How to migrate, run, monitor, recover, and record proof.                            |
+| [`decisions/`](./decisions/)         | 13 Architecture Decision Records                                           | Why specific architectural choices were made; status lifecycle.                     |
+| [`design/`](./design/)               | Design archive + TDD2 reading-order guide                                  | Where to start when reading TDD2.md end-to-end.                                     |
 
 ## v2-era Mintlify-format docs
 
@@ -33,16 +33,16 @@ If/when the user count crosses ~1000 and the hosted site re-opens (per ADR-013 r
 
 ## Status table by topic
 
-| Topic | Current state at M1 close |
-| :--- | :--- |
-| Methodology | Inherited from v2 verbatim; v3-specific additions stubbed in [`methodology/README.md`](./methodology/README.md) for now. |
-| Runtime | [Pi integration](./runtime/pi-integration.md), [extensions](./runtime/extensions.md), [providers](./runtime/providers.md), [caching](./runtime/caching.md) all stubs with pointers; the implementing code lives in `packages/runtime/` (shipped in Plans 01-01 + 01-02). |
-| Orchestration | [worktrees](./orchestration/worktrees.md), [claims](./orchestration/claims.md), [DAG](./orchestration/dag.md), [crash recovery](./orchestration/crash-recovery.md) all stubs — M3 fills them in. |
-| Dashboard | [Panels](./dashboard/panels.md), [permission gates](./dashboard/permission-gates.md), [Cmd-K](./dashboard/cmd-k.md) stubs — most expand at M2 + M4. |
-| CLI | [README](./cli/README.md) summary + per-milestone delta table. Existing per-verb docs at `docs/reference/cli.mdx` (v2-era) remain accurate until each verb's v3 changes ship. |
-| Operations | [Migrating from v2](./operations/migrating-from-v2.md) (315-line full guide) + [cassette recording](./operations/cassette-recording.md) (full guide) + [observability](./operations/observability.md) / [budget](./operations/budget.md) / [failover](./operations/failover.md) stubs. |
-| Decisions | 13 ADRs — 6 Accepted, 6 Proposed, 1 Deferred. Index at [`decisions/README.md`](./decisions/README.md). |
-| Design | TDD2 reading-order guide + reserved archive slot. |
+| Topic         | Current state at M1 close                                                                                                                                                                                                                                                              |
+| :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Methodology   | Inherited from v2 verbatim; v3-specific additions stubbed in [`methodology/README.md`](./methodology/README.md) for now.                                                                                                                                                               |
+| Runtime       | [Pi integration](./runtime/pi-integration.md), [extensions](./runtime/extensions.md), [providers](./runtime/providers.md), [caching](./runtime/caching.md) all stubs with pointers; the implementing code lives in `packages/runtime/` (shipped in Plans 01-01 + 01-02).               |
+| Orchestration | [worktrees](./orchestration/worktrees.md), [claims](./orchestration/claims.md), [DAG](./orchestration/dag.md), [crash recovery](./orchestration/crash-recovery.md) all stubs — M3 fills them in.                                                                                       |
+| Dashboard     | [Panels](./dashboard/panels.md), [permission gates](./dashboard/permission-gates.md), [Cmd-K](./dashboard/cmd-k.md) stubs — most expand at M2 + M4.                                                                                                                                    |
+| CLI           | [README](./cli/README.md) summary + per-milestone delta table. Existing per-verb docs at `docs/reference/cli.mdx` (v2-era) remain accurate until each verb's v3 changes ship.                                                                                                          |
+| Operations    | [Migrating from v2](./operations/migrating-from-v2.md) (315-line full guide) + [cassette recording](./operations/cassette-recording.md) (full guide) + [observability](./operations/observability.md) / [budget](./operations/budget.md) / [failover](./operations/failover.md) stubs. |
+| Decisions     | 13 ADRs — 6 Accepted, 6 Proposed, 1 Deferred. Index at [`decisions/README.md`](./decisions/README.md).                                                                                                                                                                                 |
+| Design        | TDD2 reading-order guide + reserved archive slot.                                                                                                                                                                                                                                      |
 
 ## Quick links for common tasks
 

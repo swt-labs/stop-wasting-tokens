@@ -54,9 +54,7 @@ describe('@swt-labs/core — eslint layered-architecture boundary', () => {
       expect(config).toContain("group: ['@earendil-works/*']");
       // The override for runtime/ must immediately follow so the ban is
       // not universal (only runtime can import Pi).
-      expect(config).toMatch(
-        /packages\/runtime\/\*\*\/\*[\s\S]*?'no-restricted-imports': 'off'/,
-      );
+      expect(config).toMatch(/packages\/runtime\/\*\*\/\*[\s\S]*?'no-restricted-imports': 'off'/);
     });
 
     it('keeps shared as the leaf (no other workspace package importable)', () => {
@@ -76,7 +74,7 @@ describe('@swt-labs/core — eslint layered-architecture boundary', () => {
         // @swt-labs/core (workspace devDep only). The structural assertions
         // above already cover the contract; this is an additional behavioural
         // check that runs when ESLint is resolvable.
-        // eslint-disable-next-line no-console
+
         console.warn(
           'eslint-boundary.test: ESLint not resolvable from this package; ' +
             'behavioural check skipped (structural assertions still passed).',
@@ -84,7 +82,14 @@ describe('@swt-labs/core — eslint layered-architecture boundary', () => {
         expect(true).toBe(true);
         return;
       }
-      const { Linter } = eslintMod as { Linter: typeof import('eslint').Linter };
+      const { Linter } = eslintMod as {
+        Linter: new () => {
+          verify: (
+            source: string,
+            config: unknown,
+          ) => Array<{ ruleId: string | null; message: string; severity: number }>;
+        };
+      };
       const linter = new Linter();
 
       // Plain JS (no `import type` — the default Linter parser is JS-only).

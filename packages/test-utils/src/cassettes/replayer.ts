@@ -32,14 +32,18 @@ export interface ReplayHandle {
 
 export class CassetteNotFoundError extends Error {
   constructor(public readonly path: string) {
-    super(`Cassette not found: ${path}. Record it first via the recorder script — see docs/operations/cassette-recording.md.`);
+    super(
+      `Cassette not found: ${path}. Record it first via the recorder script — see docs/operations/cassette-recording.md.`,
+    );
     this.name = 'CassetteNotFoundError';
   }
 }
 
 export class CassetteUnsealedError extends Error {
   constructor(public readonly path: string) {
-    super(`Cassette ${path} has cwd_redacted: false in its header. Refusing to load — the recorder must strip cwd paths before the cassette is committed.`);
+    super(
+      `Cassette ${path} has cwd_redacted: false in its header. Refusing to load — the recorder must strip cwd paths before the cassette is committed.`,
+    );
     this.name = 'CassetteUnsealedError';
   }
 }
@@ -73,7 +77,9 @@ export function loadCassette(path: string): {
       ? (firstLine as Record<string, unknown>)
       : {};
   if (headerCandidate['type'] !== 'header') {
-    throw new Error(`Cassette ${path} first line is not a header (got type=${String(headerCandidate['type'])}).`);
+    throw new Error(
+      `Cassette ${path} first line is not a header (got type=${String(headerCandidate['type'])}).`,
+    );
   }
 
   const header = CassetteHeaderSchema.parse(firstLine);

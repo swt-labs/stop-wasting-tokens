@@ -1,18 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import type { SwtEvent } from '@swt-labs/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildJournalExtension,
   FileJournalSink,
   MemoryJournalSink,
 } from '../../src/extensions/journal.js';
-import type {
-  PiExtensionAPI,
-  PiExtensionContext,
-} from '../../src/extensions/pi-types.js';
-import type { SwtEvent } from '@swt-labs/shared';
+import type { PiExtensionAPI, PiExtensionContext } from '../../src/extensions/pi-types.js';
 
 interface MockPi extends PiExtensionAPI {
   handlers: Map<string, Array<(event: unknown, ctx: PiExtensionContext) => void>>;
@@ -66,10 +64,7 @@ describe('@swt-labs/runtime — journal extension', () => {
     const sink = new MemoryJournalSink();
     const pi = createMockPi();
     buildJournalExtension({ sink })(pi);
-    pi.handlers.get('agent_start')?.[0]?.(
-      { type: 'agent_start', sessionId: 'sess-1' },
-      CTX,
-    );
+    pi.handlers.get('agent_start')?.[0]?.({ type: 'agent_start', sessionId: 'sess-1' }, CTX);
     pi.handlers.get('tool_execution_start')?.[0]?.(
       { type: 'tool_execution_start', sessionId: 'sess-1', toolCall: { name: 'grep' } },
       CTX,
@@ -134,10 +129,7 @@ describe('@swt-labs/runtime — journal extension', () => {
           return '/dev/null';
         },
       })(pi);
-      pi.handlers.get('agent_start')?.[0]?.(
-        { type: 'agent_start', sessionId: 's1' },
-        CTX,
-      );
+      pi.handlers.get('agent_start')?.[0]?.({ type: 'agent_start', sessionId: 's1' }, CTX);
       // The injected sink takes priority over the resolver — resolver is
       // only called when sink is undefined. So `resolved` stays empty here.
       expect(resolved).toBe('');

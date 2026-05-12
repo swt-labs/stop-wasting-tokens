@@ -11,15 +11,15 @@
  * Adding a new provider quirk = adding a JSON entry; no TS change required.
  */
 
-import quirksJson from '../providers/quirks.json' with { type: 'json' };
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import quirksJson from '../providers/quirks.json' with { type: 'json' };
 import type { ProviderQuirks } from '../providers/types.js';
 
 // Pi's `ExtensionAPI` is the documented Pi-side handle. Type-only import so
 // PR-08 compiles without a runtime Pi value-import (PR-08 doesn't actually
 // register the extension yet — wiring happens when the Extension API is
 // brought online in PR-09's swt_report_result work).
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 // JSON import shape is loose `unknown`; cast through ProviderQuirks. The
 // `_comment` key in the JSON is ignored at apply time (we iterate provider

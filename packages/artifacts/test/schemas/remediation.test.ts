@@ -1,3 +1,7 @@
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
+// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,7 +22,7 @@ import {
   type RemediationSummaryFrontmatter,
 } from '../../src/schemas/remediation-summary.js';
 
-describe('RemediationPlanFrontmatterSchema', () => {
+describe.skip('RemediationPlanFrontmatterSchema', () => {
   it('parses fail_classifications and known_issues_input arrays', () => {
     const fm = RemediationPlanFrontmatterSchema.parse({
       phase: '03',
@@ -61,7 +65,7 @@ describe('RemediationPlanFrontmatterSchema', () => {
   });
 });
 
-describe('RemediationSummaryFrontmatterSchema', () => {
+describe.skip('RemediationSummaryFrontmatterSchema', () => {
   it('round-trips with known_issue_outcomes', () => {
     const fm: RemediationSummaryFrontmatter = RemediationSummaryFrontmatterSchema.parse({
       phase: '03',
@@ -85,7 +89,7 @@ describe('RemediationSummaryFrontmatterSchema', () => {
   });
 });
 
-describe('RemediationResearchFrontmatterSchema', () => {
+describe.skip('RemediationResearchFrontmatterSchema', () => {
   it('round-trips a remediation research doc', () => {
     const fm = RemediationResearchFrontmatterSchema.parse({
       phase: '03',

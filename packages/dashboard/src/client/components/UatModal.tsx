@@ -45,7 +45,7 @@ export const UatModal: Component<UatModalProps> = (props) => {
             class="uat-modal-note"
             placeholder="Optional notes (Fira Code 13px)"
             value={note()}
-            onInput={(e) => setNote((e.currentTarget as HTMLTextAreaElement).value)}
+            onInput={(e) => setNote(e.currentTarget.value)}
             disabled={props.submitting}
           />
           <div class="uat-modal-actions">

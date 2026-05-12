@@ -24,11 +24,11 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { TaskResultSchema } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
 import { createDispatcher } from '../src/dispatcher.js';
 import { MissingTaskResultError, type PiSessionEntryLike } from '../src/result-harvest.js';
-import { TaskResultSchema } from '@swt-labs/shared';
 
 const CASSETTE_NAME = 'scout-search-codebase';
 const CASSETTE_PATH = join(
@@ -124,32 +124,35 @@ describe('@swt-labs/orchestration — dispatcher harvest integration', () => {
 });
 
 describe('@swt-labs/orchestration — cassette-driven end-to-end (M1 headline)', () => {
-  it.skipIf(!HAS_CASSETTE)('dispatches Scout end-to-end through mocked Pi → parsed TaskResult', async () => {
-    // Activation skeleton — wired the moment `scout-search-codebase.jsonl` lands:
-    //
-    //   const { uninstall } = installReplay(CASSETTE_NAME);
-    //   try {
-    //     const dispatcher = createDispatcher({
-    //       harvestStrategy: { kind: 'entries', getEntries: () => readPiSessionEntries() },
-    //     });
-    //     const result = await dispatcher.dispatch({
-    //       taskId: 'T-cassette-001',
-    //       role: 'scout',
-    //       cwd: '/tmp/test-cwd',
-    //     });
-    //     expect(result.task_id).toBe('T-cassette-001');     // round-trips through dispatch
-    //     expect(result.status).toBe('success');             // cassette is recorded to end in success
-    //     expect(result.schema_version).toBe(1);             // schema version locked
-    //     expect(Array.isArray(result.files_changed)).toBe(true);
-    //     expect(result.files_changed.length).toBe(0);        // Scout reads only → empty array
-    //     expect(Array.isArray(result.must_haves)).toBe(true);
-    //     expect(() => TaskResultSchema.parse(result)).not.toThrow();
-    //     // INTENTIONALLY NOT asserting summary content — cassette-dependent + brittle.
-    //   } finally {
-    //     uninstall();
-    //   }
-    expect(HAS_CASSETTE).toBe(true);
-  });
+  it.skipIf(!HAS_CASSETTE)(
+    'dispatches Scout end-to-end through mocked Pi → parsed TaskResult',
+    async () => {
+      // Activation skeleton — wired the moment `scout-search-codebase.jsonl` lands:
+      //
+      //   const { uninstall } = installReplay(CASSETTE_NAME);
+      //   try {
+      //     const dispatcher = createDispatcher({
+      //       harvestStrategy: { kind: 'entries', getEntries: () => readPiSessionEntries() },
+      //     });
+      //     const result = await dispatcher.dispatch({
+      //       taskId: 'T-cassette-001',
+      //       role: 'scout',
+      //       cwd: '/tmp/test-cwd',
+      //     });
+      //     expect(result.task_id).toBe('T-cassette-001');     // round-trips through dispatch
+      //     expect(result.status).toBe('success');             // cassette is recorded to end in success
+      //     expect(result.schema_version).toBe(1);             // schema version locked
+      //     expect(Array.isArray(result.files_changed)).toBe(true);
+      //     expect(result.files_changed.length).toBe(0);        // Scout reads only → empty array
+      //     expect(Array.isArray(result.must_haves)).toBe(true);
+      //     expect(() => TaskResultSchema.parse(result)).not.toThrow();
+      //     // INTENTIONALLY NOT asserting summary content — cassette-dependent + brittle.
+      //   } finally {
+      //     uninstall();
+      //   }
+      expect(HAS_CASSETTE).toBe(true);
+    },
+  );
 
   it('PR-09 scaffolding placeholder — when cassette lands, flip skipIf to activate', () => {
     // Always passes; documents the deferred-but-wired state for any

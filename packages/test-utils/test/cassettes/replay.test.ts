@@ -41,13 +41,10 @@ describe('cassette replayer', () => {
     });
 
     if (!exists) {
-      it.skip(
-        'TODO: scout-read-readme.jsonl not yet recorded — run scripts/record-cassette.mjs to enable this test (see docs/operations/cassette-recording.md)',
-        () => {
-          // Cassette deferred per the PR-06 cassette-recording handoff. Tests in
-          // this describe block will start running when the cassette is committed.
-        },
-      );
+      it.skip('TODO: scout-read-readme.jsonl not yet recorded — run scripts/record-cassette.mjs to enable this test (see docs/operations/cassette-recording.md)', () => {
+        // Cassette deferred per the PR-06 cassette-recording handoff. Tests in
+        // this describe block will start running when the cassette is committed.
+      });
     }
   });
 

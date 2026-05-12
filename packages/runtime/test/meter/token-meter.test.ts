@@ -2,18 +2,14 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { MeterRecord, MeterUpdate } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createTokenMeter,
-  groupRecordsByDimension,
-} from '../../src/meter/token-meter.js';
-import type { MeterRecord, MeterUpdate } from '@swt-labs/shared';
+import { createTokenMeter, groupRecordsByDimension } from '../../src/meter/token-meter.js';
 
-function baseRecord(overrides: Partial<Omit<MeterRecord, 'cost_usd'>> = {}): Omit<
-  MeterRecord,
-  'cost_usd'
-> {
+function baseRecord(
+  overrides: Partial<Omit<MeterRecord, 'cost_usd'>> = {},
+): Omit<MeterRecord, 'cost_usd'> {
   return {
     timestamp: '2026-05-11T00:00:00Z',
     milestone: 'm1',

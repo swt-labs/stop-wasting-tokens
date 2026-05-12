@@ -8,16 +8,17 @@
 
 ## Progress
 
-| Phase | Status  | Plans written / executed | Tasks | Commits |
-|-------|---------|-------------------------|-------|---------|
-| 1 (M1 Foundation) | **In progress** (Plans 01-01 + 01-02 complete) | 3 / 2 | 15 / 10 | 10 |
-| 2 (M2 Single-agent) | Pending | 0 / 0 | 0 / 0 | 0 |
-| 3 (M3 Worktree dispatcher) | Pending | 0 / 0 | 0 / 0 | 0 |
-| 4 (M4 Token meter & cache discipline) | Pending | 0 / 0 | 0 / 0 | 0 |
-| 5 (M5 Multi-provider) | Pending | 0 / 0 | 0 / 0 | 0 |
-| 6 (M6 Decommission, benchmark, ship) | Pending | 0 / 0 | 0 / 0 | 0 |
+| Phase                                 | Status                                         | Plans written / executed | Tasks   | Commits |
+| ------------------------------------- | ---------------------------------------------- | ------------------------ | ------- | ------- |
+| 1 (M1 Foundation)                     | **In progress** (Plans 01-01 + 01-02 complete) | 3 / 2                    | 15 / 10 | 10      |
+| 2 (M2 Single-agent)                   | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
+| 3 (M3 Worktree dispatcher)            | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
+| 4 (M4 Token meter & cache discipline) | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
+| 5 (M5 Multi-provider)                 | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
+| 6 (M6 Decommission, benchmark, ship)  | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
 
 **Phase 1 plan breakdown:**
+
 - `01-01-PLAN.md` (wave 1): 5 tasks — PR-01a, PR-01b, PR-02, PR-03, PR-04 — entry-gate edge breaks + architectural scaffolding. **✓ COMPLETE** as of 2026-05-11 (commits `08579dc`, `e0bc8ce`, `3050410`, `74c757c`, `0a623d2`; SUMMARY at `phases/01-m1-foundation/01-01-SUMMARY.md` documents 8 deviations + 17/19 pass on ac_results).
 - `01-02-PLAN.md` (wave 2): 5 tasks — PR-05, PR-06, PR-08, PR-07, PR-09 (executed in that order; PR-08 reordered ahead of PR-07 since it had no cassette dependency) — driver cleanup + test infrastructure + token meter + provider quirks + first end-to-end mocked-Pi integration test. **✓ COMPLETE** as of 2026-05-11 (commits `c390d85`, `795a6cd`, `74b4086`, `7fcb20f`, `df9cc78`; SUMMARY at `phases/01-m1-foundation/01-02-SUMMARY.md` documents 11 deviations + 15/22 pass + 7 partials on ac_results). Two cassette-driven assertions deferred to a user-driven recording session: `runtime/test/meter/cassette-replay.int.test.ts` (PR-07 byte-identical token-count delta=0) and `orchestration/test/dispatcher.int.test.ts` cassette-gated case (PR-09 end-to-end dispatcher → Pi → harvest). Both gated behind `it.skipIf(!HAS_CASSETTE)` and activate automatically when the cassettes land at `packages/test-utils/cassettes/`.
 - `01-03-PLAN.md` (wave 3): 5 tasks — PR-10 (Tasks 1–3), PR-11 (Tasks 4–5) — docs reorg + CI hardening + ADRs 006..013 + ESLint enforcement + `.vbw-planning/v3-tracking.md`. **⏳ Next.** Note: the v3.0.0-alpha.1 CHANGELOG section + the v3-redesign README banner already pre-shipped in commit `c5b3b9a` (within Plan 01-01's docs commit batch) and gets extended with a Plan 01-02 commit-trail table in the same congruency pass that wrote 01-02-SUMMARY.md; PR-10 Task 1's remaining scope is the full `docs/` topical reorganization per TDD2 §18.1 + the driver-mention purge from the existing README body. Pre-PR-10 ADR status: 5 Accepted (001/002/003/004/005), 1 Proposed (011); PR-10 Task 3 drafts the remaining 7 (006..010, 012, 013) as Proposed.
@@ -44,11 +45,13 @@
 **Requirements:** REQ-01, REQ-02, REQ-06, REQ-11, REQ-14, REQ-18, REQ-21, REQ-22, REQ-23, REQ-24, REQ-26
 
 **Entry gate (must hold BEFORE phase 1 starts):**
+
 - PR-01a merged: `methodology → codex-driver` edge broken (`bootstrap.ts` rewired through `core/abstractions/AgentSpawner`).
 - PR-01b merged: `cli → codex-driver` edges broken (`vibe.ts`, `doctor.ts` rewired through `core/abstractions/SpawnerEnvironment`).
 - Grep invariant: `grep -rE "from '@swt-labs/(codex|claude-code|ollama)-driver'" packages/ --exclude-dir={codex,claude-code,ollama}-driver` returns nothing.
 
 **Success Criteria (exit gate):**
+
 - `packages/core/` extracted with all methodology logic; no `@earendil-works/*`, anthropic, openai, or codex strings.
 - `packages/runtime/` exposes the SWT-local `createSession()`, tool factories, event normalization, token meter.
 - `packages/orchestration/` has role-resolver + minimal single-task dispatcher (no worktrees yet).
@@ -77,6 +80,7 @@
 **Requirements:** REQ-06, REQ-07, REQ-12, REQ-13, REQ-25 (ex-stub verb implementations begin)
 
 **Success Criteria:**
+
 - Lead / Dev runs through dispatcher in sequence (one Dev task at a time).
 - QA runs the static-check ladder; escalates to LLM only on failures.
 - Artefact pipeline writes / reads `.swt-planning/` identically to v2.x.
@@ -102,8 +106,9 @@
 **Requirements:** REQ-03, REQ-04, REQ-11, REQ-25 (ex-stub verb implementations continue)
 
 **Success Criteria:**
+
 - `worktree-manager.ts`, `claim-registry.ts`, `dag-resolver.ts`, `lock-files.ts` all implemented and tested.
-- **`swt_report_result` Extension custom tool wired** (registered via `pi.registerTool` with closure-captured `pi.appendEntry`). Defensive `agent_end` hook writes a placeholder if the tool isn't called. — *per ADR-002; replaces the older TDD.md `shouldStopAfterTurn` + `report_result` claims.*
+- **`swt_report_result` Extension custom tool wired** (registered via `pi.registerTool` with closure-captured `pi.appendEntry`). Defensive `agent_end` hook writes a placeholder if the tool isn't called. — _per ADR-002; replaces the older TDD.md `shouldStopAfterTurn` + `report_result` claims._
 - Worktrees panel live in dashboard.
 - Crash test (M3 acceptance criterion): `SIGKILL` the orchestrator mid-phase; restart; phase completes correctly. Runs on Linux + macOS + Windows.
 - 3-task phase with declared `depends_on` runs as `[T01, T02 parallel] → [T03 after both]`, each in its own worktree.
@@ -125,6 +130,7 @@
 **Requirements:** REQ-05, REQ-08, REQ-09, REQ-10, REQ-16, REQ-25 (M4 verbs)
 
 **Success Criteria:**
+
 - `buildPrompt()` deterministic context construction with fixed block ordering (PROJECT → REQUIREMENTS → STATE → PHASE → cache breakpoint → task).
 - Anthropic `cache_control: {type: 'ephemeral'}` breakpoint insertion at `cacheBreakpointIndex` (after artefacts, before task-specific content).
 - OpenAI auto-cache observation + measurement wired.
@@ -148,6 +154,7 @@
 **Requirements:** REQ-02, REQ-15, REQ-18, REQ-25 (M5 verbs)
 
 **Success Criteria:**
+
 - OpenRouter shim configured through `quirks.json` (covers GLM, Kimi, DeepSeek, Llama via Pi's `openai-completions` API type with per-model overrides).
 - Optional Gemini shim with hard warnings about ToS / OAuth risk.
 - Router strategies: `pinned`, `round-robin`, `tier-routed`, `cost-optimized`, `quality-pinned-cost-failover`.
@@ -170,6 +177,7 @@
 **Requirements:** REQ-19, REQ-20, REQ-25 (M6 verbs), REQ-27 (LTS cut)
 
 **Success Criteria:**
+
 - All Codex-era code paths verified removed (`grep -r "codex exec\|codex-driver\|claude-code-driver\|ollama-driver" packages/` returns nothing).
 - `commands/stubs.ts` deleted (PR-46) after the §3.2.4 disposition table is exhausted — no v3 verb returns `EXIT.NOT_IMPLEMENTED`.
 - Documentation rewrite for vendor-agnostic posture (`docs/` reorganized per TDD2 §18.1).

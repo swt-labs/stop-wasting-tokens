@@ -1,6 +1,5 @@
-import { For, Show, createMemo, type Component } from 'solid-js';
-
 import type { SnapshotEvent } from '@swt-labs/shared';
+import { For, Show, createMemo, type Component } from 'solid-js';
 
 const AGENT_COLOR: Record<string, string> = {
   scout: 'var(--neon-cyan)',

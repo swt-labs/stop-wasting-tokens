@@ -29,7 +29,7 @@ interface DisplayResult {
 
 function asDisplay(result: unknown): DisplayResult {
   if (typeof result !== 'object' || result === null) return {};
-  return result as DisplayResult;
+  return result;
 }
 
 function formatRelative(iso: string | null): string {

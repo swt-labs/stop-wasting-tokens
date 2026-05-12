@@ -1,20 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  buildResultProtocolExtension,
-  enrichWithFileMetadata,
-  getTaskIdFromCtx,
-  SwtReportResultParamsSchema,
-} from '../../src/extensions/result-protocol.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import type {
   PiExtensionAPI,
   PiExtensionContext,
   PiSessionEntry,
   PiToolDefinition,
 } from '../../src/extensions/pi-types.js';
+import {
+  buildResultProtocolExtension,
+  enrichWithFileMetadata,
+  getTaskIdFromCtx,
+  SwtReportResultParamsSchema,
+} from '../../src/extensions/result-protocol.js';
 
 interface RegisteredAppend {
   readonly customType: string;
@@ -36,7 +37,7 @@ function createMockPi(): MockPi {
     handlers,
     appendEntries,
     registerTool(def) {
-      registeredTools.push(def as PiToolDefinition);
+      registeredTools.push(def);
     },
     on(event, handler) {
       let bucket = handlers.get(event);
@@ -135,7 +136,7 @@ describe('@swt-labs/runtime — result-protocol extension', () => {
       await expect(
         tool!.execute(
           'call-1',
-          { status: 'bogus', summary: '', files_changed: [], must_haves: [] } as never,
+          { status: 'bogus', summary: '', files_changed: [], must_haves: [] },
           undefined,
           undefined,
           createMockCtx({ cwd: '/tmp/cwd' }),

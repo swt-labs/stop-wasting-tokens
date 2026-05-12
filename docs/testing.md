@@ -34,17 +34,17 @@ v3 has **12 distinct test categories** plus **2 hard merge gates that mathematic
 
 **Where they land.** Every PR. Coverage gates per package (lines / branches / functions):
 
-| Package | Lines | Branches | Functions |
-|---|---|---|---|
-| `core/methodology/` | 90% | 85% | 90% |
-| `core/artefacts/` | 95% | 90% | 95% |
-| `core/verification/` | 90% | 85% | 90% |
-| `core/telemetry/` | 80% | 75% | 80% |
-| `runtime/` | 85% | 80% | 85% |
-| `orchestration/` | 90% | 85% | 90% |
-| `dashboard/server/` | 75% | 70% | 75% |
-| `cli/` | 70% | 65% | 70% |
-| `shared/` | 95% | 90% | 95% |
+| Package              | Lines | Branches | Functions |
+| -------------------- | ----- | -------- | --------- |
+| `core/methodology/`  | 90%   | 85%      | 90%       |
+| `core/artefacts/`    | 95%   | 90%      | 95%       |
+| `core/verification/` | 90%   | 85%      | 90%       |
+| `core/telemetry/`    | 80%   | 75%      | 80%       |
+| `runtime/`           | 85%   | 80%      | 85%       |
+| `orchestration/`     | 90%   | 85%      | 90%       |
+| `dashboard/server/`  | 75%   | 70%      | 75%       |
+| `cli/`               | 70%   | 65%      | 70%       |
+| `shared/`            | 95%   | 90%      | 95%       |
 
 **Time budget:** < 30s total. **Discipline:** PRs that drop coverage > 0.5pp fail CI.
 
@@ -77,6 +77,7 @@ v3 has **12 distinct test categories** plus **2 hard merge gates that mathematic
 **Recording cost discipline:** First cassette is ≤ $0.01 to record on Anthropic; fallback paths via OpenRouter free-tier or local Ollama for developers without Anthropic credit.
 
 **Determinism guarantees:**
+
 - Cassette recorder normalizes `cache_control` markers BEFORE computing body hash (so re-records don't drift)
 - Replayer fails the test if a request doesn't match — non-determinism is a bug, not a flag
 - Cassettes are version-controlled (committed to repo)
@@ -212,16 +213,16 @@ v3 has **12 distinct test categories** plus **2 hard merge gates that mathematic
 
 ### Workflow files
 
-| Workflow | Status as of M1 PR-11 | Activation |
-|---|---|---|
-| `ci.yml` | Active, gating | Push to main + all PR branches |
-| `codeql.yml` | Active, security scan | Push, PR, weekly schedule |
-| `install-smoke.yml` | Active | After release tag pushed (`v*`) |
-| `release.yml` | Active | Push to main (when changesets present) |
-| `vale.yml` | Active, docs style | PRs with docs/** changes |
-| `regression.yml` | **Stub, lands M2 PR-18** | PRs touching test paths |
-| `chaos.yml` | **Stub, lands M3 PR-28** | Opt-in label + nightly |
-| `provider-matrix.yml` | **Stub, lands M5 PR-44** | Opt-in label + nightly |
+| Workflow              | Status as of M1 PR-11    | Activation                             |
+| --------------------- | ------------------------ | -------------------------------------- |
+| `ci.yml`              | Active, gating           | Push to main + all PR branches         |
+| `codeql.yml`          | Active, security scan    | Push, PR, weekly schedule              |
+| `install-smoke.yml`   | Active                   | After release tag pushed (`v*`)        |
+| `release.yml`         | Active                   | Push to main (when changesets present) |
+| `vale.yml`            | Active, docs style       | PRs with docs/\*\* changes             |
+| `regression.yml`      | **Stub, lands M2 PR-18** | PRs touching test paths                |
+| `chaos.yml`           | **Stub, lands M3 PR-28** | Opt-in label + nightly                 |
+| `provider-matrix.yml` | **Stub, lands M5 PR-44** | Opt-in label + nightly                 |
 
 Stubs return exit 0 in M1; real test runners replace them at each milestone. This lets workflows be in place from M1 without false failures.
 

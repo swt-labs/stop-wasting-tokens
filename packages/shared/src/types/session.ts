@@ -73,4 +73,8 @@ export type SwtEvent =
   | { readonly type: 'MESSAGE_DELTA'; readonly sessionId: string; readonly text: string }
   | { readonly type: 'TOOL_CALL'; readonly sessionId: string; readonly name: string }
   | { readonly type: 'TOOL_RESULT'; readonly sessionId: string; readonly name: string }
-  | { readonly type: 'TASK_TOKEN_USAGE'; readonly sessionId: string; readonly usage: TaskTokenUsage };
+  | {
+      readonly type: 'TASK_TOKEN_USAGE';
+      readonly sessionId: string;
+      readonly usage: TaskTokenUsage;
+    };

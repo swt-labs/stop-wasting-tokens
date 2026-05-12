@@ -24,7 +24,7 @@ on macOS or Linux:
 2. **MAX_PATH (~260 characters)** — the legacy Win32 path API tops out at
    260 chars (extensible via long-path manifest on Win10+, but not
    universally honoured by every shell + git toolchain). `.swt-planning/
-   parallel/wt-<task-id>/` is already 30+ chars before any project path
+parallel/wt-<task-id>/` is already 30+ chars before any project path
    joins; deeply-nested test fixtures blow past 260 fast.
 3. **CRLF/LF mismatch** — Windows defaults to CRLF on checkout; tooling
    downstream (Prettier, eslint, the cassette format's exact-bytes hashing)
@@ -62,6 +62,7 @@ in orchestration logic.
 ## Consequences
 
 Easier:
+
 - Chaos test suite (M3 PR-28) runs on Windows runners without OS-specific
   skips. The 6-OS CI matrix stays uniform.
 - The 200-char cap fails fast with a readable error, not git's "fatal:
@@ -70,6 +71,7 @@ Easier:
   doesn't fight git; ADR-010 reproducible builds stay reproducible.
 
 Harder:
+
 - Path arithmetic adds an abstraction layer. `pathUtil.posix()` is one
   function; discipline enforced by ESLint + review.
 - Developers writing native paths in tests needs the ESLint rule. Adding

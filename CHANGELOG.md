@@ -41,13 +41,13 @@ _The v3 redesign is being built on the [`v3-foundation`](https://github.com/swt-
 
 ### Plan 01-01 commit trail on `v3-foundation`
 
-| PR | Commit | Subject |
-| :---: | :---: | :--- |
-| PR-01a | [`08579dc`](https://github.com/swt-labs/stop-wasting-tokens/commit/08579dc) | `refactor(methodology)`: break codex-driver source-import edge |
+|   PR   |                                   Commit                                    | Subject                                                                             |
+| :----: | :-------------------------------------------------------------------------: | :---------------------------------------------------------------------------------- |
+| PR-01a | [`08579dc`](https://github.com/swt-labs/stop-wasting-tokens/commit/08579dc) | `refactor(methodology)`: break codex-driver source-import edge                      |
 | PR-01b | [`e0bc8ce`](https://github.com/swt-labs/stop-wasting-tokens/commit/e0bc8ce) | `refactor(cli)`: break {codex,claude-code,ollama}-driver edges + SpawnerEnvironment |
-| PR-02 | [`3050410`](https://github.com/swt-labs/stop-wasting-tokens/commit/3050410) | `feat(runtime)`: scaffold `@swt-labs/runtime` + Pi mock + ADRs 001/002/004 |
-| PR-03 | [`74c757c`](https://github.com/swt-labs/stop-wasting-tokens/commit/74c757c) | `feat(orchestration)`: scaffold `@swt-labs/orchestration` + PiSpawnerEnvironment |
-| PR-04 | [`0a623d2`](https://github.com/swt-labs/stop-wasting-tokens/commit/0a623d2) | `feat(shared)`: consolidate types + Zod schemas; delete `@swt-labs/dashboard-core` |
+| PR-02  | [`3050410`](https://github.com/swt-labs/stop-wasting-tokens/commit/3050410) | `feat(runtime)`: scaffold `@swt-labs/runtime` + Pi mock + ADRs 001/002/004          |
+| PR-03  | [`74c757c`](https://github.com/swt-labs/stop-wasting-tokens/commit/74c757c) | `feat(orchestration)`: scaffold `@swt-labs/orchestration` + PiSpawnerEnvironment    |
+| PR-04  | [`0a623d2`](https://github.com/swt-labs/stop-wasting-tokens/commit/0a623d2) | `feat(shared)`: consolidate types + Zod schemas; delete `@swt-labs/dashboard-core`  |
 
 Test posture at Plan 01-01 close: runtime 5/5, orchestration 5/5, cli 71/82 (the 11 remaining are pre-existing v2.3.5 carry-forwards verified via `git stash` baseline comparison; remediated in M1 Plan 01-03 PR-11). `pnpm typecheck` green workspace-wide. M1 entry-gate invariant clean.
 
@@ -56,7 +56,7 @@ Test posture at Plan 01-01 close: runtime 5/5, orchestration 5/5, cli 71/82 (the
 - **`@swt-labs/test-utils` (private workspace package, PR-06, commit `795a6cd`)** — cassette infrastructure. `src/cassettes/format.ts` (Zod schemas including the `cwd_redacted: z.literal(true)` enforcement), `normalize.ts` (canonicalizeJson, stripCwd, normalizeCacheControl, normalizeHeaders, SHA-256 request hashing), `recorder.ts` skeleton, `replayer.ts` (loadCassette, installReplay, CassetteNotFoundError, CassetteUnsealedError). `docs/operations/cassette-recording.md` is the user-facing recording guide.
 - **`runtime/src/meter/` (PR-07, commit `7fcb20f`)** — `createTokenMeter` per TDD2 §8.1 (records MeterRecord rows; emits METER_UPDATED to subscribers; snapshot() returns aggregated totals + cloned records; optional JSONL persistence). `calculateCost` per TDD2 §7.6 (pure provider-agnostic cost calculation). `groupRecordsByDimension` helper for dashboard panels.
 - **`runtime/src/providers/` (PR-08, commit `74b4086`)** — `types.ts` (Tier vocabulary: cheap-fast/balanced/quality/reasoning; SDLCRole — 6 roles, orchestrator intentionally excluded; ProviderQuirk + DefaultTierMap shapes). `default-tiers.json` (per-provider per-tier model map for anthropic, openai, openrouter, google, bedrock, ollama). `quirks.json` (per-provider compat + `thinkingLevelMap` overrides; keys validated as Pi `ThinkingLevel` values, NOT SWT tier names — the TDD2 regression Plan 01-01 audit caught). `role-resolver.ts` (resolveTierForRole / resolveModelForRole / resolveThinkingLevelForRole + DEFAULT_ROLE_TIERS + DEFAULT_ROLE_THINKING_LEVELS).
-- **`runtime/src/providers/extractors/` (PR-07, commit `7fcb20f`)** — per-provider usage-field extractors mapping native Pi `turn_end` usage shapes into the vendor-neutral `TaskTokenUsage` carrier. Dispatch in `extractUsage(provider, usage, ctx)`: anthropic|bedrock → anthropic; openai → openai; openrouter/anthropic/* → anthropic; openrouter/openai/* → openai; fallback → generic.
+- **`runtime/src/providers/extractors/` (PR-07, commit `7fcb20f`)** — per-provider usage-field extractors mapping native Pi `turn_end` usage shapes into the vendor-neutral `TaskTokenUsage` carrier. Dispatch in `extractUsage(provider, usage, ctx)`: anthropic|bedrock → anthropic; openai → openai; openrouter/anthropic/_ → anthropic; openrouter/openai/_ → openai; fallback → generic.
 - **`runtime/src/extensions/` (PR-08 + PR-09)** — `provider-overrides.ts` (Pi Extension factory that walks `quirks.json` and registers per-provider overrides), `result-protocol.ts` (PR-09: registers `swt_report_result` custom tool with closure-captured `pi.appendEntry` per ADR-002), `journal.ts` (PR-09: mirrors mapped SwtEvents into `.swt-planning/journal/<UTC-day>.jsonl` for M3 crash recovery), `pi-types.ts` (PR-09: local structural mirror of Pi's `ExtensionAPI`/`ExtensionContext` — the latter intentionally has NO `appendEntry` field so `ctx.appendEntry(...)` is a compile-time TS error).
 - **`orchestration/src/result-harvest.ts` (PR-09, commit `df9cc78`)** — `harvestTaskResult(filePath)` + `harvestTaskResultFromEntries(entries)`. Scans backwards for the LAST `swt-task-result` custom entry (defends against the defensive `agent_end` placeholder race). Validates against `TaskResultSchema`. `MissingTaskResultError` surfaces clear failure. JSONL reader tolerates blank lines + malformed JSON.
 - **`orchestration/src/dispatcher.ts` extension (PR-09)** — `HarvestStrategy` discriminated union (`'stub' | 'entries' | 'file'`). Callers wire `'entries'` for in-memory Pi sessions, `'file'` for out-of-process Pi sessions in M3+; `'stub'` preserves the Plan 01-01 PR-03 contract.
@@ -82,13 +82,13 @@ Both recordings are tracked in `.vbw-planning/STATE.md ## Todos`.
 
 ### Plan 01-02 commit trail on `v3-foundation`
 
-| PR | Commit | Subject |
-| :---: | :---: | :--- |
-| PR-05 | [`c390d85`](https://github.com/swt-labs/stop-wasting-tokens/commit/c390d85) | `chore(drivers)`: delete codex/claude-code/ollama driver packages + `.codex-plugin/` + ADR-005 Accepted |
-| PR-06 | [`795a6cd`](https://github.com/swt-labs/stop-wasting-tokens/commit/795a6cd) | `feat(test-utils)`: cassette infrastructure (recorder + replayer + format + normalize) + ADR-011 Proposed |
+|  PR   |                                   Commit                                    | Subject                                                                                                       |
+| :---: | :-------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------ |
+| PR-05 | [`c390d85`](https://github.com/swt-labs/stop-wasting-tokens/commit/c390d85) | `chore(drivers)`: delete codex/claude-code/ollama driver packages + `.codex-plugin/` + ADR-005 Accepted       |
+| PR-06 | [`795a6cd`](https://github.com/swt-labs/stop-wasting-tokens/commit/795a6cd) | `feat(test-utils)`: cassette infrastructure (recorder + replayer + format + normalize) + ADR-011 Proposed     |
 | PR-08 | [`74b4086`](https://github.com/swt-labs/stop-wasting-tokens/commit/74b4086) | `feat(runtime)`: provider quirks + role-resolver + ADR-003 Accepted (executed before PR-07 — no cassette dep) |
-| PR-07 | [`7fcb20f`](https://github.com/swt-labs/stop-wasting-tokens/commit/7fcb20f) | `feat(runtime)`: token meter + per-provider extractors + telemetry registry |
-| PR-09 | [`df9cc78`](https://github.com/swt-labs/stop-wasting-tokens/commit/df9cc78) | `feat(runtime,orchestration)`: `swt_report_result` Extension + result harvest + ADR-002 Accepted |
+| PR-07 | [`7fcb20f`](https://github.com/swt-labs/stop-wasting-tokens/commit/7fcb20f) | `feat(runtime)`: token meter + per-provider extractors + telemetry registry                                   |
+| PR-09 | [`df9cc78`](https://github.com/swt-labs/stop-wasting-tokens/commit/df9cc78) | `feat(runtime,orchestration)`: `swt_report_result` Extension + result harvest + ADR-002 Accepted              |
 
 Test posture at Plan 01-02 close: runtime 88 passed + 1 skipped (cassette-gated); orchestration 19 passed + 1 skipped (cassette-gated); full workspace typecheck shows only the pre-existing dashboard `LogPanel.tsx(78,9)` TS2322 carry-forward (Plan 01-03 PR-11 territory). Plan 01-02 introduced ZERO new test failures. M1 status at Plan 01-02 close: 2 of 3 plans complete, 10 of 15 tasks shipped across 10 atomic commits.
 

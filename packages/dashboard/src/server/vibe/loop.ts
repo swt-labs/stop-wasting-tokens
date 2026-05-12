@@ -1,8 +1,4 @@
-import type {
-  AgentPromptContext,
-  AgentPromptOption,
-  SnapshotEvent,
-} from '@swt-labs/shared';
+import type { AgentPromptContext, AgentPromptOption, SnapshotEvent } from '@swt-labs/shared';
 
 import type { EventBus } from '../event-bus.js';
 

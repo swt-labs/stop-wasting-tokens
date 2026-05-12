@@ -26,6 +26,7 @@ behaviour:
   01-02 PR-07)
 
 CI cannot hit real provider APIs:
+
 - **Cost** — every PR run × every provider × every scenario adds up fast.
 - **Secret management** — putting six providers' API keys into GitHub
   Actions secrets makes the blast radius of a CI compromise enormous.
@@ -43,11 +44,11 @@ deterministically: cassettes (TDD2 §14.7).
 Every test that conceptually needs a provider call runs against a
 recorded cassette in CI, never against a live API. The split:
 
-| Operation | Runs where | Real API? |
-|---|---|---|
-| **Recorder** (`pnpm record`) | Developer machine, one-time per scenario | Yes (developer's own key) |
-| **Replayer** (`installReplay()`) | CI + developer-local test runs | No (reads recorded JSONL) |
-| **Cassette commit** | Recorded once, committed to repo, replayed forever | Network-free |
+| Operation                        | Runs where                                         | Real API?                 |
+| -------------------------------- | -------------------------------------------------- | ------------------------- |
+| **Recorder** (`pnpm record`)     | Developer machine, one-time per scenario           | Yes (developer's own key) |
+| **Replayer** (`installReplay()`) | CI + developer-local test runs                     | No (reads recorded JSONL) |
+| **Cassette commit**              | Recorded once, committed to repo, replayed forever | Network-free              |
 
 Cassettes are stored at `packages/test-utils/cassettes/{scenario}.jsonl`.
 The cassette format (TDD2 §14.7.1) is provider-portable so the same
@@ -55,6 +56,7 @@ schema works for Anthropic, OpenAI, OpenRouter, Google, Bedrock, and any
 future Pi-supported provider.
 
 The recorder strips:
+
 - Absolute cwd paths from request bodies (`<cwd>` placeholder)
 - `Authorization` / `X-API-Key` / `Cookie` / `Set-Cookie` / `Date` /
   `X-Request-Id` / `cf-ray` headers
@@ -74,6 +76,7 @@ divergence is a provider-quirks bug, not a test flake.
 ## Consequences
 
 Easier:
+
 - CI is deterministic, network-free, secret-free. Reproducible builds
   (ADR-010) get their byte-for-byte assertions over the test surface for
   free.
@@ -85,6 +88,7 @@ Easier:
   seconds (real network round-trip).
 
 Harder:
+
 - Real-world API drift (e.g., Anthropic introduces a new response
   field) is not caught until someone re-records a cassette. Mitigation:
   M5 PR-44 includes a `pnpm record:smoke` developer-only target that

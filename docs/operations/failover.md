@@ -8,13 +8,13 @@ The router strategies in `runtime/src/providers/role-resolver.ts` choose provide
 
 Router strategies:
 
-| Strategy | Behaviour |
-| :--- | :--- |
-| `pinned` | Each role always uses the same provider. No fallback. |
-| `round-robin` | Rotates providers across dispatches. Even load. |
-| `tier-routed` (default) | Provider chosen by the role's tier; per-tier provider map in config. |
-| `cost-optimized` | Cheapest provider per tier. Refreshed from `default-tiers.json` + provider rate cards. |
-| `quality-pinned-cost-failover` | Quality tier pinned to a single provider; non-quality tiers cost-optimized. |
+| Strategy                       | Behaviour                                                                              |
+| :----------------------------- | :------------------------------------------------------------------------------------- |
+| `pinned`                       | Each role always uses the same provider. No fallback.                                  |
+| `round-robin`                  | Rotates providers across dispatches. Even load.                                        |
+| `tier-routed` (default)        | Provider chosen by the role's tier; per-tier provider map in config.                   |
+| `cost-optimized`               | Cheapest provider per tier. Refreshed from `default-tiers.json` + provider rate cards. |
+| `quality-pinned-cost-failover` | Quality tier pinned to a single provider; non-quality tiers cost-optimized.            |
 
 M5 PR-43 ships the strategies. M5 PR-44's provider-matrix CI workflow exercises fallback against simulated 503 responses via cassettes.
 

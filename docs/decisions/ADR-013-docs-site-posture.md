@@ -51,7 +51,7 @@ generates a site as part of release.
 Re-evaluate when one of:
 
 - **User count crosses ~1000** active monthly users (npm download stats
-  + dashboard telemetry once opt-in deployed in M4).
+  - dashboard telemetry once opt-in deployed in M4).
 - **Deep linking demand surfaces** in issue discussions (search "docs site"
   / "documentation site" labels reaches 5+ issues).
 - **A contributor volunteers** to own the hosted-site infrastructure
@@ -68,12 +68,14 @@ Material — both Markdown-native with first-class search. Mintlify rejected
 ## Consequences
 
 Easier:
+
 - One source of truth. No build step in the release pipeline. No hosting
   bill.
 - Contributors don't need to learn a site generator to edit docs.
 - M6 PR time stays focused on migration script + benchmark + v3.0 launch.
 
 Harder:
+
 - Deep linking is weaker. Mitigation: GitHub's permalink anchors;
   `docs/README.md` maintains a topical index.
 - Search is weaker — GitHub code search isn't great for prose.

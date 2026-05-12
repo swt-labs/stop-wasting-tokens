@@ -23,11 +23,11 @@ These will migrate into `docs/methodology/` as plain markdown when the Mintlify 
 
 These haven't shipped yet; pointers for when they land:
 
-| Topic | Lands in | Notes |
-| :--- | :--- | :--- |
-| Role → tier defaults | Plan 01-02 PR-08 (shipped) | [`docs/runtime/providers.md`](../runtime/providers.md) — per-role tier + thinking level. |
+| Topic                        | Lands in                   | Notes                                                                                               |
+| :--------------------------- | :------------------------- | :-------------------------------------------------------------------------------------------------- |
+| Role → tier defaults         | Plan 01-02 PR-08 (shipped) | [`docs/runtime/providers.md`](../runtime/providers.md) — per-role tier + thinking level.            |
 | `swt_report_result` protocol | Plan 01-02 PR-09 (shipped) | Closure-captured `pi.appendEntry` per [ADR-002](../decisions/ADR-002-extension-result-protocol.md). |
-| Parallel dispatch model | M3 PR-22..PR-28 | One worktree per task per [ADR-008](../decisions/ADR-008-worktree-per-task.md). |
-| Cache discipline | M4 PR-32..PR-36 | TPAC −40% + cache hit ≥70% targets per TDD2 §1.2. |
+| Parallel dispatch model      | M3 PR-22..PR-28            | One worktree per task per [ADR-008](../decisions/ADR-008-worktree-per-task.md).                     |
+| Cache discipline             | M4 PR-32..PR-36            | TPAC −40% + cache hit ≥70% targets per TDD2 §1.2.                                                   |
 
 This page expands incrementally.

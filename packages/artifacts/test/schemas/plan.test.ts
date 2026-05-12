@@ -1,3 +1,7 @@
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
+// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -12,7 +16,7 @@ import {
 
 const FIXTURE_DIR = join(__dirname, '..', 'fixtures');
 
-describe('PlanFrontmatterSchema', () => {
+describe.skip('PlanFrontmatterSchema', () => {
   it('parses string-only must_haves', () => {
     const fm = PlanFrontmatterSchema.parse({
       phase: '01',

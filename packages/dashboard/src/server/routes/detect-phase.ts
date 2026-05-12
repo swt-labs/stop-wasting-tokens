@@ -1,5 +1,5 @@
-import type { DetectPhaseReport } from '@swt-labs/shared';
 import { detectPhase, type PhaseDetectResult } from '@swt-labs/methodology';
+import type { DetectPhaseReport } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
 /**

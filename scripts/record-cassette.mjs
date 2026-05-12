@@ -57,14 +57,11 @@ const ENV_KEY_BY_PROVIDER = {
 };
 
 const keyVar = ENV_KEY_BY_PROVIDER[provider];
-if (!keyVar) bail(`unknown provider: ${provider}. Known: ${Object.keys(ENV_KEY_BY_PROVIDER).join(', ')}`);
+if (!keyVar)
+  bail(`unknown provider: ${provider}. Known: ${Object.keys(ENV_KEY_BY_PROVIDER).join(', ')}`);
 if (!env[keyVar]) bail(`missing env var ${keyVar} (required for provider=${provider}).`);
 
-const outputPath = join(
-  process.cwd(),
-  'packages/test-utils/cassettes',
-  `${scenario}.jsonl`,
-);
+const outputPath = join(process.cwd(), 'packages/test-utils/cassettes', `${scenario}.jsonl`);
 
 if (existsSync(outputPath)) {
   bail(
@@ -90,9 +87,7 @@ if (typeof scenarioModule.run !== 'function') {
   bail(`scenario module at ${scenarioPath} must export a \`run(opts)\` async function.`);
 }
 
-const { record } = await import(
-  join(process.cwd(), 'packages/test-utils/src/cassettes/index.js')
-);
+const { record } = await import(join(process.cwd(), 'packages/test-utils/src/cassettes/index.js'));
 
 await record({
   scenario,

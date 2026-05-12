@@ -37,7 +37,9 @@ const SENSITIVE_HEADERS = new Set([
   'cf-cache-status',
 ]);
 
-export function normalizeHeaders(headers: Record<string, string | string[] | undefined>): Record<string, string> {
+export function normalizeHeaders(
+  headers: Record<string, string | string[] | undefined>,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers)) {
     if (v === undefined) continue;
@@ -67,7 +69,7 @@ export function canonicalizeJson(value: unknown): string {
 function replacerSortedKeys(_key: string, value: unknown): unknown {
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
     const sorted: Record<string, unknown> = {};
-    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+    for (const k of Object.keys(value).sort()) {
       sorted[k] = (value as Record<string, unknown>)[k];
     }
     return sorted;

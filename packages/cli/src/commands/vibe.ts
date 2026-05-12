@@ -106,7 +106,9 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
     );
     return EXIT.RUNTIME_ERROR;
   }
-  io.stdout.write(`◆ Spawner: ${probe.name}${probe.version !== undefined ? ` ${probe.version}` : ''}\n\n`);
+  io.stdout.write(
+    `◆ Spawner: ${probe.name}${probe.version !== undefined ? ` ${probe.version}` : ''}\n\n`,
+  );
   const baseSpawner: AgentSpawner = await io.spawnerEnv.getSpawner();
   const spawner = new LazyInstallSpawner(baseSpawner, (role: AgentRole) =>
     resolveAgentSpec({ role, config, templates_dir: templatesDir }),

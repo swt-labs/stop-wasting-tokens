@@ -136,7 +136,7 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
               spellcheck={false}
               disabled={props.submitting}
               value={name()}
-              onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)}
+              onInput={(e) => setName(e.currentTarget.value)}
               autofocus
             />
           </label>
@@ -148,7 +148,7 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
               placeholder="One or two sentences about what this project does."
               disabled={props.submitting}
               value={description()}
-              onInput={(e) => setDescription((e.currentTarget as HTMLTextAreaElement).value)}
+              onInput={(e) => setDescription(e.currentTarget.value)}
             />
           </label>
 

@@ -46,6 +46,7 @@ without calling the tool. The orchestrator treats placeholder results as
 ## Consequences
 
 Easier:
+
 - Uses documented Pi primitives (no invented API).
 - Result envelope is durable on disk (Pi `custom` session entry), surviving
   orchestrator crashes — the harvester re-reads from the session file on
@@ -54,6 +55,7 @@ Easier:
   in isolation (no Pi process needed).
 
 Harder:
+
 - One extra extension to load per session; one extra tool in the role's tool
   list. Negligible token overhead.
 - Agents must learn to call the tool; the role system prompts include explicit

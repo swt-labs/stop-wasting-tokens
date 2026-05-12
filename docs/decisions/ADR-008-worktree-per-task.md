@@ -54,6 +54,7 @@ path; the methodology layer never sees a worktree directly.
 ## Consequences
 
 Easier:
+
 - Claim violations rejected at the filesystem boundary — the tool factory
   refuses to read/write outside `cwd`. No "orchestrator forgot to check
   claims" bug class.
@@ -64,6 +65,7 @@ Easier:
   recover?" assertion target.
 
 Harder:
+
 - git-worktree on Windows requires path discipline (ADR-009 — POSIX paths
   internally, 200-char cap, forced LF).
 - Disk cost: ~50 MB per worktree on a medium repo. M3's parallelism cap

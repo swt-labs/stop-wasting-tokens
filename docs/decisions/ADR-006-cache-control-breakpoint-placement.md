@@ -15,7 +15,7 @@ related: ADR-004
 ## Context
 
 Anthropic's prompt-caching feature requires a minimum of 1024 tokens between
-cache breakpoints. The cache-hit win comes from caching the *stable* prefix —
+cache breakpoints. The cache-hit win comes from caching the _stable_ prefix —
 role system prompt + project artefacts (PROJECT, REQUIREMENTS, STATE, phase
 context) — and **not** caching the variable suffix (task brief + must-haves +
 files-changed scratchpad). If the breakpoint sits at the wrong index, either
@@ -53,6 +53,7 @@ rather than emit an invalid Anthropic request.
 ## Consequences
 
 Easier:
+
 - The ≥70% cache-hit M4 target becomes mechanical: stable prefix + breakpoint.
 - `buildPrompt` is a pure function — easy to unit-test prompt structure without
   Pi running.
@@ -61,6 +62,7 @@ Easier:
   back to OpenAI (which uses its own auto-cache).
 
 Harder:
+
 - If a project's artefact prefix drops below 1024 tokens (e.g., a small
   scaffolding phase), the breakpoint is skipped and the cache hit ratio
   drops. Documented in §13.4.3 R-04 as a known mitigation path. The

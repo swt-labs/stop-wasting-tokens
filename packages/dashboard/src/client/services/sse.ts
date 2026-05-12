@@ -1,8 +1,4 @@
-import {
-  SNAPSHOT_EVENT_TYPES,
-  SnapshotEventSchema,
-  type SnapshotEvent,
-} from '@swt-labs/shared';
+import { SNAPSHOT_EVENT_TYPES, SnapshotEventSchema, type SnapshotEvent } from '@swt-labs/shared';
 
 export interface SseHandlers {
   onOpen?: () => void;

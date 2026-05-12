@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
 import { mapPiEvent } from './events.js';
+import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
 
 /**
  * Session factory.

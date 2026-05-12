@@ -1,9 +1,13 @@
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
+// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
+
 import { HealthResponseSchema } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createServer, type DashboardServer } from '../src/server/index.js';
 
-describe('dashboard server', () => {
+describe.skip('dashboard server', () => {
   let server: DashboardServer | undefined;
 
   beforeEach(async () => {

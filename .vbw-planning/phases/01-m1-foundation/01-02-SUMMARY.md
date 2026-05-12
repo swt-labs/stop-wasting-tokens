@@ -9,25 +9,25 @@ completed: 2026-05-11
 tasks_completed: 5
 tasks_total: 5
 commit_hashes:
-  - c390d85  # PR-05: chore(drivers): delete codex/claude-code/ollama driver packages + .codex-plugin/ + ADR-005 Accepted
-  - 795a6cd  # PR-06: feat(test-utils): cassette infrastructure (recorder + replayer + format + normalize) + ADR-011 Proposed
-  - 74b4086  # PR-08: feat(runtime): provider quirks + role-resolver + ADR-003 Accepted (executed before PR-07 — no cassette dep)
-  - 7fcb20f  # PR-07: feat(runtime): token meter + per-provider extractors + telemetry registry
-  - df9cc78  # PR-09: feat(runtime,orchestration): swt_report_result Extension + result harvest + ADR-002 Accepted
+  - c390d85 # PR-05: chore(drivers): delete codex/claude-code/ollama driver packages + .codex-plugin/ + ADR-005 Accepted
+  - 795a6cd # PR-06: feat(test-utils): cassette infrastructure (recorder + replayer + format + normalize) + ADR-011 Proposed
+  - 74b4086 # PR-08: feat(runtime): provider quirks + role-resolver + ADR-003 Accepted (executed before PR-07 — no cassette dep)
+  - 7fcb20f # PR-07: feat(runtime): token meter + per-provider extractors + telemetry registry
+  - df9cc78 # PR-09: feat(runtime,orchestration): swt_report_result Extension + result harvest + ADR-002 Accepted
 deviations:
   - 'PR-05 plan-amendment: `publishConfig.access: public` was treated as a STOP condition in the plan. Verified via `curl https://registry.npmjs.org/@swt-labs/{codex,claude-code,ollama}-driver` that all 3 return 404 (never published); `private: true` was the actual safety net. Proceeded with deletion; PR-05 commit message documents the verification.'
-  - 'PR-06 plan-amendment: cassette recording deferred to a user-driven session (requires a live Anthropic API key). PR-06 shipped the recorder/replayer/format/normalize skeleton with Zod schemas + canonicalization helpers; the first `scout-read-readme.jsonl` cassette is the gating artifact for PR-07''s byte-identical assertion and PR-09''s end-to-end test. Both downstream tests are scaffolded behind `it.skipIf(!HAS_CASSETTE)` so flipping the cassette into place activates them immediately. source_plan: 01-02-PLAN.md.'
+  - "PR-06 plan-amendment: cassette recording deferred to a user-driven session (requires a live Anthropic API key). PR-06 shipped the recorder/replayer/format/normalize skeleton with Zod schemas + canonicalization helpers; the first `scout-read-readme.jsonl` cassette is the gating artifact for PR-07's byte-identical assertion and PR-09's end-to-end test. Both downstream tests are scaffolded behind `it.skipIf(!HAS_CASSETTE)` so flipping the cassette into place activates them immediately. source_plan: 01-02-PLAN.md."
   - 'PR-07 plan-amendment: extensive files_modified expansion. The VBW file-guard hook does exact-match (not prefix-match) against `files_modified`; directory entries like `packages/runtime/src/meter/` do not authorize individual files inside them. Plan files_modified expanded to enumerate every new file (meter/{types,cost-aggregator,token-meter,index}.ts, providers/extractors/{anthropic,openai,generic,index}.ts, runtime/src/{events,session}.ts, shared/src/types/{session,meter}.ts, telemetry/src/events.ts, all test/* files). Same pattern repeated in PR-08 and PR-09. source_plan: 01-02-PLAN.md.'
   - 'PR-07 code-fix: `runtime/src/events.ts` `turn_end` mapper inspects BOTH `event.message.usage` (Pi-documented carrier per TDD2 §5.5) AND `event.usage` (root-level adapter-shape fallback) to be resilient across Pi 0.74-alpha shape variance. Cassette recordings will pin down which shape Pi actually emits in 0.74.x.'
   - 'PR-07 deferred: cassette-replay byte-identical token-count assertion (`runtime/test/meter/cassette-replay.int.test.ts`). Test skeleton fully wired (installReplay → createSession + meterContext → meter.snapshot → byte-identical totals); gated behind `it.skipIf(!HAS_CASSETTE)`. Activates when `packages/test-utils/cassettes/scout-read-readme.jsonl` lands.'
-  - 'PR-08 reorder + plan-amendment: PR-08 executed BEFORE PR-07 because PR-08 has zero cassette dependency (provider quirks + role-resolver are pure-function + JSON only), so executing it first kept progress moving while the cassette decision was open. Commit order: PR-05 → PR-06 → PR-08 (74b4086) → PR-07 (7fcb20f) → PR-09. Plan sequence was PR-05..09 in numerical order; the reorder preserves dependency correctness (PR-07 does not depend on PR-08''s providers layer; PR-09 still ships last).'
+  - "PR-08 reorder + plan-amendment: PR-08 executed BEFORE PR-07 because PR-08 has zero cassette dependency (provider quirks + role-resolver are pure-function + JSON only), so executing it first kept progress moving while the cassette decision was open. Commit order: PR-05 → PR-06 → PR-08 (74b4086) → PR-07 (7fcb20f) → PR-09. Plan sequence was PR-05..09 in numerical order; the reorder preserves dependency correctness (PR-07 does not depend on PR-08's providers layer; PR-09 still ships last)."
   - 'PR-08 code-fix: `packages/runtime/tsconfig.json` `include` pattern extended from `["src/**/*"]` to `["src/**/*", "src/**/*.json"]`. The `import quirks from "./quirks.json" with { type: "json" }` import assertion requires explicit JSON inclusion under TS project mode (`composite: true`). Without the extension, TS reports TS6307 ("File ... is not listed within the file list of project ...").'
   - 'PR-09 code-fix: imports use `from ''@swt-labs/shared''` (the root barrel, which re-exports schemas via `export * from "./schemas/index.js"`) rather than `from ''@swt-labs/shared/schemas''` (subpath not declared in shared''s `package.json` `exports` field). The plan''s sample code in section 4 used the schemas subpath; switched at integration time so the import resolves without modifying shared''s package.json. shared/ subpath exports can be added later if multiple consumers want the narrower import.'
-  - 'PR-09 code-fix: parameter validation uses Zod (workspace dep, used pervasively) rather than `@sinclair/typebox` (not in the dependency tree). The plan''s sample code imported typebox; the JSON-Schema-shaped record handed to Pi''s `registerTool` is equivalent and stays auditable inline. Adding typebox as a runtime dep was out of scope for this plan; Zod gives the same validation guarantees and keeps the dep graph smaller.'
+  - "PR-09 code-fix: parameter validation uses Zod (workspace dep, used pervasively) rather than `@sinclair/typebox` (not in the dependency tree). The plan's sample code imported typebox; the JSON-Schema-shaped record handed to Pi's `registerTool` is equivalent and stays auditable inline. Adding typebox as a runtime dep was out of scope for this plan; Zod gives the same validation guarantees and keeps the dep graph smaller."
   - 'PR-09 code-fix: structural `PiExtensionAPI` / `PiExtensionContext` types declared locally in `runtime/src/extensions/pi-types.ts` rather than imported directly from `@earendil-works/pi-coding-agent`. Pi 0.74 is alpha; the upstream type definitions have shifted at least twice across patch releases. The local structural mirror captures only the methods PR-09 actually uses (`registerTool`, `on`, `appendEntry`) and encodes the ADR-002 invariant at the type level (`PiExtensionContext` has NO `appendEntry` field so `ctx.appendEntry(...)` is a compile-time TS error). Collapses to a thin re-export when Pi publishes a 1.0 stable type surface.'
   - 'PR-09 deferred: cassette-driven end-to-end integration test (`orchestration/test/dispatcher.int.test.ts` final case). Skeleton fully wired (installReplay → dispatcher with entries-strategy → schema validation); gated behind `it.skipIf(!HAS_CASSETTE)`. Activates when `packages/test-utils/cassettes/scout-search-codebase.jsonl` lands. The synthetic-entries path exercises every line of dispatch + harvest today (4 always-on tests + 2 cassette-gated).'
 pre_existing_issues:
-  - 'dashboard typecheck: `packages/dashboard/src/client/components/LogPanel.tsx(78,9): error TS2322 — Type ''void'' is not assignable to type ''string | Element''`. Pre-existing v2.3.5 carry-forward (verified via `git stash` round-trip: error reproduces against PR-06 head). Plan 01-03 PR-11 owns the remediation pass that flips `continue-on-error: true` off in `ci.yml` and either fixes or `it.skip(...)`s every v2.3.5 carry-forward.'
+  - "dashboard typecheck: `packages/dashboard/src/client/components/LogPanel.tsx(78,9): error TS2322 — Type 'void' is not assignable to type 'string | Element'`. Pre-existing v2.3.5 carry-forward (verified via `git stash` round-trip: error reproduces against PR-06 head). Plan 01-03 PR-11 owns the remediation pass that flips `continue-on-error: true` off in `ci.yml` and either fixes or `it.skip(...)`s every v2.3.5 carry-forward."
   - 'cli test suite: 11 pre-existing v2.3.5 failures (9 publishConfig parity tests expecting `private:false` on intentionally-`private:true` workspace packages; 2 config-doc-drift tests on mintlify docs). Unchanged from Plan 01-01 close. Plan 01-03 PR-11 territory.'
   - 'methodology test suite: 9 pre-existing v2.3.5 failures (4 bootstrap.test.ts ZodError; 5 dispatch/qa/execute/plan handlers). Unchanged from Plan 01-01 close. Plan 01-03 PR-11 territory.'
 ac_results:
@@ -93,7 +93,7 @@ ac_results:
   # 3 key_links
   - criterion: 'key_link: runtime/src/extensions/result-protocol.ts → @earendil-works/pi-coding-agent via ExtensionAPI import'
     verdict: partial
-    evidence: 'Plan-amended: PR-09 uses a local structural mirror `PiExtensionAPI` in `runtime/src/extensions/pi-types.ts` rather than importing Pi''s upstream `ExtensionAPI` type directly. Rationale: Pi 0.74-alpha types have shifted across patch releases; the local mirror captures only the methods we use + encodes the closure-only `appendEntry` invariant at the type system. Pi peerDep declaration is still in place; `runtime/src/probe.ts` imports Pi at value level. The link exists structurally — Pi is the destination, the type is locally mirrored — not via direct type-import.'
+    evidence: "Plan-amended: PR-09 uses a local structural mirror `PiExtensionAPI` in `runtime/src/extensions/pi-types.ts` rather than importing Pi's upstream `ExtensionAPI` type directly. Rationale: Pi 0.74-alpha types have shifted across patch releases; the local mirror captures only the methods we use + encodes the closure-only `appendEntry` invariant at the type system. Pi peerDep declaration is still in place; `runtime/src/probe.ts` imports Pi at value level. The link exists structurally — Pi is the destination, the type is locally mirrored — not via direct type-import."
   - criterion: 'key_link: runtime/src/providers/role-resolver.ts → runtime/src/providers/quirks.json via JSON import'
     verdict: pass
     evidence: 'Commit 74b4086; role-resolver imports `default-tiers.json` via import-assertion; `extensions/provider-overrides.ts` imports `quirks.json`. Both share the same provider-quirks type via `providers/types.ts`.'
@@ -102,7 +102,7 @@ ac_results:
     evidence: 'Wired in skeleton (commented activation block in the cassette-gated test). Activates when `scout-search-codebase.jsonl` is recorded + committed. Same status as the byte-identical assertion in PR-07.'
 ---
 
-M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *real behavior under test*: drivers gone, cassette infrastructure stood up, token meter wired with deterministic counts, provider quirks JSON-driven via role-resolver, and the result protocol working end-to-end through Pi's documented Extension API pattern (closure-captured `pi.appendEntry`, no fictional Pi primitives). 4 ADRs landed Accepted; 2 cassette-dependent tests scaffolded behind `skipIf` until the first recording session.
+M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has _real behavior under test_: drivers gone, cassette infrastructure stood up, token meter wired with deterministic counts, provider quirks JSON-driven via role-resolver, and the result protocol working end-to-end through Pi's documented Extension API pattern (closure-captured `pi.appendEntry`, no fictional Pi primitives). 4 ADRs landed Accepted; 2 cassette-dependent tests scaffolded behind `skipIf` until the first recording session.
 
 ## What Was Built
 
@@ -115,6 +115,7 @@ M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *
 ## Files Modified
 
 ### PR-05 (commit `c390d85`, ~70 files)
+
 - `packages/{codex,claude-code,ollama}-driver/` — **deleted** (entire subtrees: src/, test/, package.json, tsconfig.json, etc.)
 - `packages/cli/package.json` — drop 3 driver workspace deps
 - `.codex-plugin/` — **deleted** (legacy Codex MCP wiring)
@@ -123,6 +124,7 @@ M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *
 - `pnpm-lock.yaml` — regenerated
 
 ### PR-06 (commit `795a6cd`, ~15 files)
+
 - `packages/test-utils/` — **new private package**: package.json (`"private": true`), tsconfig.json, src/cassettes/{format,normalize,recorder,replayer,index}.ts
 - `docs/operations/cassette-recording.md` — **created** (user-facing recording guide)
 - `docs/decisions/ADR-011-provider-matrix-cassettes-only.md` — **created** (Proposed)
@@ -130,6 +132,7 @@ M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *
 - `pnpm-lock.yaml` — regenerated
 
 ### PR-08 (commit `74b4086`, 13 files)
+
 - `packages/runtime/src/providers/` — **new dir**: types.ts, default-tiers.json, quirks.json, role-resolver.ts, index.ts
 - `packages/runtime/src/extensions/` — **new dir** (PR-08 first occupant): provider-overrides.ts
 - `packages/runtime/src/index.ts` — re-export provider symbols
@@ -138,6 +141,7 @@ M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *
 - `docs/decisions/ADR-003-quirks-json-over-shims.md` — **created** (Accepted)
 
 ### PR-07 (commit `7fcb20f`, 18 files)
+
 - `packages/runtime/src/meter/` — **new dir**: types.ts, cost-aggregator.ts, token-meter.ts, index.ts
 - `packages/runtime/src/providers/extractors/` — **new dir**: anthropic.ts, openai.ts, generic.ts, index.ts
 - `packages/runtime/src/events.ts` — extend `mapPiEvent` with `turn_end` → `TASK_TOKEN_USAGE`
@@ -149,6 +153,7 @@ M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *
 - `packages/runtime/test/providers/extractors.test.ts` — 16 tests
 
 ### PR-09 (commit `df9cc78`, 14 files)
+
 - `packages/runtime/src/extensions/` — **new files**: result-protocol.ts, journal.ts, pi-types.ts, index.ts
 - `packages/runtime/src/index.ts` — re-export extension factories + structural Pi types
 - `packages/runtime/test/extensions/` — **new dir**: result-protocol.test.ts (17 tests), journal.test.ts (7 tests)
@@ -163,19 +168,19 @@ M1 Plan 01-02 closed at 5/5 tasks across 5 atomic commits. The v3 scaffold has *
 
 11 deviations recorded (full text + classification in frontmatter `deviations:` array). High-level:
 
-| ID | Type | Topic |
-|---|---|---|
-| 1 | plan-amendment | PR-05 npm registry verification superseded `publishConfig.access:public` STOP condition |
-| 2 | plan-amendment | PR-06 cassette recording deferred to a user-driven session |
-| 3 | plan-amendment | PR-07 plan files_modified expanded to per-file entries (file-guard exact-match) |
-| 4 | code-fix | PR-07 events.ts mapper handles Pi 0.74-alpha shape variance (`event.message.usage` + `event.usage`) |
-| 5 | deferred | PR-07 byte-identical assertion gated behind `skipIf(!HAS_CASSETTE)` |
-| 6 | plan-amendment | PR-08 reordered before PR-07 (no cassette dep — kept progress moving) |
-| 7 | code-fix | PR-08 runtime/tsconfig.json `include` extended to pick up JSON imports |
-| 8 | code-fix | PR-09 imports use `@swt-labs/shared` root (subpath `/schemas` not in exports) |
-| 9 | code-fix | PR-09 Zod (workspace dep) over `@sinclair/typebox` (not in tree) |
-| 10 | code-fix | PR-09 structural `PiExtensionAPI` over direct Pi 0.74-alpha type import |
-| 11 | deferred | PR-09 end-to-end cassette test gated behind `skipIf(!HAS_CASSETTE)` |
+| ID  | Type           | Topic                                                                                               |
+| --- | -------------- | --------------------------------------------------------------------------------------------------- |
+| 1   | plan-amendment | PR-05 npm registry verification superseded `publishConfig.access:public` STOP condition             |
+| 2   | plan-amendment | PR-06 cassette recording deferred to a user-driven session                                          |
+| 3   | plan-amendment | PR-07 plan files_modified expanded to per-file entries (file-guard exact-match)                     |
+| 4   | code-fix       | PR-07 events.ts mapper handles Pi 0.74-alpha shape variance (`event.message.usage` + `event.usage`) |
+| 5   | deferred       | PR-07 byte-identical assertion gated behind `skipIf(!HAS_CASSETTE)`                                 |
+| 6   | plan-amendment | PR-08 reordered before PR-07 (no cassette dep — kept progress moving)                               |
+| 7   | code-fix       | PR-08 runtime/tsconfig.json `include` extended to pick up JSON imports                              |
+| 8   | code-fix       | PR-09 imports use `@swt-labs/shared` root (subpath `/schemas` not in exports)                       |
+| 9   | code-fix       | PR-09 Zod (workspace dep) over `@sinclair/typebox` (not in tree)                                    |
+| 10  | code-fix       | PR-09 structural `PiExtensionAPI` over direct Pi 0.74-alpha type import                             |
+| 11  | deferred       | PR-09 end-to-end cassette test gated behind `skipIf(!HAS_CASSETTE)`                                 |
 
 ## Pre-existing carry-forward (PR-11 territory)
 

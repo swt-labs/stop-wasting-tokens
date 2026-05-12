@@ -58,8 +58,8 @@ point. That layout produced four observed pains:
   not a one-line JSON edit.
 - **Coupling.** The shim files imported provider names + tier names from a
   hand-maintained TS enum. The well-known TDD2 regression bug —
-  `thinkingLevelMap` keys accidentally written as SWT *tier* names
-  (`balanced`, `quality`) instead of Pi *ThinkingLevel* values
+  `thinkingLevelMap` keys accidentally written as SWT _tier_ names
+  (`balanced`, `quality`) instead of Pi _ThinkingLevel_ values
   (`low`, `medium`) — could happen at any of the twelve shim files, with
   no central place to assert the invariant.
 
@@ -79,7 +79,7 @@ per provider entry.
 Concretely:
 
 - The JSON schema is loose-typed (TypeScript `Record<string,
-  ProviderQuirk>` + Zod schema for the test gate) so adding a provider
+ProviderQuirk>` + Zod schema for the test gate) so adding a provider
   is a JSON edit, not a TS edit.
 - `thinkingLevelMap` keys are validated by a runtime Zod schema test
   (`runtime/test/providers/quirks-schema.test.ts`) that asserts every key
@@ -89,8 +89,8 @@ Concretely:
 - `default-tiers.json` is a separate JSON file for the per-provider
   per-tier model map (orthogonal axis). The role-resolver layer
   (`runtime/src/providers/role-resolver.ts`) is the only place that
-  reads both — quirks describe *how Pi talks to the provider*; default
-  tiers describe *which model id maps to which SWT tier*.
+  reads both — quirks describe _how Pi talks to the provider_; default
+  tiers describe _which model id maps to which SWT tier_.
 - The Extension factory in `extensions/provider-overrides.ts` is a Pi-side
   artifact; orchestration and methodology never see it. Per the Layer 1
   Pi-isolation invariant (Principle 2 / ADR-001), only `@swt-labs/runtime`
@@ -104,6 +104,7 @@ Concretely:
 ## Consequences
 
 Easier:
+
 - Adding a provider or tweaking a model override is a JSON edit; CI
   runs the Zod schema test and the regression test, then merges.
 - One Zod schema test (`quirks-schema.test.ts`) covers all providers
@@ -117,6 +118,7 @@ Easier:
   the same role-resolver.
 
 Harder:
+
 - JSON is less expressive than TS: no comments (works around it with a
   `_comment` key), no conditional logic, no imports. If a future
   provider needs computed quirks (e.g., "use `gpt-5-pro` for tasks

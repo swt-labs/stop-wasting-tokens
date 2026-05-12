@@ -72,14 +72,14 @@ The change is **subtractive at the runtime layer** (delete the three driver pack
 
 **Tokens per shipped acceptance criterion (TPAC)** is the single number that decides whether v3 shipped or just refactored.
 
-| Metric | Baseline (v2.3.5 + Codex CLI) | v3.0 ship target | v3.x stretch |
-|---|---|---|---|
-| TPAC (input + output combined) | TBD — measured during M1 against the reference repo | **−40%** | **−60%** |
-| Cache hit ratio (Anthropic provider) | 0% (not instrumented in v2) | **≥70%** on the M2 reference project | ≥80% |
-| Wall-clock per phase | v2.3.5 sequential baseline | parity | −20% via parallelism (M3+) |
-| Cost per acceptance criterion (USD) | baseline measured M1 | **−50%** | −70% |
-| Restart-from-kill-9 success rate | n/a (v2.x has no resumability story) | 100% on the chaos test suite | 100% |
-| Provider failover MTTR | n/a | <30s with retry budget | <10s |
+| Metric                               | Baseline (v2.3.5 + Codex CLI)                       | v3.0 ship target                     | v3.x stretch               |
+| ------------------------------------ | --------------------------------------------------- | ------------------------------------ | -------------------------- |
+| TPAC (input + output combined)       | TBD — measured during M1 against the reference repo | **−40%**                             | **−60%**                   |
+| Cache hit ratio (Anthropic provider) | 0% (not instrumented in v2)                         | **≥70%** on the M2 reference project | ≥80%                       |
+| Wall-clock per phase                 | v2.3.5 sequential baseline                          | parity                               | −20% via parallelism (M3+) |
+| Cost per acceptance criterion (USD)  | baseline measured M1                                | **−50%**                             | −70%                       |
+| Restart-from-kill-9 success rate     | n/a (v2.x has no resumability story)                | 100% on the chaos test suite         | 100%                       |
+| Provider failover MTTR               | n/a                                                 | <30s with retry budget               | <10s                       |
 
 These numbers are **not aspirational marketing**. They are **acceptance criteria for v3.0**. If we cannot demonstrate them on a public benchmark by M6 close, v3.0 does not ship — we cut to v3.0-rc and iterate until the benchmark passes.
 
@@ -122,17 +122,17 @@ We are **not** entering the LLM evaluation business. We measure tokens, cache hi
 
 1. **Delete the Codex subprocess path entirely.** It is a workaround for not owning the runtime; v3 owns the runtime. The three driver packages (`codex-driver`, `claude-code-driver`, `ollama-driver`) and the `.codex-plugin/` directory go away in M1.
 
-2. **Adopt Pi's `createAgentSession()` and `createAgentSessionRuntime()` as the runtime primitives.** No reinvention. The `runtime/` layer is a *thin* adapter: < 50 lines per file is the rule; anything bigger is leaking methodology into the adapter.
+2. **Adopt Pi's `createAgentSession()` and `createAgentSessionRuntime()` as the runtime primitives.** No reinvention. The `runtime/` layer is a _thin_ adapter: < 50 lines per file is the rule; anything bigger is leaking methodology into the adapter.
 
 3. **Treat subagents as processes-in-worktrees**, not as LLM features. Worktrees give us isolation; Pi gives us per-session model selection (`setModel()`) and ephemeral mode (`--no-session` or in-memory `SessionManager`); together they give us parallel + multi-provider as a first-class capability.
 
 4. **Build the meter first.** Token instrumentation lands before any optimization claim is made. We measure before we tune. M1 ships an integration test asserting cassette-replayed token counts equal the meter's reported counts to within 1 token.
 
-5. **Methodology is provider-agnostic from day one.** Role profiles describe *capability tiers* (cheap-fast, balanced, quality, reasoning), not specific models. Tier→model resolution happens at the runtime layer. Breaking the `methodology → codex-driver` edge in v2.3.5 is the entry gate for M1, not its exit.
+5. **Methodology is provider-agnostic from day one.** Role profiles describe _capability tiers_ (cheap-fast, balanced, quality, reasoning), not specific models. Tier→model resolution happens at the runtime layer. Breaking the `methodology → codex-driver` edge in v2.3.5 is the entry gate for M1, not its exit.
 
 6. **Provider quirks live where they belong.** Pi already supports 25+ providers natively. SWT v3 does NOT write provider shims at M1; it writes a role-resolver that consumes Pi's existing provider list and an overrides file (`runtime/providers/quirks.json`) for the small handful of cases where Pi's defaults are wrong for our workload (e.g., `thinkingLevelMap` tuning for Anthropic Opus, or `compat.maxTokensField` for older GPT models).
 
-7. **Provider-level caching, not Pi-level caching.** Pi's compaction is conversation summarization. Anthropic's `cache_control` and OpenAI's prompt caching are *provider-shim* concerns and live in the `runtime/cache/` module configured through `ProviderModelConfig.cost.{cacheRead,cacheWrite}`. The "≥70% cache hit ratio" target is achieved by deterministic prompt prefix + stable message ordering + cache-control breakpoint placement, all sitting under the runtime adapter — not by anything Pi exposes at the session level.
+7. **Provider-level caching, not Pi-level caching.** Pi's compaction is conversation summarization. Anthropic's `cache_control` and OpenAI's prompt caching are _provider-shim_ concerns and live in the `runtime/cache/` module configured through `ProviderModelConfig.cost.{cacheRead,cacheWrite}`. The "≥70% cache hit ratio" target is achieved by deterministic prompt prefix + stable message ordering + cache-control breakpoint placement, all sitting under the runtime adapter — not by anything Pi exposes at the session level.
 
 8. **The dashboard is the primary UX.** v2.x set this direction; v3 doubles down. The CLI exists for headless / CI / power-user fallback. New features land in the dashboard first, with CLI parity following (matching the v2.3.x cadence).
 
@@ -144,18 +144,18 @@ We are **not** entering the LLM evaluation business. We measure tokens, cache hi
 
 The following claims in `TDD.md` were verified incorrect or unsupported during recon (see `.vbw-planning/research/recon.md` for sources):
 
-| TDD.md location | TDD.md claim | Correction in TDD2 | Severity |
-|---|---|---|---|
-| TDD.md§1.3 In Scope | "Pi SDK packages: `@mariozechner/pi-coding-agent`, `@mariozechner/pi-ai`" | **Real namespace:** `@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`. Global rename. | **BLOCKING** |
-| TDD.md§3.1 | "Methodology engine is PRESERVED" (implicitly: clean to lift) | v2.3.5's `@swt-labs/methodology/package.json` declares `@swt-labs/codex-driver` as a runtime dependency. The methodology→codex edge MUST be broken before any Pi work. New: explicit M1 entry gate condition. | **HIGH** |
-| TDD.md§4.1 Layer 1 | "thin interface over Pi" | Verified — but TDD.md elides the **Extension API**. Pi's Extension model adds horizontal hooks that SWT must use rather than reinvent (`pi.registerProvider`, `pi.registerTool`, `pi.on(event, handler)`). New §5.4 documents Extension vs raw-SDK boundary. | **MEDIUM** |
-| TDD.md§7 Token Optimization | "Cache-control insertion at Layer 1" (treated as Pi feature) | Pi has no native `cache_control` API. Provider-level caching lives in the provider shim, configured via `ProviderModelConfig.cost.cacheRead/cacheWrite` and the `api: "anthropic-messages"` type. §8 fully rewrites this. | **HIGH** |
-| TDD.md§8 / §11 M3 Gate | "`shouldStopAfterTurn` integration confirmed" | No such API in Pi docs. The equivalent is the Extension hook `agent_end` plus the per-tool return `{terminate: true}`. §9.4 rewrites the result protocol. | **HIGH** |
-| TDD.md§11 M3 Deliverables | "`report_result` tool wired" | No such built-in tool. Implement as custom tool via `pi.registerTool` and persist via the closure-captured `pi.appendEntry` (NOT `ctx.appendEntry` — `appendEntry` lives on `ExtensionAPI`, not `ExtensionContext`; see §5.4 boundary note). §9.4 covers the schema. | **MEDIUM** |
-| TDD.md§11 M1 Deliverables | "Provider shims for Anthropic + OpenAI" | Pi already supports both natively. M1 ships a **role-resolver** plus a *quirks* override file; it does NOT ship provider shims. Reframed in §13.1. | **MEDIUM** |
-| TDD.md§12.4 | "Vitest test suite preserved as regression baseline" | Only 2 root-level test files in v2.3.5; bulk of tests live in `packages/*/test/`. Phase B-2 inline reads will produce the full inventory in §14.6. | **LOW** (no design impact, but the test-coverage claim was loose) |
-| TDD.md§5.2 | "Single CLI entrypoint: `packages/cli/bin/swt.mjs`" | v2.3.5 bins to `./dist/cli.mjs` from the root `package.json`, not from `packages/cli/bin/`. v3 keeps the v2 binary location to preserve `npx swt` muscle memory. §6.5. | **LOW** |
-| TDD.md§4 Layer 0 | "Pi SDK (external dependency)" without specifying peer-dependency policy | Pi's docs recommend listing core packages as `"peerDependencies": "*"` (not bundling). SWT v3 follows. §6.4. | **LOW** |
+| TDD.md location             | TDD.md claim                                                              | Correction in TDD2                                                                                                                                                                                                                                                   | Severity                                                          |
+| --------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| TDD.md§1.3 In Scope         | "Pi SDK packages: `@mariozechner/pi-coding-agent`, `@mariozechner/pi-ai`" | **Real namespace:** `@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`. Global rename.                                                                                                            | **BLOCKING**                                                      |
+| TDD.md§3.1                  | "Methodology engine is PRESERVED" (implicitly: clean to lift)             | v2.3.5's `@swt-labs/methodology/package.json` declares `@swt-labs/codex-driver` as a runtime dependency. The methodology→codex edge MUST be broken before any Pi work. New: explicit M1 entry gate condition.                                                        | **HIGH**                                                          |
+| TDD.md§4.1 Layer 1          | "thin interface over Pi"                                                  | Verified — but TDD.md elides the **Extension API**. Pi's Extension model adds horizontal hooks that SWT must use rather than reinvent (`pi.registerProvider`, `pi.registerTool`, `pi.on(event, handler)`). New §5.4 documents Extension vs raw-SDK boundary.         | **MEDIUM**                                                        |
+| TDD.md§7 Token Optimization | "Cache-control insertion at Layer 1" (treated as Pi feature)              | Pi has no native `cache_control` API. Provider-level caching lives in the provider shim, configured via `ProviderModelConfig.cost.cacheRead/cacheWrite` and the `api: "anthropic-messages"` type. §8 fully rewrites this.                                            | **HIGH**                                                          |
+| TDD.md§8 / §11 M3 Gate      | "`shouldStopAfterTurn` integration confirmed"                             | No such API in Pi docs. The equivalent is the Extension hook `agent_end` plus the per-tool return `{terminate: true}`. §9.4 rewrites the result protocol.                                                                                                            | **HIGH**                                                          |
+| TDD.md§11 M3 Deliverables   | "`report_result` tool wired"                                              | No such built-in tool. Implement as custom tool via `pi.registerTool` and persist via the closure-captured `pi.appendEntry` (NOT `ctx.appendEntry` — `appendEntry` lives on `ExtensionAPI`, not `ExtensionContext`; see §5.4 boundary note). §9.4 covers the schema. | **MEDIUM**                                                        |
+| TDD.md§11 M1 Deliverables   | "Provider shims for Anthropic + OpenAI"                                   | Pi already supports both natively. M1 ships a **role-resolver** plus a _quirks_ override file; it does NOT ship provider shims. Reframed in §13.1.                                                                                                                   | **MEDIUM**                                                        |
+| TDD.md§12.4                 | "Vitest test suite preserved as regression baseline"                      | Only 2 root-level test files in v2.3.5; bulk of tests live in `packages/*/test/`. Phase B-2 inline reads will produce the full inventory in §14.6.                                                                                                                   | **LOW** (no design impact, but the test-coverage claim was loose) |
+| TDD.md§5.2                  | "Single CLI entrypoint: `packages/cli/bin/swt.mjs`"                       | v2.3.5 bins to `./dist/cli.mjs` from the root `package.json`, not from `packages/cli/bin/`. v3 keeps the v2 binary location to preserve `npx swt` muscle memory. §6.5.                                                                                               | **LOW**                                                           |
+| TDD.md§4 Layer 0            | "Pi SDK (external dependency)" without specifying peer-dependency policy  | Pi's docs recommend listing core packages as `"peerDependencies": "*"` (not bundling). SWT v3 follows. §6.4.                                                                                                                                                         | **LOW**                                                           |
 
 All other content in TDD.md is preserved or refined; nothing else was found materially incorrect.
 
@@ -397,36 +397,36 @@ packages/cli/src/
 
 **v3 disposition:**
 
-- `commands/stubs.ts` is **DISMANTLED**, not blanket-deleted. The 21 stub verbs in v2.3.5 (verified by reading the file) are v3 *roadmap markers*; v3 cashes them in.
+- `commands/stubs.ts` is **DISMANTLED**, not blanket-deleted. The 21 stub verbs in v2.3.5 (verified by reading the file) are v3 _roadmap markers_; v3 cashes them in.
 - `commands/dashboard.ts`, `vibe.ts`, `init.ts`, `doctor.ts`, `detect-phase.ts`, `status.ts`, `config.ts`, `update.ts`, `version.ts`, `watch.ts` **PRESERVED** with internals rewired to call orchestration/runtime instead of codex-driver.
 - The `router.ts` `CommandRegistry` design (registry + dispatch with `EXIT.USAGE_ERROR` on unknown verb) is preserved verbatim.
 - `EXIT.NOT_IMPLEMENTED` (constant value 2) is **retained** in `exit-codes.ts` for external tooling that may grep the numeric API, but no v3 verb returns it.
 
 **Stub verb disposition table** (verified 2026-05-11 against `packages/cli/src/commands/stubs.ts` in v2.3.5; 21 verbs total):
 
-| v2 stub | v3 disposition | Lands in | Notes |
-|---|---|---|---|
-| `plan` | **IMPLEMENT** | M2 PR-12 | Wraps the methodology's Lead+Architect dispatch; flag `--phase NN` selects phase. |
-| `execute` | **FOLD into `vibe`** | M2 PR-15 | The vibe loop already executes; a separate `execute` verb duplicates surface. Reintroduction requires an ADR. |
-| `qa` | **IMPLEMENT** | M2 PR-14 | Runs the static-check ladder + LLM QA tier escalation (§14.11). |
-| `map` | **IMPLEMENT** | M2 | Dispatches the audit subsystem (§11.6) as a Scout task. |
-| `debug` | **IMPLEMENT** | M3 | Dispatches the Debugger role (§10.1). Useful standalone for users post-incident. |
-| `fix` | **FOLD into `vibe`** | M2 | Small-fix path is a vibe shortcut, not a separate verb. |
-| `archive` | **IMPLEMENT** | M6 PR-47 | Milestone archive routine; produces the HTML report (§3.7). |
-| `release` | **DROP** | (n/a) | Releases go through Changesets + GH Actions (§15.6); a CLI verb adds nothing. |
-| `resume` | **FOLD into `vibe --resume`** | M2 | Pi's session resume is exposed through `vibe -c` / `vibe -r`. |
-| `pause` | **IMPLEMENT** | M4 | Required for the Budget Gate pause flow (§8.4). |
-| `audit` | **IMPLEMENT** | M6 PR-47 | Pre-archive audit matrix; runs before `archive`. |
-| `assumptions` | **IMPLEMENT** | M2 | Captures phase assumptions into `.swt-planning/assumptions/`. |
-| `research` | **IMPLEMENT** | M2 | Scout-only standalone (no plan, no Lead). |
-| `discuss` | **FOLD into `vibe`** | M2 | The vibe loop is the discussion engine; a separate verb is duplicative. |
-| `phase` | **IMPLEMENT** | M2 | Add/insert/remove phases in ROADMAP.md. |
-| `todo` | **IMPLEMENT** | M2 | STATE.md todo manager (small). |
-| `skills` | **IMPLEMENT** | M5 | Wraps Pi's skill install + discovery surface; `swt skills install <pkg>`. |
-| `whats-new` | **IMPLEMENT** | M6 | Shows release notes from CHANGELOG.md. |
-| `uninstall` | **IMPLEMENT** | M6 | Removes SWT artifacts; small. |
-| `worktree` | **IMPLEMENT** | M3 PR-22..PR-29 | Manage active worktrees from CLI (`list`, `abort`, `cleanup`). |
-| `lease` | **IMPLEMENT** | M3 PR-25 | Lock-file inspection + manual release (operator escape hatch). |
+| v2 stub       | v3 disposition                | Lands in        | Notes                                                                                                         |
+| ------------- | ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `plan`        | **IMPLEMENT**                 | M2 PR-12        | Wraps the methodology's Lead+Architect dispatch; flag `--phase NN` selects phase.                             |
+| `execute`     | **FOLD into `vibe`**          | M2 PR-15        | The vibe loop already executes; a separate `execute` verb duplicates surface. Reintroduction requires an ADR. |
+| `qa`          | **IMPLEMENT**                 | M2 PR-14        | Runs the static-check ladder + LLM QA tier escalation (§14.11).                                               |
+| `map`         | **IMPLEMENT**                 | M2              | Dispatches the audit subsystem (§11.6) as a Scout task.                                                       |
+| `debug`       | **IMPLEMENT**                 | M3              | Dispatches the Debugger role (§10.1). Useful standalone for users post-incident.                              |
+| `fix`         | **FOLD into `vibe`**          | M2              | Small-fix path is a vibe shortcut, not a separate verb.                                                       |
+| `archive`     | **IMPLEMENT**                 | M6 PR-47        | Milestone archive routine; produces the HTML report (§3.7).                                                   |
+| `release`     | **DROP**                      | (n/a)           | Releases go through Changesets + GH Actions (§15.6); a CLI verb adds nothing.                                 |
+| `resume`      | **FOLD into `vibe --resume`** | M2              | Pi's session resume is exposed through `vibe -c` / `vibe -r`.                                                 |
+| `pause`       | **IMPLEMENT**                 | M4              | Required for the Budget Gate pause flow (§8.4).                                                               |
+| `audit`       | **IMPLEMENT**                 | M6 PR-47        | Pre-archive audit matrix; runs before `archive`.                                                              |
+| `assumptions` | **IMPLEMENT**                 | M2              | Captures phase assumptions into `.swt-planning/assumptions/`.                                                 |
+| `research`    | **IMPLEMENT**                 | M2              | Scout-only standalone (no plan, no Lead).                                                                     |
+| `discuss`     | **FOLD into `vibe`**          | M2              | The vibe loop is the discussion engine; a separate verb is duplicative.                                       |
+| `phase`       | **IMPLEMENT**                 | M2              | Add/insert/remove phases in ROADMAP.md.                                                                       |
+| `todo`        | **IMPLEMENT**                 | M2              | STATE.md todo manager (small).                                                                                |
+| `skills`      | **IMPLEMENT**                 | M5              | Wraps Pi's skill install + discovery surface; `swt skills install <pkg>`.                                     |
+| `whats-new`   | **IMPLEMENT**                 | M6              | Shows release notes from CHANGELOG.md.                                                                        |
+| `uninstall`   | **IMPLEMENT**                 | M6              | Removes SWT artifacts; small.                                                                                 |
+| `worktree`    | **IMPLEMENT**                 | M3 PR-22..PR-29 | Manage active worktrees from CLI (`list`, `abort`, `cleanup`).                                                |
+| `lease`       | **IMPLEMENT**                 | M3 PR-25        | Lock-file inspection + manual release (operator escape hatch).                                                |
 
 **Migration mechanics:**
 
@@ -588,6 +588,7 @@ dashboard-core ──► (zod only, no internal)
    - `packages/cli/src/commands/doctor.ts` imports `detectCodexVersion` + `CodexVersion` from codex-driver.
 
    The CLI is Layer 5 (allowed to know about runtimes) but in v3 it MUST route through `packages/runtime/` instead of importing a driver directly.
+
 3. **`cli → claude-code-driver` and `cli → ollama-driver`** (workspace deps in `packages/cli/package.json`, also Principle 3 surface — currently unused in source but kept as dependency rows). These vanish with the driver packages in PR-05.
 
 **M1 entry gate (§13.1.1) discharges both #1 and #2 before any Pi work.** The discharge sequence:
@@ -640,7 +641,7 @@ jobs:
       - name: Format check
         run: pnpm format:check
       - name: Test
-        continue-on-error: true       # ⚠ advisory in v2.3.5; required in v3
+        continue-on-error: true # ⚠ advisory in v2.3.5; required in v3
         run: pnpm test
       - name: Build
         run: pnpm build
@@ -676,10 +677,10 @@ All five are preserved in v3 with additions detailed in §15.
 
 **130 `*.test.ts` files** in `packages/*/test/` plus 2 root-level tests in `test/`. Distribution by package (verified via `find packages -name "*.test.ts"`):
 
-| Package | Test file count | Test type |
-|---|---|---|
-| (per-package; full enumeration produced during M1 PR-01 as part of the test-debt cleanup) | ≥ 130 total | unit + integration mix |
-| `test/` (root) | 2 | manifest + docs-drift |
+| Package                                                                                   | Test file count | Test type              |
+| ----------------------------------------------------------------------------------------- | --------------- | ---------------------- |
+| (per-package; full enumeration produced during M1 PR-01 as part of the test-debt cleanup) | ≥ 130 total     | unit + integration mix |
+| `test/` (root)                                                                            | 2               | manifest + docs-drift  |
 
 The 33 known failures (per `ci.yml` comment) cluster in the methodology package (DEV-1D-class carryforward) plus Prettier-induced fixture drift. M1 PR-01's deliverable is: enumerate, classify, and either fix or document as `@vitest skip` with a tracking issue — `continue-on-error: false` lands at the M1 gate.
 
@@ -759,7 +760,7 @@ Three reasons, in priority order:
 
 1. **Testability.** Mocking Pi at the Layer 1 interface lets the entire methodology layer be unit-tested without LLM calls. The cassette infrastructure (§14.7) plugs into Layer 1's `Session` and `Tool` interfaces, not into Pi's.
 
-2. **Cross-cutting concerns.** Cache-control insertion, token metering, cost aggregation, budget enforcement, and provider failover happen here — once — not scattered across the orchestrator. The runtime adapter is the *only* place that knows the difference between an Anthropic 5xx and an OpenAI 5xx.
+2. **Cross-cutting concerns.** Cache-control insertion, token metering, cost aggregation, budget enforcement, and provider failover happen here — once — not scattered across the orchestrator. The runtime adapter is the _only_ place that knows the difference between an Anthropic 5xx and an OpenAI 5xx.
 
 3. **Future-proofing.** Pi's API will change before its 1.0 release. The adapter localizes that churn. The rule is: when Pi changes, the diff lands in `packages/runtime/`; everything above never knows.
 
@@ -769,15 +770,15 @@ The adapter is **thin**. It does not reinvent Pi concepts; it normalizes them. *
 
 **Allowed imports (enforced by ESLint via `import/no-restricted-paths`):**
 
-| From | May import from |
-|---|---|
-| `packages/cli/` | `packages/dashboard/`, `packages/core/`, `packages/orchestration/`, `packages/runtime/`, `packages/shared/` |
-| `packages/dashboard/` | `packages/core/`, `packages/orchestration/`, `packages/runtime/`, `packages/shared/` |
-| `packages/core/` | `packages/shared/` |
-| `packages/orchestration/` | `packages/core/`, `packages/runtime/`, `packages/shared/` |
-| `packages/runtime/` | `packages/shared/` |
-| `packages/shared/` | (none — leaf) |
-| `packages/test-utils/` | any |
+| From                      | May import from                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `packages/cli/`           | `packages/dashboard/`, `packages/core/`, `packages/orchestration/`, `packages/runtime/`, `packages/shared/` |
+| `packages/dashboard/`     | `packages/core/`, `packages/orchestration/`, `packages/runtime/`, `packages/shared/`                        |
+| `packages/core/`          | `packages/shared/`                                                                                          |
+| `packages/orchestration/` | `packages/core/`, `packages/runtime/`, `packages/shared/`                                                   |
+| `packages/runtime/`       | `packages/shared/`                                                                                          |
+| `packages/shared/`        | (none — leaf)                                                                                               |
+| `packages/test-utils/`    | any                                                                                                         |
 
 **Forbidden imports:**
 
@@ -806,6 +807,7 @@ Every operation that creates a worktree, an LLM session, or a long-running proce
 **The model has three primitives:**
 
 1. **Lock files.** Every dispatched task acquires a lock at `.swt-planning/locks/task-<id>.lock`. The lock file contains:
+
    ```json
    {
      "schema_version": 1,
@@ -813,9 +815,10 @@ Every operation that creates a worktree, an LLM session, or a long-running proce
      "worktree_path": ".swt-planning/parallel/wt-T-2026-05-11-001/",
      "pid": 12345,
      "started_at": "2026-05-11T14:00:00.000Z",
-     "phase": "dispatching"  // dispatching | running | harvesting | done
+     "phase": "dispatching" // dispatching | running | harvesting | done
    }
    ```
+
    The lock is held until the task transitions to `done`. If `pid` is no longer alive (verified via `kill -0 <pid>`), the lock is considered stale and reclaimable.
 
 2. **PID liveness.** Before any orchestrator action that depends on a peer process, the orchestrator runs `kill -0 <pid>` on the peer's recorded PID. A stale lock + dead PID triggers the recovery path (§9.5).
@@ -851,6 +854,7 @@ The full FSM and recovery cases are in §9.5.
 > **Δ from TDD.md:** TDD.md cited Pi API symbols without verification. Several were wrong (`@mariozechner/*` namespace, `shouldStopAfterTurn`, `report_result`). This section is a **verified reference** against `pi.dev/docs/latest` as of 2026-05-11. Every symbol is grounded; symbols that are not verifiable are explicitly flagged.
 >
 > **Status legend:**
+>
 > - **VERIFIED**: documented in `pi.dev/docs/latest`, fetched 2026-05-11.
 > - **ASSUMED**: not in the docs but inferred from the surrounding API surface; flagged for verification during M1.
 > - **OPEN**: neither verified nor assumed; needs a Pi docs read or an SDK type-check.
@@ -931,7 +935,10 @@ interface AgentSession {
   messages: AgentMessage[];
   isStreaming: boolean;
 
-  navigateTree(targetId: string, options?: NavigateOptions): Promise<{ editorText?: string; cancelled: boolean }>;
+  navigateTree(
+    targetId: string,
+    options?: NavigateOptions,
+  ): Promise<{ editorText?: string; cancelled: boolean }>;
   compact(customInstructions?: string): Promise<CompactionResult>;
   abortCompaction(): void;
   abort(): Promise<void>;
@@ -968,7 +975,7 @@ The `wrapSession` function adds:
 
 ### 5.4 The Extension API vs raw SDK
 
-**VERIFIED.** Pi exposes an Extension API that runs *inside* a Pi session and can register tools, providers, hooks, commands, message renderers, etc. SWT v3 uses both:
+**VERIFIED.** Pi exposes an Extension API that runs _inside_ a Pi session and can register tools, providers, hooks, commands, message renderers, etc. SWT v3 uses both:
 
 - **Raw SDK** for the orchestrator-side: `createAgentSession`, `subscribe`, `prompt`, `abort`, etc. Used in `packages/runtime/src/session.ts`.
 - **Extensions** for in-session customization: provider registration (where Pi's defaults need overrides), custom tools (the SWT result protocol — see §9.4), and hooks (`before_agent_start`, `tool_call`, `agent_end`).
@@ -989,7 +996,11 @@ export default function (pi: ExtensionAPI) {
     label: 'Report task result',
     description: 'Persist the task result envelope for the worktree harvester.',
     parameters: Type.Object({
-      status: Type.Union([Type.Literal('success'), Type.Literal('failed'), Type.Literal('partial')]),
+      status: Type.Union([
+        Type.Literal('success'),
+        Type.Literal('failed'),
+        Type.Literal('partial'),
+      ]),
       summary: Type.String({ maxLength: 4096 }),
       artefacts: Type.Array(Type.String()),
     }),
@@ -1025,8 +1036,20 @@ type AgentSessionEvent =
   | { type: 'message_start'; message: AgentMessage }
   | { type: 'message_end'; message: AgentMessage }
   | { type: 'tool_execution_start'; toolCallId: string; toolName: string; args: unknown }
-  | { type: 'tool_execution_update'; toolCallId: string; toolName: string; args: unknown; partialResult: unknown }
-  | { type: 'tool_execution_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
+  | {
+      type: 'tool_execution_update';
+      toolCallId: string;
+      toolName: string;
+      args: unknown;
+      partialResult: unknown;
+    }
+  | {
+      type: 'tool_execution_end';
+      toolCallId: string;
+      toolName: string;
+      result: unknown;
+      isError: boolean;
+    }
   | { type: 'agent_start' }
   | { type: 'agent_end'; messages: AgentMessage[] }
   | { type: 'turn_start' }
@@ -1034,7 +1057,13 @@ type AgentSessionEvent =
   | { type: 'queue_update'; steering: unknown; followUp: unknown }
   | { type: 'compaction_start' }
   | { type: 'compaction_end' }
-  | { type: 'auto_retry_start'; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
+  | {
+      type: 'auto_retry_start';
+      attempt: number;
+      maxAttempts: number;
+      delayMs: number;
+      errorMessage: string;
+    }
   | { type: 'auto_retry_end'; success: boolean; attempt: number; finalError?: string };
 ```
 
@@ -1048,10 +1077,22 @@ type AgentSessionEvent =
 // SwtEvent — what the rest of SWT consumes
 type SwtEvent =
   | { type: 'TASK_STARTED'; taskId: string }
-  | { type: 'TASK_TOKEN_USAGE'; taskId: string; input: number; output: number; cacheRead: number; cacheWrite: number }
+  | {
+      type: 'TASK_TOKEN_USAGE';
+      taskId: string;
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheWrite: number;
+    }
   | { type: 'TASK_TOOL_CALL'; taskId: string; toolName: string; args: unknown }
   | { type: 'TASK_TOOL_RESULT'; taskId: string; toolName: string; isError: boolean }
-  | { type: 'TASK_MESSAGE'; taskId: string; role: 'assistant' | 'user' | 'toolResult'; content: string }
+  | {
+      type: 'TASK_MESSAGE';
+      taskId: string;
+      role: 'assistant' | 'user' | 'toolResult';
+      content: string;
+    }
   | { type: 'TASK_RETRY'; taskId: string; attempt: number; maxAttempts: number; reason: string }
   | { type: 'TASK_COMPLETED'; taskId: string; result: TaskResult }
   | { type: 'TASK_FAILED'; taskId: string; error: SwtError };
@@ -1064,7 +1105,13 @@ The mapping is deterministic; tests assert byte-identical token counts on casset
 **VERIFIED.** Pi session files are JSONL. First line is the header:
 
 ```json
-{"type":"session","version":3,"id":"uuid","timestamp":"2026-05-11T14:00:00.000Z","cwd":"/path/to/project"}
+{
+  "type": "session",
+  "version": 3,
+  "id": "uuid",
+  "timestamp": "2026-05-11T14:00:00.000Z",
+  "cwd": "/path/to/project"
+}
 ```
 
 Entry types (all share `{type, id, parentId, timestamp}`):
@@ -1090,24 +1137,24 @@ Entry types (all share `{type, id, parentId, timestamp}`):
 ```ts
 interface ProviderConfig {
   baseUrl?: string;
-  apiKey?: string;            // literal | "ENV_VAR" | "!shell-command"
+  apiKey?: string; // literal | "ENV_VAR" | "!shell-command"
   api?: 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'google-generative-ai';
-  models?: ProviderModelConfig[];   // when set, REPLACES Pi's defaults for this provider
+  models?: ProviderModelConfig[]; // when set, REPLACES Pi's defaults for this provider
   headers?: Record<string, string>;
-  authHeader?: boolean;       // adds `Authorization: Bearer ${apiKey}`
-  oauth?: OAuthConfig;        // see §5.7.1
-  streamSimple?: StreamSimpleFn;  // custom streaming for non-standard providers
+  authHeader?: boolean; // adds `Authorization: Bearer ${apiKey}`
+  oauth?: OAuthConfig; // see §5.7.1
+  streamSimple?: StreamSimpleFn; // custom streaming for non-standard providers
 }
 
 interface ProviderModelConfig {
-  id: string;                 // model ID passed to the provider
-  name?: string;              // human display
-  reasoning?: boolean;        // extended thinking support
+  id: string; // model ID passed to the provider
+  name?: string; // human display
+  reasoning?: boolean; // extended thinking support
   input?: Array<'text' | 'image'>;
-  cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };  // per MTok
+  cost?: { input: number; output: number; cacheRead: number; cacheWrite: number }; // per MTok
   contextWindow?: number;
   maxTokens?: number;
-  thinkingLevelMap?: Record<ThinkingLevel, string | null>;  // null = unsupported, omit = default
+  thinkingLevelMap?: Record<ThinkingLevel, string | null>; // null = unsupported, omit = default
   compat?: {
     thinkingFormat?: 'openai' | 'deepseek' | 'qwen';
     maxTokensField?: 'max_tokens' | 'max_completion_tokens';
@@ -1129,16 +1176,23 @@ interface OAuthConfig {
   login(callbacks: OAuthLoginCallbacks): Promise<OAuthCredentials>;
   refreshToken(credentials: OAuthCredentials): Promise<OAuthCredentials>;
   getApiKey(credentials: OAuthCredentials): string;
-  modifyModels?(models: ProviderModelConfig[], credentials: OAuthCredentials): ProviderModelConfig[];
+  modifyModels?(
+    models: ProviderModelConfig[],
+    credentials: OAuthCredentials,
+  ): ProviderModelConfig[];
 }
 
 interface OAuthLoginCallbacks {
-  onAuth(args: { url: string }): Promise<unknown>;          // browser redirect flow
+  onAuth(args: { url: string }): Promise<unknown>; // browser redirect flow
   onDeviceCode(args: { userCode: string; verificationUri: string }): Promise<unknown>;
   onPrompt(args: { message: string }): Promise<unknown>;
 }
 
-interface OAuthCredentials { refresh: string; access: string; expires: number }
+interface OAuthCredentials {
+  refresh: string;
+  access: string;
+  expires: number;
+}
 ```
 
 OAuth credentials persist in `~/.pi/agent/auth.json` automatically.
@@ -1160,6 +1214,7 @@ The full overrides table lives in `runtime/providers/quirks.json` (a JSON config
 1. **Pi's built-in tool factories** (`createCodingTools(cwd)`, `createReadTool(cwd)`, `createBashTool(cwd)`, `createEditTool(cwd)`, `createWriteTool(cwd)`, `createGrepTool(cwd)`, `createFindTool(cwd)`, `createLsTool(cwd)`, `createReadOnlyTools(cwd)`). Use for default tools; the `cwd` parameter scopes the tool to the worktree.
 
 2. **`defineTool` from the SDK** — for custom tools instantiated at session creation:
+
    ```ts
    import { defineTool } from '@earendil-works/pi-coding-agent';
    import { Type } from '@sinclair/typebox';
@@ -1232,6 +1287,7 @@ Defaults: `reserveTokens = 16384`, `keepRecentTokens = 20000`. Both are settings
 **Commands (partial, verified):** `prompt`, `steer`, `follow_up`, `abort`, `bash`, `set_model`, `get_available_models`, `set_thinking_level`, `get_state`, `get_messages`, `compact`, `set_auto_compaction`, `new_session`, `switch_session`, `fork`, `clone`.
 
 **Streaming behavior** for `prompt` (verified):
+
 - Without `streamingBehavior`: error if a stream is in progress.
 - `streamingBehavior: 'steer'`: queue; deliver after current tool execution finishes.
 - `streamingBehavior: 'followUp'`: queue; deliver only when agent stops.
@@ -1244,22 +1300,22 @@ Defaults: `reserveTokens = 16384`, `keepRecentTokens = 20000`. Both are settings
 
 **VERIFIED.** Pi CLI flags SWT v3 may pass-through or wrap:
 
-| Flag | Purpose | SWT v3 use |
-|---|---|---|
-| (default) | Interactive TUI | Hidden in SWT — not exposed |
-| `-p, --print` | Print response and exit | Used by `swt vibe` non-interactive mode |
-| `--mode json` | Output events as JSON lines | Used by `swt dashboard` to consume Pi events |
-| `--mode rpc` | RPC mode | Used by `swt rpc` |
-| `--provider <name>` | Provider override | Mapped from role→tier in `runtime/role-resolver.ts` |
-| `--model <pattern>` | Model pattern; `provider/id:<thinking>` syntax | Mapped from role→tier |
-| `--api-key <key>` | API key override | Used by orchestrator when temporarily routing through a non-default provider |
-| `--thinking <level>` | `off / minimal / low / medium / high / xhigh` | Mapped from role's tier |
-| `-c, --continue` | Continue most recent session | Used by `swt vibe --resume` |
-| `-r, --resume` | Browse and select session | Used by `swt dashboard` SPA session picker |
-| `--session <path\|id>` | Specific session | Used by worktree dispatcher to attach to existing sessions |
-| `--no-session` | Ephemeral session | DEFAULT for all subagent dispatches (Principle 7) |
-| `--session-dir <dir>` | Custom session storage | Used by worktree dispatcher to scope sessions per worktree |
-| `--models <patterns>` | Comma-separated for Ctrl+P cycling | Not exposed (SWT picks models, not the user mid-task) |
+| Flag                   | Purpose                                        | SWT v3 use                                                                   |
+| ---------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| (default)              | Interactive TUI                                | Hidden in SWT — not exposed                                                  |
+| `-p, --print`          | Print response and exit                        | Used by `swt vibe` non-interactive mode                                      |
+| `--mode json`          | Output events as JSON lines                    | Used by `swt dashboard` to consume Pi events                                 |
+| `--mode rpc`           | RPC mode                                       | Used by `swt rpc`                                                            |
+| `--provider <name>`    | Provider override                              | Mapped from role→tier in `runtime/role-resolver.ts`                          |
+| `--model <pattern>`    | Model pattern; `provider/id:<thinking>` syntax | Mapped from role→tier                                                        |
+| `--api-key <key>`      | API key override                               | Used by orchestrator when temporarily routing through a non-default provider |
+| `--thinking <level>`   | `off / minimal / low / medium / high / xhigh`  | Mapped from role's tier                                                      |
+| `-c, --continue`       | Continue most recent session                   | Used by `swt vibe --resume`                                                  |
+| `-r, --resume`         | Browse and select session                      | Used by `swt dashboard` SPA session picker                                   |
+| `--session <path\|id>` | Specific session                               | Used by worktree dispatcher to attach to existing sessions                   |
+| `--no-session`         | Ephemeral session                              | DEFAULT for all subagent dispatches (Principle 7)                            |
+| `--session-dir <dir>`  | Custom session storage                         | Used by worktree dispatcher to scope sessions per worktree                   |
+| `--models <patterns>`  | Comma-separated for Ctrl+P cycling             | Not exposed (SWT picks models, not the user mid-task)                        |
 
 ### 5.12 Settings & Auth
 
@@ -1273,13 +1329,13 @@ The boundary is enforced: any SWT code that tries to write `.pi/` or `~/.pi/` fa
 
 These symbols were referenced in TDD.md but are NOT verified against `pi.dev/docs/latest`:
 
-| Symbol | TDD.md location | Status | M1 verification action |
-|---|---|---|---|
-| `shouldStopAfterTurn` | TDD.md§11 M3 gate | **NOT FOUND** | Confirmed absent. Replace with Extension `agent_end` hook + tool `{terminate: true}`. ADR-002. |
-| `report_result` (built-in tool) | TDD.md§11 M3 deliverables | **NOT FOUND** | Confirmed absent. Implement as `swt_report_result` via `pi.registerTool` (§9.4). ADR-003. |
-| `cache_control` at session level | TDD.md§7 | **NOT FOUND** at Pi level | Confirmed: lives at provider shim. §8.2 + ADR-004. |
-| `createSession` (bare, no `Agent` prefix) | TDD.md§5 sketches | **NOT FOUND** (actual: `createAgentSession`) | Wrapper in `runtime/src/session.ts` exposes a SWT-local `createSession` that calls Pi's `createAgentSession`. |
-| `report_result` schema (`{task_id, status, files_changed, summary}`) | TDD.md§8 | n/a (implied) | Replace with our schema in `packages/shared/schemas/task-result.ts` (§9.4). |
+| Symbol                                                               | TDD.md location           | Status                                       | M1 verification action                                                                                        |
+| -------------------------------------------------------------------- | ------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `shouldStopAfterTurn`                                                | TDD.md§11 M3 gate         | **NOT FOUND**                                | Confirmed absent. Replace with Extension `agent_end` hook + tool `{terminate: true}`. ADR-002.                |
+| `report_result` (built-in tool)                                      | TDD.md§11 M3 deliverables | **NOT FOUND**                                | Confirmed absent. Implement as `swt_report_result` via `pi.registerTool` (§9.4). ADR-003.                     |
+| `cache_control` at session level                                     | TDD.md§7                  | **NOT FOUND** at Pi level                    | Confirmed: lives at provider shim. §8.2 + ADR-004.                                                            |
+| `createSession` (bare, no `Agent` prefix)                            | TDD.md§5 sketches         | **NOT FOUND** (actual: `createAgentSession`) | Wrapper in `runtime/src/session.ts` exposes a SWT-local `createSession` that calls Pi's `createAgentSession`. |
+| `report_result` schema (`{task_id, status, files_changed, summary}`) | TDD.md§8                  | n/a (implied)                                | Replace with our schema in `packages/shared/schemas/task-result.ts` (§9.4).                                   |
 
 If during M1 any **VERIFIED** symbol turns out to be wrong (e.g., Pi changes its docs), the discovering PR MUST update this section in the same commit.
 
@@ -1435,15 +1491,15 @@ packages/
 
 The exported npm symbols and intra-monorepo entry points:
 
-| Package | Published as | Public exports | Intra-monorepo consumers |
-|---|---|---|---|
-| `@swt-labs/core` | yes (v3.0.0+) | `methodology`, `artefacts`, `verification`, `telemetry`, `abstractions`, `handoff`, `scaffold` | `dashboard`, `cli`, `orchestration` |
-| `@swt-labs/runtime` | yes (v3.0.0+) | `createSession`, `createTools`, `SwtEvent`, `TaskResult`, `tokenMeter`, `budgetGate` | `orchestration`, `cli` |
-| `@swt-labs/orchestration` | yes (v3.0.0+) | `Dispatcher`, `WorktreeManager`, `DagResolver`, `ClaimRegistry` | `dashboard`, `cli` |
-| `@swt-labs/dashboard` | yes (v3.0.0+) | `startDashboard(options)`, `ApiSchemas` | `cli` (the `swt dashboard` verb) |
-| `@swt-labs/cli` | no (private) | binary only (`swt`) | (entrypoint) |
-| `@swt-labs/shared` | yes (v3.0.0+) | types + zod schemas only | all packages |
-| `@swt-labs/test-utils` | no (private) | cassette + mock helpers | all `test/` dirs |
+| Package                   | Published as  | Public exports                                                                                 | Intra-monorepo consumers            |
+| ------------------------- | ------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `@swt-labs/core`          | yes (v3.0.0+) | `methodology`, `artefacts`, `verification`, `telemetry`, `abstractions`, `handoff`, `scaffold` | `dashboard`, `cli`, `orchestration` |
+| `@swt-labs/runtime`       | yes (v3.0.0+) | `createSession`, `createTools`, `SwtEvent`, `TaskResult`, `tokenMeter`, `budgetGate`           | `orchestration`, `cli`              |
+| `@swt-labs/orchestration` | yes (v3.0.0+) | `Dispatcher`, `WorktreeManager`, `DagResolver`, `ClaimRegistry`                                | `dashboard`, `cli`                  |
+| `@swt-labs/dashboard`     | yes (v3.0.0+) | `startDashboard(options)`, `ApiSchemas`                                                        | `cli` (the `swt dashboard` verb)    |
+| `@swt-labs/cli`           | no (private)  | binary only (`swt`)                                                                            | (entrypoint)                        |
+| `@swt-labs/shared`        | yes (v3.0.0+) | types + zod schemas only                                                                       | all packages                        |
+| `@swt-labs/test-utils`    | no (private)  | cassette + mock helpers                                                                        | all `test/` dirs                    |
 
 The `@swt-labs/cli` package is **not published** because the root `package.json` IS the published binary (`stop-wasting-tokens` package). The CLI package exists as an internal organizational unit; the root build (`tsup`) bundles it.
 
@@ -1484,11 +1540,11 @@ export interface Dispatcher {
 export interface TaskBrief {
   taskId: string;
   role: Role;
-  cwd: string;                  // worktree path
-  claims: string[];             // file paths this task may touch
+  cwd: string; // worktree path
+  claims: string[]; // file paths this task may touch
   promptContext: PromptContext; // built by methodology's prompt-builder
   budgetCeilingTokens?: number;
-  tier?: Tier;                  // override role's default tier
+  tier?: Tier; // override role's default tier
 }
 
 export type Role = 'scout' | 'architect' | 'lead' | 'dev' | 'qa' | 'debugger';
@@ -1523,18 +1579,18 @@ The CLI's `swt dashboard` verb instantiates the Hono app and binds it to `127.0.
 
 ### 6.4 Build, test, release tooling
 
-| Concern | Tool | v3 notes |
-|---|---|---|
-| Bundler | `tsup ^8.3.0` | One bundle per package; root bundle is the published `swt` binary. |
-| Test | `vitest ^2.1.3` | Per-package config extending root `vitest.config.ts`. See §14. |
-| Lint | `eslint ^9.13.0` (flat config) | Adds `import/no-restricted-paths` rule (§4.3). |
-| Format | `prettier ^3.3.3` | No change from v2. |
-| Release | `@changesets/cli ^2.27.9` | No change from v2. |
-| Lockfile | `pnpm-lock.yaml` | Frozen in CI. Regenerated in M1 PR-01 after Pi deps land. |
-| Bundle-size budgets | `scripts/check-bundle-size.mjs` | New budgets per package; see §15.7. |
-| Offline check | `scripts/check-offline.mjs` | Preserved (asserts dashboard SPA boot without network). |
-| Docs generation | `scripts/docs-gen.ts` | Extended in M6 to include the public benchmark report. |
-| Vale | `vale.yml` workflow + `.vale.ini` | Preserved; new style for ADR documents. |
+| Concern             | Tool                              | v3 notes                                                           |
+| ------------------- | --------------------------------- | ------------------------------------------------------------------ |
+| Bundler             | `tsup ^8.3.0`                     | One bundle per package; root bundle is the published `swt` binary. |
+| Test                | `vitest ^2.1.3`                   | Per-package config extending root `vitest.config.ts`. See §14.     |
+| Lint                | `eslint ^9.13.0` (flat config)    | Adds `import/no-restricted-paths` rule (§4.3).                     |
+| Format              | `prettier ^3.3.3`                 | No change from v2.                                                 |
+| Release             | `@changesets/cli ^2.27.9`         | No change from v2.                                                 |
+| Lockfile            | `pnpm-lock.yaml`                  | Frozen in CI. Regenerated in M1 PR-01 after Pi deps land.          |
+| Bundle-size budgets | `scripts/check-bundle-size.mjs`   | New budgets per package; see §15.7.                                |
+| Offline check       | `scripts/check-offline.mjs`       | Preserved (asserts dashboard SPA boot without network).            |
+| Docs generation     | `scripts/docs-gen.ts`             | Extended in M6 to include the public benchmark report.             |
+| Vale                | `vale.yml` workflow + `.vale.ini` | Preserved; new style for ADR documents.                            |
 
 ### 6.5 Binary entrypoint
 
@@ -1544,26 +1600,26 @@ TDD.md§5.2's claim that the binary moves to `packages/cli/bin/swt.mjs` is **not
 
 ### 6.6 v2 → v3 package migration table
 
-| v2 package | v3 location | Notes |
-|---|---|---|
-| `stop-wasting-tokens` (root) | `stop-wasting-tokens` (root) | **The published binary.** v3 drops `@swt-labs/{codex,claude-code,ollama}-driver` from `dependencies`; adds `@earendil-works/pi-coding-agent` and `pi-ai` to `peerDependencies`; binary path stays at `./dist/cli.mjs`; tsup-bundled from `packages/cli/src/main.ts`. |
-| `@swt-labs/core` (abstractions/) | `@swt-labs/core/abstractions/` | Sub-export |
-| `@swt-labs/core` (types/) | `@swt-labs/shared/types/` | Migrated to shared |
-| `@swt-labs/core` (handoff/, scaffold/, config/, errors/) | `@swt-labs/core/{handoff,scaffold,config,errors}/` | Sub-exports |
-| `@swt-labs/artifacts` | `@swt-labs/core/artefacts/` | Renamed (British) |
-| `@swt-labs/methodology` | `@swt-labs/core/methodology/` | Sub-export |
-| `@swt-labs/verification` | `@swt-labs/core/verification/` | Sub-export |
-| `@swt-labs/telemetry` | `@swt-labs/core/telemetry/` | Sub-export |
-| `@swt-labs/dashboard-core` | `@swt-labs/shared/schemas/` | Folded |
-| `@swt-labs/cli` | unchanged | |
-| `@swt-labs/dashboard` | unchanged | |
-| `@swt-labs/codex-driver` | **deleted** | |
-| `@swt-labs/claude-code-driver` | **deleted** | |
-| `@swt-labs/ollama-driver` | **deleted** | |
-| (new) | `@swt-labs/runtime` | Pi adapter |
-| (new) | `@swt-labs/orchestration` | Worktree + DAG |
-| (new) | `@swt-labs/shared` | types + schemas |
-| (new) | `@swt-labs/test-utils` | private, cassettes |
+| v2 package                                               | v3 location                                        | Notes                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stop-wasting-tokens` (root)                             | `stop-wasting-tokens` (root)                       | **The published binary.** v3 drops `@swt-labs/{codex,claude-code,ollama}-driver` from `dependencies`; adds `@earendil-works/pi-coding-agent` and `pi-ai` to `peerDependencies`; binary path stays at `./dist/cli.mjs`; tsup-bundled from `packages/cli/src/main.ts`. |
+| `@swt-labs/core` (abstractions/)                         | `@swt-labs/core/abstractions/`                     | Sub-export                                                                                                                                                                                                                                                           |
+| `@swt-labs/core` (types/)                                | `@swt-labs/shared/types/`                          | Migrated to shared                                                                                                                                                                                                                                                   |
+| `@swt-labs/core` (handoff/, scaffold/, config/, errors/) | `@swt-labs/core/{handoff,scaffold,config,errors}/` | Sub-exports                                                                                                                                                                                                                                                          |
+| `@swt-labs/artifacts`                                    | `@swt-labs/core/artefacts/`                        | Renamed (British)                                                                                                                                                                                                                                                    |
+| `@swt-labs/methodology`                                  | `@swt-labs/core/methodology/`                      | Sub-export                                                                                                                                                                                                                                                           |
+| `@swt-labs/verification`                                 | `@swt-labs/core/verification/`                     | Sub-export                                                                                                                                                                                                                                                           |
+| `@swt-labs/telemetry`                                    | `@swt-labs/core/telemetry/`                        | Sub-export                                                                                                                                                                                                                                                           |
+| `@swt-labs/dashboard-core`                               | `@swt-labs/shared/schemas/`                        | Folded                                                                                                                                                                                                                                                               |
+| `@swt-labs/cli`                                          | unchanged                                          |                                                                                                                                                                                                                                                                      |
+| `@swt-labs/dashboard`                                    | unchanged                                          |                                                                                                                                                                                                                                                                      |
+| `@swt-labs/codex-driver`                                 | **deleted**                                        |                                                                                                                                                                                                                                                                      |
+| `@swt-labs/claude-code-driver`                           | **deleted**                                        |                                                                                                                                                                                                                                                                      |
+| `@swt-labs/ollama-driver`                                | **deleted**                                        |                                                                                                                                                                                                                                                                      |
+| (new)                                                    | `@swt-labs/runtime`                                | Pi adapter                                                                                                                                                                                                                                                           |
+| (new)                                                    | `@swt-labs/orchestration`                          | Worktree + DAG                                                                                                                                                                                                                                                       |
+| (new)                                                    | `@swt-labs/shared`                                 | types + schemas                                                                                                                                                                                                                                                      |
+| (new)                                                    | `@swt-labs/test-utils`                             | private, cassettes                                                                                                                                                                                                                                                   |
 
 **Re-export shim policy:** For one minor cycle (v3.0.x), the old `@swt-labs/artifacts`, `@swt-labs/methodology`, `@swt-labs/verification`, `@swt-labs/telemetry`, `@swt-labs/dashboard-core` are kept as thin re-export packages pointing to the new locations. They are **deleted** in v3.1.0. This gives external consumers one minor version to update imports.
 
@@ -1577,12 +1633,12 @@ TDD.md§5.2's claim that the binary moves to `packages/cli/bin/swt.mjs` is **not
 
 The methodology layer **does not name models**. It names tiers. The runtime layer resolves tier→model based on provider availability and configuration.
 
-| Tier | Use case | Example mapping per provider (illustrative) |
-|---|---|---|
-| `cheap-fast` | Scout queries, simple completions, classification | Anthropic: Haiku · OpenAI: gpt-5-mini · GLM: glm-5-air |
-| `balanced` | Dev tasks, QA verification, Lead coordination | Anthropic: Sonnet · OpenAI: gpt-5 · GLM: glm-5 |
-| `quality` | Architect decisions, design trade-offs | Anthropic: Opus · OpenAI: gpt-5-pro · GLM: glm-5-max |
-| `reasoning` | Debugger, deep root-cause analysis | Pi `thinkingLevel: 'xhigh'` per-provider mapped (see §7.1.1) — Anthropic: Opus + xhigh · OpenAI: o-series · DeepSeek-R1 |
+| Tier         | Use case                                          | Example mapping per provider (illustrative)                                                                             |
+| ------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `cheap-fast` | Scout queries, simple completions, classification | Anthropic: Haiku · OpenAI: gpt-5-mini · GLM: glm-5-air                                                                  |
+| `balanced`   | Dev tasks, QA verification, Lead coordination     | Anthropic: Sonnet · OpenAI: gpt-5 · GLM: glm-5                                                                          |
+| `quality`    | Architect decisions, design trade-offs            | Anthropic: Opus · OpenAI: gpt-5-pro · GLM: glm-5-max                                                                    |
+| `reasoning`  | Debugger, deep root-cause analysis                | Pi `thinkingLevel: 'xhigh'` per-provider mapped (see §7.1.1) — Anthropic: Opus + xhigh · OpenAI: o-series · DeepSeek-R1 |
 
 **Tier mapping is configuration, not code.** The mapping table lives in `~/.swt/tiers.json` (user-customizable) with a built-in default `runtime/providers/default-tiers.json`. Users can override per-project at `.swt-planning/tiers.json`.
 
@@ -1605,6 +1661,7 @@ provider-specific value           via ProviderModelConfig.thinkingLevelMap (in q
 ```
 
 **Rule of thumb:**
+
 - The methodology and orchestrator NEVER speak provider strings. They speak SWT tiers (`reasoning`) and Pi thinkingLevels (`xhigh`).
 - The provider boundary (one extension applying `quirks.json`) is the only place provider strings appear.
 - `thinkingLevelMap` keys are Pi `ThinkingLevel` values; map values are provider strings (or `null` for unsupported).
@@ -1612,7 +1669,6 @@ provider-specific value           via ProviderModelConfig.thinkingLevelMap (in q
 **Default tier mapping (illustrative; the shipped file is generated at build time):**
 
 > The model IDs below are illustrative as of May 2026. Pi's docs do **not** enumerate specific model IDs — they document providers and capability fields (`reasoning`, `thinkingLevelMap`, `cost`, `contextWindow`). The actual `runtime/providers/default-tiers.json` is generated by `scripts/gen-default-tiers.mjs` at build time from Pi's runtime provider catalogue, so the table stays current automatically. Hand-overrides live in `~/.swt/tiers.json` or `.swt-planning/tiers.json` per §7.2.
-
 
 ```json
 {
@@ -1647,14 +1703,14 @@ provider-specific value           via ProviderModelConfig.thinkingLevelMap (in q
 
 ### 7.2 Role → tier mapping (default)
 
-| Role | Default tier | Rationale |
-|---|---|---|
-| Scout | `cheap-fast` | Isolated subagent; returns compressed findings. Cost matters; quality matters less. |
-| Architect | `quality` | Isolated; produces plan artefact. One call, high value. |
-| Lead | `balanced` | Coordinates; uses many tools. Cost compounds. |
-| Dev | `balanced` | Bulk work. Token-volume sensitive. |
-| QA | `balanced` (LLM tier) | Static checks first (zero-token); LLM tier only on escalation. |
-| Debugger | `reasoning` | Deep root-cause; willing to pay for reasoning. |
+| Role      | Default tier          | Rationale                                                                           |
+| --------- | --------------------- | ----------------------------------------------------------------------------------- |
+| Scout     | `cheap-fast`          | Isolated subagent; returns compressed findings. Cost matters; quality matters less. |
+| Architect | `quality`             | Isolated; produces plan artefact. One call, high value.                             |
+| Lead      | `balanced`            | Coordinates; uses many tools. Cost compounds.                                       |
+| Dev       | `balanced`            | Bulk work. Token-volume sensitive.                                                  |
+| QA        | `balanced` (LLM tier) | Static checks first (zero-token); LLM tier only on escalation.                      |
+| Debugger  | `reasoning`           | Deep root-cause; willing to pay for reasoning.                                      |
 
 **Override rules:**
 
@@ -1668,13 +1724,13 @@ The `runtime/providers/role-resolver.ts` consults the **router strategy** to cho
 
 **Strategies (configured at `.swt-planning/config.json#router_strategy`):**
 
-| Strategy | Behavior |
-|---|---|
-| `pinned` | Always use the project's configured `default_provider`. No failover unless explicitly enabled. |
-| `round-robin` | Cycle providers per dispatch, weighted by recent success rate. |
-| `tier-routed` | Choose the cheapest provider that meets the tier (uses `cost.input + cost.output × expected_ratio`). |
-| `cost-optimized` | Like tier-routed but also factors `cacheRead` discount. Aggressive. Recommended for high-volume phases. |
-| `quality-pinned-cost-failover` | Use the user's preferred provider; on failure, fall back through a configured cost-sorted list. |
+| Strategy                       | Behavior                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `pinned`                       | Always use the project's configured `default_provider`. No failover unless explicitly enabled.          |
+| `round-robin`                  | Cycle providers per dispatch, weighted by recent success rate.                                          |
+| `tier-routed`                  | Choose the cheapest provider that meets the tier (uses `cost.input + cost.output × expected_ratio`).    |
+| `cost-optimized`               | Like tier-routed but also factors `cacheRead` discount. Aggressive. Recommended for high-volume phases. |
+| `quality-pinned-cost-failover` | Use the user's preferred provider; on failure, fall back through a configured cost-sorted list.         |
 
 Default strategy: `tier-routed`. The Architect role is hard-pinned to the user's preferred quality provider (no router for one-shot high-value calls).
 
@@ -1682,15 +1738,15 @@ Default strategy: `tier-routed`. The Architect role is hard-pinned to the user's
 
 When a provider call fails, the failover module decides whether to retry, switch providers, or hard-fail:
 
-| Error class | Behavior | Retry budget |
-|---|---|---|
-| 5xx from provider | Retry on same provider with exponential backoff | 3 attempts, 1s/3s/9s |
-| 429 rate-limit | Wait for `Retry-After` header; if absent, wait 30s | 2 attempts |
-| 401/403 auth | Hard-fail, surface to dashboard, request user `/login` | 0 retries |
-| Network timeout | Retry on same provider | 2 attempts |
-| `auto_retry_*` Pi-level events | Already retrying inside Pi; do not double-retry at runtime | n/a |
-| All retries exhausted | Fall back to next provider in strategy's list | 1 cross-provider attempt |
-| Cross-provider exhausted | Pause task, mark BLOCKED in journal, notify dashboard | n/a |
+| Error class                    | Behavior                                                   | Retry budget             |
+| ------------------------------ | ---------------------------------------------------------- | ------------------------ |
+| 5xx from provider              | Retry on same provider with exponential backoff            | 3 attempts, 1s/3s/9s     |
+| 429 rate-limit                 | Wait for `Retry-After` header; if absent, wait 30s         | 2 attempts               |
+| 401/403 auth                   | Hard-fail, surface to dashboard, request user `/login`     | 0 retries                |
+| Network timeout                | Retry on same provider                                     | 2 attempts               |
+| `auto_retry_*` Pi-level events | Already retrying inside Pi; do not double-retry at runtime | n/a                      |
+| All retries exhausted          | Fall back to next provider in strategy's list              | 1 cross-provider attempt |
+| Cross-provider exhausted       | Pause task, mark BLOCKED in journal, notify dashboard      | n/a                      |
 
 The retry budget is **shared** across `runtime/providers/failover.ts` and Pi's built-in `auto_retry_*` mechanism. The failover module subscribes to `auto_retry_start` / `auto_retry_end` events and counts those as Pi-level retries.
 
@@ -1713,18 +1769,18 @@ Instead of one TypeScript file per provider (TDD.md's approach), v3 uses a singl
     "models": {
       "claude-opus-4-7": {
         "thinkingLevelMap": {
-          "off":     null,
+          "off": null,
           "minimal": null,
-          "low":     null,
-          "medium":  "low",
-          "high":    "medium",
-          "xhigh":   "high"     // Anthropic's API caps extended thinking at "high"
-        }
-      }
+          "low": null,
+          "medium": "low",
+          "high": "medium",
+          "xhigh": "high", // Anthropic's API caps extended thinking at "high"
+        },
+      },
     },
     "compat": {
-      "supportsLongCacheRetention": true
-    }
+      "supportsLongCacheRetention": true,
+    },
   },
   "openai": {
     "models": {
@@ -1732,28 +1788,28 @@ Instead of one TypeScript file per provider (TDD.md's approach), v3 uses a singl
         "compat": {
           "maxTokensField": "max_completion_tokens",
           "supportsDeveloperRole": true,
-          "supportsReasoningEffort": true
+          "supportsReasoningEffort": true,
         },
         "thinkingLevelMap": {
-          "off":     null,
+          "off": null,
           "minimal": "minimal",
-          "low":     "low",
-          "medium":  "medium",
-          "high":    "high",
-          "xhigh":   "high"     // gpt-5 family tops out at "high" reasoning_effort
-        }
-      }
-    }
+          "low": "low",
+          "medium": "medium",
+          "high": "high",
+          "xhigh": "high", // gpt-5 family tops out at "high" reasoning_effort
+        },
+      },
+    },
   },
   "openrouter": {
     "models": {
       "deepseek/*": {
         "compat": {
-          "thinkingFormat": "deepseek"
-        }
-      }
-    }
-  }
+          "thinkingFormat": "deepseek",
+        },
+      },
+    },
+  },
 }
 ```
 
@@ -1813,7 +1869,7 @@ The token meter aggregates input/output/cache tokens per session, per task, per 
   "output": 1820,
   "cacheRead": 9800,
   "cacheWrite": 0,
-  "cost_usd": 0.0287
+  "cost_usd": 0.0287,
 }
 ```
 
@@ -1884,9 +1940,9 @@ No explicit cache; SWT v3 emits no `cache_control` blocks. The deterministic-pre
 
 ```ts
 interface PromptContext {
-  systemPrompt: string;                       // role-specific
-  blocks: ContentBlock[];                     // ordered, deterministic
-  cacheBreakpointIndex: number;               // where the provider should insert cache_control
+  systemPrompt: string; // role-specific
+  blocks: ContentBlock[]; // ordered, deterministic
+  cacheBreakpointIndex: number; // where the provider should insert cache_control
 }
 ```
 
@@ -1918,14 +1974,14 @@ The Budget Gate enforces token-cost ceilings and dynamically downgrades behavior
 {
   "budget": {
     "currency": "USD",
-    "milestone_ceiling": 50.00,
-    "phase_ceiling": 10.00,
-    "task_ceiling": 1.00,
+    "milestone_ceiling": 50.0,
+    "phase_ceiling": 10.0,
+    "task_ceiling": 1.0,
     "pressure_thresholds": {
-      "downgrade_at": 0.70,         // at 70% of ceiling, downgrade tiers one step
-      "pause_at": 0.95              // at 95%, pause milestone, notify dashboard
-    }
-  }
+      "downgrade_at": 0.7, // at 70% of ceiling, downgrade tiers one step
+      "pause_at": 0.95, // at 95%, pause milestone, notify dashboard
+    },
+  },
 }
 ```
 
@@ -1950,9 +2006,9 @@ Pi's native compaction is enabled and tuned per role:
     "per_role": {
       "scout": { "keepRecentTokens": 8000 },
       "architect": { "keepRecentTokens": 30000 },
-      "debugger": { "keepRecentTokens": 50000 }
-    }
-  }
+      "debugger": { "keepRecentTokens": 50000 },
+    },
+  },
 }
 ```
 
@@ -2026,7 +2082,7 @@ Every dispatched task gets its own git worktree at `.swt-planning/parallel/wt-<t
   "pid": 12345,
   "session_id": "pi-session-abc123",
   "claims": ["packages/runtime/src/session.ts"],
-  "branch_base": "feat/v3-foundation"
+  "branch_base": "feat/v3-foundation",
 }
 ```
 
@@ -2056,7 +2112,7 @@ The claim registry prevents two parallel tasks from editing the same file.
   "claims": ["packages/runtime/src/session.ts", "packages/runtime/test/session.test.ts"],
   "acquired_at": "2026-05-11T14:00:00.000Z",
   "released_at": null,
-  "worktree_path": ".swt-planning/parallel/wt-T-2026-05-11-001/"
+  "worktree_path": ".swt-planning/parallel/wt-T-2026-05-11-001/",
 }
 ```
 
@@ -2112,22 +2168,30 @@ export const TaskResultSchema = z.object({
     z.literal('blocked'),
   ]),
   summary: z.string().max(4096),
-  files_changed: z.array(z.object({
-    path: z.string(),
-    action: z.union([z.literal('created'), z.literal('modified'), z.literal('deleted')]),
-    bytes_before: z.number().int().nonnegative(),
-    bytes_after: z.number().int().nonnegative(),
-    sha256_after: z.string().regex(/^[0-9a-f]{64}$/),
-  })),
-  must_haves: z.array(z.object({
-    id: z.string(),
-    status: z.union([z.literal('passed'), z.literal('failed'), z.literal('skipped')]),
-    evidence: z.string().optional(),
-  })),
-  follow_up_tasks: z.array(z.object({
-    description: z.string(),
-    suggested_role: z.string().optional(),
-  })).optional(),
+  files_changed: z.array(
+    z.object({
+      path: z.string(),
+      action: z.union([z.literal('created'), z.literal('modified'), z.literal('deleted')]),
+      bytes_before: z.number().int().nonnegative(),
+      bytes_after: z.number().int().nonnegative(),
+      sha256_after: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+  ),
+  must_haves: z.array(
+    z.object({
+      id: z.string(),
+      status: z.union([z.literal('passed'), z.literal('failed'), z.literal('skipped')]),
+      evidence: z.string().optional(),
+    }),
+  ),
+  follow_up_tasks: z
+    .array(
+      z.object({
+        description: z.string(),
+        suggested_role: z.string().optional(),
+      }),
+    )
+    .optional(),
   artefacts_written: z.array(z.string()).optional(),
   blockers: z.array(z.string()).optional(),
   notes: z.string().optional(),
@@ -2146,7 +2210,8 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: 'swt_report_result',
     label: 'Report SWT task result',
-    description: 'Persist the SWT task result envelope before exiting. Call this exactly once at the end of the task. After calling, do not produce more text; the orchestrator harvests immediately.',
+    description:
+      'Persist the SWT task result envelope before exiting. Call this exactly once at the end of the task. After calling, do not produce more text; the orchestrator harvests immediately.',
     promptSnippet: 'swt_report_result — finalize the task and exit',
     promptGuidelines: [
       'Call swt_report_result exactly once before stopping.',
@@ -2161,15 +2226,27 @@ export default function (pi: ExtensionAPI) {
         Type.Literal('blocked'),
       ]),
       summary: Type.String({ minLength: 1, maxLength: 4096 }),
-      files_changed: Type.Array(Type.Object({
-        path: Type.String(),
-        action: Type.Union([Type.Literal('created'), Type.Literal('modified'), Type.Literal('deleted')]),
-      })),
-      must_haves: Type.Array(Type.Object({
-        id: Type.String(),
-        status: Type.Union([Type.Literal('passed'), Type.Literal('failed'), Type.Literal('skipped')]),
-        evidence: Type.Optional(Type.String()),
-      })),
+      files_changed: Type.Array(
+        Type.Object({
+          path: Type.String(),
+          action: Type.Union([
+            Type.Literal('created'),
+            Type.Literal('modified'),
+            Type.Literal('deleted'),
+          ]),
+        }),
+      ),
+      must_haves: Type.Array(
+        Type.Object({
+          id: Type.String(),
+          status: Type.Union([
+            Type.Literal('passed'),
+            Type.Literal('failed'),
+            Type.Literal('skipped'),
+          ]),
+          evidence: Type.Optional(Type.String()),
+        }),
+      ),
       blockers: Type.Optional(Type.Array(Type.String())),
       notes: Type.Optional(Type.String()),
     }),
@@ -2181,7 +2258,10 @@ export default function (pi: ExtensionAPI) {
       pi.appendEntry('swt-task-result', enriched);
       return {
         content: [
-          { type: 'text', text: `Task result recorded: ${params.status} (${params.must_haves.length} must-haves checked).` },
+          {
+            type: 'text',
+            text: `Task result recorded: ${params.status} (${params.must_haves.length} must-haves checked).`,
+          },
         ],
         details: enriched,
         terminate: true,
@@ -2192,7 +2272,9 @@ export default function (pi: ExtensionAPI) {
   // Defensive harvester: if the agent ends without calling swt_report_result, mark as malformed
   pi.on('agent_end', (event, ctx) => {
     const entries = ctx.sessionManager.getEntries();
-    const resultEntry = entries.find(e => e.type === 'custom' && (e as any).customType === 'swt-task-result');
+    const resultEntry = entries.find(
+      (e) => e.type === 'custom' && (e as any).customType === 'swt-task-result',
+    );
     if (!resultEntry) {
       pi.appendEntry('swt-task-result', {
         schema_version: 1,
@@ -2213,7 +2295,9 @@ export default function (pi: ExtensionAPI) {
 ```ts
 // packages/orchestration/src/dispatcher.ts (sketch)
 async function dispatch(task: TaskBrief): Promise<TaskResult> {
-  const session = await createSession({ /* ... */ });
+  const session = await createSession({
+    /* ... */
+  });
   const promptCtx = await buildPrompt({ role: task.role, task, phase: task.phase, artefacts });
   await session.prompt(renderPrompt(promptCtx));
 
@@ -2223,7 +2307,7 @@ async function dispatch(task: TaskBrief): Promise<TaskResult> {
   // Parse result from session entries (durable across restarts)
   const sessionFile = session.sessionFile;
   const result = parseTaskResultFromSession(sessionFile);
-  return TaskResultSchema.parse(result);  // throw if malformed
+  return TaskResultSchema.parse(result); // throw if malformed
 }
 ```
 
@@ -2279,12 +2363,12 @@ Beyond crash recovery, two operational concerns matter:
 
 After a task completes (success, failed, or blocked), the worktree manager decides whether to keep or remove the worktree:
 
-| Status | Default policy | Override |
-|---|---|---|
-| `success` | Remove after merging to phase branch | `config.keep_successful_worktrees: true` |
-| `partial` | Keep (user may resume) | manual cleanup via `swt cleanup` |
-| `failed` | Keep (forensics) | `config.gc_failed_worktrees_after_days: N` |
-| `blocked` | Keep (user intervention) | manual cleanup |
+| Status    | Default policy                       | Override                                   |
+| --------- | ------------------------------------ | ------------------------------------------ |
+| `success` | Remove after merging to phase branch | `config.keep_successful_worktrees: true`   |
+| `partial` | Keep (user may resume)               | manual cleanup via `swt cleanup`           |
+| `failed`  | Keep (forensics)                     | `config.gc_failed_worktrees_after_days: N` |
+| `blocked` | Keep (user intervention)             | manual cleanup                             |
 
 A separate `swt cleanup` verb (new in M3) sweeps old worktrees by age and status. The dashboard's Worktrees panel shows the retention age and exposes a one-click delete.
 
@@ -2296,14 +2380,14 @@ A separate `swt cleanup` verb (new in M3) sweeps old worktrees by age and status
 
 ### 10.1 Role definitions
 
-| Role | Mission | Output artefact | Default tier | Default tool subset |
-|---|---|---|---|---|
-| **Scout** | Compress a codebase region into a short, accurate brief | `scout-brief.md` (≤2 KB) | `cheap-fast` | `read`, `grep`, `find`, `ls` (read-only) |
-| **Architect** | Decide a phase-plan or design trade-off; produce a plan artefact | `plan-NN.md` | `quality` | `read`, `grep`, `find`, `ls` |
-| **Lead** | Coordinate the phase: parse plan, dispatch dev tasks, integrate results | `phase-summary.md` | `balanced` | All tools (full coding set) |
-| **Dev** | Implement a single task end-to-end inside its worktree | `swt-task-result` entry | `balanced` | All tools (full coding set) scoped to worktree |
-| **QA** | Run goal-backward verification; gate phase completion | `qa-report.md` | `balanced` (LLM tier; static checks first) | `read`, `bash` (read + run tests/lints) |
-| **Debugger** | Root-cause a failure that other roles couldn't resolve | `debug-report.md` | `reasoning` | All tools + extended thinking |
+| Role          | Mission                                                                 | Output artefact          | Default tier                               | Default tool subset                            |
+| ------------- | ----------------------------------------------------------------------- | ------------------------ | ------------------------------------------ | ---------------------------------------------- |
+| **Scout**     | Compress a codebase region into a short, accurate brief                 | `scout-brief.md` (≤2 KB) | `cheap-fast`                               | `read`, `grep`, `find`, `ls` (read-only)       |
+| **Architect** | Decide a phase-plan or design trade-off; produce a plan artefact        | `plan-NN.md`             | `quality`                                  | `read`, `grep`, `find`, `ls`                   |
+| **Lead**      | Coordinate the phase: parse plan, dispatch dev tasks, integrate results | `phase-summary.md`       | `balanced`                                 | All tools (full coding set)                    |
+| **Dev**       | Implement a single task end-to-end inside its worktree                  | `swt-task-result` entry  | `balanced`                                 | All tools (full coding set) scoped to worktree |
+| **QA**        | Run goal-backward verification; gate phase completion                   | `qa-report.md`           | `balanced` (LLM tier; static checks first) | `read`, `bash` (read + run tests/lints)        |
+| **Debugger**  | Root-cause a failure that other roles couldn't resolve                  | `debug-report.md`        | `reasoning`                                | All tools + extended thinking                  |
 
 Each role's full prompt and tool-subset definition lives in `packages/core/methodology/profiles/<role>.ts`. Prompt files are co-located: `packages/core/methodology/profiles/<role>.prompt.md`.
 
@@ -2358,12 +2442,18 @@ Role tool subsets are enforced at session creation:
 // packages/orchestration/src/dispatcher.ts (sketch)
 function toolsForRole(role: Role, cwd: string): AgentTool[] {
   switch (role) {
-    case 'scout':     return createReadOnlyTools(cwd);
-    case 'architect': return createReadOnlyTools(cwd);
-    case 'lead':      return createCodingTools(cwd);
-    case 'dev':       return createCodingTools(cwd);
-    case 'qa':        return [...createReadOnlyTools(cwd), createBashTool(cwd)];
-    case 'debugger':  return createCodingTools(cwd);
+    case 'scout':
+      return createReadOnlyTools(cwd);
+    case 'architect':
+      return createReadOnlyTools(cwd);
+    case 'lead':
+      return createCodingTools(cwd);
+    case 'dev':
+      return createCodingTools(cwd);
+    case 'qa':
+      return [...createReadOnlyTools(cwd), createBashTool(cwd)];
+    case 'debugger':
+      return createCodingTools(cwd);
   }
 }
 ```
@@ -2372,14 +2462,14 @@ The Pi session is created with `tools: toolsForRole(role, worktreePath)`. The ro
 
 ### 10.5 Per-role session and thinking-level discipline
 
-| Role | Session mode | Thinking level | Compaction tuning |
-|---|---|---|---|
-| Scout | Ephemeral (`SessionManager.inMemory()`) | `off` | n/a (sessions stay small) |
-| Architect | Ephemeral but optionally persistent for forensics | `medium` for normal; `high` for design-heavy phases | `keepRecentTokens: 30000` |
-| Lead | Persistent per phase; multiple dispatches share | `low` (mostly tool-calling) | default |
-| Dev | Ephemeral per task | `low` for routine; `medium` for tricky | default |
-| QA | Ephemeral | `low` | default |
-| Debugger | Persistent per investigation | `xhigh` (per §7.1.1; the provider-level fallback to `high` happens in `thinkingLevelMap` when a model can't accept `xhigh`) | `keepRecentTokens: 50000` |
+| Role      | Session mode                                      | Thinking level                                                                                                              | Compaction tuning         |
+| --------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Scout     | Ephemeral (`SessionManager.inMemory()`)           | `off`                                                                                                                       | n/a (sessions stay small) |
+| Architect | Ephemeral but optionally persistent for forensics | `medium` for normal; `high` for design-heavy phases                                                                         | `keepRecentTokens: 30000` |
+| Lead      | Persistent per phase; multiple dispatches share   | `low` (mostly tool-calling)                                                                                                 | default                   |
+| Dev       | Ephemeral per task                                | `low` for routine; `medium` for tricky                                                                                      | default                   |
+| QA        | Ephemeral                                         | `low`                                                                                                                       | default                   |
+| Debugger  | Persistent per investigation                      | `xhigh` (per §7.1.1; the provider-level fallback to `high` happens in `thinkingLevelMap` when a model can't accept `xhigh`) | `keepRecentTokens: 50000` |
 
 These map onto Pi via the `thinkingLevel` option to `createAgentSession` and the per-session compaction overrides applied in the session wrapper. The Pi value flows through `quirks.json` to the provider-specific field; SWT code only ever sees Pi's `ThinkingLevel` enum.
 
@@ -2445,7 +2535,7 @@ const MustHaveSchema = z.object({
     z.object({ kind: z.literal('tests'), command: z.string(), expect_exit: z.number().default(0) }),
     z.object({ kind: z.literal('grep'), pattern: z.string(), expect_match: z.boolean() }),
     z.object({ kind: z.literal('file-exists'), path: z.string() }),
-    z.object({ kind: z.literal('llm-check'), prompt: z.string() }),  // last resort
+    z.object({ kind: z.literal('llm-check'), prompt: z.string() }), // last resort
   ]),
   priority: z.union([z.literal('P0'), z.literal('P1'), z.literal('P2')]),
 });
@@ -2509,28 +2599,29 @@ Two v2.3.5 source-edges violate Constitutional Principles 1 and 3 and must be br
 **Edge B — `cli → {codex,claude-code,ollama}-driver`** (Principle 3 violation, three driver edges):
 
 Source imports (verified against v2.3.5 source):
+
 - `packages/cli/src/commands/vibe.ts` imports **three** spawners: `CodexAgentSpawner` from `@swt-labs/codex-driver`, `ClaudeCodeAgentSpawner` from `@swt-labs/claude-code-driver`, and `OllamaAgentSpawner` from `@swt-labs/ollama-driver`.
 - `packages/cli/src/commands/doctor.ts` imports `detectCodexVersion` + `CodexVersion` from `@swt-labs/codex-driver`.
 
-The vibe.ts case is the worse violation: a single source file imports *every* driver package, with imperative `if/else` logic inside the verb to pick which spawner to instantiate based on the `backend:` config field. v3 collapses all three into a single `SpawnerEnvironment.getSpawner()` call that returns an `AgentSpawner` regardless of backend.
+The vibe.ts case is the worse violation: a single source file imports _every_ driver package, with imperative `if/else` logic inside the verb to pick which spawner to instantiate based on the `backend:` config field. v3 collapses all three into a single `SpawnerEnvironment.getSpawner()` call that returns an `AgentSpawner` regardless of backend.
 
 **How v3 breaks both:**
 
-| Edge | Replacement | Concretely |
-|---|---|---|
-| methodology → codex-driver (`writeAgentsMdBlock`) | `core/abstractions/AgentSpawner` interface call | The v2 concrete (codex-driver's spawner) is deleted; v3's concrete is `orchestration/dispatcher.ts` which goes through `runtime/`. TOML hook emission and path resolution disappear entirely (Pi doesn't consume TOML). |
+| Edge                                                                                                                                                            | Replacement                                                  | Concretely                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| methodology → codex-driver (`writeAgentsMdBlock`)                                                                                                               | `core/abstractions/AgentSpawner` interface call              | The v2 concrete (codex-driver's spawner) is deleted; v3's concrete is `orchestration/dispatcher.ts` which goes through `runtime/`. TOML hook emission and path resolution disappear entirely (Pi doesn't consume TOML).         |
 | cli → {codex,claude-code,ollama}-driver (`CodexAgentSpawner`, `ClaudeCodeAgentSpawner`, `OllamaAgentSpawner` from vibe.ts; `detectCodexVersion` from doctor.ts) | `core/abstractions/SpawnerEnvironment` (new minimal adapter) | `doctor` queries the abstraction's `probe()`; `vibe` requests a spawner via `env.getSpawner()`. The backend-selection if/else inside vibe.ts moves into `SpawnerEnvironment.getSpawner()`. CLI never imports a driver directly. |
 
 **The PR sequence in M1 (canonical numbering matches §13.1.2):**
 
-| PR | Subject |
-|---|---|
-| **PR-01a** *(entry gate)* | Break `methodology → codex-driver`: replace the `bootstrap.ts` import with the `AgentSpawner` abstraction; remove the dep from `methodology/package.json`; update affected tests. |
-| **PR-01b** *(entry gate)* | Break `cli → {codex,claude-code,ollama}-driver`: introduce `core/abstractions/SpawnerEnvironment`; rewire `cli/commands/vibe.ts` (removes 3 spawner imports + the backend if/else dispatch) and `cli/commands/doctor.ts` (removes detectCodexVersion + CodexVersion). |
-| PR-02 | Add `packages/runtime/` skeleton with mock `AgentSpawner` impl; methodology tests pass against the mock. |
-| PR-03 | Add `packages/orchestration/` with `AgentSpawner` impl going through `runtime/`. |
-| PR-04 | Add `packages/shared/` (types + Zod schemas). |
-| PR-05 | Delete `packages/{codex,claude-code,ollama}-driver/`; regenerate `pnpm-lock.yaml`. |
+| PR                        | Subject                                                                                                                                                                                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PR-01a** _(entry gate)_ | Break `methodology → codex-driver`: replace the `bootstrap.ts` import with the `AgentSpawner` abstraction; remove the dep from `methodology/package.json`; update affected tests.                                                                                     |
+| **PR-01b** _(entry gate)_ | Break `cli → {codex,claude-code,ollama}-driver`: introduce `core/abstractions/SpawnerEnvironment`; rewire `cli/commands/vibe.ts` (removes 3 spawner imports + the backend if/else dispatch) and `cli/commands/doctor.ts` (removes detectCodexVersion + CodexVersion). |
+| PR-02                     | Add `packages/runtime/` skeleton with mock `AgentSpawner` impl; methodology tests pass against the mock.                                                                                                                                                              |
+| PR-03                     | Add `packages/orchestration/` with `AgentSpawner` impl going through `runtime/`.                                                                                                                                                                                      |
+| PR-04                     | Add `packages/shared/` (types + Zod schemas).                                                                                                                                                                                                                         |
+| PR-05                     | Delete `packages/{codex,claude-code,ollama}-driver/`; regenerate `pnpm-lock.yaml`.                                                                                                                                                                                    |
 
 **M1 entry gate** = PR-01a **and** PR-01b both merged. The entry-gate grep invariant (§13.1.1) must return zero hits before PR-02 can land. The M1 exit gate (§13.1.3) is much broader and lands the rest of the table above.
 
@@ -2573,46 +2664,47 @@ The Hono server at `packages/dashboard/src/server/index.ts` is bound to `127.0.0
 
 **17 HTTP routes registered (verified by grep):**
 
-| Route | Method | Purpose | v3 disposition |
-|---|---|---|---|
-| `/api/health` | GET | liveness | preserved |
-| `/api/snapshot` | GET | current STATE.md + derived state | preserved |
-| `/api/events` | GET | SSE event stream | **rewired** to consume Pi events through `runtime/` |
-| `/api/commands` | GET | list available CLI verbs (mirror) | preserved, table updated for v3 verbs |
-| `/api/command` | POST | invoke a CLI verb from the dashboard | preserved, allow-list updated |
-| `/api/config` | GET | read `.swt-planning/config.json` | preserved |
-| `/api/config` | POST | write `.swt-planning/config.json` (Zod-validated) | preserved, schema extended for v3 fields |
-| `/api/doctor` | GET | environment probe | **rewired** to check Pi instead of Codex |
-| `/api/detect-phase` | GET | infer current phase from STATE.md | preserved |
-| `/api/init` | POST | bootstrap a new project | preserved |
-| `/api/artifact` | GET | read an artefact file (PROJECT.md, etc.) | preserved |
-| `/api/vibe` | POST | start a vibe session | **rewired** to call new `methodology-agent` instead of codex variant |
-| `/api/vibe/:session_id/reply` | POST | reply within a vibe session | preserved, session backend swapped |
-| `/api/uat/:phase/checkpoint` | POST | record a UAT checkpoint | preserved |
-| `/api/update` | GET | check for new SWT version on npm | preserved |
-| `/api/update/apply` | POST | trigger `swt update` from dashboard | preserved |
-| `/api/_debug/emit` | POST | test-only event emitter | preserved (test-only) |
+| Route                         | Method | Purpose                                           | v3 disposition                                                       |
+| ----------------------------- | ------ | ------------------------------------------------- | -------------------------------------------------------------------- |
+| `/api/health`                 | GET    | liveness                                          | preserved                                                            |
+| `/api/snapshot`               | GET    | current STATE.md + derived state                  | preserved                                                            |
+| `/api/events`                 | GET    | SSE event stream                                  | **rewired** to consume Pi events through `runtime/`                  |
+| `/api/commands`               | GET    | list available CLI verbs (mirror)                 | preserved, table updated for v3 verbs                                |
+| `/api/command`                | POST   | invoke a CLI verb from the dashboard              | preserved, allow-list updated                                        |
+| `/api/config`                 | GET    | read `.swt-planning/config.json`                  | preserved                                                            |
+| `/api/config`                 | POST   | write `.swt-planning/config.json` (Zod-validated) | preserved, schema extended for v3 fields                             |
+| `/api/doctor`                 | GET    | environment probe                                 | **rewired** to check Pi instead of Codex                             |
+| `/api/detect-phase`           | GET    | infer current phase from STATE.md                 | preserved                                                            |
+| `/api/init`                   | POST   | bootstrap a new project                           | preserved                                                            |
+| `/api/artifact`               | GET    | read an artefact file (PROJECT.md, etc.)          | preserved                                                            |
+| `/api/vibe`                   | POST   | start a vibe session                              | **rewired** to call new `methodology-agent` instead of codex variant |
+| `/api/vibe/:session_id/reply` | POST   | reply within a vibe session                       | preserved, session backend swapped                                   |
+| `/api/uat/:phase/checkpoint`  | POST   | record a UAT checkpoint                           | preserved                                                            |
+| `/api/update`                 | GET    | check for new SWT version on npm                  | preserved                                                            |
+| `/api/update/apply`           | POST   | trigger `swt update` from dashboard               | preserved                                                            |
+| `/api/_debug/emit`            | POST   | test-only event emitter                           | preserved (test-only)                                                |
 
 **New routes added in v3** (table separated to keep the v2 audit honest):
 
-| Route | Method | Purpose | Lands in |
-|---|---|---|---|
-| `/api/worktrees` | GET | list active worktrees (§12.3.1) | M3 |
-| `/api/worktrees/sse` | GET | SSE stream of worktree state | M3 |
-| `/api/worktrees/:id/abort` | POST | abort an active worktree | M3 |
-| `/api/meter/sse` | GET | token-meter SSE stream (feeds Cache Hits + Cost panels) | M4 |
-| `/api/cache-hits/sse` | GET | cache-hit ratio stream (§12.3.2) | M4 |
-| `/api/cost/sse` | GET | per-provider cost stream (§12.3.4) | M5 |
-| `/api/budget/sse` | GET | budget-state SSE (§12.3.3) | M4 |
-| `/api/budget/resume` | POST | resume after budget pause | M4 |
-| `/api/bench/sse` | GET | TPAC trend (§12.3.5) | M4 |
-| `/api/metrics` | GET | Prometheus exposition (§16.2); opt-in via config flag | M2 |
+| Route                      | Method | Purpose                                                 | Lands in |
+| -------------------------- | ------ | ------------------------------------------------------- | -------- |
+| `/api/worktrees`           | GET    | list active worktrees (§12.3.1)                         | M3       |
+| `/api/worktrees/sse`       | GET    | SSE stream of worktree state                            | M3       |
+| `/api/worktrees/:id/abort` | POST   | abort an active worktree                                | M3       |
+| `/api/meter/sse`           | GET    | token-meter SSE stream (feeds Cache Hits + Cost panels) | M4       |
+| `/api/cache-hits/sse`      | GET    | cache-hit ratio stream (§12.3.2)                        | M4       |
+| `/api/cost/sse`            | GET    | per-provider cost stream (§12.3.4)                      | M5       |
+| `/api/budget/sse`          | GET    | budget-state SSE (§12.3.3)                              | M4       |
+| `/api/budget/resume`       | POST   | resume after budget pause                               | M4       |
+| `/api/bench/sse`           | GET    | TPAC trend (§12.3.5)                                    | M4       |
+| `/api/metrics`             | GET    | Prometheus exposition (§16.2); opt-in via config flag   | M2       |
 
 ### 12.2 SSE bridge: from Codex events to Pi events
 
 The v2 events are emitted by the methodology layer when codex's hooks fire. In v3, the source changes:
 
 **v2 flow:**
+
 ```
 codex exec ──hooks.json──► .codex-plugin/hook handlers
                                      │
@@ -2624,6 +2716,7 @@ codex exec ──hooks.json──► .codex-plugin/hook handlers
 ```
 
 **v3 flow:**
+
 ```
 Pi session ──subscribe()──► runtime/events.ts (normalize)
                                      │
@@ -2691,10 +2784,7 @@ v2.x has `DashboardPermissionGate` (session-keyed for vibe sessions). The deferr
 // packages/dashboard/src/server/vibe/permission-gate.ts (extended in v3)
 
 export interface PermissionGate {
-  authorize(
-    operation: ProtectedOperation,
-    context: PermissionContext,
-  ): Promise<PermissionDecision>;
+  authorize(operation: ProtectedOperation, context: PermissionContext): Promise<PermissionDecision>;
 }
 
 export class DashboardPermissionGate implements PermissionGate {
@@ -2748,7 +2838,7 @@ The snapshot subsystem (`server/snapshot/`) builds a reactive in-memory model of
 
 > **Δ from TDD.md§11:** TDD.md§11 listed milestones and gates. TDD2§13 expands each milestone with: deliverables at file/PR level, the exit gate criteria, exit-interview checklist, rollback plan, and explicit risk register.
 
-**Reading the deliverable tables:** each milestone's table lists the *infrastructure-bearing* PRs that gate the milestone's exit. The ex-stub verb implementations promised by the §3.2.4 disposition table land **within these same PRs** (e.g., `swt plan` lands in M2 PR-12 because PR-12 is "Lead through dispatcher" — `swt plan` is the user-facing surface of that work) or as small follow-up PRs sharing the milestone's branch. The disposition table is the authoritative per-verb milestone assignment; the per-milestone tables below are the authoritative per-infra-PR list. The two cross-reference; neither subsumes the other.
+**Reading the deliverable tables:** each milestone's table lists the _infrastructure-bearing_ PRs that gate the milestone's exit. The ex-stub verb implementations promised by the §3.2.4 disposition table land **within these same PRs** (e.g., `swt plan` lands in M2 PR-12 because PR-12 is "Lead through dispatcher" — `swt plan` is the user-facing surface of that work) or as small follow-up PRs sharing the milestone's branch. The disposition table is the authoritative per-verb milestone assignment; the per-milestone tables below are the authoritative per-infra-PR list. The two cross-reference; neither subsumes the other.
 
 ### 13.1 M1 — Foundation (target: 2 weeks)
 
@@ -2765,20 +2855,20 @@ PR-01a + PR-01b both merged on the v3 branch:
 
 #### 13.1.2 Deliverables (per PR)
 
-| PR | Subject | Files touched |
-|---|---|---|
-| PR-01a (entry gate) | Break `methodology → codex-driver` | `packages/methodology/package.json` (remove dep), `packages/methodology/src/vibe/handlers/bootstrap.ts` (replace `writeAgentsMdBlock` import with `AgentSpawner` call), affected tests |
-| PR-01b (entry gate) | Break `cli → {codex,claude-code,ollama}-driver` (3 spawner imports in vibe.ts + doctor.ts driver imports) | `packages/cli/src/commands/vibe.ts`, `packages/cli/src/commands/doctor.ts`, `packages/core/src/abstractions/SpawnerEnvironment.ts` (new), affected tests |
-| PR-02 | Add `packages/runtime/` skeleton | new directory; `package.json` peerDep on `@earendil-works/pi-coding-agent`; mock impl |
-| PR-03 | Add `packages/orchestration/` skeleton | new directory; mock dispatcher; mock worktree manager |
-| PR-04 | Add `packages/shared/` | new; consolidate types from `core/types/` + `dashboard-core/schemas/` |
-| PR-05 | Delete `codex-driver`, `claude-code-driver`, `ollama-driver` | 3 dirs deleted; root `package.json` deps updated; lockfile regenerated |
-| PR-06 | Cassette infrastructure online | `packages/test-utils/cassettes/`; recorder + replayer; one Scout cassette as proof |
-| PR-07 | Token meter wired to mock provider | `runtime/meter/`; integration test asserting byte-identical replay |
-| PR-08 | Provider quirks scaffold | `runtime/providers/quirks.json` + role-resolver; tier→model map; tests |
-| PR-09 | First end-to-end (mocked Pi) | Scout task dispatched through dispatcher → mocked Pi → result harvested |
-| PR-10 | Documentation pass | docs/ updated to remove codex references; this TDD2 referenced |
-| PR-11 | Make CI test step required | `ci.yml` `continue-on-error: false`; 33 v2.x failures remediated |
+| PR                  | Subject                                                                                                   | Files touched                                                                                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR-01a (entry gate) | Break `methodology → codex-driver`                                                                        | `packages/methodology/package.json` (remove dep), `packages/methodology/src/vibe/handlers/bootstrap.ts` (replace `writeAgentsMdBlock` import with `AgentSpawner` call), affected tests |
+| PR-01b (entry gate) | Break `cli → {codex,claude-code,ollama}-driver` (3 spawner imports in vibe.ts + doctor.ts driver imports) | `packages/cli/src/commands/vibe.ts`, `packages/cli/src/commands/doctor.ts`, `packages/core/src/abstractions/SpawnerEnvironment.ts` (new), affected tests                               |
+| PR-02               | Add `packages/runtime/` skeleton                                                                          | new directory; `package.json` peerDep on `@earendil-works/pi-coding-agent`; mock impl                                                                                                  |
+| PR-03               | Add `packages/orchestration/` skeleton                                                                    | new directory; mock dispatcher; mock worktree manager                                                                                                                                  |
+| PR-04               | Add `packages/shared/`                                                                                    | new; consolidate types from `core/types/` + `dashboard-core/schemas/`                                                                                                                  |
+| PR-05               | Delete `codex-driver`, `claude-code-driver`, `ollama-driver`                                              | 3 dirs deleted; root `package.json` deps updated; lockfile regenerated                                                                                                                 |
+| PR-06               | Cassette infrastructure online                                                                            | `packages/test-utils/cassettes/`; recorder + replayer; one Scout cassette as proof                                                                                                     |
+| PR-07               | Token meter wired to mock provider                                                                        | `runtime/meter/`; integration test asserting byte-identical replay                                                                                                                     |
+| PR-08               | Provider quirks scaffold                                                                                  | `runtime/providers/quirks.json` + role-resolver; tier→model map; tests                                                                                                                 |
+| PR-09               | First end-to-end (mocked Pi)                                                                              | Scout task dispatched through dispatcher → mocked Pi → result harvested                                                                                                                |
+| PR-10               | Documentation pass                                                                                        | docs/ updated to remove codex references; this TDD2 referenced                                                                                                                         |
+| PR-11               | Make CI test step required                                                                                | `ci.yml` `continue-on-error: false`; 33 v2.x failures remediated                                                                                                                       |
 
 #### 13.1.3 Exit gate (verifying M1 complete)
 
@@ -2816,13 +2906,13 @@ If M1 cannot be completed in 4 weeks (2× the target), the rollback is **not to 
 
 #### 13.1.6 Risks (M1-specific)
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Pi API mismatch vs docs | HIGH | TDD2§5 catalogs verified APIs; PR-02's mock impl bridges; PR-07 swaps to real Pi only after cassette is stable |
-| Cassette body-hash drift caused by `cache_control` ephemera in requests/responses | MEDIUM | Cassette recorder normalizes `cache_control: {type: 'ephemeral'}` markers (which are deterministic given prompt structure) **before** computing the request body hash; response-side `usage.cache_creation_input_tokens` / `usage.cache_read_input_tokens` are recorded verbatim and the replayer asserts equality only on first replay (a re-record is the resolution path, not a heuristic match). Documented in §14.7.1. |
-| pnpm-lock churn breaks CI | LOW | PR-05 regenerates explicitly; commit the lockfile to the same PR; CI uses `--frozen-lockfile` |
-| Methodology tests rely on codex-spawner specifics | MEDIUM | Audit `methodology/test/` before PR-01a; replace any direct codex-spawner imports with the AgentSpawner abstraction's mock |
-| 33 v2.x test failures harder to remediate than expected | MEDIUM | Allocate PR-11 explicitly to test debt; if more than 3 days, scope down to "fix or skip-with-ticket" |
+| Risk                                                                              | Severity | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pi API mismatch vs docs                                                           | HIGH     | TDD2§5 catalogs verified APIs; PR-02's mock impl bridges; PR-07 swaps to real Pi only after cassette is stable                                                                                                                                                                                                                                                                                                              |
+| Cassette body-hash drift caused by `cache_control` ephemera in requests/responses | MEDIUM   | Cassette recorder normalizes `cache_control: {type: 'ephemeral'}` markers (which are deterministic given prompt structure) **before** computing the request body hash; response-side `usage.cache_creation_input_tokens` / `usage.cache_read_input_tokens` are recorded verbatim and the replayer asserts equality only on first replay (a re-record is the resolution path, not a heuristic match). Documented in §14.7.1. |
+| pnpm-lock churn breaks CI                                                         | LOW      | PR-05 regenerates explicitly; commit the lockfile to the same PR; CI uses `--frozen-lockfile`                                                                                                                                                                                                                                                                                                                               |
+| Methodology tests rely on codex-spawner specifics                                 | MEDIUM   | Audit `methodology/test/` before PR-01a; replace any direct codex-spawner imports with the AgentSpawner abstraction's mock                                                                                                                                                                                                                                                                                                  |
+| 33 v2.x test failures harder to remediate than expected                           | MEDIUM   | Allocate PR-11 explicitly to test debt; if more than 3 days, scope down to "fix or skip-with-ticket"                                                                                                                                                                                                                                                                                                                        |
 
 ### 13.2 M2 — Single-agent path (target: 2 weeks)
 
@@ -2830,18 +2920,18 @@ If M1 cannot be completed in 4 weeks (2× the target), the rollback is **not to 
 
 #### 13.2.1 Deliverables
 
-| PR | Subject |
-|---|---|
-| PR-12 | Lead role goes through dispatcher (sequential, no parallel) |
-| PR-13 | Dev role goes through dispatcher; one task at a time |
-| PR-14 | QA role with static-check ladder; LLM escalation working |
-| PR-15 | `swt vibe` end-to-end with Pi backend |
-| PR-16 | UiPermissionGate lands; routes wired |
-| PR-17 | Dashboard SSE consumes Pi events through runtime |
+| PR    | Subject                                                                             |
+| ----- | ----------------------------------------------------------------------------------- |
+| PR-12 | Lead role goes through dispatcher (sequential, no parallel)                         |
+| PR-13 | Dev role goes through dispatcher; one task at a time                                |
+| PR-14 | QA role with static-check ladder; LLM escalation working                            |
+| PR-15 | `swt vibe` end-to-end with Pi backend                                               |
+| PR-16 | UiPermissionGate lands; routes wired                                                |
+| PR-17 | Dashboard SSE consumes Pi events through runtime                                    |
 | PR-18 | Cassette regression suite: v2 golden run replays byte-identical (modulo timestamps) |
-| PR-19 | First TPAC measurement on the reference repo (M2 baseline) |
-| PR-20 | `swt rpc` verb delegating to Pi `runRpcMode` |
-| PR-21 | `swt bench` verb prototype |
+| PR-19 | First TPAC measurement on the reference repo (M2 baseline)                          |
+| PR-20 | `swt rpc` verb delegating to Pi `runRpcMode`                                        |
+| PR-21 | `swt bench` verb prototype                                                          |
 
 #### 13.2.2 Reference project for benchmarking
 
@@ -2858,11 +2948,11 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.2.4 Risks
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Phase routing logic was tightly coupled to Codex subprocess return codes | HIGH | Audit `methodology/state/` for `EXIT.NOT_IMPLEMENTED` references; rewrite routing to consume `TaskResult.status` |
-| Static-check ladder paths assumed codex's working dir | MEDIUM | Refactor `verification/runner.ts` to take cwd explicitly |
-| `swt vibe` UX differences vs v2 | LOW | Pinned beta users; A/B test on a willing subset of v2 users |
+| Risk                                                                     | Severity | Mitigation                                                                                                       |
+| ------------------------------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| Phase routing logic was tightly coupled to Codex subprocess return codes | HIGH     | Audit `methodology/state/` for `EXIT.NOT_IMPLEMENTED` references; rewrite routing to consume `TaskResult.status` |
+| Static-check ladder paths assumed codex's working dir                    | MEDIUM   | Refactor `verification/runner.ts` to take cwd explicitly                                                         |
+| `swt vibe` UX differences vs v2                                          | LOW      | Pinned beta users; A/B test on a willing subset of v2 users                                                      |
 
 ### 13.3 M3 — Worktree dispatcher (target: 3 weeks)
 
@@ -2870,16 +2960,16 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.3.1 Deliverables
 
-| PR | Subject |
-|---|---|
-| PR-22 | `worktree-manager.ts` (lifecycle FSM) |
-| PR-23 | `claim-registry.ts` (file-claim conflict prevention) |
-| PR-24 | `dag-resolver.ts` (depends_on → parallel batches) |
-| PR-25 | `lock-files.ts` (PID liveness + crash recovery) |
-| PR-26 | `swt_report_result` Extension tool wired |
-| PR-27 | Worktrees panel in dashboard |
-| PR-28 | Chaos test suite (kill-9 at every transition) |
-| PR-29 | `swt cleanup` verb (worktree retention sweep) |
+| PR    | Subject                                                   |
+| ----- | --------------------------------------------------------- |
+| PR-22 | `worktree-manager.ts` (lifecycle FSM)                     |
+| PR-23 | `claim-registry.ts` (file-claim conflict prevention)      |
+| PR-24 | `dag-resolver.ts` (depends_on → parallel batches)         |
+| PR-25 | `lock-files.ts` (PID liveness + crash recovery)           |
+| PR-26 | `swt_report_result` Extension tool wired                  |
+| PR-27 | Worktrees panel in dashboard                              |
+| PR-28 | Chaos test suite (kill-9 at every transition)             |
+| PR-29 | `swt cleanup` verb (worktree retention sweep)             |
 | PR-30 | Cross-OS smoke: Windows worktree path discipline (§9.1.1) |
 
 #### 13.3.2 Exit gate
@@ -2892,12 +2982,12 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.3.3 Risks
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| `git worktree` quirks on Windows | HIGH | Dedicated PR-30; ship Win-specific path discipline (§9.1.1); test on real Windows runners |
-| Merge conflicts in tested scenarios | MEDIUM | Claim-registry rejects overlapping claims at dispatch time, before any worktree edits |
-| Lock-file races on case-insensitive FS | MEDIUM | Use SHA-1 of normalized lowercased path as the lock-file identifier |
-| `agent_end` fires before `swt_report_result` finishes | MEDIUM | The defensive harvester (§9.4) writes a placeholder; orchestrator detects and treats as protocol violation |
+| Risk                                                  | Severity | Mitigation                                                                                                 |
+| ----------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `git worktree` quirks on Windows                      | HIGH     | Dedicated PR-30; ship Win-specific path discipline (§9.1.1); test on real Windows runners                  |
+| Merge conflicts in tested scenarios                   | MEDIUM   | Claim-registry rejects overlapping claims at dispatch time, before any worktree edits                      |
+| Lock-file races on case-insensitive FS                | MEDIUM   | Use SHA-1 of normalized lowercased path as the lock-file identifier                                        |
+| `agent_end` fires before `swt_report_result` finishes | MEDIUM   | The defensive harvester (§9.4) writes a placeholder; orchestrator detects and treats as protocol violation |
 
 ### 13.4 M4 — Token meter & cache discipline (target: 2 weeks)
 
@@ -2905,15 +2995,15 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.4.1 Deliverables
 
-| PR | Subject |
-|---|---|
-| PR-31 | `buildPrompt()` deterministic context construction (§8.3) |
-| PR-32 | Anthropic cache-control breakpoint insertion (§8.2.1) |
-| PR-33 | Cache-hit measurement + dashboard panel (§12.3.2) |
-| PR-34 | OpenAI auto-cache observation + measurement |
-| PR-35 | Budget Gate live (§8.4) + dashboard panel (§12.3.3) |
-| PR-36 | TPAC measurement on M2 reference; **must hit −40%** before merge |
-| PR-37 | TPAC panel in dashboard (§12.3.5) |
+| PR    | Subject                                                                            |
+| ----- | ---------------------------------------------------------------------------------- |
+| PR-31 | `buildPrompt()` deterministic context construction (§8.3)                          |
+| PR-32 | Anthropic cache-control breakpoint insertion (§8.2.1)                              |
+| PR-33 | Cache-hit measurement + dashboard panel (§12.3.2)                                  |
+| PR-34 | OpenAI auto-cache observation + measurement                                        |
+| PR-35 | Budget Gate live (§8.4) + dashboard panel (§12.3.3)                                |
+| PR-36 | TPAC measurement on M2 reference; **must hit −40%** before merge                   |
+| PR-37 | TPAC panel in dashboard (§12.3.5)                                                  |
 | PR-38 | M4 ADR updates: ADR-006 (cache-control placement), ADR-007 (budget-gate semantics) |
 
 #### 13.4.2 Exit gate
@@ -2924,11 +3014,11 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.4.3 Risks
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Anthropic's cache_control requires minimum 1024 tokens per breakpoint; phases with small artefacts may not qualify | MEDIUM | Fallback: if context block is < 1024 tokens, omit the breakpoint and emit a warning; the methodology fallbacks to non-cached path. Document in ADR-006. |
-| TPAC −40% not reachable on first try | HIGH | Spend M4 on diagnostics: which role contributes how much? Use cassette replays to attribute. If physics says we can't hit −40% on this benchmark, document why and propose a refined target (e.g., −30% with strong evidence of marginal returns). |
-| Budget gate causes user surprise | MEDIUM | Pause-screen UX is explicit: shows current spend, projected spend, "Resume with $X bump" |
+| Risk                                                                                                               | Severity | Mitigation                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anthropic's cache_control requires minimum 1024 tokens per breakpoint; phases with small artefacts may not qualify | MEDIUM   | Fallback: if context block is < 1024 tokens, omit the breakpoint and emit a warning; the methodology fallbacks to non-cached path. Document in ADR-006.                                                                                            |
+| TPAC −40% not reachable on first try                                                                               | HIGH     | Spend M4 on diagnostics: which role contributes how much? Use cassette replays to attribute. If physics says we can't hit −40% on this benchmark, document why and propose a refined target (e.g., −30% with strong evidence of marginal returns). |
+| Budget gate causes user surprise                                                                                   | MEDIUM   | Pause-screen UX is explicit: shows current spend, projected spend, "Resume with $X bump"                                                                                                                                                           |
 
 ### 13.5 M5 — Multi-provider (target: 2 weeks)
 
@@ -2936,14 +3026,14 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.5.1 Deliverables
 
-| PR | Subject |
-|---|---|
-| PR-39 | OpenRouter shim wired through quirks (GLM, Kimi, DeepSeek, Llama) |
-| PR-40 | Optional Gemini shim with ToS warnings |
-| PR-41 | Router strategies (pinned, round-robin, tier-routed, cost-optimized) |
+| PR    | Subject                                                                      |
+| ----- | ---------------------------------------------------------------------------- |
+| PR-39 | OpenRouter shim wired through quirks (GLM, Kimi, DeepSeek, Llama)            |
+| PR-40 | Optional Gemini shim with ToS warnings                                       |
+| PR-41 | Router strategies (pinned, round-robin, tier-routed, cost-optimized)         |
 | PR-42 | Fallback chain semantics + retry budget shared with Pi `auto_retry_*` events |
-| PR-43 | Per-provider cost panel (§12.3.4) |
-| PR-44 | Failover simulation tests (mock 503) |
+| PR-43 | Per-provider cost panel (§12.3.4)                                            |
+| PR-44 | Failover simulation tests (mock 503)                                         |
 
 #### 13.5.2 Exit gate
 
@@ -2953,11 +3043,11 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.5.3 Risks
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| OpenRouter's response format varies per upstream model | HIGH | Trust Pi's `openai-completions` api type for OpenAI-compat routes; use `streamSimple` for divergent ones via quirks |
-| Structured output reliability differs widely across providers | HIGH | Validate every `TaskResult` against the Zod schema at harvest; if validation fails, retry with prompt clarification |
-| Cost attribution wrong when fallback fires mid-task | MEDIUM | Per-turn cost tracking; fallback recorded at turn boundary, not retroactively |
+| Risk                                                          | Severity | Mitigation                                                                                                          |
+| ------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| OpenRouter's response format varies per upstream model        | HIGH     | Trust Pi's `openai-completions` api type for OpenAI-compat routes; use `streamSimple` for divergent ones via quirks |
+| Structured output reliability differs widely across providers | HIGH     | Validate every `TaskResult` against the Zod schema at harvest; if validation fails, retry with prompt clarification |
+| Cost attribution wrong when fallback fires mid-task           | MEDIUM   | Per-turn cost tracking; fallback recorded at turn boundary, not retroactively                                       |
 
 ### 13.6 M6 — Decommission, benchmark, ship (target: 2 weeks)
 
@@ -2965,17 +3055,17 @@ The reference is **frozen**: any change to it requires an ADR and breaks the com
 
 #### 13.6.1 Deliverables
 
-| PR | Subject |
-|---|---|
-| PR-45 | All Codex-era code paths verified removed (grep clean) |
+| PR    | Subject                                                                                                                |
+| ----- | ---------------------------------------------------------------------------------------------------------------------- |
+| PR-45 | All Codex-era code paths verified removed (grep clean)                                                                 |
 | PR-46 | Delete `commands/stubs.ts` after the §3.2.4 disposition table is exhausted (no v3 verb returns `EXIT.NOT_IMPLEMENTED`) |
-| PR-47 | Documentation rewrite for vendor-agnostic posture |
-| PR-48 | Public benchmark scenario published (reference repo + scripts + result table) |
-| PR-49 | `swt migrate --to=v3` migration script with three test fixtures |
-| PR-50 | Release notes, CHANGELOG.md, RELEASE-NOTES-v3.0.md |
-| PR-51 | All test suites pass: unit, integration, provider matrix, regression, e2e, chaos |
-| PR-52 | Vale config + ADR style guide |
-| PR-53 | LTS branch cut for v2.3.x (security-only) |
+| PR-47 | Documentation rewrite for vendor-agnostic posture                                                                      |
+| PR-48 | Public benchmark scenario published (reference repo + scripts + result table)                                          |
+| PR-49 | `swt migrate --to=v3` migration script with three test fixtures                                                        |
+| PR-50 | Release notes, CHANGELOG.md, RELEASE-NOTES-v3.0.md                                                                     |
+| PR-51 | All test suites pass: unit, integration, provider matrix, regression, e2e, chaos                                       |
+| PR-52 | Vale config + ADR style guide                                                                                          |
+| PR-53 | LTS branch cut for v2.3.x (security-only)                                                                              |
 
 #### 13.6.2 Exit gate (the v3.0 ship gate)
 
@@ -3055,33 +3145,36 @@ A single `.swt-planning/v3-tracking.md` document tracks: PRs merged, ADRs writte
 import { defineConfig, mergeConfig } from 'vitest/config';
 import baseConfig from '../../vitest.config';
 
-export default mergeConfig(baseConfig, defineConfig({
-  test: {
-    include: ['test/**/*.test.ts'],
-    exclude: ['test/**/*.int.test.ts', 'test/**/*.e2e.test.ts'],
-    coverage: {
-      provider: 'v8',
-      thresholds: { lines: 85, branches: 80, functions: 85 },
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.d.ts', 'src/**/index.ts'],
+export default mergeConfig(
+  baseConfig,
+  defineConfig({
+    test: {
+      include: ['test/**/*.test.ts'],
+      exclude: ['test/**/*.int.test.ts', 'test/**/*.e2e.test.ts'],
+      coverage: {
+        provider: 'v8',
+        thresholds: { lines: 85, branches: 80, functions: 85 },
+        include: ['src/**/*.ts'],
+        exclude: ['src/**/*.d.ts', 'src/**/index.ts'],
+      },
     },
-  },
-}));
+  }),
+);
 ```
 
 **Per-package coverage targets:**
 
-| Package | Lines | Branches | Functions |
-|---|---|---|---|
-| `core/methodology/` | 90% | 85% | 90% |
-| `core/artefacts/` | 95% | 90% | 95% |
-| `core/verification/` | 90% | 85% | 90% |
-| `core/telemetry/` | 80% | 75% | 80% |
-| `runtime/` | 85% | 80% | 85% |
-| `orchestration/` | 90% | 85% | 90% |
-| `dashboard/server/` | 75% | 70% | 75% |
-| `cli/` | 70% | 65% | 70% |
-| `shared/` | 95% | 90% | 95% |
+| Package              | Lines | Branches | Functions |
+| -------------------- | ----- | -------- | --------- |
+| `core/methodology/`  | 90%   | 85%      | 90%       |
+| `core/artefacts/`    | 95%   | 90%      | 95%       |
+| `core/verification/` | 90%   | 85%      | 90%       |
+| `core/telemetry/`    | 80%   | 75%      | 80%       |
+| `runtime/`           | 85%   | 80%      | 85%       |
+| `orchestration/`     | 90%   | 85%      | 90%       |
+| `dashboard/server/`  | 75%   | 70%      | 75%       |
+| `cli/`               | 70%   | 65%      | 70%       |
+| `shared/`            | 95%   | 90%      | 95%       |
 
 The dashboard's client SPA has its own coverage (Solid component tests via @solidjs/testing-library); not in the table above.
 
@@ -3193,11 +3286,15 @@ import { copyFixture } from '@swt-labs/test-utils';
 describe('swt vibe (e2e)', () => {
   it('completes a Scout dispatch end-to-end against a mocked Pi', async () => {
     const fixture = await copyFixture('fixtures/ref-fastapi-empty');
-    const result = await execa('node', ['./dist/cli.mjs', 'vibe', '--non-interactive', '--mock-pi'], {
-      cwd: fixture.path,
-      env: { ...process.env, SWT_MOCK_PI: 'cassette:scout-noop' },
-      timeout: 30_000,
-    });
+    const result = await execa(
+      'node',
+      ['./dist/cli.mjs', 'vibe', '--non-interactive', '--mock-pi'],
+      {
+        cwd: fixture.path,
+        env: { ...process.env, SWT_MOCK_PI: 'cassette:scout-noop' },
+        timeout: 30_000,
+      },
+    );
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/Phase 1.*COMPLETE/);
   });
@@ -3221,7 +3318,14 @@ describe('swt vibe (e2e)', () => {
 import { describe, it, expect } from 'vitest';
 import { runScenario } from '@swt-labs/test-utils';
 
-const PROVIDERS = ['anthropic', 'openai', 'openrouter:deepseek', 'openrouter:kimi', 'google', 'bedrock'];
+const PROVIDERS = [
+  'anthropic',
+  'openai',
+  'openrouter:deepseek',
+  'openrouter:kimi',
+  'google',
+  'bedrock',
+];
 
 describe.each(PROVIDERS)('Scout task on %s', (provider) => {
   it('produces a valid TaskResult envelope', async () => {
@@ -3231,7 +3335,7 @@ describe.each(PROVIDERS)('Scout task on %s', (provider) => {
       cassette: `cassettes/scout-${provider.replace(':', '-')}.jsonl`,
     });
     expect(result.status).toBe('success');
-    expect(result.must_haves.every(m => m.status === 'passed')).toBe(true);
+    expect(result.must_haves.every((m) => m.status === 'passed')).toBe(true);
   });
 
   it('records deterministic token counts', async () => {
@@ -3398,7 +3502,12 @@ swt bench --fixture=ref-fastapi-empty
 ```ts
 // test/chaos/dev-task-resume.chaos.test.ts
 import { describe, it, expect } from 'vitest';
-import { spawnOrchestrator, killAfterEvent, resumeOrchestrator, finalState } from '@swt-labs/test-utils';
+import {
+  spawnOrchestrator,
+  killAfterEvent,
+  resumeOrchestrator,
+  finalState,
+} from '@swt-labs/test-utils';
 
 describe('Dev task resume after SIGKILL', () => {
   it('resumes mid-tool-execution', async () => {
@@ -3464,16 +3573,16 @@ The per-package thresholds (§14.2) gate PR merge: a PR that drops coverage belo
 
 Eight GitHub Actions workflows in `.github/workflows/` (5 preserved from v2 + 3 new in v3):
 
-| Workflow | Trigger | Purpose | v3 status |
-|---|---|---|---|
-| `ci.yml` | push to main, PR to main | Lint + typecheck + test + build | preserved + tightened |
-| `codeql.yml` | PR, weekly | Static security scanning | preserved |
-| `install-smoke.yml` | post-release | Install on multiple package managers/OSes | preserved |
-| `release.yml` | push to main (when changesets present) | Build + publish to npm | preserved + extended (provenance) |
-| `vale.yml` | PR (docs paths) | Documentation style lint | preserved + ADR rules |
-| `provider-matrix.yml` (new) | nightly + PR (opt-in label) | Provider matrix tests | NEW |
-| `regression.yml` (new) | PR | Cassette replay regression | NEW |
-| `chaos.yml` (new) | PR (opt-in) + nightly | SIGKILL injection tests | NEW |
+| Workflow                    | Trigger                                | Purpose                                   | v3 status                         |
+| --------------------------- | -------------------------------------- | ----------------------------------------- | --------------------------------- |
+| `ci.yml`                    | push to main, PR to main               | Lint + typecheck + test + build           | preserved + tightened             |
+| `codeql.yml`                | PR, weekly                             | Static security scanning                  | preserved                         |
+| `install-smoke.yml`         | post-release                           | Install on multiple package managers/OSes | preserved                         |
+| `release.yml`               | push to main (when changesets present) | Build + publish to npm                    | preserved + extended (provenance) |
+| `vale.yml`                  | PR (docs paths)                        | Documentation style lint                  | preserved + ADR rules             |
+| `provider-matrix.yml` (new) | nightly + PR (opt-in label)            | Provider matrix tests                     | NEW                               |
+| `regression.yml` (new)      | PR                                     | Cassette replay regression                | NEW                               |
+| `chaos.yml` (new)           | PR (opt-in) + nightly                  | SIGKILL injection tests                   | NEW                               |
 
 ### 15.2 `ci.yml` — full v3 spec
 
@@ -3527,7 +3636,7 @@ jobs:
       - name: Format check
         run: pnpm format:check
       - name: Unit + integration tests
-        run: pnpm test                                # required in v3
+        run: pnpm test # required in v3
       # NOTE: regression (cassette replay) runs as its own path-gated workflow
       # in regression.yml (§15.4) — not duplicated here. That avoids running the
       # ~5-min regression suite × 6 build-matrix jobs.
@@ -3577,7 +3686,7 @@ jobs:
     name: Reproducibility check
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push'              # main + release branches only
+    if: github.event_name == 'push' # main + release branches only
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -3617,7 +3726,7 @@ name: Provider Matrix
 on:
   workflow_call: {}
   schedule:
-    - cron: '0 5 * * *'        # nightly 05:00 UTC
+    - cron: '0 5 * * *' # nightly 05:00 UTC
 
 jobs:
   matrix:
@@ -3646,6 +3755,7 @@ jobs:
 ```
 
 The matrix uses cassettes; no real API keys are used in CI. This makes the matrix:
+
 - Deterministic
 - Fast
 - Free
@@ -3693,7 +3803,7 @@ on:
   pull_request:
     types: [labeled, synchronize]
   schedule:
-    - cron: '0 7 * * *'        # nightly 07:00 UTC
+    - cron: '0 7 * * *' # nightly 07:00 UTC
 
 jobs:
   chaos:
@@ -3722,8 +3832,8 @@ on:
     branches: [main]
 
 permissions:
-  id-token: write       # for npm provenance
-  contents: write       # for tags and CHANGELOG commits
+  id-token: write # for npm provenance
+  contents: write # for tags and CHANGELOG commits
 
 jobs:
   release:
@@ -3744,9 +3854,9 @@ jobs:
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase:      ${{ secrets.GPG_PASSPHRASE }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
           git_user_signingkey: true
-          git_tag_gpgsign: true              # `git tag` becomes `git tag -s` implicitly
+          git_tag_gpgsign: true # `git tag` becomes `git tag -s` implicitly
       - name: Create release PR or publish
         id: changesets
         uses: changesets/action@v1
@@ -3755,7 +3865,7 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN:    ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           # changesets-action defers to `git config tag.gpgsign=true` (set by the
           # import step above), so its auto-tag is signed without further action.
       - name: Verify release tag was signed
@@ -3774,9 +3884,9 @@ jobs:
 ```js
 // scripts/check-bundle-size.mjs (excerpt)
 const BUDGETS = {
-  'dist/cli.mjs':                     { max_bytes: 800_000, warn_at: 700_000 },
+  'dist/cli.mjs': { max_bytes: 800_000, warn_at: 700_000 },
   'packages/dashboard/dist/server.mjs': { max_bytes: 600_000, warn_at: 500_000 },
-  'packages/dashboard/dist/client/index.html': { max_bytes:  20_000 },
+  'packages/dashboard/dist/client/index.html': { max_bytes: 20_000 },
   'packages/dashboard/dist/client/assets/index.js': { max_bytes: 1_000_000, warn_at: 850_000 },
 };
 ```
@@ -3865,20 +3975,20 @@ export const logger = pino({
 
 The token meter (§8.1) is the primary metric source. Additional metrics:
 
-| Metric | Source | Dimensions | Use |
-|---|---|---|---|
-| `task_dispatched_total` | orchestrator | role, tier, provider | Throughput |
-| `task_completed_total` | orchestrator | status (success/failed/partial/blocked), role | Outcomes |
-| `task_duration_seconds` | orchestrator | role, tier (histogram) | Latency |
-| `token_input_total` | token meter | provider, model, role | TPAC numerator |
-| `token_output_total` | token meter | provider, model, role | TPAC numerator |
-| `token_cache_read_total` | token meter | provider, model | Cache hit numerator |
-| `token_cache_write_total` | token meter | provider, model | Cache write tracking |
-| `cost_usd_total` | cost aggregator | provider, model, milestone | Budget tracking |
-| `worktree_active_count` | worktree manager | (gauge) | Concurrency |
-| `provider_failover_total` | failover | primary→fallback | Reliability |
-| `crash_recovery_total` | orchestrator | outcome (resumed/aborted) | Crash-safety verification |
-| `compaction_total` | session wrapper | role | Compaction frequency |
+| Metric                    | Source           | Dimensions                                    | Use                       |
+| ------------------------- | ---------------- | --------------------------------------------- | ------------------------- |
+| `task_dispatched_total`   | orchestrator     | role, tier, provider                          | Throughput                |
+| `task_completed_total`    | orchestrator     | status (success/failed/partial/blocked), role | Outcomes                  |
+| `task_duration_seconds`   | orchestrator     | role, tier (histogram)                        | Latency                   |
+| `token_input_total`       | token meter      | provider, model, role                         | TPAC numerator            |
+| `token_output_total`      | token meter      | provider, model, role                         | TPAC numerator            |
+| `token_cache_read_total`  | token meter      | provider, model                               | Cache hit numerator       |
+| `token_cache_write_total` | token meter      | provider, model                               | Cache write tracking      |
+| `cost_usd_total`          | cost aggregator  | provider, model, milestone                    | Budget tracking           |
+| `worktree_active_count`   | worktree manager | (gauge)                                       | Concurrency               |
+| `provider_failover_total` | failover         | primary→fallback                              | Reliability               |
+| `crash_recovery_total`    | orchestrator     | outcome (resumed/aborted)                     | Crash-safety verification |
+| `compaction_total`        | session wrapper  | role                                          | Compaction frequency      |
 
 **Format:** Prometheus exposition format at `GET /api/metrics` (new dashboard route in M2, behind an opt-in flag because metrics endpoints have security implications even on loopback).
 
@@ -3890,7 +4000,18 @@ Per-task spans recorded as journal entries:
 
 ```jsonc
 // .swt-planning/journal/<date>.jsonl (excerpt)
-{"timestamp":"...","type":"span","name":"task.dispatch","task_id":"T1","attributes":{"role":"dev","tier":"balanced","provider":"anthropic"},"duration_ms":12345,"events":[{"name":"prompt.first","at_ms":1230},{"name":"first.tool","at_ms":2540}]}
+{
+  "timestamp": "...",
+  "type": "span",
+  "name": "task.dispatch",
+  "task_id": "T1",
+  "attributes": { "role": "dev", "tier": "balanced", "provider": "anthropic" },
+  "duration_ms": 12345,
+  "events": [
+    { "name": "prompt.first", "at_ms": 1230 },
+    { "name": "first.tool", "at_ms": 2540 },
+  ],
+}
 ```
 
 The span format is OpenTelemetry-compatible (the JSON shape can be converted to OTLP later without breaking changes), but no exporter is wired in v3.0.
@@ -4016,13 +4137,13 @@ Less-critical defects: a regular patch is sufficient; no unpublish/deprecate.
 
 After v3.0 ships, v2.3.x enters LTS for **6 months from the v3.0 release date**:
 
-| Issue class | LTS treatment | Backport SLA |
-|---|---|---|
-| Security (CVE, RCE, secret leak) | Patch released | 7 days |
-| Data-loss / install-breaking | Patch released | 14 days |
-| Regression in core flow | Patch released | 30 days |
-| Feature gaps | Not addressed | n/a |
-| UX improvements | Not addressed | n/a |
+| Issue class                      | LTS treatment  | Backport SLA |
+| -------------------------------- | -------------- | ------------ |
+| Security (CVE, RCE, secret leak) | Patch released | 7 days       |
+| Data-loss / install-breaking     | Patch released | 14 days      |
+| Regression in core flow          | Patch released | 30 days      |
+| Feature gaps                     | Not addressed  | n/a          |
+| UX improvements                  | Not addressed  | n/a          |
 
 After 6 months, v2.x is **archived**:
 
@@ -4208,47 +4329,47 @@ The register uses a 3×3 matrix: Severity {Low, Medium, High} × Probability {Lo
 
 ### 19.1 Architectural risks
 
-| # | Risk | Severity | Prob | Score | Mitigation | Owner |
-|---|---|---|---|---|---|---|
-| R-01 | Pi API surface shifts pre-1.0; published exports remove or rename what we depend on | H | M | 6 | Runtime adapter localizes Pi usage to ~10 files; peer-dep ranges allow upgrade signal early; CI tests against `next` Pi tag nightly. **M1 update (post-PR-09):** Pi 0.74-alpha shifted types across patch releases; runtime/src/extensions/pi-types.ts now declares structural mirrors of `ExtensionAPI` + `ExtensionContext` capturing only the methods SWT uses, encoding the ADR-002 invariant at the type level. Collapses to a thin re-export when Pi ships a 1.0 stable type surface. | runtime owner |
-| R-02 | codex-driver edges have more dependencies than visible at edge-level (either in methodology or CLI) | M | M | 4 | M1 PR-01a and PR-01b each produce a complete `grep -rE "from '@swt-labs/codex-driver'"` audit before merge; methodology + CLI test suites catch missed imports | core owner |
-| R-03 | TPAC −40% physically not achievable on the M2 reference scenario | H | M | 6 | M4 includes a contingency: if −40% requires unbounded engineering, document why with cassette diffs and propose a refined target (−30% with clear evidence) | runtime owner |
-| R-04 | Anthropic changes cache_control behavior (e.g., min-token threshold doubles) | M | L | 2 | Fallback: prompt-builder emits cache_control conditionally on token count; warning surfaces in dashboard | runtime owner |
-| R-05 | git worktree on Windows produces path-length or case-sensitivity bugs | H | M | 6 | Dedicated PR-30; cross-OS chaos tests; path discipline §9.1.1 | orchestration owner |
-| R-06 | Pi extensions interact in unexpected ways at scale (10+ registered tools/providers) | M | L | 2 | Limit SWT extensions to the minimum (3-4); test extension ordering explicitly | runtime owner |
-| R-07 | Provider's structured output format varies enough that result-protocol parsing fails | M | M | 4 | Validate every TaskResult against Zod at harvest; retry with clarification prompt on parse failure; budget includes a "parse-retry" allowance | orchestration owner |
-| R-08 | Claim registry deadlocks when two tasks have mutually exclusive partial overlap | L | L | 1 | Claims are append-only; the registry serializes overlapping claims, not deadlocks; tested with adversarial fixture | orchestration owner |
+| #    | Risk                                                                                                | Severity | Prob | Score | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Owner               |
+| ---- | --------------------------------------------------------------------------------------------------- | -------- | ---- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| R-01 | Pi API surface shifts pre-1.0; published exports remove or rename what we depend on                 | H        | M    | 6     | Runtime adapter localizes Pi usage to ~10 files; peer-dep ranges allow upgrade signal early; CI tests against `next` Pi tag nightly. **M1 update (post-PR-09):** Pi 0.74-alpha shifted types across patch releases; runtime/src/extensions/pi-types.ts now declares structural mirrors of `ExtensionAPI` + `ExtensionContext` capturing only the methods SWT uses, encoding the ADR-002 invariant at the type level. Collapses to a thin re-export when Pi ships a 1.0 stable type surface. | runtime owner       |
+| R-02 | codex-driver edges have more dependencies than visible at edge-level (either in methodology or CLI) | M        | M    | 4     | M1 PR-01a and PR-01b each produce a complete `grep -rE "from '@swt-labs/codex-driver'"` audit before merge; methodology + CLI test suites catch missed imports                                                                                                                                                                                                                                                                                                                              | core owner          |
+| R-03 | TPAC −40% physically not achievable on the M2 reference scenario                                    | H        | M    | 6     | M4 includes a contingency: if −40% requires unbounded engineering, document why with cassette diffs and propose a refined target (−30% with clear evidence)                                                                                                                                                                                                                                                                                                                                 | runtime owner       |
+| R-04 | Anthropic changes cache_control behavior (e.g., min-token threshold doubles)                        | M        | L    | 2     | Fallback: prompt-builder emits cache_control conditionally on token count; warning surfaces in dashboard                                                                                                                                                                                                                                                                                                                                                                                    | runtime owner       |
+| R-05 | git worktree on Windows produces path-length or case-sensitivity bugs                               | H        | M    | 6     | Dedicated PR-30; cross-OS chaos tests; path discipline §9.1.1                                                                                                                                                                                                                                                                                                                                                                                                                               | orchestration owner |
+| R-06 | Pi extensions interact in unexpected ways at scale (10+ registered tools/providers)                 | M        | L    | 2     | Limit SWT extensions to the minimum (3-4); test extension ordering explicitly                                                                                                                                                                                                                                                                                                                                                                                                               | runtime owner       |
+| R-07 | Provider's structured output format varies enough that result-protocol parsing fails                | M        | M    | 4     | Validate every TaskResult against Zod at harvest; retry with clarification prompt on parse failure; budget includes a "parse-retry" allowance                                                                                                                                                                                                                                                                                                                                               | orchestration owner |
+| R-08 | Claim registry deadlocks when two tasks have mutually exclusive partial overlap                     | L        | L    | 1     | Claims are append-only; the registry serializes overlapping claims, not deadlocks; tested with adversarial fixture                                                                                                                                                                                                                                                                                                                                                                          | orchestration owner |
 
 ### 19.2 Implementation risks
 
-| # | Risk | Severity | Prob | Score | Mitigation | Owner |
-|---|---|---|---|---|---|---|
-| R-09 | The 33 v2.x test failures take longer than 3 days to remediate | M | M | 4 | Time-box PR-11; failures that can't be fixed in time get `it.skip` with a tracking issue, not `continue-on-error` | qa owner |
-| R-10 | Cassette infrastructure produces flaky tests due to non-deterministic HTTP body ordering | M | M | 4 | Hash interactions by canonical body (sorted keys); refusing to record cassettes with non-deterministic responses | test-utils owner |
-| R-11 | Dashboard SSE consumers can't handle the v3 event volume (more events per task) | M | L | 2 | Event throttling per consumer; SSE keep-alive tuned; new "events per second" metric in dashboard | dashboard owner |
-| R-12 | Hono+Solid+SSE bundle size exceeds budget after dashboard panel additions | M | L | 2 | Bundle-size budgets in CI (§15.7); lazy-load new panels via Solid lazy() | dashboard owner |
-| R-13 | Cross-OS file-watching produces different event timings, breaking snapshot tests | M | M | 4 | Snapshot tests use chokidar's `awaitWriteFinish` + an explicit settle delay; Windows-specific test path | dashboard owner |
-| R-14 | The `swt migrate --to=v3` script corrupts an edge-case `.swt-planning/` | H | L | 3 | Three fixture test cases per PR-49; migration is opt-in via flag; backup is recommended in the migration guide | cli owner |
-| R-15 | Token meter undercounts when Pi `auto_retry_*` events fire | M | L | 2 | Subscribe to retry events explicitly; deduplicate token counts by `(task_id, turn, attempt)` triple | runtime owner |
+| #    | Risk                                                                                     | Severity | Prob | Score | Mitigation                                                                                                        | Owner            |
+| ---- | ---------------------------------------------------------------------------------------- | -------- | ---- | ----- | ----------------------------------------------------------------------------------------------------------------- | ---------------- |
+| R-09 | The 33 v2.x test failures take longer than 3 days to remediate                           | M        | M    | 4     | Time-box PR-11; failures that can't be fixed in time get `it.skip` with a tracking issue, not `continue-on-error` | qa owner         |
+| R-10 | Cassette infrastructure produces flaky tests due to non-deterministic HTTP body ordering | M        | M    | 4     | Hash interactions by canonical body (sorted keys); refusing to record cassettes with non-deterministic responses  | test-utils owner |
+| R-11 | Dashboard SSE consumers can't handle the v3 event volume (more events per task)          | M        | L    | 2     | Event throttling per consumer; SSE keep-alive tuned; new "events per second" metric in dashboard                  | dashboard owner  |
+| R-12 | Hono+Solid+SSE bundle size exceeds budget after dashboard panel additions                | M        | L    | 2     | Bundle-size budgets in CI (§15.7); lazy-load new panels via Solid lazy()                                          | dashboard owner  |
+| R-13 | Cross-OS file-watching produces different event timings, breaking snapshot tests         | M        | M    | 4     | Snapshot tests use chokidar's `awaitWriteFinish` + an explicit settle delay; Windows-specific test path           | dashboard owner  |
+| R-14 | The `swt migrate --to=v3` script corrupts an edge-case `.swt-planning/`                  | H        | L    | 3     | Three fixture test cases per PR-49; migration is opt-in via flag; backup is recommended in the migration guide    | cli owner        |
+| R-15 | Token meter undercounts when Pi `auto_retry_*` events fire                               | M        | L    | 2     | Subscribe to retry events explicitly; deduplicate token counts by `(task_id, turn, attempt)` triple               | runtime owner    |
 
 ### 19.3 Project risks
 
-| # | Risk | Severity | Prob | Score | Mitigation | Owner |
-|---|---|---|---|---|---|---|
-| R-16 | The 13-week estimate slips beyond 20 weeks | M | M | 4 | Milestone gates are hard; if M1 isn't done in 4 weeks, the rollback plan §13.1.5 fires | tech lead |
-| R-17 | Pi adoption causes a license-compat issue (e.g., AGPL transitive) | H | L | 3 | License audit at M1 PR-01; npm `--license` filter in CI | tech lead |
-| R-18 | v2.3.x security CVE during v3 development reroutes engineering capacity | M | M | 4 | LTS policy is preserved; v3 work pauses for ≤7 days to ship the CVE patch | tech lead |
-| R-19 | A beta user finds a critical defect just before v3.0 ship | M | M | 4 | The two-RC policy + beta program (§17.3, §17.8); critical defect blocks ship until patched in an RC | tech lead |
-| R-20 | Anthropic / OpenAI deprecate models we depend on mid-development | L | M | 2 | Tier-based abstraction (§7.1) — model swaps are config changes, not code changes; quirks.json updated | runtime owner |
+| #    | Risk                                                                    | Severity | Prob | Score | Mitigation                                                                                            | Owner         |
+| ---- | ----------------------------------------------------------------------- | -------- | ---- | ----- | ----------------------------------------------------------------------------------------------------- | ------------- |
+| R-16 | The 13-week estimate slips beyond 20 weeks                              | M        | M    | 4     | Milestone gates are hard; if M1 isn't done in 4 weeks, the rollback plan §13.1.5 fires                | tech lead     |
+| R-17 | Pi adoption causes a license-compat issue (e.g., AGPL transitive)       | H        | L    | 3     | License audit at M1 PR-01; npm `--license` filter in CI                                               | tech lead     |
+| R-18 | v2.3.x security CVE during v3 development reroutes engineering capacity | M        | M    | 4     | LTS policy is preserved; v3 work pauses for ≤7 days to ship the CVE patch                             | tech lead     |
+| R-19 | A beta user finds a critical defect just before v3.0 ship               | M        | M    | 4     | The two-RC policy + beta program (§17.3, §17.8); critical defect blocks ship until patched in an RC   | tech lead     |
+| R-20 | Anthropic / OpenAI deprecate models we depend on mid-development        | L        | M    | 2     | Tier-based abstraction (§7.1) — model swaps are config changes, not code changes; quirks.json updated | runtime owner |
 
 ### 19.4 Operational risks (post-launch)
 
-| # | Risk | Severity | Prob | Score | Mitigation | Owner |
-|---|---|---|---|---|---|---|
-| R-21 | Users hit unexpected costs because the budget gate didn't pause aggressively enough | M | L | 2 | Conservative defaults (`milestone_ceiling: $50`); pre-flight cost estimator (`swt bench --estimate`) | runtime owner |
-| R-22 | Reproducibility benchmark numbers drift over time as providers change pricing | L | H | 3 | Benchmark report republished monthly with each provider's stated rate; comparison still uses our own meter | docs owner |
-| R-23 | Migration script bug discovered after a user has already migrated; their data is lost | H | L | 3 | Script writes `.swt-planning.v2-backup/` before migration; restore script ships in same release | cli owner |
-| R-24 | Pi has a CVE that affects SWT users | H | L | 3 | Pi peer-dep range narrowed in patch releases when needed; advisory channel monitored | tech lead |
+| #    | Risk                                                                                  | Severity | Prob | Score | Mitigation                                                                                                 | Owner         |
+| ---- | ------------------------------------------------------------------------------------- | -------- | ---- | ----- | ---------------------------------------------------------------------------------------------------------- | ------------- |
+| R-21 | Users hit unexpected costs because the budget gate didn't pause aggressively enough   | M        | L    | 2     | Conservative defaults (`milestone_ceiling: $50`); pre-flight cost estimator (`swt bench --estimate`)       | runtime owner |
+| R-22 | Reproducibility benchmark numbers drift over time as providers change pricing         | L        | H    | 3     | Benchmark report republished monthly with each provider's stated rate; comparison still uses our own meter | docs owner    |
+| R-23 | Migration script bug discovered after a user has already migrated; their data is lost | H        | L    | 3     | Script writes `.swt-planning.v2-backup/` before migration; restore script ships in same release            | cli owner     |
+| R-24 | Pi has a CVE that affects SWT users                                                   | H        | L    | 3     | Pi peer-dep range narrowed in patch releases when needed; advisory channel monitored                       | tech lead     |
 
 ### 19.5 Risk-review cadence
 
@@ -4279,28 +4400,28 @@ Tracked per the cadence above: every milestone gate updates this subsection (or 
 
 > **Δ from TDD.md§14:** TDD.md§14 was a stub. TDD2§20 lists the major decisions made in producing TDD2 with their rationale.
 
-| # | Decision | Date | Rationale | ADR |
-|---|---|---|---|---|
-| D-01 | Adopt `@earendil-works/pi-coding-agent` as the runtime substrate | 2026-05-11 | Owns the runtime; vendor-agnostic; mature enough for v3 work | ADR-001 |
-| D-02 | Implement result protocol via Extension custom tool, not the (non-existent) `report_result` | 2026-05-11 | Pi docs don't show `report_result`; Extension API gives us the contract we need with documented primitives | ADR-002 |
-| D-03 | Provider quirks live in one `quirks.json` consumed by one extension, not per-provider TS files | 2026-05-11 | Pi already supports 25+ providers natively; per-provider TS files would invite bit rot | ADR-003 |
-| D-04 | Cache-control breakpoints live at the provider-shim layer, not Pi-level | 2026-05-11 | Pi has no native cache_control API; cache is inherently provider-specific | ADR-004 |
-| D-05 | Delete `codex-driver`, `claude-code-driver`, `ollama-driver` wholesale; no co-existence | 2026-05-11 | TDD.md decision preserved; co-existence multiplies surface area and obstructs the methodology IP | ADR-005 |
-| D-06 | Cache-control placement: after artefact block, before task-specific content | 2026-05-11 | Maximizes cache hit on the role-stable prefix; meets Anthropic ≥1024-token minimum | ADR-006 |
-| D-07 | Budget Gate downgrades tier at 70%, pauses at 95% | 2026-05-11 | Empirically chosen thresholds; configurable per-project | ADR-007 |
-| D-08 | One worktree per dispatched task | 2026-05-11 | Per-task isolation enables parallelism, simplifies claims, simplifies crash recovery | ADR-008 |
-| D-09 | Windows worktree path discipline: POSIX paths internally, 200-char cap, force LF | 2026-05-11 | Avoids documented git-worktree-on-Windows issues; cross-OS chaos tests verify | ADR-009 |
-| D-10 | Deterministic builds: byte-identical `dist/` outputs from the same commit | 2026-05-11 | Supply-chain hygiene; reproducibility check in CI | ADR-010 |
-| D-11 | Provider matrix tests run on cassettes only; no real API keys in CI | 2026-05-11 | Determinism, speed, cost; refresh process governs cassette evolution | ADR-011 |
-| D-12 | LTS policy: 6 months of security + critical-bug patches for v2.3.x | 2026-05-11 | Bridges the gap for users who can't migrate immediately; explicit EOL | ADR-012 |
-| D-13 | Single CLI binary path preserved at `./dist/cli.mjs` | 2026-05-11 | Avoids churn for downstream consumers; muscle memory | (no ADR; preserves v2) |
-| D-14 | The `methodology → codex-driver` edge break is the M1 entry gate, not exit | 2026-05-11 | Removes architectural debt before Pi work begins; ensures the methodology layer is genuinely vendor-agnostic going forward | ADR-001 |
-| D-15 | `swt rpc` verb delegates to Pi `runRpcMode` with no protocol modification | 2026-05-11 | Pi's RPC is good; wrapping adds value only by branding it as `swt` for tooling that expects one binary | (no ADR) |
-| D-16 | Dashboard remains localhost-only; no hosted version | 2026-05-11 | Matches v2 scope; cloud features are v4 work | (no ADR; preserves v2) |
-| D-17 | `swt bench` is the canonical TPAC measurement entry point | 2026-05-11 | Standardizes the measurement; reproducible across users | (no ADR; tooling decision) |
-| D-18 | Cassette format v1 freezes at M1 ship; format changes require explicit version bump | 2026-05-11 | Avoids cassette compatibility breakage; refresh path is well-defined | (no ADR; testing decision) |
-| D-19 | The role's tool subset is enforced at session creation, not in the prompt | 2026-05-11 | Defense-in-depth: even if the prompt is bypassed, tools aren't available; matches Principle 4 | (no ADR; obvious) |
-| D-20 | All metrics endpoints are local-only in v3.0; OTLP exporter deferred to v3.x | 2026-05-11 | Telemetry boundary in v3.0 is unchanged from v2; pushing metrics is a separate decision | (no ADR; preserves v2 stance) |
+| #    | Decision                                                                                       | Date       | Rationale                                                                                                                  | ADR                           |
+| ---- | ---------------------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| D-01 | Adopt `@earendil-works/pi-coding-agent` as the runtime substrate                               | 2026-05-11 | Owns the runtime; vendor-agnostic; mature enough for v3 work                                                               | ADR-001                       |
+| D-02 | Implement result protocol via Extension custom tool, not the (non-existent) `report_result`    | 2026-05-11 | Pi docs don't show `report_result`; Extension API gives us the contract we need with documented primitives                 | ADR-002                       |
+| D-03 | Provider quirks live in one `quirks.json` consumed by one extension, not per-provider TS files | 2026-05-11 | Pi already supports 25+ providers natively; per-provider TS files would invite bit rot                                     | ADR-003                       |
+| D-04 | Cache-control breakpoints live at the provider-shim layer, not Pi-level                        | 2026-05-11 | Pi has no native cache_control API; cache is inherently provider-specific                                                  | ADR-004                       |
+| D-05 | Delete `codex-driver`, `claude-code-driver`, `ollama-driver` wholesale; no co-existence        | 2026-05-11 | TDD.md decision preserved; co-existence multiplies surface area and obstructs the methodology IP                           | ADR-005                       |
+| D-06 | Cache-control placement: after artefact block, before task-specific content                    | 2026-05-11 | Maximizes cache hit on the role-stable prefix; meets Anthropic ≥1024-token minimum                                         | ADR-006                       |
+| D-07 | Budget Gate downgrades tier at 70%, pauses at 95%                                              | 2026-05-11 | Empirically chosen thresholds; configurable per-project                                                                    | ADR-007                       |
+| D-08 | One worktree per dispatched task                                                               | 2026-05-11 | Per-task isolation enables parallelism, simplifies claims, simplifies crash recovery                                       | ADR-008                       |
+| D-09 | Windows worktree path discipline: POSIX paths internally, 200-char cap, force LF               | 2026-05-11 | Avoids documented git-worktree-on-Windows issues; cross-OS chaos tests verify                                              | ADR-009                       |
+| D-10 | Deterministic builds: byte-identical `dist/` outputs from the same commit                      | 2026-05-11 | Supply-chain hygiene; reproducibility check in CI                                                                          | ADR-010                       |
+| D-11 | Provider matrix tests run on cassettes only; no real API keys in CI                            | 2026-05-11 | Determinism, speed, cost; refresh process governs cassette evolution                                                       | ADR-011                       |
+| D-12 | LTS policy: 6 months of security + critical-bug patches for v2.3.x                             | 2026-05-11 | Bridges the gap for users who can't migrate immediately; explicit EOL                                                      | ADR-012                       |
+| D-13 | Single CLI binary path preserved at `./dist/cli.mjs`                                           | 2026-05-11 | Avoids churn for downstream consumers; muscle memory                                                                       | (no ADR; preserves v2)        |
+| D-14 | The `methodology → codex-driver` edge break is the M1 entry gate, not exit                     | 2026-05-11 | Removes architectural debt before Pi work begins; ensures the methodology layer is genuinely vendor-agnostic going forward | ADR-001                       |
+| D-15 | `swt rpc` verb delegates to Pi `runRpcMode` with no protocol modification                      | 2026-05-11 | Pi's RPC is good; wrapping adds value only by branding it as `swt` for tooling that expects one binary                     | (no ADR)                      |
+| D-16 | Dashboard remains localhost-only; no hosted version                                            | 2026-05-11 | Matches v2 scope; cloud features are v4 work                                                                               | (no ADR; preserves v2)        |
+| D-17 | `swt bench` is the canonical TPAC measurement entry point                                      | 2026-05-11 | Standardizes the measurement; reproducible across users                                                                    | (no ADR; tooling decision)    |
+| D-18 | Cassette format v1 freezes at M1 ship; format changes require explicit version bump            | 2026-05-11 | Avoids cassette compatibility breakage; refresh path is well-defined                                                       | (no ADR; testing decision)    |
+| D-19 | The role's tool subset is enforced at session creation, not in the prompt                      | 2026-05-11 | Defense-in-depth: even if the prompt is bypassed, tools aren't available; matches Principle 4                              | (no ADR; obvious)             |
+| D-20 | All metrics endpoints are local-only in v3.0; OTLP exporter deferred to v3.x                   | 2026-05-11 | Telemetry boundary in v3.0 is unchanged from v2; pushing metrics is a separate decision                                    | (no ADR; preserves v2 stance) |
 
 ---
 
@@ -4310,35 +4431,35 @@ The following are unresolved and need decisions during M1-M2:
 
 ### 21.1 Architecture
 
-| # | Question | Default if not decided | Decision target |
-|---|---|---|---|
-| Q-01 | Should the orchestrator's lock file include a hash of the orchestrator's binary version, refusing to resume after a version change? | yes (refuse to resume cross-version) | M3 PR-25 |
-| Q-02 | When a worktree's git state is dirty after a crash, do we auto-stash or auto-discard? | auto-stash to `.swt-planning/parallel/wt-<id>/.crash-stash/` | M3 PR-25 |
-| Q-03 | Do we ship `swt rpc` in M2 or defer to v3.1? | M2 (per current TDD2) | M2 PR-20 review |
-| Q-04 | How aggressive should the auto-fallback be on Pi's `auto_retry_end` with `success: false`? | retry once on next provider | M5 PR-42 |
+| #    | Question                                                                                                                            | Default if not decided                                       | Decision target |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------- |
+| Q-01 | Should the orchestrator's lock file include a hash of the orchestrator's binary version, refusing to resume after a version change? | yes (refuse to resume cross-version)                         | M3 PR-25        |
+| Q-02 | When a worktree's git state is dirty after a crash, do we auto-stash or auto-discard?                                               | auto-stash to `.swt-planning/parallel/wt-<id>/.crash-stash/` | M3 PR-25        |
+| Q-03 | Do we ship `swt rpc` in M2 or defer to v3.1?                                                                                        | M2 (per current TDD2)                                        | M2 PR-20 review |
+| Q-04 | How aggressive should the auto-fallback be on Pi's `auto_retry_end` with `success: false`?                                          | retry once on next provider                                  | M5 PR-42        |
 
 ### 21.2 User experience
 
-| # | Question | Default | Decision target |
-|---|---|---|---|
-| Q-05 | Should `swt vibe` in non-interactive mode print all events to stdout or only the summary? | summary, with `--verbose` for full event stream | M2 PR-15 |
-| Q-06 | Should the dashboard prompt for confirmation when a Phase has > $5 estimated cost? | yes, behind opt-in flag | M4 PR-35 |
-| Q-07 | Should `swt migrate --to=v3` be interactive (prompt at each step) or fully automatic? | automatic with `--dry-run` flag | M6 PR-49 |
+| #    | Question                                                                                  | Default                                         | Decision target |
+| ---- | ----------------------------------------------------------------------------------------- | ----------------------------------------------- | --------------- |
+| Q-05 | Should `swt vibe` in non-interactive mode print all events to stdout or only the summary? | summary, with `--verbose` for full event stream | M2 PR-15        |
+| Q-06 | Should the dashboard prompt for confirmation when a Phase has > $5 estimated cost?        | yes, behind opt-in flag                         | M4 PR-35        |
+| Q-07 | Should `swt migrate --to=v3` be interactive (prompt at each step) or fully automatic?     | automatic with `--dry-run` flag                 | M6 PR-49        |
 
 ### 21.3 Operations
 
-| # | Question | Default | Decision target |
-|---|---|---|---|
-| Q-08 | Where do `.swt-planning/parallel/` worktree leftovers go after `swt cleanup`? | `.swt-planning/parallel/.archived/` for 7 days, then deleted | M3 PR-29 |
-| Q-09 | Are journal files committed to git or `.gitignore`'d? | `.gitignore`'d (operational, not source) | M1 PR-04 |
-| Q-10 | Does the budget state persist across `swt` sessions or reset per session? | persist (it's the budget for the milestone, not the session) | M4 PR-35 |
+| #    | Question                                                                      | Default                                                      | Decision target |
+| ---- | ----------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------- |
+| Q-08 | Where do `.swt-planning/parallel/` worktree leftovers go after `swt cleanup`? | `.swt-planning/parallel/.archived/` for 7 days, then deleted | M3 PR-29        |
+| Q-09 | Are journal files committed to git or `.gitignore`'d?                         | `.gitignore`'d (operational, not source)                     | M1 PR-04        |
+| Q-10 | Does the budget state persist across `swt` sessions or reset per session?     | persist (it's the budget for the milestone, not the session) | M4 PR-35        |
 
 ### 21.4 Release
 
-| # | Question | Default | Decision target |
-|---|---|---|---|
-| Q-11 | Does v3.0 launch with an `npx swt-v3-migrate` standalone migrator, or only `swt migrate`? | `swt migrate` only; the standalone is `npx stop-wasting-tokens migrate` | M6 PR-49 |
-| Q-12 | Public benchmark on Anthropic only, or also OpenAI? | both, side-by-side; this is part of the "vendor-agnostic" story | M6 PR-48 |
+| #    | Question                                                                                  | Default                                                                 | Decision target |
+| ---- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------- |
+| Q-11 | Does v3.0 launch with an `npx swt-v3-migrate` standalone migrator, or only `swt migrate`? | `swt migrate` only; the standalone is `npx stop-wasting-tokens migrate` | M6 PR-49        |
+| Q-12 | Public benchmark on Anthropic only, or also OpenAI?                                       | both, side-by-side; this is part of the "vendor-agnostic" story         | M6 PR-48        |
 
 Each open question gets a resolution PR before its decision target milestone closes.
 
@@ -4370,12 +4491,14 @@ preserved; the runtime layer is replaced.
 ## Consequences
 
 Easier:
+
 - One runtime to maintain.
 - Vendor abstraction comes "free" via Pi's provider catalog.
 - Per-task fresh sessions and crash safety enabled by Pi's session model.
 - Token meter and cache observability inherent to provider-level integration.
 
 Harder:
+
 - Pi is pre-1.0; we accept API churn risk.
 - Some Pi-specific patterns (Extensions, custom tools) need to be learned.
 - The methodology→codex-driver edge in v2.3.5 must be broken first.
@@ -4409,11 +4532,13 @@ without calling the tool.
 ## Consequences
 
 Easier:
+
 - Uses documented Pi primitives.
 - Result envelope is durable on disk (session entry), surviving orchestrator crashes.
 - Schema is Zod-validated at the harvest boundary.
 
 Harder:
+
 - One extra extension to load; one extra tool in the role's tool list.
 - Agents must learn to call the tool; system prompts include explicit instruction.
 ```
@@ -4426,15 +4551,18 @@ Harder:
 **Status:** Accepted
 
 ## Context
+
 Pi already supports 25+ providers natively. TDD.md proposed writing per-provider
 TypeScript shims at Layer 1; this duplicates Pi's catalog and invites bit rot.
 
 ## Decision
+
 Use `packages/runtime/src/providers/quirks.json` as the single overrides file.
 One extension (`runtime/extensions/provider-overrides.ts`) applies it via
 `pi.registerProvider(...)`. Adding a provider = adding a JSON entry, not a code file.
 
 ## Consequences
+
 Easier: one source of truth; no per-file maintenance burden; trivially diffable.
 Harder: any quirk that requires arbitrary code (custom `streamSimple`) breaks the
 pattern; ADR-003-bis will be authored if/when such a case appears.
@@ -4448,17 +4576,20 @@ pattern; ADR-003-bis will be authored if/when such a case appears.
 **Status:** Accepted
 
 ## Context
+
 Pi exposes conversation compaction (`session.compact(...)`), but does NOT expose
 provider-level prompt caching (Anthropic `cache_control`, OpenAI auto-cache). The
 70%-cache-hit target depends on the latter.
 
 ## Decision
+
 Implement cache-control breakpoint placement in `packages/runtime/src/cache/`,
 keyed by `ProviderModelConfig.api` ('anthropic-messages' → emit breakpoints;
 'openai-completions' → trust auto-cache; others → no-op). Pi's compaction stays
 on Pi's side, configured per role via §8.5.
 
 ## Consequences
+
 Easier: clean concern separation; provider-specific cache logic is testable in
 isolation; per-provider cassettes verify per-provider strategies.
 Harder: the "≥70% cache hit" claim now lives in §8.2.1; adding a new provider
@@ -4473,15 +4604,18 @@ with novel caching semantics requires its own file under `cache/`.
 **Status:** Accepted
 
 ## Context
+
 v2.x had three driver packages. A "v3 with toggleable backends" would multiply
 surface area, double the test matrix, and let a methodology→driver edge re-emerge.
 
 ## Decision
+
 Delete `packages/{codex,claude-code,ollama}-driver/` wholesale in M1 PR-05. No
 re-export shims. Users on Ollama route through Pi's Ollama provider; users on
 Claude Code or Codex migrate per §18.3.
 
 ## Consequences
+
 Easier: one runtime path to maintain; cleaner mental model; M1 PR-04 deletes
 3 packages, ~50 source files, ~20 test files — all auditable.
 Harder: v2.x users without Pi-supported providers have nowhere to land; we mitigate
@@ -4496,16 +4630,19 @@ with `swt migrate` (§13.6) and the 6-month LTS (§17.6).
 **Status:** Proposed (lands at M4 PR-32)
 
 ## Context
+
 Anthropic requires ≥1024 tokens between cache breakpoints. The cache-hit win comes
-from caching the *stable* prefix (role system prompt + project artefacts) and
+from caching the _stable_ prefix (role system prompt + project artefacts) and
 NOT caching the variable suffix (task brief + must-haves).
 
 ## Decision
+
 `buildPrompt` (§8.3) emits blocks in fixed order; the breakpoint goes at
 `cacheBreakpointIndex` which is set immediately after the phase context block
 and before the task-specific content. Anthropic-only; OpenAI auto-caches.
 
 ## Consequences
+
 Easier: the ≥70% cache-hit target becomes mechanical: stable prefix + breakpoint.
 Harder: if the artefact prefix drops below 1024 tokens we fall back to no
 breakpoint (warning surfaces in the dashboard). Documented in §13.4.3 R-04.
@@ -4519,17 +4656,21 @@ breakpoint (warning surfaces in the dashboard). Documented in §13.4.3 R-04.
 **Status:** Proposed (lands at M4 PR-35)
 
 ## Context
+
 We need an automated guardrail so a runaway phase doesn't burn the user's monthly
 LLM budget. Thresholds need to be aggressive enough to matter but not so eager
 they interrupt healthy milestones.
 
 ## Decision
+
 Two thresholds (configurable, defaults set here):
+
 - 70% of ceiling → downgrade subsequent dispatches one tier
   (quality → balanced, balanced → cheap-fast)
 - 95% of ceiling → pause milestone; require explicit "resume with bump"
 
 ## Consequences
+
 Easier: cost surprises become impossible without a deliberate "resume" click.
 Harder: bad tier downgrades may produce lower-quality output silently;
 the dashboard's Tier panel surfaces every override (§7.2).
@@ -4543,15 +4684,18 @@ the dashboard's Tier panel surfaces every override (§7.2).
 **Status:** Proposed (lands at M3 PR-22)
 
 ## Context
+
 Parallel tasks need isolation: file conflicts, untracked artifacts, and partial
 edits on crash all become tractable if each task owns its own filesystem.
 
 ## Decision
+
 Each task gets `.swt-planning/parallel/wt-<task-id>/` via `git worktree add`.
 Pi sessions are created with `cwd: worktreePath`. Tool factories scope
 filesystem access to the worktree.
 
 ## Consequences
+
 Easier: claim violations rejected at the filesystem boundary; crash recovery
 inspects a single directory; parallel batches truly run in parallel.
 Harder: git-worktree on Windows requires path discipline (ADR-009); creating
@@ -4566,16 +4710,19 @@ N worktrees has a non-trivial disk cost (~50 MB each for a medium repo).
 **Status:** Proposed (lands at M3 PR-30)
 
 ## Context
+
 git worktree on Windows has three classes of failure: case-insensitive FS
 collisions, MAX_PATH (~260 chars), and CRLF/LF mismatch breaking diffs.
 
 ## Decision
+
 - All paths stored / compared in POSIX form; converted to Win32 only at
   `child_process.spawn` boundary.
 - Worktree paths capped at 200 chars (cwd + task ID); fail fast at creation.
 - `.gitattributes` in each worktree forces `eol=lf` for source files.
 
 ## Consequences
+
 Easier: the chaos test suite runs on Windows runners without OS-specific skips.
 Harder: path arithmetic adds a small abstraction layer; one bug class
 (developers writing native paths inadvertently) needs an ESLint rule.
@@ -4589,17 +4736,20 @@ Harder: path arithmetic adds a small abstraction layer; one bug class
 **Status:** Proposed (lands at M1 PR-11)
 
 ## Context
+
 Supply-chain hygiene + npm provenance both benefit from reproducibility. Two
 runs of `pnpm build` on the same lockfile + commit should produce identical
 `dist/` outputs.
 
 ## Decision
+
 - No `Date.now()` / `process.hrtime()` in build outputs.
 - tsup banner / footer customized to omit timestamps.
 - pnpm-lock.yaml frozen in CI.
 - A `reproducible-build` CI job (§15.2) builds twice and diffs. Failure blocks merge.
 
 ## Consequences
+
 Easier: provenance attestations are trustworthy; users can independently verify
 that the npm tarball matches the source commit.
 Harder: any tool we adopt must be audited for nondeterminism; date-stamped
@@ -4614,15 +4764,18 @@ output requires a feature flag (off in production).
 **Status:** Proposed (lands at M1 PR-06)
 
 ## Context
+
 Running the provider matrix against real APIs in CI would be slow ($), nondeterministic
 (rate limits + provider drift), and would require storing 6+ API keys in CI secrets.
 
 ## Decision
+
 All CI provider-matrix runs use recorded cassettes (§14.7). Cassettes are
 checked into `packages/test-utils/cassettes/` and refreshed via labeled PRs.
 The recorder uses developer-local API keys; CI uses no keys.
 
 ## Consequences
+
 Easier: provider matrix runs in <25 min, deterministically, with zero recurring
 cost; no secret-management overhead.
 Harder: cassettes can go stale relative to live provider behavior; the cassette-
@@ -4637,16 +4790,20 @@ refresh policy + monthly refresh cadence mitigate (§14.7.4).
 **Status:** Proposed (lands at M6 PR-53)
 
 ## Context
+
 Users on v2.x can't all migrate to v3 on day one. We need an explicit, time-
 bounded support window that doesn't sprawl into "v2 forever".
 
 ## Decision
+
 v2.3.x enters LTS on the v3.0.0 release date for 6 calendar months. SLAs:
+
 - Security: 7-day backport. Data-loss / install-breaking: 14-day backport.
   Regression: 30-day backport. Features: not addressed.
-After 6 months: final patch + `v2-archive` tag + README pointer to v3.
+  After 6 months: final patch + `v2-archive` tag + README pointer to v3.
 
 ## Consequences
+
 Easier: maintenance scope is bounded and visible; users have a clear migration
 deadline; security obligations are precise.
 Harder: 6 months of two-track engineering. The v3 team must staff backport
@@ -4661,15 +4818,18 @@ reviews; v3-only bug fixes that touch shared methodology require careful porting
 **Status:** Proposed (deferred until 1000-user threshold)
 
 ## Context
+
 A hosted docs site (MkDocs / Docusaurus) adds infrastructure cost, deployment
 surface, and another thing to keep current. At v3.0's user scale, GitHub-rendered
 markdown is the path of least friction.
 
 ## Decision
+
 v3.0 ships with `docs/` in-tree only. If/when user count crosses ~1000, the docs
 site is auto-generated from `docs/` by a build step; never hand-maintained.
 
 ## Consequences
+
 Easier: one source of truth (the in-tree markdown); no separate hosting bill.
 Harder: deep linking + search are weaker than a dedicated docs site offers;
 revisit if user feedback flags this.
@@ -4679,21 +4839,21 @@ revisit if user feedback flags this.
 
 **Status lifecycle:** ADRs are **Proposed** when drafted (typically at TDD-time or in the ADR-introducing PR), then promoted to **Accepted** in the PR that implements them (`Status: Accepted` plus the merge SHA recorded in the ADR's frontmatter). The status column below is point-in-time as of 2026-05-11; CI's Vale rule (§15.9) enforces the status field exists on every ADR.
 
-| ADR | Title | Status | Decided | PR |
-|---|---|---|---|---|
-| 001 | Pi SDK as the runtime substrate | Accepted | 2026-05-11 | M1 PR-01a/b |
-| 002 | Result protocol via Extension custom tool | Accepted | 2026-05-11 | M1 PR-01a/b |
-| 003 | Per-provider quirks JSON over TS shims | Accepted | 2026-05-11 | M1 PR-08 |
-| 004 | Cache_control at provider-shim layer, not Pi-level | Accepted | 2026-05-11 | M1 PR-01a/b |
-| 005 | Delete drivers wholesale; no co-existence | Accepted | 2026-05-11 | M1 PR-05 |
-| 006 | Cache-control breakpoint placement | Proposed | M4 | M4 PR-32 |
-| 007 | Budget gate semantics | Proposed | M4 | M4 PR-35 |
-| 008 | Worktree-per-task model | Proposed | M3 | M3 PR-22 |
-| 009 | Windows worktree path discipline | Proposed | M3 | M3 PR-30 |
-| 010 | Deterministic builds | Proposed | M1 | M1 PR-11 |
-| 011 | Provider-matrix tests cassette-only | Proposed | M1 | M1 PR-06 |
-| 012 | Six-month LTS for v2.3.x | Proposed | M6 | M6 PR-53 |
-| 013 | Public documentation site posture | Proposed (deferred) | M6 | M6 PR-47 |
+| ADR | Title                                              | Status              | Decided    | PR          |
+| --- | -------------------------------------------------- | ------------------- | ---------- | ----------- |
+| 001 | Pi SDK as the runtime substrate                    | Accepted            | 2026-05-11 | M1 PR-01a/b |
+| 002 | Result protocol via Extension custom tool          | Accepted            | 2026-05-11 | M1 PR-01a/b |
+| 003 | Per-provider quirks JSON over TS shims             | Accepted            | 2026-05-11 | M1 PR-08    |
+| 004 | Cache_control at provider-shim layer, not Pi-level | Accepted            | 2026-05-11 | M1 PR-01a/b |
+| 005 | Delete drivers wholesale; no co-existence          | Accepted            | 2026-05-11 | M1 PR-05    |
+| 006 | Cache-control breakpoint placement                 | Proposed            | M4         | M4 PR-32    |
+| 007 | Budget gate semantics                              | Proposed            | M4         | M4 PR-35    |
+| 008 | Worktree-per-task model                            | Proposed            | M3         | M3 PR-22    |
+| 009 | Windows worktree path discipline                   | Proposed            | M3         | M3 PR-30    |
+| 010 | Deterministic builds                               | Proposed            | M1         | M1 PR-11    |
+| 011 | Provider-matrix tests cassette-only                | Proposed            | M1         | M1 PR-06    |
+| 012 | Six-month LTS for v2.3.x                           | Proposed            | M6         | M6 PR-53    |
+| 013 | Public documentation site posture                  | Proposed (deferred) | M6         | M6 PR-47    |
 
 ---
 
@@ -4707,9 +4867,16 @@ A one-page summary of the Pi SDK API surface used by SWT v3, for fast lookup.
 
 ```ts
 // from @earendil-works/pi-coding-agent
-export function createAgentSession(options?: CreateAgentSessionOptions): Promise<CreateAgentSessionResult>;
-export function createAgentSessionRuntime(factory: CreateAgentSessionRuntimeFactory, options: RuntimeOptions): Promise<AgentSessionRuntime>;
-export class InteractiveMode { /* run(): Promise<void> */ }
+export function createAgentSession(
+  options?: CreateAgentSessionOptions,
+): Promise<CreateAgentSessionResult>;
+export function createAgentSessionRuntime(
+  factory: CreateAgentSessionRuntimeFactory,
+  options: RuntimeOptions,
+): Promise<AgentSessionRuntime>;
+export class InteractiveMode {
+  /* run(): Promise<void> */
+}
 export function runPrintMode(runtime: AgentSessionRuntime, opts: PrintModeOptions): Promise<void>;
 export function runRpcMode(runtime: AgentSessionRuntime): Promise<void>;
 export function defineTool(config: ToolConfig): ToolDefinition;
@@ -4724,11 +4891,21 @@ export function createWriteTool(cwd: string): AgentTool;
 export function createGrepTool(cwd: string): AgentTool;
 export function createFindTool(cwd: string): AgentTool;
 export function createLsTool(cwd: string): AgentTool;
-export class SessionManager { /* inMemory, create, continueRecent, open, list, listAll */ }
-export class SettingsManager { /* create, inMemory, applyOverrides, flush, drainErrors */ }
-export class AuthStorage { /* create, setRuntimeApiKey */ }
-export class ModelRegistry { /* create, inMemory, find, getAvailable */ }
-export class DefaultResourceLoader { /* reload, getExtensions, getSkills, ... */ }
+export class SessionManager {
+  /* inMemory, create, continueRecent, open, list, listAll */
+}
+export class SettingsManager {
+  /* create, inMemory, applyOverrides, flush, drainErrors */
+}
+export class AuthStorage {
+  /* create, setRuntimeApiKey */
+}
+export class ModelRegistry {
+  /* create, inMemory, find, getAvailable */
+}
+export class DefaultResourceLoader {
+  /* reload, getExtensions, getSkills, ... */
+}
 export function createEventBus(): EventBus;
 export function getAgentDir(): string;
 ```
@@ -4785,80 +4962,80 @@ type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
 A row per significant v2 file and its v3 fate. Generated from the `.vbw-planning/research/swt-v2-source/` inspection.
 
-| v2 path | v3 path | Action |
-|---|---|---|
-| `packages/core/src/abstractions/AgentSpawner.ts` | `packages/core/src/abstractions/AgentSpawner.ts` | preserve; impl swapped |
-| `packages/core/src/abstractions/HookHost.ts` | `packages/core/src/abstractions/HookHost.ts` | preserve |
-| `packages/core/src/abstractions/MemoryStore.ts` | `packages/core/src/abstractions/MemoryStore.ts` | preserve |
-| `packages/core/src/abstractions/PermissionGate.ts` | `packages/core/src/abstractions/PermissionGate.ts` | preserve; extended with UiPermissionGate |
-| `packages/core/src/abstractions/Prompter.ts` | `packages/core/src/abstractions/Prompter.ts` | preserve |
-| `packages/core/src/config/*` | `packages/core/src/config/*` | preserve; new `roles[*].tier` field |
-| `packages/core/src/errors/*` | `packages/core/src/errors/*` | preserve; new error classes added |
-| `packages/core/src/handoff/*` | `packages/core/src/handoff/*` | preserve |
-| `packages/core/src/scaffold/*` | `packages/core/src/scaffold/*` | preserve |
-| `packages/core/src/types/*` | `packages/shared/src/types/*` | **migrate** |
-| `packages/artifacts/src/*` | `packages/core/src/artefacts/*` | **migrate (renamed)** |
-| `packages/methodology/src/*` | `packages/core/src/methodology/*` | **migrate** |
-| `packages/methodology/package.json` (codex-driver dep) | (removed) | **delete dep** |
-| `packages/cli/src/argv.ts` | `packages/cli/src/argv.ts` | preserve |
-| `packages/cli/src/commands/stubs.ts` | (deleted at M6 PR-46) | **dismantle** — see §3.2.4 disposition table; per-verb migration in M2–M6 |
-| `packages/cli/src/commands/{config,dashboard,doctor,init,status,update,version,vibe,watch,detect-phase}.ts` | same paths | preserve; internals rewired |
-| (new) | `packages/cli/src/commands/{plan,qa,map,debug,archive,pause,audit,assumptions,research,phase,todo,skills,whats-new,uninstall,worktree,lease,cleanup,migrate,rpc,bench}.ts` | **implement** per §3.2.4 stub disposition table + new verbs (§3.2.4 closing) |
-| `packages/cli/src/exit-codes.ts` | `packages/cli/src/exit-codes.ts` | preserve |
-| `packages/cli/src/router.ts` | `packages/cli/src/router.ts` | preserve |
-| `packages/dashboard/src/server/index.ts` | same | preserve; codex factory removed |
-| `packages/dashboard/src/server/routes/*` | same paths | preserve; new routes added |
-| `packages/dashboard/src/server/vibe/methodology-agent.ts` | same | preserve |
-| `packages/dashboard/src/server/vibe/codex-methodology-agent.ts` | (deleted) | **delete** |
-| `packages/dashboard/src/server/lib/detect-codex.ts` | (deleted) | **delete** |
-| `packages/dashboard-core/src/schemas/*` | `packages/shared/src/schemas/*` | **migrate** |
-| `packages/verification/src/*` | `packages/core/src/verification/*` | **migrate** |
-| `packages/telemetry/src/*` | `packages/core/src/telemetry/*` | **migrate** |
-| `packages/codex-driver/**` | (deleted) | **delete** |
-| `packages/claude-code-driver/**` | (deleted) | **delete** |
-| `packages/ollama-driver/**` | (deleted) | **delete** |
-| `.codex-plugin/**` | (deleted) | **delete** |
-| `.github/workflows/ci.yml` | `.github/workflows/ci.yml` | extend (§15.2) |
-| `.github/workflows/codeql.yml` | `.github/workflows/codeql.yml` | preserve |
-| `.github/workflows/install-smoke.yml` | `.github/workflows/install-smoke.yml` | preserve |
-| `.github/workflows/release.yml` | `.github/workflows/release.yml` | extend (provenance, signed tags) |
-| `.github/workflows/vale.yml` | `.github/workflows/vale.yml` | preserve; ADR rule added |
-| (new) | `.github/workflows/provider-matrix.yml` | NEW |
-| (new) | `.github/workflows/regression.yml` | NEW |
-| (new) | `.github/workflows/chaos.yml` | NEW |
-| `scripts/bump-version.sh` | same | preserve |
-| `scripts/check-bundle-size.mjs` | same | extend (new budgets) |
-| `scripts/check-offline.mjs` | same | preserve |
-| `scripts/docs-gen.ts` | same | extend (benchmark report) |
-| `scripts/verify-install.sh` | same | preserve |
-| `templates/*` | same | preserve |
-| `skills/*` | same | preserve; install path is now `.pi/skills/` |
-| `docs/*` | `docs/*` | reorganize per §18.1 |
+| v2 path                                                                                                     | v3 path                                                                                                                                                                    | Action                                                                       |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `packages/core/src/abstractions/AgentSpawner.ts`                                                            | `packages/core/src/abstractions/AgentSpawner.ts`                                                                                                                           | preserve; impl swapped                                                       |
+| `packages/core/src/abstractions/HookHost.ts`                                                                | `packages/core/src/abstractions/HookHost.ts`                                                                                                                               | preserve                                                                     |
+| `packages/core/src/abstractions/MemoryStore.ts`                                                             | `packages/core/src/abstractions/MemoryStore.ts`                                                                                                                            | preserve                                                                     |
+| `packages/core/src/abstractions/PermissionGate.ts`                                                          | `packages/core/src/abstractions/PermissionGate.ts`                                                                                                                         | preserve; extended with UiPermissionGate                                     |
+| `packages/core/src/abstractions/Prompter.ts`                                                                | `packages/core/src/abstractions/Prompter.ts`                                                                                                                               | preserve                                                                     |
+| `packages/core/src/config/*`                                                                                | `packages/core/src/config/*`                                                                                                                                               | preserve; new `roles[*].tier` field                                          |
+| `packages/core/src/errors/*`                                                                                | `packages/core/src/errors/*`                                                                                                                                               | preserve; new error classes added                                            |
+| `packages/core/src/handoff/*`                                                                               | `packages/core/src/handoff/*`                                                                                                                                              | preserve                                                                     |
+| `packages/core/src/scaffold/*`                                                                              | `packages/core/src/scaffold/*`                                                                                                                                             | preserve                                                                     |
+| `packages/core/src/types/*`                                                                                 | `packages/shared/src/types/*`                                                                                                                                              | **migrate**                                                                  |
+| `packages/artifacts/src/*`                                                                                  | `packages/core/src/artefacts/*`                                                                                                                                            | **migrate (renamed)**                                                        |
+| `packages/methodology/src/*`                                                                                | `packages/core/src/methodology/*`                                                                                                                                          | **migrate**                                                                  |
+| `packages/methodology/package.json` (codex-driver dep)                                                      | (removed)                                                                                                                                                                  | **delete dep**                                                               |
+| `packages/cli/src/argv.ts`                                                                                  | `packages/cli/src/argv.ts`                                                                                                                                                 | preserve                                                                     |
+| `packages/cli/src/commands/stubs.ts`                                                                        | (deleted at M6 PR-46)                                                                                                                                                      | **dismantle** — see §3.2.4 disposition table; per-verb migration in M2–M6    |
+| `packages/cli/src/commands/{config,dashboard,doctor,init,status,update,version,vibe,watch,detect-phase}.ts` | same paths                                                                                                                                                                 | preserve; internals rewired                                                  |
+| (new)                                                                                                       | `packages/cli/src/commands/{plan,qa,map,debug,archive,pause,audit,assumptions,research,phase,todo,skills,whats-new,uninstall,worktree,lease,cleanup,migrate,rpc,bench}.ts` | **implement** per §3.2.4 stub disposition table + new verbs (§3.2.4 closing) |
+| `packages/cli/src/exit-codes.ts`                                                                            | `packages/cli/src/exit-codes.ts`                                                                                                                                           | preserve                                                                     |
+| `packages/cli/src/router.ts`                                                                                | `packages/cli/src/router.ts`                                                                                                                                               | preserve                                                                     |
+| `packages/dashboard/src/server/index.ts`                                                                    | same                                                                                                                                                                       | preserve; codex factory removed                                              |
+| `packages/dashboard/src/server/routes/*`                                                                    | same paths                                                                                                                                                                 | preserve; new routes added                                                   |
+| `packages/dashboard/src/server/vibe/methodology-agent.ts`                                                   | same                                                                                                                                                                       | preserve                                                                     |
+| `packages/dashboard/src/server/vibe/codex-methodology-agent.ts`                                             | (deleted)                                                                                                                                                                  | **delete**                                                                   |
+| `packages/dashboard/src/server/lib/detect-codex.ts`                                                         | (deleted)                                                                                                                                                                  | **delete**                                                                   |
+| `packages/dashboard-core/src/schemas/*`                                                                     | `packages/shared/src/schemas/*`                                                                                                                                            | **migrate**                                                                  |
+| `packages/verification/src/*`                                                                               | `packages/core/src/verification/*`                                                                                                                                         | **migrate**                                                                  |
+| `packages/telemetry/src/*`                                                                                  | `packages/core/src/telemetry/*`                                                                                                                                            | **migrate**                                                                  |
+| `packages/codex-driver/**`                                                                                  | (deleted)                                                                                                                                                                  | **delete**                                                                   |
+| `packages/claude-code-driver/**`                                                                            | (deleted)                                                                                                                                                                  | **delete**                                                                   |
+| `packages/ollama-driver/**`                                                                                 | (deleted)                                                                                                                                                                  | **delete**                                                                   |
+| `.codex-plugin/**`                                                                                          | (deleted)                                                                                                                                                                  | **delete**                                                                   |
+| `.github/workflows/ci.yml`                                                                                  | `.github/workflows/ci.yml`                                                                                                                                                 | extend (§15.2)                                                               |
+| `.github/workflows/codeql.yml`                                                                              | `.github/workflows/codeql.yml`                                                                                                                                             | preserve                                                                     |
+| `.github/workflows/install-smoke.yml`                                                                       | `.github/workflows/install-smoke.yml`                                                                                                                                      | preserve                                                                     |
+| `.github/workflows/release.yml`                                                                             | `.github/workflows/release.yml`                                                                                                                                            | extend (provenance, signed tags)                                             |
+| `.github/workflows/vale.yml`                                                                                | `.github/workflows/vale.yml`                                                                                                                                               | preserve; ADR rule added                                                     |
+| (new)                                                                                                       | `.github/workflows/provider-matrix.yml`                                                                                                                                    | NEW                                                                          |
+| (new)                                                                                                       | `.github/workflows/regression.yml`                                                                                                                                         | NEW                                                                          |
+| (new)                                                                                                       | `.github/workflows/chaos.yml`                                                                                                                                              | NEW                                                                          |
+| `scripts/bump-version.sh`                                                                                   | same                                                                                                                                                                       | preserve                                                                     |
+| `scripts/check-bundle-size.mjs`                                                                             | same                                                                                                                                                                       | extend (new budgets)                                                         |
+| `scripts/check-offline.mjs`                                                                                 | same                                                                                                                                                                       | preserve                                                                     |
+| `scripts/docs-gen.ts`                                                                                       | same                                                                                                                                                                       | extend (benchmark report)                                                    |
+| `scripts/verify-install.sh`                                                                                 | same                                                                                                                                                                       | preserve                                                                     |
+| `templates/*`                                                                                               | same                                                                                                                                                                       | preserve                                                                     |
+| `skills/*`                                                                                                  | same                                                                                                                                                                       | preserve; install path is now `.pi/skills/`                                  |
+| `docs/*`                                                                                                    | `docs/*`                                                                                                                                                                   | reorganize per §18.1                                                         |
 
 ### Appendix C — Glossary
 
-| Term | Definition |
-|---|---|
-| **TPAC** | Tokens per shipped acceptance criterion (the north-star metric, §1.2). |
-| **Tier** | Capability classification of a model: `cheap-fast`, `balanced`, `quality`, `reasoning`. |
-| **Role** | A methodology role (Scout, Architect, Lead, Dev, QA, Debugger). |
-| **Worktree** | A git worktree directory at `.swt-planning/parallel/wt-<task-id>/` containing an isolated checkout for parallel task execution. |
-| **Claim** | A file path declared by a task as one it may edit; the claim registry serializes conflicting claims. |
-| **DAG** | The dependency graph of tasks within a phase, used to batch parallel execution. |
-| **Cassette** | A recorded LLM interaction (request + response) used for deterministic test replay. |
-| **Golden bundle** | A canonical `.swt-planning/` directory used as the regression baseline. |
-| **Must-have** | A requirement that gates phase completion; recorded as `MH-NN` in plans. |
-| **Verification ladder** | The fixed-order static-check pipeline: typecheck → lint → format → unit → integration → regression → chaos → e2e → LLM QA. |
-| **Methodology** | The methodology IP: phase lifecycle, six roles, must-haves, QA tiers, artefact schemas. Vendor-agnostic by construction. |
-| **Runtime adapter** | The thin layer over Pi (Layer 1) that normalizes events, manages cache, meters tokens. |
-| **Orchestration** | Layer 2: worktree dispatcher, DAG resolver, claim registry, crash recovery. |
-| **Subagent** | A Pi session dispatched by the orchestrator to perform one task in one worktree. Subagents are processes, not LLM features. |
-| **Budget Gate** | The token-cost enforcement mechanism with pause/downgrade thresholds. |
-| **Cache breakpoint** | A `cache_control: { type: 'ephemeral' }` marker inserted in prompts to enable provider-level caching. |
-| **Quirks file** | `runtime/providers/quirks.json` — provider-specific overrides applied via Extension API. |
-| **Result protocol** | The `swt_report_result` Extension tool + Zod-validated `TaskResult` envelope. |
-| **ADR** | Architecture Decision Record; small documents in `docs/decisions/`. |
-| **LTS** | Long-Term Support; v2.3.x gets 6 months of patches after v3.0 ships. |
+| Term                    | Definition                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **TPAC**                | Tokens per shipped acceptance criterion (the north-star metric, §1.2).                                                          |
+| **Tier**                | Capability classification of a model: `cheap-fast`, `balanced`, `quality`, `reasoning`.                                         |
+| **Role**                | A methodology role (Scout, Architect, Lead, Dev, QA, Debugger).                                                                 |
+| **Worktree**            | A git worktree directory at `.swt-planning/parallel/wt-<task-id>/` containing an isolated checkout for parallel task execution. |
+| **Claim**               | A file path declared by a task as one it may edit; the claim registry serializes conflicting claims.                            |
+| **DAG**                 | The dependency graph of tasks within a phase, used to batch parallel execution.                                                 |
+| **Cassette**            | A recorded LLM interaction (request + response) used for deterministic test replay.                                             |
+| **Golden bundle**       | A canonical `.swt-planning/` directory used as the regression baseline.                                                         |
+| **Must-have**           | A requirement that gates phase completion; recorded as `MH-NN` in plans.                                                        |
+| **Verification ladder** | The fixed-order static-check pipeline: typecheck → lint → format → unit → integration → regression → chaos → e2e → LLM QA.      |
+| **Methodology**         | The methodology IP: phase lifecycle, six roles, must-haves, QA tiers, artefact schemas. Vendor-agnostic by construction.        |
+| **Runtime adapter**     | The thin layer over Pi (Layer 1) that normalizes events, manages cache, meters tokens.                                          |
+| **Orchestration**       | Layer 2: worktree dispatcher, DAG resolver, claim registry, crash recovery.                                                     |
+| **Subagent**            | A Pi session dispatched by the orchestrator to perform one task in one worktree. Subagents are processes, not LLM features.     |
+| **Budget Gate**         | The token-cost enforcement mechanism with pause/downgrade thresholds.                                                           |
+| **Cache breakpoint**    | A `cache_control: { type: 'ephemeral' }` marker inserted in prompts to enable provider-level caching.                           |
+| **Quirks file**         | `runtime/providers/quirks.json` — provider-specific overrides applied via Extension API.                                        |
+| **Result protocol**     | The `swt_report_result` Extension tool + Zod-validated `TaskResult` envelope.                                                   |
+| **ADR**                 | Architecture Decision Record; small documents in `docs/decisions/`.                                                             |
+| **LTS**                 | Long-Term Support; v2.3.x gets 6 months of patches after v3.0 ships.                                                            |
 
 ### Appendix D — Reference repo specification for TPAC benchmark
 
@@ -4904,23 +5081,23 @@ Total: 4 LLM dispatches per milestone. Acceptance criteria: 1 (the version endpo
 
 ### Appendix E — Changelog of corrections vs TDD.md
 
-| TDD.md location | Original claim | TDD2 correction |
-|---|---|---|
-| §1.3 | `@mariozechner/pi-coding-agent` namespace | `@earendil-works/pi-coding-agent` (§5.1) |
-| §3.1 | "methodology engine is PRESERVED" (implicit clean) | preserved AFTER breaking methodology→codex-driver edge (§11.5, §13.1) |
-| §4.1 | 6-layer with no Extension API mention | 6-layer + Pi Extension API as controlled lateral channel (§5.4) |
-| §5 | sketches use bare `createSession` | actual is `createAgentSession`; SWT wraps to expose `createSession` locally (§5.2-5.3) |
-| §7 | cache_control at Layer 1 as Pi feature | cache_control is provider-layer; lives in `runtime/cache/anthropic-cache.ts` (§8.2.1) |
-| §7 | "≥70% cache hit ratio" with no implementation strategy | concrete strategy: deterministic prefix + stable ordering + breakpoint placement + min-1024-token rule (§8.2.1, §8.3) |
-| §8 | "shouldStopAfterTurn integration" | Extension `agent_end` hook + tool `{terminate: true}` (§9.4, ADR-002) |
-| §8 | "report_result tool wired" | custom tool via Extension API; `swt_report_result` (§9.4) |
-| §11 M1 deliverables | "Anthropic + OpenAI shims" | role-resolver + quirks.json overrides; no per-provider TS files (§7.5) |
-| §12.4 | "Vitest test suite preserved as regression baseline" | 130 test files in packages/; 2 root tests; full inventory in M1 (§3.5) |
-| §5.2 | "single CLI entrypoint at packages/cli/bin/swt.mjs" | preserved at `./dist/cli.mjs` (§6.5) |
-| §4 | Layer 0 not specifying peer-dep policy | Pi listed as `peerDependencies: "*"` per Pi docs (§5.1, §6.4) |
-| §3.2 | methodology→codex-driver edge undescribed | explicit; M1 entry gate (§3.3, §11.5, §13.1.1) |
-| §11 M6 | "all stub CLI verbs deleted" | concrete: `commands/stubs.ts` file deleted (§3.6) |
-| §11 M6 | "migration script (`swt migrate --to=v3`)" with no spec | full spec (§11.3 transformations + §13.6 PR-49 + §18.3 guide) |
+| TDD.md location     | Original claim                                          | TDD2 correction                                                                                                       |
+| ------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| §1.3                | `@mariozechner/pi-coding-agent` namespace               | `@earendil-works/pi-coding-agent` (§5.1)                                                                              |
+| §3.1                | "methodology engine is PRESERVED" (implicit clean)      | preserved AFTER breaking methodology→codex-driver edge (§11.5, §13.1)                                                 |
+| §4.1                | 6-layer with no Extension API mention                   | 6-layer + Pi Extension API as controlled lateral channel (§5.4)                                                       |
+| §5                  | sketches use bare `createSession`                       | actual is `createAgentSession`; SWT wraps to expose `createSession` locally (§5.2-5.3)                                |
+| §7                  | cache_control at Layer 1 as Pi feature                  | cache_control is provider-layer; lives in `runtime/cache/anthropic-cache.ts` (§8.2.1)                                 |
+| §7                  | "≥70% cache hit ratio" with no implementation strategy  | concrete strategy: deterministic prefix + stable ordering + breakpoint placement + min-1024-token rule (§8.2.1, §8.3) |
+| §8                  | "shouldStopAfterTurn integration"                       | Extension `agent_end` hook + tool `{terminate: true}` (§9.4, ADR-002)                                                 |
+| §8                  | "report_result tool wired"                              | custom tool via Extension API; `swt_report_result` (§9.4)                                                             |
+| §11 M1 deliverables | "Anthropic + OpenAI shims"                              | role-resolver + quirks.json overrides; no per-provider TS files (§7.5)                                                |
+| §12.4               | "Vitest test suite preserved as regression baseline"    | 130 test files in packages/; 2 root tests; full inventory in M1 (§3.5)                                                |
+| §5.2                | "single CLI entrypoint at packages/cli/bin/swt.mjs"     | preserved at `./dist/cli.mjs` (§6.5)                                                                                  |
+| §4                  | Layer 0 not specifying peer-dep policy                  | Pi listed as `peerDependencies: "*"` per Pi docs (§5.1, §6.4)                                                         |
+| §3.2                | methodology→codex-driver edge undescribed               | explicit; M1 entry gate (§3.3, §11.5, §13.1.1)                                                                        |
+| §11 M6              | "all stub CLI verbs deleted"                            | concrete: `commands/stubs.ts` file deleted (§3.6)                                                                     |
+| §11 M6              | "migration script (`swt migrate --to=v3`)" with no spec | full spec (§11.3 transformations + §13.6 PR-49 + §18.3 guide)                                                         |
 
 ---
 
@@ -4940,10 +5117,3 @@ This document supersedes `TDD.md`. Material changes to v3 design require a PR am
 - [ ] Release engineering
 
 Once all signoffs are recorded, this document is **Accepted** and M1 work begins.
-
-
-
-
-
-
-

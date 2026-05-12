@@ -37,6 +37,7 @@ The peer-dependency policy follows Pi's docs: `packages/runtime/` declares
 ## Consequences
 
 Easier:
+
 - One runtime to maintain. Methodology never speaks provider strings.
 - Vendor abstraction comes "free" via Pi's provider catalogue (25+ providers).
 - Per-task fresh sessions and crash safety are inherent to Pi's session model.
@@ -45,6 +46,7 @@ Easier:
   from `@swt-labs/core/abstractions`; the runtime layer fulfils it.
 
 Harder:
+
 - Pi is pre-1.0; we accept API churn risk. The pinned-range dep + cassette-replay
   determinism (Plan 01-02 PR-06/07) cushion this.
 - Some Pi-specific patterns (Extensions, custom tools, Pi's session entry model)

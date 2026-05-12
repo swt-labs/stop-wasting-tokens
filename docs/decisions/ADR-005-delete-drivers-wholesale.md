@@ -63,6 +63,7 @@ deletion.
 ## Consequences
 
 Easier:
+
 - One runtime path to maintain: methodology → orchestration → runtime → Pi.
 - M1 PR-05 deletes 3 packages, ~50 source files, ~20 test files — all
   auditable in one diff. No "what stayed for legacy reasons" mental
@@ -73,6 +74,7 @@ Easier:
   of three drivers each with their own version requirements.
 
 Harder:
+
 - v2.x users without Pi-supported providers have nowhere to land at v3
   ship. Mitigation: `swt migrate --to=v3` (M6 PR-49) + the 6-month LTS
   on v2.3.x (ADR-012). After 6 months, users who couldn't migrate are

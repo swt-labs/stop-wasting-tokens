@@ -21,6 +21,7 @@ criterion `cache hit ≥ 70% on Anthropic paths` (TDD2 §1.2) depends on the
 latter, not on Pi's compaction.
 
 Two architectural questions follow:
+
 1. Where does cache-control logic live in the package layout?
 2. How do we keep the methodology vendor-neutral while still hitting the
    provider-specific cache target?
@@ -49,6 +50,7 @@ the caching strategy from `ProviderModelConfig.api`.
 ## Consequences
 
 Easier:
+
 - Clean concern separation: the M4 cache-hit target is satisfiable in
   `packages/runtime/src/cache/`, not by mutating the methodology layer.
 - Provider-specific cache logic is testable in isolation against cassettes
@@ -58,6 +60,7 @@ Easier:
   stays observable rather than papered over.
 
 Harder:
+
 - The "≥70% cache hit" target now lives in §8.2.1 of TDD2; the test that proves
   it (`packages/test-utils/cassettes/*.jsonl` + the M4 cache-hit panel) sits
   alongside the implementation, not in `packages/runtime/` proper.

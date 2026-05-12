@@ -1,6 +1,5 @@
-import { type Component } from 'solid-js';
-
 import type { CostSummary } from '@swt-labs/shared';
+import { type Component } from 'solid-js';
 
 export interface CostPanelProps {
   cost: CostSummary | null;

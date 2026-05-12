@@ -2,11 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type {
-  AgentPromptContext,
-  AgentPromptOption,
-  SnapshotEvent,
-} from '@swt-labs/shared';
+import type { AgentPromptContext, AgentPromptOption, SnapshotEvent } from '@swt-labs/shared';
 
 import type { EventBus } from '../event-bus.js';
 

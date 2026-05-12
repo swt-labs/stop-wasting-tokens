@@ -14,7 +14,7 @@ describe('cassette normalisation + hashing', () => {
     it('lowercases keys and sorts deterministically', () => {
       const result = normalizeHeaders({
         'X-Custom': 'foo',
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       });
       expect(Object.keys(result)).toEqual(['accept', 'content-type', 'x-custom']);
@@ -98,12 +98,16 @@ describe('cassette normalisation + hashing', () => {
   describe('normalizeRequest + hashRequest', () => {
     it('produces deterministic hash for the same logical request', () => {
       const cwd = '/Users/alice/projects/swt';
-      const r1 = normalizeRequest('POST', 'https://api.anthropic.com/v1/messages',
+      const r1 = normalizeRequest(
+        'POST',
+        'https://api.anthropic.com/v1/messages',
         { 'Content-Type': 'application/json', Authorization: 'Bearer xyz' },
         { messages: [{ role: 'user', content: `read ${cwd}/README.md` }] },
         { cwd },
       );
-      const r2 = normalizeRequest('POST', 'https://api.anthropic.com/v1/messages',
+      const r2 = normalizeRequest(
+        'POST',
+        'https://api.anthropic.com/v1/messages',
         { 'content-type': 'application/json', Authorization: 'Bearer different-token' },
         { messages: [{ role: 'user', content: `read ${cwd}/README.md` }] },
         { cwd },
@@ -113,10 +117,18 @@ describe('cassette normalisation + hashing', () => {
     });
 
     it('produces different hashes for semantically different requests', () => {
-      const r1 = normalizeRequest('POST', 'https://api.anthropic.com/v1/messages', {},
-        { messages: [{ role: 'user', content: 'hello' }] });
-      const r2 = normalizeRequest('POST', 'https://api.anthropic.com/v1/messages', {},
-        { messages: [{ role: 'user', content: 'goodbye' }] });
+      const r1 = normalizeRequest(
+        'POST',
+        'https://api.anthropic.com/v1/messages',
+        {},
+        { messages: [{ role: 'user', content: 'hello' }] },
+      );
+      const r2 = normalizeRequest(
+        'POST',
+        'https://api.anthropic.com/v1/messages',
+        {},
+        { messages: [{ role: 'user', content: 'goodbye' }] },
+      );
       expect(hashRequest(r1)).not.toBe(hashRequest(r2));
     });
   });

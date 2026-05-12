@@ -21,21 +21,21 @@ self-contained.
 
 ## Status table (as of 2026-05-11)
 
-| ADR | Title | Status | Decided | PR |
-| :---: | :--- | :--- | :---: | :--- |
-| [001](./ADR-001-pi-sdk-adoption.md) | Pi SDK as the runtime substrate | **Accepted** | 2026-05-11 | M1 PR-02 |
-| [002](./ADR-002-extension-result-protocol.md) | Result protocol via Extension custom tool | **Accepted** | 2026-05-11 | M1 PR-09 |
-| [003](./ADR-003-quirks-json-over-shims.md) | Provider quirks live in `quirks.json` applied via Pi Extension | **Accepted** | 2026-05-11 | M1 PR-08 |
-| [004](./ADR-004-cache-at-provider-layer.md) | `cache_control` at provider-shim layer, not Pi-level | **Accepted** | 2026-05-11 | M1 PR-02 |
-| [005](./ADR-005-delete-drivers-wholesale.md) | Delete codex/claude-code/ollama drivers wholesale | **Accepted** | 2026-05-11 | M1 PR-05 |
-| [006](./ADR-006-cache-control-breakpoint-placement.md) | Cache-control breakpoint placement | Proposed | 2026-05-11 | M4 PR-32 |
-| [007](./ADR-007-budget-gate-semantics.md) | Budget Gate thresholds (70% downgrade, 95% pause) | Proposed | 2026-05-11 | M4 PR-35 |
-| [008](./ADR-008-worktree-per-task.md) | Worktree-per-task model | Proposed | 2026-05-11 | M3 PR-22 |
-| [009](./ADR-009-windows-worktree-path-discipline.md) | Windows worktree path discipline | Proposed | 2026-05-11 | M3 PR-30 |
-| [010](./ADR-010-deterministic-builds.md) | Deterministic builds (byte-identical from same commit) | **Accepted** | 2026-05-11 | M1 PR-11 |
-| [011](./ADR-011-provider-matrix-cassettes-only.md) | Provider-matrix CI runs on cassettes only | Proposed | 2026-05-11 | M5 PR-44 |
-| [012](./ADR-012-six-month-lts-policy.md) | Six-month LTS for v2.3.x | Proposed | 2026-05-11 | M6 PR-53 |
-| [013](./ADR-013-docs-site-posture.md) | No hosted documentation site at v3.0 | **Deferred** | 2026-05-11 | M6 PR-47 |
+|                          ADR                           | Title                                                          | Status       |  Decided   | PR       |
+| :----------------------------------------------------: | :------------------------------------------------------------- | :----------- | :--------: | :------- |
+|          [001](./ADR-001-pi-sdk-adoption.md)           | Pi SDK as the runtime substrate                                | **Accepted** | 2026-05-11 | M1 PR-02 |
+|     [002](./ADR-002-extension-result-protocol.md)      | Result protocol via Extension custom tool                      | **Accepted** | 2026-05-11 | M1 PR-09 |
+|       [003](./ADR-003-quirks-json-over-shims.md)       | Provider quirks live in `quirks.json` applied via Pi Extension | **Accepted** | 2026-05-11 | M1 PR-08 |
+|      [004](./ADR-004-cache-at-provider-layer.md)       | `cache_control` at provider-shim layer, not Pi-level           | **Accepted** | 2026-05-11 | M1 PR-02 |
+|      [005](./ADR-005-delete-drivers-wholesale.md)      | Delete codex/claude-code/ollama drivers wholesale              | **Accepted** | 2026-05-11 | M1 PR-05 |
+| [006](./ADR-006-cache-control-breakpoint-placement.md) | Cache-control breakpoint placement                             | Proposed     | 2026-05-11 | M4 PR-32 |
+|       [007](./ADR-007-budget-gate-semantics.md)        | Budget Gate thresholds (70% downgrade, 95% pause)              | Proposed     | 2026-05-11 | M4 PR-35 |
+|         [008](./ADR-008-worktree-per-task.md)          | Worktree-per-task model                                        | Proposed     | 2026-05-11 | M3 PR-22 |
+|  [009](./ADR-009-windows-worktree-path-discipline.md)  | Windows worktree path discipline                               | Proposed     | 2026-05-11 | M3 PR-30 |
+|        [010](./ADR-010-deterministic-builds.md)        | Deterministic builds (byte-identical from same commit)         | **Accepted** | 2026-05-11 | M1 PR-11 |
+|   [011](./ADR-011-provider-matrix-cassettes-only.md)   | Provider-matrix CI runs on cassettes only                      | Proposed     | 2026-05-11 | M5 PR-44 |
+|        [012](./ADR-012-six-month-lts-policy.md)        | Six-month LTS for v2.3.x                                       | Proposed     | 2026-05-11 | M6 PR-53 |
+|         [013](./ADR-013-docs-site-posture.md)          | No hosted documentation site at v3.0                           | **Deferred** | 2026-05-11 | M6 PR-47 |
 
 **Tally** — 6 Accepted (001/002/003/004/005/010), 6 Proposed (006/007/008/009/011/012), 1 Deferred (013). Matches TDD2 §22.14 verbatim.
 
@@ -45,15 +45,15 @@ ADRs Proposed today promote to Accepted at the listed implementing PR. The promo
 schedule below is the planning view; the source of truth for "did promotion happen?"
 is the `Status:` field on the ADR file itself.
 
-| Promotion target | Lands at | Trigger |
-| :--- | :--- | :--- |
-| ADR-006 → Accepted | M4 PR-32 | `buildPrompt()` ships with the cacheBreakpointIndex insertion |
-| ADR-007 → Accepted | M4 PR-35 | Budget Gate goes live with the 70%/95% thresholds |
-| ADR-008 → Accepted | M3 PR-22 | First worktree-backed parallel dispatch |
-| ADR-009 → Accepted | M3 PR-30 | Windows path discipline + ESLint rule shipped |
-| ADR-011 → Accepted | M5 PR-44 | Provider matrix workflow exercises its cassettes |
-| ADR-012 → Accepted | M6 PR-53 | v2-archive LTS branch cut + EOL date pinned |
-| ADR-013 → revisit | when user count crosses ~1000 | Threshold trigger per ADR body |
+| Promotion target   | Lands at                      | Trigger                                                       |
+| :----------------- | :---------------------------- | :------------------------------------------------------------ |
+| ADR-006 → Accepted | M4 PR-32                      | `buildPrompt()` ships with the cacheBreakpointIndex insertion |
+| ADR-007 → Accepted | M4 PR-35                      | Budget Gate goes live with the 70%/95% thresholds             |
+| ADR-008 → Accepted | M3 PR-22                      | First worktree-backed parallel dispatch                       |
+| ADR-009 → Accepted | M3 PR-30                      | Windows path discipline + ESLint rule shipped                 |
+| ADR-011 → Accepted | M5 PR-44                      | Provider matrix workflow exercises its cassettes              |
+| ADR-012 → Accepted | M6 PR-53                      | v2-archive LTS branch cut + EOL date pinned                   |
+| ADR-013 → revisit  | when user count crosses ~1000 | Threshold trigger per ADR body                                |
 
 ## How to add a new ADR
 

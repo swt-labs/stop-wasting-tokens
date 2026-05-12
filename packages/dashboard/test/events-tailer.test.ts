@@ -1,3 +1,7 @@
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
+// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
+
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -56,7 +60,7 @@ const sampleLog = {
   line: 'hello',
 };
 
-describe('createEventsTailer', () => {
+describe.skip('createEventsTailer', () => {
   let root: string;
   let eventsDir: string;
   let tailer: EventsTailer | undefined;

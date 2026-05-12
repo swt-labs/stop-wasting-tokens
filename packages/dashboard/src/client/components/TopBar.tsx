@@ -1,6 +1,5 @@
-import { Show, createMemo, createSignal, type Component } from 'solid-js';
-
 import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
+import { Show, createMemo, createSignal, type Component } from 'solid-js';
 
 import type { ConnectionState } from '../state/dashboard-store.js';
 
@@ -96,7 +95,7 @@ export const TopBar: Component<TopBarProps> = (props) => {
             spellcheck={false}
             disabled={props.commandSubmitting || props.vibeStarting}
             value={input()}
-            onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
+            onInput={(e) => setInput(e.currentTarget.value)}
           />
         </form>
         <Show

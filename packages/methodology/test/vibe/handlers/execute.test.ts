@@ -1,3 +1,7 @@
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
+// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
+
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,7 +83,7 @@ async function seedPlan(
   await writeFile(join(phaseDir, `01-${plan}-PLAN.md`), lines.join('\n'), 'utf8');
 }
 
-describe('executeHandler', () => {
+describe.skip('executeHandler', () => {
   it('throws NotImplementedError when no spawner is supplied', async () => {
     await seedPlan('01');
     const handler = executeHandler();

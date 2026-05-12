@@ -8,11 +8,11 @@
 
 The provider layer is JSON-driven by design (per ADR-003). Two files + one resolver:
 
-| File | Shape | Purpose |
-| :--- | :--- | :--- |
-| `default-tiers.json` | `Record<provider, Record<Tier, modelId>>` | Maps the methodology's `Tier` vocabulary (`cheap-fast`/`balanced`/`quality`/`reasoning`) to concrete model IDs per provider. |
-| `quirks.json` | `Record<provider, ProviderQuirk>` | Per-provider compat flags + `thinkingLevelMap` overrides. Keys MUST be Pi `ThinkingLevel` values (`off`/`minimal`/`low`/`medium`/`high`/`xhigh`), NOT SWT tier names. |
-| `role-resolver.ts` | TS module | Three pure functions: `resolveTierForRole(role)`, `resolveModelForRole(role, provider)`, `resolveThinkingLevelForRole(role)`. Per TDD2 §10.5: per-ROLE thinking level, not per-tier. |
+| File                 | Shape                                     | Purpose                                                                                                                                                                              |
+| :------------------- | :---------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default-tiers.json` | `Record<provider, Record<Tier, modelId>>` | Maps the methodology's `Tier` vocabulary (`cheap-fast`/`balanced`/`quality`/`reasoning`) to concrete model IDs per provider.                                                         |
+| `quirks.json`        | `Record<provider, ProviderQuirk>`         | Per-provider compat flags + `thinkingLevelMap` overrides. Keys MUST be Pi `ThinkingLevel` values (`off`/`minimal`/`low`/`medium`/`high`/`xhigh`), NOT SWT tier names.                |
+| `role-resolver.ts`   | TS module                                 | Three pure functions: `resolveTierForRole(role)`, `resolveModelForRole(role, provider)`, `resolveThinkingLevelForRole(role)`. Per TDD2 §10.5: per-ROLE thinking level, not per-tier. |
 
 ## Role → tier → model → thinking-level chain
 
@@ -34,14 +34,14 @@ The orchestrator intentionally is not in `SDLCRole` — it dispatches; it doesn'
 
 ## Default role-to-tier map
 
-| Role | Tier | Thinking |
-| :--- | :--- | :--- |
-| `scout` | `cheap-fast` | `off` |
-| `architect` | `quality` | `medium` |
-| `lead` | `balanced` | `low` |
-| `dev` | `balanced` | `low` |
-| `qa` | `balanced` | `low` |
-| `debugger` | `reasoning` | `xhigh` |
+| Role        | Tier         | Thinking |
+| :---------- | :----------- | :------- |
+| `scout`     | `cheap-fast` | `off`    |
+| `architect` | `quality`    | `medium` |
+| `lead`      | `balanced`   | `low`    |
+| `dev`       | `balanced`   | `low`    |
+| `qa`        | `balanced`   | `low`    |
+| `debugger`  | `reasoning`  | `xhigh`  |
 
 Project-level overrides go in `.swt-planning/config.json` under `roles[*].tier`. The resolver merges them in via the `overrides.roleTier` argument.
 

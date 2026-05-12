@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   harvestTaskResult,
@@ -121,11 +122,7 @@ describe('@swt-labs/orchestration — readSessionEntries + harvestTaskResult (fi
 
   it('harvestTaskResult throws MissingTaskResultError when no entry found', () => {
     const path = join(tmp, 'no-result.jsonl');
-    writeFileSync(
-      path,
-      JSON.stringify({ type: 'agent_start', sessionId: 's1' }) + '\n',
-      'utf8',
-    );
+    writeFileSync(path, JSON.stringify({ type: 'agent_start', sessionId: 's1' }) + '\n', 'utf8');
     expect(() => harvestTaskResult(path)).toThrow(MissingTaskResultError);
   });
 });

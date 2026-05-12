@@ -64,6 +64,7 @@ transitive deps without disturbing main.
 ## Consequences
 
 Easier:
+
 - Maintenance scope bounded and visible. Users have a clear deadline;
   security obligations are precise.
 - Dual-track sized: 6 months × historical v2.3.x cadence ≈ 8 patch releases
@@ -71,6 +72,7 @@ Easier:
 - After EOL, the v3 team works on v3 only.
 
 Harder:
+
 - 6 months of two-track engineering. Every v3 fix touching shared
   methodology needs a port/skip/backport decision.
 - The v3 team must staff backport reviews. Mitigation: batched release cuts.

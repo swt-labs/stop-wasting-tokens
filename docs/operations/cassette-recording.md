@@ -36,6 +36,7 @@ per the agreed PR-06 cassette-recording handoff.
    Anthropic credit.
 
 2. **Set the API key in your environment:**
+
    ```bash
    export ANTHROPIC_API_KEY=sk-ant-...
    # or
@@ -51,15 +52,17 @@ per the agreed PR-06 cassette-recording handoff.
    - Create a Pi session against the chosen provider with read-only tools
      (`createReadOnlyTools(cwd)`)
    - Prompt: `"Read the file at ./README.md, then call swt_report_result
-     with status='success' and summary='Read README'."`
+with status='success' and summary='Read README'."`
    - The session emits one round of `prompt → read tool call → assistant
-     response → swt_report_result call → session end`. The recorder
+response → swt_report_result call → session end`. The recorder
      captures each HTTP request/response pair as one cassette interaction.
 
 4. **Run the recorder:**
+
    ```bash
    pnpm record -- --scenario=scout-read-readme --provider=anthropic --model=claude-sonnet-4-5
    ```
+
    The recorder:
    - Validates env vars + scenario module exist
    - Refuses to overwrite an existing cassette (delete it first if
@@ -74,9 +77,11 @@ per the agreed PR-06 cassette-recording handoff.
      `packages/test-utils/cassettes/{scenario}.jsonl`
 
 5. **Verify the recording locally:**
+
    ```bash
    pnpm test --filter @swt-labs/test-utils
    ```
+
    `replay.test.ts` should now run (no longer skipped) and the `loadCassette`
    structural checks pass.
 
@@ -95,12 +100,12 @@ itself is too large and should be split.
 
 ## What goes in vs. out of the cassette
 
-| Goes in | Stays out |
-|---|---|
-| Method, URL, normalised headers, body hash | `Authorization` / `X-API-Key` / `Cookie` / `Set-Cookie` headers |
-| Response status, headers, body chunks | `Date`, `X-Request-Id`, `cf-ray` (request-time noise) |
-| Token usage totals (from final `turn_end` event) | Absolute cwd paths (replaced with `<cwd>`) |
-| `cwd_redacted: true` flag (the replayer refuses cassettes without it) | Anthropic `cache_control` exact-shape variants (canonicalised) |
+| Goes in                                                               | Stays out                                                       |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Method, URL, normalised headers, body hash                            | `Authorization` / `X-API-Key` / `Cookie` / `Set-Cookie` headers |
+| Response status, headers, body chunks                                 | `Date`, `X-Request-Id`, `cf-ray` (request-time noise)           |
+| Token usage totals (from final `turn_end` event)                      | Absolute cwd paths (replaced with `<cwd>`)                      |
+| `cwd_redacted: true` flag (the replayer refuses cassettes without it) | Anthropic `cache_control` exact-shape variants (canonicalised)  |
 
 ## Security
 

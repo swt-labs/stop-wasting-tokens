@@ -9,20 +9,20 @@ SWT's telemetry is **opt-in, aggregate-only** (per Principle 4 — never carries
 
 ## M1 event registry (PR-07)
 
-| Event | Payload keys (aggregate dimensions only) | Source |
-| :--- | :--- | :--- |
-| `swt.m1.meter.updated` | milestone, phase, role, provider, input_total, output_total, cache_read_total, cache_write_total, cost_usd_total | `createTokenMeter` snapshot rollup |
-| `swt.m1.cassette.replay_started` | cassette_id | cassette replayer hook |
-| `swt.m1.cassette.replay_complete` | cassette_id, delta_tokens, passed | cassette replayer post-assertion |
-| `swt.m1.task_result.parsed` | task_id, ok | `harvestTaskResult` post-validation |
+| Event                             | Payload keys (aggregate dimensions only)                                                                         | Source                              |
+| :-------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :---------------------------------- |
+| `swt.m1.meter.updated`            | milestone, phase, role, provider, input_total, output_total, cache_read_total, cache_write_total, cost_usd_total | `createTokenMeter` snapshot rollup  |
+| `swt.m1.cassette.replay_started`  | cassette_id                                                                                                      | cassette replayer hook              |
+| `swt.m1.cassette.replay_complete` | cassette_id, delta_tokens, passed                                                                                | cassette replayer post-assertion    |
+| `swt.m1.task_result.parsed`       | task_id, ok                                                                                                      | `harvestTaskResult` post-validation |
 
 ## Carriers + sinks
 
-| Layer | What it does |
-| :--- | :--- |
-| `runtime/src/meter/` | Records `MeterRecord` rows; emits `METER_UPDATED` to subscribers. |
-| `runtime/src/extensions/journal.ts` | Mirrors `SwtEvent`s into `<cwd>/.swt-planning/journal/<UTC-day>.jsonl` (M3 crash recovery). |
-| `telemetry/src/sender.ts` | Buffers + ships aggregate events to the operator-configured endpoint (opt-in). |
-| `telemetry/src/sanitize.ts` | Strips any field not in the event's `ALLOWED_KEYS` (defence-in-depth — payloads can't accidentally carry sensitive data). |
+| Layer                               | What it does                                                                                                              |
+| :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
+| `runtime/src/meter/`                | Records `MeterRecord` rows; emits `METER_UPDATED` to subscribers.                                                         |
+| `runtime/src/extensions/journal.ts` | Mirrors `SwtEvent`s into `<cwd>/.swt-planning/journal/<UTC-day>.jsonl` (M3 crash recovery).                               |
+| `telemetry/src/sender.ts`           | Buffers + ships aggregate events to the operator-configured endpoint (opt-in).                                            |
+| `telemetry/src/sanitize.ts`         | Strips any field not in the event's `ALLOWED_KEYS` (defence-in-depth — payloads can't accidentally carry sensitive data). |
 
 This page expands as M2 (agent timeline events), M3 (worktree + chaos events), and M4 (cache + budget events) ship.

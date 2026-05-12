@@ -25,8 +25,8 @@
  */
 
 import { writeFileSync, appendFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import {
   Agent,

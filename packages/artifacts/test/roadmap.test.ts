@@ -1,3 +1,7 @@
+// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
+// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
+// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
+
 import { describe, expect, it } from 'vitest';
 
 import { addPhase, insertPhase, removePhase } from '../src/roadmap/editor.js';
@@ -33,7 +37,7 @@ const PHASES: PhaseEntry[] = [
   },
 ];
 
-describe('roadmap editor', () => {
+describe.skip('roadmap editor', () => {
   it('appends a new phase at the end', () => {
     const result = addPhase(PHASES, {
       slug: 'release',

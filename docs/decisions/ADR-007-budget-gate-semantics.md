@@ -58,6 +58,7 @@ milestone.
 ## Consequences
 
 Easier:
+
 - Cost surprises become impossible without a deliberate operator click.
 - Audit trail: every downgrade + pause is a structured event in the journal
   (M3 crash-recovery substrate), so post-hoc analysis is straightforward.
@@ -65,6 +66,7 @@ Easier:
   (config edit + restart).
 
 Harder:
+
 - A bad tier downgrade may produce lower-quality output silently —
   Architect's output suffers more from `quality → balanced` than Scout's
   does from `balanced → cheap-fast`. Mitigation: the dashboard's Tier

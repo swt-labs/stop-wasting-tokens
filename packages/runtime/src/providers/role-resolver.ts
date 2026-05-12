@@ -24,14 +24,7 @@
  */
 
 import defaultTiersJson from './default-tiers.json' with { type: 'json' };
-
-import type {
-  DefaultTierMap,
-  RoleTierMap,
-  SDLCRole,
-  ThinkingLevel,
-  Tier,
-} from './types.js';
+import type { DefaultTierMap, RoleTierMap, SDLCRole, ThinkingLevel, Tier } from './types.js';
 
 /**
  * Default mapping from SDLC role to capability tier. Per TDD2 §10.2 (per-role
@@ -90,7 +83,11 @@ export function resolveModelForRole(
   const tierMap = overrides?.tierModel?.[provider] ?? DEFAULT_TIERS[provider];
   if (!tierMap || typeof tierMap !== 'object') {
     throw new Error(
-      `resolveModelForRole: provider "${provider}" has no tier map. Known providers: ${Object.keys(DEFAULT_TIERS).filter((k) => k !== '_comment').join(', ')}.`,
+      `resolveModelForRole: provider "${provider}" has no tier map. Known providers: ${Object.keys(
+        DEFAULT_TIERS,
+      )
+        .filter((k) => k !== '_comment')
+        .join(', ')}.`,
     );
   }
   const model = tierMap[tier];

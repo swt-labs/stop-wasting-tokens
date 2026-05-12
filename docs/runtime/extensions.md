@@ -10,11 +10,11 @@ SWT registers a small set of Pi extensions at session-creation time. Each extens
 
 ## Shipped extensions (Plan 01-02)
 
-| Extension | Built by | Purpose |
-| :--- | :--- | :--- |
-| `result-protocol` | `buildResultProtocolExtension({ defensivePlaceholder?: boolean })` | Registers `swt_report_result` custom tool. Persists the `TaskResult` envelope via closure-captured `pi.appendEntry`. Defensive `agent_end` hook writes a placeholder if the agent never calls the tool. |
-| `journal` | `buildJournalExtension({ disabled?, sink?, resolvePath? })` | Mirrors mapped `SwtEvent`s into a per-day JSONL at `<cwd>/.swt-planning/journal/<UTC-day>.jsonl`. M3 reads these for crash recovery. |
-| `provider-overrides` | `buildAllProviderConfigs()` (test seam) + the default-exported factory | Reads `runtime/src/providers/quirks.json` and registers per-provider compat + `thinkingLevelMap` overrides via Pi's `pi.registerProvider`. Adding a provider is a JSON edit. |
+| Extension            | Built by                                                               | Purpose                                                                                                                                                                                                 |
+| :------------------- | :--------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `result-protocol`    | `buildResultProtocolExtension({ defensivePlaceholder?: boolean })`     | Registers `swt_report_result` custom tool. Persists the `TaskResult` envelope via closure-captured `pi.appendEntry`. Defensive `agent_end` hook writes a placeholder if the agent never calls the tool. |
+| `journal`            | `buildJournalExtension({ disabled?, sink?, resolvePath? })`            | Mirrors mapped `SwtEvent`s into a per-day JSONL at `<cwd>/.swt-planning/journal/<UTC-day>.jsonl`. M3 reads these for crash recovery.                                                                    |
+| `provider-overrides` | `buildAllProviderConfigs()` (test seam) + the default-exported factory | Reads `runtime/src/providers/quirks.json` and registers per-provider compat + `thinkingLevelMap` overrides via Pi's `pi.registerProvider`. Adding a provider is a JSON edit.                            |
 
 ## The closure-captured `pi.appendEntry` invariant
 

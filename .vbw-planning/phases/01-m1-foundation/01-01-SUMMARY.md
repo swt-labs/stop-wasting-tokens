@@ -9,26 +9,26 @@ completed: 2026-05-11
 tasks_completed: 5
 tasks_total: 5
 commit_hashes:
-  - 08579dc  # PR-01a: refactor(methodology): break codex-driver source-import edge
-  - e0bc8ce  # PR-01b: refactor(cli): break {codex,claude-code,ollama}-driver source-import edges + introduce SpawnerEnvironment
-  - 3050410  # PR-02: feat(runtime): scaffold @swt-labs/runtime with mock Pi adapter + draft ADR-001/002/004
-  - 74c757c  # PR-03: feat(orchestration): scaffold @swt-labs/orchestration with PiSpawnerEnvironment + sequential dispatcher
-  - 0a623d2  # PR-04: feat(shared): consolidate types + Zod schemas in @swt-labs/shared; delete @swt-labs/dashboard-core
+  - 08579dc # PR-01a: refactor(methodology): break codex-driver source-import edge
+  - e0bc8ce # PR-01b: refactor(cli): break {codex,claude-code,ollama}-driver source-import edges + introduce SpawnerEnvironment
+  - 3050410 # PR-02: feat(runtime): scaffold @swt-labs/runtime with mock Pi adapter + draft ADR-001/002/004
+  - 74c757c # PR-03: feat(orchestration): scaffold @swt-labs/orchestration with PiSpawnerEnvironment + sequential dispatcher
+  - 0a623d2 # PR-04: feat(shared): consolidate types + Zod schemas in @swt-labs/shared; delete @swt-labs/dashboard-core
 deviations:
   - 'PR-01a plan-amendment: moved `writeAgentsMdBlock` + 3 sibling exports from `@swt-labs/codex-driver` to `@swt-labs/artifacts` (where pure file-writing helpers belong alongside `writeProject`/`writeRoadmap`) rather than routing through `AgentSpawner.installAgent` as the plan envisioned — inspection showed it is project-level AGENTS.md authoring, not per-agent. Functionality preserved; edge broken. source_plan: 01-01-PLAN.md'
   - 'PR-01b plan-amendment: extended `packages/cli/src/router.ts` (CommandIO interface) to thread `SpawnerEnvironment` — file-guard hook flagged it correctly; the plan did not enumerate `router.ts` in files_modified. Plan files_modified updated in the PR-01b commit. source_plan: 01-01-PLAN.md'
   - 'PR-01b code-fix: preserved `DoctorReport.codex: CodexVersionLike | undefined` field shape (rather than replacing with a probe-result shape) because `DoctorReportSchema` in `@swt-labs/shared` (was @swt-labs/dashboard-core pre-PR-04) is contract-validated; changing it would cascade through dashboard HTTP API contracts. Local `CodexVersionLike` interface defined inside `cli/src/commands/doctor.ts`; populated from spawnerEnv.probe() adapter.'
-  - 'PR-02 plan-amendment: shared types (SwtSession/SwtSessionOptions/SwtEvent + TokenMeter etc.) declared inline in packages/runtime/src/types.ts + meter-types.ts until PR-04 created @swt-labs/shared and migrated them. Plan called for `import type { SwtSession, ... } from ''@swt-labs/shared''` in session.ts but @swt-labs/shared did not exist until PR-04. Pure rename in PR-04; shapes identical.'
+  - "PR-02 plan-amendment: shared types (SwtSession/SwtSessionOptions/SwtEvent + TokenMeter etc.) declared inline in packages/runtime/src/types.ts + meter-types.ts until PR-04 created @swt-labs/shared and migrated them. Plan called for `import type { SwtSession, ... } from '@swt-labs/shared'` in session.ts but @swt-labs/shared did not exist until PR-04. Pure rename in PR-04; shapes identical."
   - 'PR-03 plan-amendment: kept types inline in packages/orchestration/src/types.ts until PR-04 migration. Same rationale as PR-02. PR-04 made both runtime/src/types.ts and orchestration/src/types.ts thin re-exports of @swt-labs/shared.'
-  - 'PR-03 code-fix: probePiAvailable() helper added to runtime/src/probe.ts so orchestration''s PiSpawnerEnvironment can delegate the Pi peerDep check via Layer 1 rather than directly importing @earendil-works/pi-coding-agent in Layer 2 (Principle 1 / §4.3 — only the runtime adapter is the Pi importer).'
+  - "PR-03 code-fix: probePiAvailable() helper added to runtime/src/probe.ts so orchestration's PiSpawnerEnvironment can delegate the Pi peerDep check via Layer 1 rather than directly importing @earendil-works/pi-coding-agent in Layer 2 (Principle 1 / §4.3 — only the runtime adapter is the Pi importer)."
   - 'PR-04 plan-amendment: CodexReasoningEffort → ThinkingLevel cascade rename DEFERRED to M2. Original PR-04 plan called for deleting codex-reasoning-effort.ts and renaming AgentSpec.reasoning_effort to thinking_level. That cross-package contract change touches AgentSpec, methodology/src/vibe/orchestration/agent-spec-resolver.ts, and any AgentSpec instantiation — a cascade larger than PR-04''s "consolidate types" scope. shared/src/types/thinking-level.ts is in place as the destination vocabulary; codex-reasoning-effort.ts stays in core/types until M2 deletes both files together. source_plan: 01-01-PLAN.md.'
-  - 'PR-04 code-fix: stale-test cleanup landed in PR-04 instead of PR-01b. 3 obsolete vibeHandler-CodexAgentSpawner tests that exercised PR-01b''s removed driver-spawning paths were pruned from packages/cli/test/commands/vibe.test.ts; 1 still-valid init-redirect test retained. End-to-end vibe coverage rebuilds in M2 PR-15.'
+  - "PR-04 code-fix: stale-test cleanup landed in PR-04 instead of PR-01b. 3 obsolete vibeHandler-CodexAgentSpawner tests that exercised PR-01b's removed driver-spawning paths were pruned from packages/cli/test/commands/vibe.test.ts; 1 still-valid init-redirect test retained. End-to-end vibe coverage rebuilds in M2 PR-15."
 pre_existing_issues:
   - 'methodology test suite: 9 pre-existing v2.3.5 failures (4 bootstrap.test.ts ZodError in `writeRoadmap` "too_small" array minimum 1; 5 others in dispatch/qa/execute/plan handlers). Verified against v2.3.5 baseline via `git stash` test; not introduced by PR-01a..PR-04. Tracked for M1 PR-11 remediation.'
   - 'cli test suite: 11 pre-existing v2.3.5 failures (9 publishConfig parity tests expecting `private:false` on intentionally-`private:true` workspace packages; 2 config-doc-drift tests on mintlify docs). Verified against v2.3.5 baseline via `git stash` test against packages/cli/test/publish-config.test.ts + test/config-doc-drift.test.ts. Tracked for M1 PR-11 remediation.'
 ac_results:
   # 8 truths
-  - criterion: 'truth: After PR-01a + PR-01b merge, grep `from ''@swt-labs/(codex|claude-code|ollama)-driver''` returns no matches (with driver dirs and dist/ excluded).'
+  - criterion: "truth: After PR-01a + PR-01b merge, grep `from '@swt-labs/(codex|claude-code|ollama)-driver'` returns no matches (with driver dirs and dist/ excluded)."
     verdict: pass
     evidence: 'Verified at PR-01b merge (commit e0bc8ce). TDD2 §13.1.1 entry-gate invariant satisfied.'
   - criterion: 'truth: packages/methodology/package.json no longer declares @swt-labs/codex-driver as a dependency.'
@@ -99,6 +99,7 @@ M1 entry gate discharged AND the v3 package skeleton (runtime + orchestration + 
 ## Files Modified
 
 ### PR-01a (commit `08579dc`, 10 files)
+
 - `packages/artifacts/src/agents-md/writer.ts` — **created** (via `git mv` from codex-driver; 100% similarity)
 - `packages/artifacts/test/agents-md.test.ts` — **created** (via `git mv` from codex-driver)
 - `packages/artifacts/src/index.ts` — re-export `./agents-md/writer.js`
@@ -110,6 +111,7 @@ M1 entry gate discharged AND the v3 package skeleton (runtime + orchestration + 
 - `pnpm-lock.yaml` — regenerated
 
 ### PR-01b (commit `e0bc8ce`, 7 files)
+
 - `packages/core/src/abstractions/SpawnerEnvironment.ts` — **created**
 - `packages/core/src/abstractions/index.ts` — re-export
 - `packages/cli/src/router.ts` — `CommandIO.spawnerEnv?: SpawnerEnvironment`
@@ -118,6 +120,7 @@ M1 entry gate discharged AND the v3 package skeleton (runtime + orchestration + 
 - `packages/cli/src/main.ts` — `Pr01bStubSpawnerEnvironment` wired into CommandIO
 
 ### PR-02 (commit `3050410`, 16 files)
+
 - `packages/runtime/` — **new package**: package.json, tsconfig.json, src/{index,session,tools,events,types,meter-types}.ts, src/mock/MockSpawnerEnvironment.ts, test/session.test.ts
 - `packages/cli/package.json` — `@swt-labs/runtime` workspace dep added
 - `packages/cli/src/main.ts` — `Pr01bStubSpawnerEnvironment` → `MockSpawnerEnvironment` from runtime
@@ -127,6 +130,7 @@ M1 entry gate discharged AND the v3 package skeleton (runtime + orchestration + 
 - `pnpm-lock.yaml` — regenerated (Pi 0.74.0 + transitive deps)
 
 ### PR-03 (commit `74c757c`, 10 files)
+
 - `packages/orchestration/` — **new package**: package.json, tsconfig.json, src/{index,dispatcher,types,PiSpawnerEnvironment}.ts, test/dispatcher.test.ts
 - `packages/runtime/src/probe.ts` — **created**: `probePiAvailable()` helper (Layer-1 Pi check)
 - `packages/runtime/src/index.ts` — export probe
@@ -135,6 +139,7 @@ M1 entry gate discharged AND the v3 package skeleton (runtime + orchestration + 
 - `pnpm-lock.yaml` — regenerated
 
 ### PR-04 (commit `0a623d2`, ~30 files)
+
 - `packages/shared/` — **new package**: package.json, tsconfig.json, src/index.ts, src/types/{session,meter,dispatcher,agent-role,autonomy,effort,verification,thinking-level,index}.ts, src/schemas/{snapshot,events,api,task-result,plan,claim,budget,index}.ts
 - `packages/dashboard-core/` — **deleted**
 - `packages/core/src/types/{agent-role,autonomy,effort,verification}.ts` — **deleted** (moved to shared)
@@ -159,16 +164,16 @@ M1 entry gate discharged AND the v3 package skeleton (runtime + orchestration + 
 
 8 deviations recorded (full text + classification in frontmatter `deviations:` array). High-level:
 
-| ID | Type | Topic |
-|---|---|---|
-| 1 | plan-amendment | PR-01a moved `writeAgentsMdBlock` to artifacts (not routed through AgentSpawner) |
-| 2 | plan-amendment | PR-01b added router.ts to plan files_modified (CommandIO extension was the natural seam) |
-| 3 | code-fix | PR-01b preserved `DoctorReport.codex` shape (dashboard contract) |
-| 4 | plan-amendment | PR-02 kept session/meter types inline until PR-04 (avoid chicken-egg with shared/ creation) |
-| 5 | plan-amendment | PR-03 kept dispatcher types inline until PR-04 (same as deviation 4) |
-| 6 | code-fix | PR-03 added `runtime.probePiAvailable()` so orchestration doesn't direct-import Pi |
-| 7 | plan-amendment | PR-04 deferred `CodexReasoningEffort → ThinkingLevel` rename to M2 (cross-package cascade) |
-| 8 | code-fix | PR-04 pruned 3 stale vibeHandler-driver tests (PR-01b cleanup completed here) |
+| ID  | Type           | Topic                                                                                       |
+| --- | -------------- | ------------------------------------------------------------------------------------------- |
+| 1   | plan-amendment | PR-01a moved `writeAgentsMdBlock` to artifacts (not routed through AgentSpawner)            |
+| 2   | plan-amendment | PR-01b added router.ts to plan files_modified (CommandIO extension was the natural seam)    |
+| 3   | code-fix       | PR-01b preserved `DoctorReport.codex` shape (dashboard contract)                            |
+| 4   | plan-amendment | PR-02 kept session/meter types inline until PR-04 (avoid chicken-egg with shared/ creation) |
+| 5   | plan-amendment | PR-03 kept dispatcher types inline until PR-04 (same as deviation 4)                        |
+| 6   | code-fix       | PR-03 added `runtime.probePiAvailable()` so orchestration doesn't direct-import Pi          |
+| 7   | plan-amendment | PR-04 deferred `CodexReasoningEffort → ThinkingLevel` rename to M2 (cross-package cascade)  |
+| 8   | code-fix       | PR-04 pruned 3 stale vibeHandler-driver tests (PR-01b cleanup completed here)               |
 
 ## Pre-existing carry-forward (PR-11 territory)
 

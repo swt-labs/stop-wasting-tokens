@@ -29,18 +29,18 @@ explains what it does and how to verify the result.
 
 The most common v2 concepts and where they live in v3:
 
-| v2 concept | v3 concept | Notes |
-| :--- | :--- | :--- |
-| `@swt-labs/codex-driver` | Pi `anthropic` / `openai` / `openrouter` provider | One runtime, 25+ providers via Pi's native catalogue |
-| `@swt-labs/claude-code-driver` | Pi `anthropic` provider | Same Anthropic API surface |
-| `@swt-labs/ollama-driver` | Pi `ollama` provider | Same `OLLAMA_HOST` + `/api/chat` surface |
-| `backend: codex` in `config.json` | `roles[*].tier` + provider via tier-routed router | Tier vocabulary: `cheap-fast` / `balanced` / `quality` / `reasoning` |
-| `codex hooks/*` config | Pi events (`agent_start`, `tool_execution_*`, `turn_end`) | Hook surface is now event-driven via the runtime adapter |
-| `shouldStopAfterTurn` / `report_result` | `swt_report_result` Pi Extension custom tool | Per ADR-002; the v2 names were never real Pi primitives |
-| `reasoning_effort: high` on AgentSpec | `thinking_level: high` (Pi `ThinkingLevel` vocab) | Cascade rename lands in v3.1.x via the migration script |
-| `.swt-planning/parallel/` (empty in v2) | One git worktree per parallel task | Per ADR-008 — Dev tasks isolate at the FS boundary |
-| `.codex-plugin/` MCP wiring | Pi extensions (`runtime/extensions/`) | The MCP shim is gone; Pi handles tool registration |
-| Manual cache-control prompt construction | `buildPrompt()` with `cacheBreakpointIndex` | Per ADR-006 — breakpoint after artefacts, before task |
+| v2 concept                               | v3 concept                                                | Notes                                                                |
+| :--------------------------------------- | :-------------------------------------------------------- | :------------------------------------------------------------------- |
+| `@swt-labs/codex-driver`                 | Pi `anthropic` / `openai` / `openrouter` provider         | One runtime, 25+ providers via Pi's native catalogue                 |
+| `@swt-labs/claude-code-driver`           | Pi `anthropic` provider                                   | Same Anthropic API surface                                           |
+| `@swt-labs/ollama-driver`                | Pi `ollama` provider                                      | Same `OLLAMA_HOST` + `/api/chat` surface                             |
+| `backend: codex` in `config.json`        | `roles[*].tier` + provider via tier-routed router         | Tier vocabulary: `cheap-fast` / `balanced` / `quality` / `reasoning` |
+| `codex hooks/*` config                   | Pi events (`agent_start`, `tool_execution_*`, `turn_end`) | Hook surface is now event-driven via the runtime adapter             |
+| `shouldStopAfterTurn` / `report_result`  | `swt_report_result` Pi Extension custom tool              | Per ADR-002; the v2 names were never real Pi primitives              |
+| `reasoning_effort: high` on AgentSpec    | `thinking_level: high` (Pi `ThinkingLevel` vocab)         | Cascade rename lands in v3.1.x via the migration script              |
+| `.swt-planning/parallel/` (empty in v2)  | One git worktree per parallel task                        | Per ADR-008 — Dev tasks isolate at the FS boundary                   |
+| `.codex-plugin/` MCP wiring              | Pi extensions (`runtime/extensions/`)                     | The MCP shim is gone; Pi handles tool registration                   |
+| Manual cache-control prompt construction | `buildPrompt()` with `cacheBreakpointIndex`               | Per ADR-006 — breakpoint after artefacts, before task                |
 
 If your v2 project used a custom `agents.md` with per-role TOML blocks, those
 become standard `AGENTS.md` (single file, no per-role variants — Pi reads
@@ -57,6 +57,7 @@ auto-backup; you are expected to commit or back up explicitly.
 
 2. **Verify your project is on v2.3.5.** The migration script supports
    v2.3.0..v2.3.5. Earlier v2 minors need an intermediate upgrade first:
+
    ```bash
    npm install -g stop-wasting-tokens@2.3.5
    swt --version    # confirm 2.3.5
@@ -65,9 +66,11 @@ auto-backup; you are expected to commit or back up explicitly.
 3. **Back up your `.swt-planning/` explicitly.** The script does NOT back
    up automatically (verified design decision — explicit user control over
    their planning data). Run:
+
    ```bash
    cp -r .swt-planning .swt-planning.v2-backup
    ```
+
    If you trust git, a commit on a `pre-v3-migration` branch is equivalent.
 
 4. **Verify your team has read the changelog.** v3 deletes three driver
@@ -75,6 +78,7 @@ auto-backup; you are expected to commit or back up explicitly.
    `@swt-labs/codex-driver` / `@swt-labs/claude-code-driver` /
    `@swt-labs/ollama-driver`, they will break. Search your repo before
    migrating:
+
    ```bash
    grep -rE "from '@swt-labs/(codex|claude-code|ollama)-driver'" .
    ```
@@ -112,6 +116,7 @@ hand using this guide's "What the script does" section as your reference.
 The transformation pass per artefact, mirroring TDD2 §11.3:
 
 **`config.json`** — the primary file the script rewrites:
+
 - Removes `backend:` field. The backend is Pi; the per-call provider lives
   in `roles[*].tier` + the new `router_strategy:` field.
 - Adds `roles[*].tier` per role: Scout → `cheap-fast`, Architect → `quality`,
@@ -133,6 +138,7 @@ These files carry methodology data that v3 reads the same way v2 did. The
 tree (one marker per project, not per file).
 
 **`phases/NN-slug/plan-NN.md`** — gains two empty arrays in the frontmatter:
+
 - `claims: []` — used by M3's claim registry (per ADR-008).
 - `depends_on: []` — used by the DAG resolver for parallel batches.
 
@@ -140,6 +146,7 @@ For legacy plans without inter-task dependencies, the empty arrays are correct;
 your plans run sequentially until you explicitly populate either field.
 
 **New directories** — created empty, populated lazily as work flows:
+
 - `.swt-planning/parallel/` — M3 worktree-per-task root (per ADR-008).
 - `.swt-planning/journal/` — runtime event journal (per Plan 01-02 PR-09).
 - `.swt-planning/locks/` — M3 lease locks.
@@ -207,6 +214,7 @@ verbatim across the migration.
 The script is reversible if you committed first. Three paths:
 
 **Path A — git revert** (if you committed the migration as one diff):
+
 ```bash
 git log --oneline | head -5
 # find the migration commit
@@ -215,6 +223,7 @@ npm install -g stop-wasting-tokens@2.3.5
 ```
 
 **Path B — backup restore** (if you took the `cp -r .swt-planning .swt-planning.v2-backup` step):
+
 ```bash
 rm -rf .swt-planning
 mv .swt-planning.v2-backup .swt-planning

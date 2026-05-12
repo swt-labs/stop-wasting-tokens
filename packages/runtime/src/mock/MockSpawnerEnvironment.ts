@@ -1,8 +1,4 @@
-import type {
-  AgentSpawner,
-  SpawnerEnvironment,
-  SpawnerProbeResult,
-} from '@swt-labs/core';
+import type { AgentSpawner, SpawnerEnvironment, SpawnerProbeResult } from '@swt-labs/core';
 
 /**
  * PR-02 stub upgrade. Probe now reports `available: true, name: 'pi-runtime-mock'`

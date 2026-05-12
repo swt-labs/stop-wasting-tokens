@@ -24,9 +24,7 @@ export {
   type JournalExtensionOptions,
 } from './journal.js';
 export { default as journalExtension } from './journal.js';
-export {
-  buildAllProviderConfigs,
-} from './provider-overrides.js';
+export { buildAllProviderConfigs } from './provider-overrides.js';
 export { default as providerOverridesExtension } from './provider-overrides.js';
 export type {
   PiExtensionAPI,

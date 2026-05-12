@@ -1,6 +1,5 @@
-import { For, Show, createSignal, onMount, type Component } from 'solid-js';
-
 import type { VibeReplyBody } from '@swt-labs/shared';
+import { For, Show, createSignal, onMount, type Component } from 'solid-js';
 
 import { ansiToHtml } from '../lib/ansi-to-html.js';
 import type { ConversationEntry } from '../state/dashboard-store.js';
@@ -222,7 +221,7 @@ const ConversationCard: Component<ConversationCardProps> = (props) => {
               class="conversation-card-reply-input"
               placeholder="Type your reply…"
               value={textValue()}
-              onInput={(e) => setTextValue((e.currentTarget as HTMLInputElement).value)}
+              onInput={(e) => setTextValue(e.currentTarget.value)}
               disabled={props.replying}
               autofocus
             />
@@ -238,7 +237,7 @@ const ConversationCard: Component<ConversationCardProps> = (props) => {
               class="conversation-card-permission-note"
               placeholder="Optional note for the agent…"
               value={textValue()}
-              onInput={(e) => setTextValue((e.currentTarget as HTMLInputElement).value)}
+              onInput={(e) => setTextValue(e.currentTarget.value)}
               disabled={props.replying}
             />
             <div class="conversation-card-permission-buttons">

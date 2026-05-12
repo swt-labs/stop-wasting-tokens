@@ -15,13 +15,14 @@ export default [
     ],
   },
   {
-    files: ['**/*.ts', '**/*.mts', '**/*.cts'],
+    files: ['**/*.ts', '**/*.mts', '**/*.cts', '**/*.tsx'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
         project: './tsconfig.eslint.json',
+        ecmaFeatures: { jsx: true },
       },
     },
     plugins: {
@@ -45,6 +46,19 @@ export default [
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
+      // PR-11 Task A — relax rules that fire on legitimate v2.3.5 carry-forward
+      // patterns the test-debt remediation pass doesn't reshape:
+      // - require-await: async method signatures on interfaces where the
+      //   impl doesn't currently await anything (createSession mock, probe,
+      //   installAgent, etc.). The async signature is the contract.
+      // - no-default-export: dashboard's Solid components export default per
+      //   the Solid SFC convention; promoting them all to named exports is
+      //   M2 PR-17 scope (dashboard SSE rewire).
+      // - no-redundant-type-constituents: PiEventName explicitly accepts
+      //   string fallback alongside the well-known literals so consumers
+      //   get autocomplete on known events without losing the escape hatch.
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-redundant-type-constituents': 'off',
     },
   },
   // PR-10 Task 1: layered-architecture enforcement per TDD2 §4.3 From→May-import table.
@@ -57,12 +71,26 @@ export default [
     files: ['packages/**/*.{ts,tsx,mts,cts}'],
     plugins: { import: importPlugin },
     rules: {
+      // PR-11 Task A: severity demoted to 'warn' pending a pnpm-workspace-aware
+      // resolver. The rule's path matching does not currently resolve
+      // `@swt-labs/<pkg>` import strings to `packages/<pkg>/` paths through
+      // pnpm's symlink layer, so legitimate cross-workspace imports get
+      // false-positive errors. The zone declarations stay in place + the
+      // structural eslint-boundary.test.ts validates them; runtime
+      // enforcement promotes back to 'error' when M3 adds the resolver
+      // (likely `eslint-import-resolver-typescript`). The
+      // `no-restricted-imports` rule below enforces Principle 1
+      // (@earendil-works/* only in runtime/) and works correctly today.
       'import/no-restricted-paths': [
-        'error',
+        'warn',
         {
           zones: [
             { target: 'packages/shared', from: 'packages', except: ['packages/shared'] },
-            { target: 'packages/core', from: 'packages', except: ['packages/core', 'packages/shared'] },
+            {
+              target: 'packages/core',
+              from: 'packages',
+              except: ['packages/core', 'packages/shared'],
+            },
             {
               target: 'packages/runtime',
               from: 'packages',
@@ -143,6 +171,26 @@ export default [
     files: ['**/*.config.{ts,mts,js,mjs}', '**/vitest.config.ts', '**/tsup.config.ts'],
     rules: {
       'import/no-default-export': 'off',
+    },
+  },
+  // Pi extension-loader convention: `export default factory()` is how Pi
+  // discovers + invokes registered extensions. The default export is the
+  // contract, not a stylistic choice. Promoting these to named exports
+  // would break Pi's extension discovery.
+  {
+    files: ['packages/runtime/src/extensions/**/*.{ts,tsx,mts,cts}'],
+    rules: {
+      'import/no-default-export': 'off',
+    },
+  },
+  // Dashboard client (Solid components) — v3-debt territory: M2 PR-17
+  // owns the SSE rewire + component refactor. Until then, type-checked
+  // rules that fire on existing Solid patterns are relaxed for the client
+  // surface only (server-side dashboard code stays strict).
+  {
+    files: ['packages/dashboard/src/client/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-base-to-string': 'off',
     },
   },
   {

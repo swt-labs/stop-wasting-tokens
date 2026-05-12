@@ -14,15 +14,16 @@ SWT v3's caching strategy:
 
 ## Where the policy lives
 
-| Layer | What it does |
-| :--- | :--- |
-| Methodology / `buildPrompt` (M4 PR-32) | Emits blocks in fixed order (PROJECT → REQUIREMENTS → STATE → phase context → cache breakpoint → task brief → must-haves). |
-| Runtime / provider shim (this layer) | Applies the breakpoint at `cacheBreakpointIndex` for Anthropic only; no-op for OpenAI auto-cache; quirks.json describes per-provider behaviour via `compat.supportsLongCacheRetention`. |
-| Dashboard Cache Hit panel (M4) | Surfaces the per-milestone cache-hit ratio. Operators see when the ≥70% target is missed and why (artefact prefix < 1024 tokens; cache invalidated; provider doesn't support caching). |
+| Layer                                  | What it does                                                                                                                                                                            |
+| :------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Methodology / `buildPrompt` (M4 PR-32) | Emits blocks in fixed order (PROJECT → REQUIREMENTS → STATE → phase context → cache breakpoint → task brief → must-haves).                                                              |
+| Runtime / provider shim (this layer)   | Applies the breakpoint at `cacheBreakpointIndex` for Anthropic only; no-op for OpenAI auto-cache; quirks.json describes per-provider behaviour via `compat.supportsLongCacheRetention`. |
+| Dashboard Cache Hit panel (M4)         | Surfaces the per-milestone cache-hit ratio. Operators see when the ≥70% target is missed and why (artefact prefix < 1024 tokens; cache invalidated; provider doesn't support caching).  |
 
 ## Why provider-shim, not Pi-level
 
 Per ADR-004:
+
 - Pi doesn't ship a `cache_control` primitive; building one inside Pi would couple it to Anthropic's specific shape.
 - Provider quirks are already provider-specific (per ADR-003); caching is one more axis on the same surface.
 - Future providers with novel caching mechanics slot into `quirks.json` without runtime changes.
