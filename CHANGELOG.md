@@ -566,7 +566,25 @@ Second PR of Plan 05-01. Optional Gemini shim with Google Terms-of-Service warni
 - **Re-exported from `@swt-labs/runtime`** so the methodology layer + CLI surface can consume it before the first Gemini dispatch.
 - **9 tests** (`packages/runtime/test/providers/gemini-warnings.test.ts`) — Gemini variants (2.5-pro + 2.5-flash from default-tiers.json) trigger the warning; non-Gemini models return null; case-insensitivity; empty / whitespace inputs return null; partial substrings (`my-gemini-model`, `gemini2-pro`, `gemini` without trailing hyphen) all return null; warning fields are all non-empty strings + URLs use https.
 
-**Test posture at PR-40 close: 1122 passing / 46 skipped / 0 failed** (+9 from PR-39's 1113). Commit: `<pending>`.
+**Test posture at PR-40 close: 1122 passing / 46 skipped / 0 failed** (+9 from PR-39's 1113). Commit: `9f51f8f`.
+
+### Added (M5 — Plan 05-01 — PR-41, 2026-05-12)
+
+Third PR of Plan 05-01. Provider router strategies per TDD2 §7.3. Pure stateless selectors that pick a provider given a `(task, tier)` context — first decision in the dispatch chain; the fallback chain (PR-42) handles retry on failure.
+
+- **`packages/orchestration/src/provider-router.ts`** (NEW) — `createProviderRouter(strategy): ProviderRouter` exposes a `.select(ctx) → string` interface for four strategies:
+  - **`pinned`** — `{kind: 'pinned', provider: string}`. Always returns `provider`. Default for development + cassette-driven regression runs where the cassette only knows one provider's wire format.
+  - **`round-robin`** — `{kind: 'round-robin', providers: readonly string[], counter?: () => number}`. Cycles through `providers` in order via an internal counter (or an injected one for deterministic tests). Modulo guards negative counters. Throws on empty `providers` at construction.
+  - **`tier-routed`** — `{kind: 'tier-routed', map: Partial<Record<Tier, string>>, fallback: string}`. Returns `map[ctx.tier] ?? fallback`. The required `fallback` covers tiers not in the map (so e.g. you can route just `cheap-fast → openrouter` and let everything else hit a default).
+  - **`cost-optimized`** — `{kind: 'cost-optimized', providers: readonly string[], priceTable: Record<string, number>}`. Returns the cheapest provider from `providers` per `priceTable[provider]`. Missing prices are treated as `Number.POSITIVE_INFINITY` (provider drops out of consideration). First match wins on ties (strict `<` comparison). Throws on empty `providers`.
+- **`Tier = 'cheap-fast' | 'balanced' | 'quality' | 'reasoning'`** type exported (re-exported from orchestration as `RouterTier` to avoid colliding with `runtime/src/providers/types.ts`'s `Tier`).
+- **`RouterSelectionContext = {task: TaskBrief, tier: Tier}`** — the task brief + the resolved tier (the orchestration layer resolves tier from `task.role` via `resolveTierForRole`).
+- **13 tests** (`packages/orchestration/test/provider-router.test.ts`) across 4 describe blocks: pinned (tier-independence), round-robin (sequence + injected counter + empty-throw + single-item), tier-routed (full map / partial map fallback / empty map all-fallback), cost-optimized (cheapest selection / missing-price-as-Infinity / tie-break order / empty-throw / single-item).
+- **Re-exported from `@swt-labs/orchestration`** so the dispatcher + methodology layers can compose it.
+
+PR-42 (next) wraps the router in a fallback chain that handles 503/429/500 retry semantics.
+
+**Test posture at PR-41 close: 1135 passing / 46 skipped / 0 failed** (+13 from PR-40's 1122). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

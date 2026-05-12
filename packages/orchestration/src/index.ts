@@ -125,3 +125,14 @@ export {
   type ReadLocksOptions,
   type PurgeStaleLocksOptions,
 } from './lock-files.js';
+
+// PR-41 (M5): provider router strategies. Pure stateless selectors that
+// pick a provider for a dispatch given a (task, tier) context. Per
+// TDD2 §7.3.
+export {
+  createProviderRouter,
+  type ProviderRouter,
+  type RouterSelectionContext,
+  type RouterStrategy,
+  type Tier as RouterTier,
+} from './provider-router.js';
