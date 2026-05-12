@@ -93,3 +93,4 @@ Per [TDD2 §4.3](../../../TDD2.md):
 - **[`packages/shared/src/schemas/tpac-report.ts`](../../../packages/shared/src/schemas/tpac-report.ts)** — the frozen Zod schema.
 - **[`docs/operations/cassette-recording.md`](../../operations/cassette-recording.md)** — cassette recording workflow.
 - **[`swt rpc`](./rpc.md)** — sibling verb that uses the same runtime adapter layer.
+- **Dashboard TPAC panel** (M4 PR-37) — renders the same `TpacReport` shape `swt bench --output` writes. Park reports under `<projectRoot>/.swt-planning/.tpac/*.json`; the panel reads them on connect, sorts by `recorded_at`, and renders the latest with a delta-vs-baseline badge (green at ≤ −40% = M4 EXIT GATE target hit).

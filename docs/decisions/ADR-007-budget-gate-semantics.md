@@ -1,16 +1,16 @@
 ---
 adr: 007
 title: Budget Gate downgrades tier at 70%, pauses milestone at 95%
-status: Proposed
-decided: 2026-05-11
-pr: M4 PR-35
+status: Accepted
+decided: 2026-05-12
+pr: M4 PR-35 (implementation) + PR-38 (promotion)
 supersedes: TDD2 §8.4
 related: ADR-006
 ---
 
 # ADR-007 — Budget Gate downgrades at 70%, pauses at 95%
 
-**Status:** Proposed (promotes to Accepted when M4 PR-35 lands the implementation)
+**Status:** Accepted (M4 PR-35 shipped the implementation; PR-38 promoted at Plan 04-01 close)
 
 ## Context
 
@@ -75,3 +75,31 @@ Harder:
 - A 95% pause in the middle of a parallel batch leaves in-flight tasks
   to complete. The gate doesn't preempt them (preemption costs more than
   it saves in token waste). The pause UI shows in-flight task count.
+
+## Validation (M4 PR-38, 2026-05-12)
+
+Three implementation layers validate the decision:
+
+**Layer 1 — Pure event-driven state machine (PR-35).** `createBudgetGate({config, meter, clock?})` in `packages/runtime/src/budget/gate.ts` subscribes to `METER_UPDATED`. Threshold-crossing state machine emits `budget.warning` at `tier_downgrade_threshold` (default 0.70), `budget.pause` at `pause_threshold` (default 0.95), `budget.resume` after `bumpCeiling` drops pressure below warning. Pure event-driven; no IO. Validated by `packages/runtime/test/budget/gate.test.ts` (12 tests):
+
+- **Idempotency** — sustained ticks above the threshold emit exactly one event per crossing. A 100-tick rapid-fire warning-band run emits exactly one `budget.warning`.
+- **Single-tick double-fire** — first observation that crosses both thresholds in one go fires `budget.warning` THEN `budget.pause` in order.
+- **Resume path** — `bumpCeiling(delta_usd)` drops pressure below warning → state resets to `ok`, `budget.resume` fires, future crossings can re-fire.
+- **Partial recovery** — bump-into-warning (pressure ≥ 0.70 but < 0.95) preserves `warning` state and clears `paused_at`.
+- **Custom thresholds** — `tier_downgrade_threshold: 0.5` + `pause_threshold: 0.9` work end-to-end with the same state machine.
+- **Lifecycle** — `dispose()` unsubscribes from the meter (no further events); `subscribe()` returns a stable unsubscribe function.
+
+**Layer 2 — Dashboard route + bump action (PR-35).** `GET /api/budget/sse` streams `BudgetGateState` snapshots (initial + on every gate event). `POST /api/budget/bump` accepts `{delta_usd: number}` and calls `gate.bumpCeiling`. Validated by `packages/dashboard/test/budget-route.test.ts` (7 tests):
+
+- Null gate → `tpac.snapshot` carries `state: null` and `POST /api/budget/bump` returns 503.
+- Wired gate → emit current state on connect; re-emit after every gate event.
+- Bump happy path → `bumpCeiling` called with the right `delta_usd`; response carries the new state.
+- Input validation → non-finite `delta_usd`, missing field, invalid JSON body all → HTTP 400.
+
+**Layer 3 — Operator-facing pause/resume UX (PR-35).** `BudgetPanel` SolidJS component renders:
+
+- Spend / ceiling / pressure bar with status pill colour-coded ok/warning/paused.
+- Paused-state-only bump form that POSTs `{delta_usd}` to `/api/budget/bump`.
+- Empty state when gate is null.
+
+The pause/resume cycle is exercisable end-to-end from the dashboard — configure a low ceiling, drive it past 95%, the panel shows paused, the operator types a bump amount + clicks "Bump ceiling", state resets to ok. The "Resume with bump" UX from the ADR's Decision section is implemented exactly.

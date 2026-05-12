@@ -1,16 +1,16 @@
 ---
 adr: 006
 title: Place the Anthropic cache_control breakpoint after artefacts, before task
-status: Proposed
-decided: 2026-05-11
-pr: M4 PR-32
+status: Accepted
+decided: 2026-05-12
+pr: M4 PR-32 (implementation) + PR-38 (promotion)
 supersedes: TDD2 §8.3
 related: ADR-004
 ---
 
 # ADR-006 — Place the Anthropic cache_control breakpoint after artefacts, before task
 
-**Status:** Proposed (promotes to Accepted when M4 PR-32 lands the implementation)
+**Status:** Accepted (M4 PR-32 shipped the implementation; PR-38 promoted at Plan 04-01 close)
 
 ## Context
 
@@ -70,3 +70,17 @@ Harder:
 - Updating PROJECT.md or REQUIREMENTS.md invalidates the cache mid-milestone.
   Acceptable: those files don't change inside a phase under v3's plan-then-
   execute methodology.
+
+## Validation (M4 PR-38, 2026-05-12)
+
+Four implementation layers validate the decision:
+
+**Layer 1 — Deterministic prompt construction (PR-31).** `buildPrompt(opts)` in `packages/orchestration/src/prompt-builder.ts` is a pure function of `BuildPromptOptions`. No clock, no random, no env reads. Two calls with the same opts produce byte-identical `blocks` + `cacheBreakpointIndex`. Validated by `packages/orchestration/test/prompt-builder.determinism.test.ts` (9 tests: pure determinism, property-order independence, canonical golden snapshot pinning `cacheBreakpointIndex: 5` for a fully-populated prompt, optional-block shifting, `serializeBlocks` format).
+
+**Layer 2 — Anthropic wire-side insertion (PR-32).** `applyCacheControl({blocks, cacheBreakpointIndex, provider})` in `packages/runtime/src/providers/cache-control.ts` threads `cache_control: {type: 'ephemeral'}` onto the LAST block before the breakpoint when the provider is Anthropic and the prefix meets the 1024-token minimum. Three structured skip reasons (`prefix-too-small`, `provider-not-anthropic`, `no-blocks-before-breakpoint`) surface as telemetry; the methodology layer can downgrade tier or warn the operator. Validated by `packages/runtime/test/providers/cache-control.test.ts` (12 tests including the exact-cap boundary at 1024 estimated tokens).
+
+**Layer 3 — Per-provider cache observability (PR-33 + PR-34).** `computeCacheHitRatio(snapshot)` in `packages/runtime/src/meter/cache-hit.ts` aggregates `cacheRead / (cacheRead + cacheWrite + input)` per provider. Anthropic extractor captures `cache_read_input_tokens` + `cache_creation_input_tokens`; OpenAI extractor captures `prompt_tokens_details.cached_tokens`. Validated by `packages/runtime/test/meter/cache-hit.test.ts` (9 tests) + `packages/runtime/test/providers/openai-auto-cache.test.ts` (6 tests, including a 10-turn sustained-cache run that hits the ≥70% M4 target).
+
+**Layer 4 — Operator-facing observability (PR-33 + PR-37).** Dashboard's `CacheHitPanel` (live ratio with red/amber/green threshold pills) + `TpacPanel` (delta-vs-baseline badge) make the M4 EXIT GATE measurable from the dashboard. Validated by route tests + SolidJS empty-state coverage.
+
+The "<1024 tokens → skip + warn" mitigation path documented under "Consequences > Harder" is exercised by the `prefix-too-small` skip-reason path in the cache-control tests; the dashboard's CacheHitPanel renders the resulting low ratio in red so operators see the cause.
