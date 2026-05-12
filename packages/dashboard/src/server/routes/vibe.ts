@@ -26,11 +26,11 @@ export interface RegisterVibeRoutesOptions {
   /**
    * Tag describing what agent backend is wired. Returned in the
    * `VibeStartResponse.agent_backend` field so the client can surface a
-   * setup hint when no factory is configured. v2.0.1: defaults to `'none'`
-   * when no factory is provided; production sets `'codex'` when
-   * `SWT_VIBE_AGENT=codex` env var spawns the CodexMethodologyAgent factory.
+   * setup hint when no factory is configured. v3 ships Pi as the sole
+   * backend: defaults to `'none'` when no factory is wired; `'pi'` when
+   * the runtime adapter is registered.
    */
-  agentBackendTag?: 'none' | 'codex' | 'scripted';
+  agentBackendTag?: 'none' | 'pi';
   /**
    * Required when `agentFactory` is provided — the loop publishes log lines
    * and error events through this bus so the dashboard SPA sees them.
@@ -53,8 +53,8 @@ export interface RegisterVibeRoutesOptions {
  */
 export function registerVibeRoutes(app: Hono, opts: RegisterVibeRoutesOptions): void {
   const { registry, project_root, agentFactory, bus, agentBackendTag } = opts;
-  const resolvedBackendTag: 'none' | 'codex' | 'scripted' =
-    agentBackendTag ?? (agentFactory !== undefined ? 'scripted' : 'none');
+  const resolvedBackendTag: 'none' | 'pi' =
+    agentBackendTag ?? (agentFactory !== undefined ? 'pi' : 'none');
 
   app.post('/api/vibe', async (c) => {
     const raw: unknown = await c.req.json().catch(() => null);

@@ -27,7 +27,7 @@ export const ConfigSchema = z.object({
     .enum(VERIFICATION_TIERS as unknown as [string, ...string[]])
     .default('standard'),
   model_profile: z.enum(['quality', 'balanced', 'cost']).default('quality'),
-  backend: z.enum(['codex', 'claude-code', 'ollama']).default('codex'),
+  backend: z.enum(['pi']).default('pi'),
   prefer_teams: z.enum(['auto', 'always', 'never']).default('auto'),
   agent_max_turns: AgentMaxTurnsSchema.default({
     scout: 15,

@@ -21,9 +21,7 @@ const PILL_LABEL: Record<ConnectionState, string> = {
 };
 
 const BACKEND_LABEL: Record<Backend, string> = {
-  codex: 'codex',
-  'claude-code': 'claude-code',
-  ollama: 'ollama',
+  pi: 'pi',
 };
 
 // Mirrors packages/dashboard/src/server/lib/allowed-verbs.ts. Kept in sync by

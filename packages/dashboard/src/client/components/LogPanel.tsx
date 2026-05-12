@@ -22,7 +22,7 @@ export interface LogPanelProps {
    * conversation thread. Lets users see WHY the dashboard is silent
    * after they typed a prompt.
    */
-  agentBackend?: 'none' | 'codex' | 'scripted' | null;
+  agentBackend?: 'none' | 'pi' | null;
 }
 
 const PERMISSION_OPERATION_VERB: Record<string, string> = {

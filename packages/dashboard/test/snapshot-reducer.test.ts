@@ -94,7 +94,7 @@ describe('buildSnapshot', () => {
     expect(snap.schema_version).toBe('1');
     expect(snap.project.name).toBe('fixture-project');
     expect(snap.project.root).toBe(root);
-    expect(snap.project.backend).toBe('codex');
+    expect(snap.project.backend).toBe('pi');
     expect(snap.milestone.name).toBe('v1.6.0 Test Milestone');
     expect(snap.milestone.phase_count).toBe(2);
     expect(snap.milestone.phase_index).toBe(2);

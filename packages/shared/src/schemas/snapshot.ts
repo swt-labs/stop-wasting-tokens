@@ -47,7 +47,15 @@ export const PhaseSummarySchema = z.object({
 });
 export type PhaseSummary = z.infer<typeof PhaseSummarySchema>;
 
-export const BackendSchema = z.enum(['codex', 'claude-code', 'ollama']);
+/**
+ * Runtime backend identifier. v3 ships with Pi as the sole backend
+ * (see ADR-001 + ADR-005). The legacy v2 enum (`codex`, `claude-code`,
+ * `ollama`) was retired at M6 PR-45 — the three driver packages were
+ * deleted at M1 PR-05 per ADR-005, and the schema now reflects v3
+ * reality. Old snapshot files from v2 must be migrated via
+ * `swt migrate --to=v3` (M6 PR-49) before loading.
+ */
+export const BackendSchema = z.enum(['pi']);
 export type Backend = z.infer<typeof BackendSchema>;
 
 export const ProjectSummarySchema = z.object({

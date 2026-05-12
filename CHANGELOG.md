@@ -658,7 +658,21 @@ Final PR of Plan 05-01. Failover simulation tests + ADR-011 promotion + Plan 05-
 
 **ADR matrix at M5 close: 11 Accepted** (001-011). The remaining draft ADRs (012, 013) activate at M6 (release).
 
-**Test posture at PR-44 close (M5 structural EXIT GATE): 1160 passing / 46 skipped / 0 failed** (+6 from PR-43's 1154). Commit: `<pending>`.
+**Test posture at PR-44 close (M5 structural EXIT GATE): 1160 passing / 46 skipped / 0 failed** (+6 from PR-43's 1154). Commit: `599f4be`.
+
+### Added (M6 open — Plan 06-01 — PR-45, 2026-05-12) — **Codex-era removal**
+
+First PR of Plan 06-01 (M6 Decommission, benchmark, ship per TDD2 §13.6). v2-era enum vestiges replaced with v3's Pi-only reality, alongside deletion of the dead `CodexMethodologyAgent` code path (no consumers since the v2 drivers were deleted at M1 PR-05 per ADR-005).
+
+- **`BackendSchema`** flipped from `z.enum(['codex', 'claude-code', 'ollama'])` to `z.enum(['pi'])`. Old snapshot files from v2 must be migrated via `swt migrate --to=v3` (M6 PR-49).
+- **`agent_backend`** flipped from `z.enum(['none', 'codex', 'scripted'])` to `z.enum(['none', 'pi'])`. Doc comment rewritten for v3 reality.
+- **`Config.ts`** default flipped to `backend: z.enum(['pi']).default('pi')`.
+- **Dashboard server** — removed the `SWT_VIBE_AGENT=codex` env-var shortcut that instantiated `CodexMethodologyAgent`; replaced with a simple `'none' | 'pi'` resolver that flips to `'pi'` whenever an `agentFactory` is wired. `RegisterVibeRoutesOptions.agentBackendTag` + `VibeStartResponse.agent_backend` types both flipped to `'none' | 'pi'`.
+- **Dashboard client** — `TopBar.tsx`'s `BACKEND_LABEL` flipped to `{pi: 'pi'}`; `LogPanel.tsx`'s `agentBackend` prop type flipped; `dashboard-store.ts`'s `VibeSessionState.agent_backend` type flipped.
+- **`CodexMethodologyAgent` deleted** — `packages/dashboard/src/server/vibe/codex-methodology-agent.ts` + its test (10 tests). No consumers since M1 PR-05. The closing bookend on ADR-005.
+- **Test cascades** — `dashboard-store.test.ts` (8 `agent_backend: 'codex'` → `'pi'` sites), `snapshot-reducer.test.ts` (1 `backend.toBe('codex')` → `'pi'`). Auto-regenerated `docs/reference/config.mdx`.
+
+**Test posture at PR-45 close: 1150 passing / 46 skipped / 0 failed** (−10 from PR-44's 1160: 10 codex-methodology-agent tests deleted alongside the source). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

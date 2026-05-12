@@ -31,7 +31,6 @@ import { registerUpdateRoute } from './routes/update.js';
 import { registerVibeRoutes } from './routes/vibe.js';
 import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
-import { CodexMethodologyAgent } from './vibe/codex-methodology-agent.js';
 import type { MethodologyAgentFactory } from './vibe/methodology-agent.js';
 import { createSessionRegistry, type SessionRegistry } from './vibe/session.js';
 
@@ -90,11 +89,10 @@ export function createApp(
     agentFactory?: MethodologyAgentFactory;
     /**
      * Tag for the agent backend, surfaced in `VibeStartResponse.agent_backend`.
-     * Defaults: 'codex' when SWT_VIBE_AGENT=codex env var triggered the
-     * factory; 'scripted' when caller passed an agentFactory; 'none' when
-     * no factory was wired.
+     * Defaults: 'pi' when the runtime adapter is wired via agentFactory;
+     * 'none' when no factory was wired.
      */
-    agentBackendTag?: 'none' | 'codex' | 'scripted';
+    agentBackendTag?: 'none' | 'pi';
   } = {},
 ): {
   app: Hono;
@@ -323,23 +321,14 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     }
   }
 
-  // v2.0: opt-in production agent factory. When `SWT_VIBE_AGENT=codex`
-  // is set in the daemon's env, instantiate `CodexMethodologyAgent` for
-  // each new vibe session. When unset (default), sessions stay idle —
-  // matches the legacy 02-02/03 behavior so the production-default flip
-  // doesn't ride along with this plan.
-  let resolvedAgentFactory: MethodologyAgentFactory | undefined = options.agentFactory;
-  let resolvedBackendTag: 'none' | 'codex' | 'scripted' = 'none';
-  if (resolvedAgentFactory !== undefined) {
-    // Caller-provided factory (test path) — tag scripted unless caller overrides.
-    resolvedBackendTag = 'scripted';
-  } else if (process.env['SWT_VIBE_AGENT'] === 'codex') {
-    resolvedAgentFactory = ({ project_root }) =>
-      new CodexMethodologyAgent({
-        cwd: project_root,
-      });
-    resolvedBackendTag = 'codex';
-  }
+  // v3: Pi-only backend per ADR-001. The legacy `CodexMethodologyAgent`
+  // path was removed at M6 PR-45 alongside the three driver packages
+  // (deleted at M1 PR-05). When a caller passes an agentFactory, the
+  // backend tag flips to 'pi'; otherwise the session stays idle with
+  // tag 'none'. The legacy SWT_VIBE_AGENT=codex env shortcut was
+  // retired with the driver deletion.
+  const resolvedAgentFactory: MethodologyAgentFactory | undefined = options.agentFactory;
+  const resolvedBackendTag: 'none' | 'pi' = resolvedAgentFactory !== undefined ? 'pi' : 'none';
 
   const { app, bus, snapshotter, vibeRegistry } = createApp({
     startedAt,

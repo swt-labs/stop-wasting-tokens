@@ -87,7 +87,7 @@ export interface VibeSessionState {
    * gated behind SWT_VIBE_AGENT=codex opt-in. When undefined (older
    * daemons), assume 'none' for back-compat.
    */
-  agent_backend: 'none' | 'codex' | 'scripted';
+  agent_backend: 'none' | 'pi';
 }
 
 /**

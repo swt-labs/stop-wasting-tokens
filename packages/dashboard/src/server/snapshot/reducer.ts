@@ -178,7 +178,7 @@ export function buildSnapshot(projectRoot: string): Snapshot {
     project: {
       name: projectName,
       root: projectRoot,
-      backend: 'codex',
+      backend: 'pi',
     },
     milestone: {
       name: milestoneName,

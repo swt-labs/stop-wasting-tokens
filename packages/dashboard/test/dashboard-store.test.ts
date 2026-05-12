@@ -200,7 +200,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-123',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
 
       const id = await actions.startVibeSession('build me a snake game');
@@ -248,7 +248,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-A',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
       await actions.startVibeSession('test');
 
@@ -276,7 +276,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-A',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
       await actions.startVibeSession('test');
 
@@ -299,7 +299,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-A',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
       postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
       await actions.startVibeSession('test');
@@ -331,7 +331,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-A',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
       await actions.startVibeSession('test');
       const ok = await actions.replyToActivePrompt({ kind: 'free_form', text: 'a' });
@@ -347,7 +347,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-A',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
       await actions.startVibeSession('test');
       actions.applyEvent({
@@ -378,7 +378,7 @@ describe('vibe session lifecycle', () => {
       postVibeStartMock.mockResolvedValue({
         session_id: 'sess-A',
         state: 'idle',
-        agent_backend: 'codex',
+        agent_backend: 'pi',
       });
       postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
       await actions.startVibeSession('test');
