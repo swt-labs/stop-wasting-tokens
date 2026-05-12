@@ -92,6 +92,48 @@ Both recordings are tracked in `.vbw-planning/STATE.md ## Todos`.
 
 Test posture at Plan 01-02 close: runtime 88 passed + 1 skipped (cassette-gated); orchestration 19 passed + 1 skipped (cassette-gated); full workspace typecheck shows only the pre-existing dashboard `LogPanel.tsx(78,9)` TS2322 carry-forward (Plan 01-03 PR-11 territory). Plan 01-02 introduced ZERO new test failures. M1 status at Plan 01-02 close: 2 of 3 plans complete, 10 of 15 tasks shipped across 10 atomic commits.
 
+### Added (Plan 01-03 — PR-10 + PR-11)
+
+- **`docs/decisions/` — 7 new ADRs (PR-10 Task 3, commit `a83b7e7`)** drafted Proposed (with the documented exceptions): ADR-006 (cache-control breakpoint placement; → M4 PR-32), ADR-007 (Budget Gate semantics 70%/95%; → M4 PR-35), ADR-008 (worktree-per-task; → M3 PR-22), ADR-009 (Windows worktree path discipline; → M3 PR-30), ADR-010 (deterministic builds; **Accepted** at PR-11 Task B in the same plan), ADR-012 (six-month LTS for v2.3.x; → M6 PR-53), ADR-013 (no hosted docs site at v3.0; **Deferred** until ~1000-user threshold). `docs/decisions/README.md` ships as the ADR index with status table + lifecycle doc + promotion schedule. Final 13-ADR tally matches TDD2 §22.14 verbatim: **6 Accepted (001/002/003/004/005/010), 6 Proposed (006/007/008/009/011/012), 1 Deferred (013).**
+- **`docs/operations/migrating-from-v2.md` (PR-10 Task 2, commit `0ce520b`)** — full 315-line v2→v3 migration guide per TDD2 §18.3's 7-section outline. Pre-migration checklist + script invocation (`swt migrate --to=v3`) + per-artefact transformations + the `schema_version: 1` policy (lands at migrate-time, NOT retroactively) + verification via `swt doctor` + 3 back-out paths + 7-question FAQ.
+- **`docs/` topical reorganization per TDD2 §18.1 (PR-10 Task 1, commit `c88fc79`)** — 8-folder v3 structure (methodology/, runtime/, orchestration/, dashboard/, cli/, operations/, decisions/, design/) with 16 new stub pointer files. Existing Mintlify-format MDX content preserved alongside per ADR-013. `docs/README.md` rewritten as the v3 topical index. Root `README.md` body purged of `backend:` config field references + "Choose a backend" framing; added "Migrating from v2.x?" + "Design" sections pointing at the migration guide + TDD2.md + ADR index.
+- **ESLint §4.3 layered-architecture rules (PR-10 Task 1)** — `eslint.config.mjs` carries the From→May-import zone declarations (6 zones matching TDD2 §4.3 verbatim) + `no-restricted-imports` forbidding `@earendil-works/*` outside `packages/runtime/` (Principle 1). `packages/core/test/eslint-boundary.test.ts` (4 tests) regression-guards the boundary rules via structural-text assertions + Linter API behavioural assertion. `import/no-restricted-paths` currently at `warn` severity pending a pnpm-workspace-aware resolver (M3 territory); `no-restricted-imports` enforcing Principle 1 stays at `error` severity and works correctly today.
+- **`reproducible-build` CI job (PR-11 Task B, commit `6cebe5c`)** — `.github/workflows/ci.yml` builds twice and diffs `dist/`, uploads first-build on failure. Runs on push-to-main + push-to-v3-foundation. Per ADR-010. Branch triggers also extended to `main` + `v3-foundation` (pre-this-PR, ci.yml had no trigger on v3 work).
+- **3 future-milestone workflow stubs (PR-11 Task B)** — `regression.yml` (M2 PR-18), `chaos.yml` (M3 PR-28), `provider-matrix.yml` (M5 PR-44). Cross-platform `.mjs` stub scripts at `scripts/stub-test-{regression,chaos,provider-matrix}.mjs` wired through new root `package.json` `test:*` scripts. Each stub exits 0 with a clear pointer to the milestone PR that ships the real runner.
+- **`CONTRIBUTING.md` Branch Protection (v3) section (PR-11 Task B)** — documented required status checks, required reviews (1 for most; 2 for `packages/runtime/`), and repository rules (linear history, no force-push to main / v3-foundation).
+- **`.vbw-planning/v3-tracking.md` cross-milestone ledger (PR-11 Task B)** — per TDD2 §13.8. M1 PR table fully populated (15 rows with merge dates + commit hashes + ADRs touched); per-milestone placeholders for M2..M6; metrics table (TPAC / cache-hit / cost) ready for M2-M5 numbers; exit-gate signoff table with M1 row marked complete 2026-05-12.
+- **`docs/decisions/test-debt-tracking.md` (PR-11 Task A, commit `bb04054`)** — authoritative cluster-level inventory of every v2.3.5-carry-forward test skip. Maps to umbrella issue [#32](https://github.com/swt-labs/stop-wasting-tokens/issues/32) + the M2..M6 PR where each cluster's real fix lives. Includes the HIGH-priority security note for `packages/verification/test/guards.test.ts` (3 bash-guard denylist regressions to fix in next hotfix or M2 PR-12, not M6).
+
+### Changed (Plan 01-03)
+
+- **CI `Test` step is now a required gate (PR-11 Task A)** — `continue-on-error: true` removed from `.github/workflows/ci.yml`. Any new test failure blocks merge. 49 actual v2.3.5-carry-forward failures classified per the plan: 9 deleted as obsolete (codex-plugin-manifest.test.ts), 5 deleted-equivalent (launch-checklist.test.ts 2 describe blocks), 35 skipped at describe-level across 19 test files with `// TODO(v3-debt): tracking #32` headers. Cluster-level `describe.skip` rather than per-test `it.skip` — equivalent traceability via the umbrella issue + `test-debt-tracking.md`.
+- **`TDD2.md` §19 risk register (PR-11 Task B)** — gained §19.6 "M1 exit-interview risk delta": R-01 mitigation enriched (PR-09 structural-mirror pattern for Pi 0.74-alpha types); R-02 (codex-driver edge audit) marked **CLOSED**; R-09 (33-test remediation) in-progress and conditional-CLOSED at this PR; R-10 (cassette flakiness) mitigation already implemented at PR-06 and conditional-CLOSED when cassettes are recorded. "No new architectural-class risks surfaced during M1 execution" recorded.
+
+### Plan 01-03 commit trail on `v3-foundation`
+
+|      PR      |                                   Commit                                    | Subject                                                                                                    |
+| :----------: | :-------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------- |
+| PR-10 Task 3 | [`a83b7e7`](https://github.com/swt-labs/stop-wasting-tokens/commit/a83b7e7) | `docs(adrs)`: draft ADRs 006..013 (excluding existing) + ADR index README                                  |
+| PR-10 Task 2 | [`0ce520b`](https://github.com/swt-labs/stop-wasting-tokens/commit/0ce520b) | `docs(operations)`: write v2→v3 migration guide                                                            |
+| PR-10 Task 1 | [`c88fc79`](https://github.com/swt-labs/stop-wasting-tokens/commit/c88fc79) | `docs(architecture)`: docs/ topical reorg + ESLint §4.3 boundary rule + driver-mention purge               |
+| PR-11 Task B | [`6cebe5c`](https://github.com/swt-labs/stop-wasting-tokens/commit/6cebe5c) | `chore(ci)`: reproducible-build + regression/chaos/provider-matrix stubs + v3-tracking.md + TDD2 §19 delta |
+| PR-11 Task A | [`bb04054`](https://github.com/swt-labs/stop-wasting-tokens/commit/bb04054) | `test(remediation)`: 33-test debt remediation + require CI Test step — M1 EXIT GATE REACHED                |
+
+Test posture at Plan 01-03 close: 719 passed, 123 skipped, 0 failed across the workspace. `pnpm typecheck` clean. `pnpm lint` 0 errors + 213 warnings (mostly demoted `import/no-restricted-paths` pending the pnpm-workspace resolver). `pnpm format:check` clean.
+
+### M1 EXIT GATE REACHED — 2026-05-12
+
+All 12 M1 PRs merged across 3 plans / 15 atomic commits on `v3-foundation`. M1 Foundation closed per TDD2 §13.1.3:
+
+- Constitutional debt cleared: methodology → codex-driver + cli → {codex,claude-code,ollama}-driver source-import edges broken (Plan 01-01 PR-01a/b); 3 driver packages + `.codex-plugin/` deleted wholesale (Plan 01-02 PR-05).
+- Architecture scaffolding in place: `@swt-labs/runtime` (Pi adapter) + `@swt-labs/orchestration` (dispatcher) + `@swt-labs/shared` (leaf types/schemas) + `@swt-labs/test-utils` (cassette infrastructure, private).
+- Real behaviour under test: token meter + per-provider extractors + role-resolver + provider quirks JSON + `swt_report_result` Extension with closure-captured `pi.appendEntry`.
+- Documentation in v3 shape: 13 ADRs + v2→v3 migration guide + docs/ topical reorganization + ESLint §4.3 boundary rules.
+- CI hardened: Test step required, reproducible-build job active per ADR-010, 3 future-milestone workflow stubs.
+- Test-debt accountable: umbrella issue #32 + `docs/decisions/test-debt-tracking.md`.
+
+M2 (single-agent path) entry conditions met per TDD2 §13.1.5. Two cassette-driven test activations stay deferred to a user-driven recording session (orthogonal to M1 exit gate).
+
 ## 2.3.5
 
 ### Patch Changes

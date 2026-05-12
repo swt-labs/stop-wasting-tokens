@@ -8,26 +8,28 @@
 
 ## Progress
 
-| Phase                                 | Status                                         | Plans written / executed | Tasks   | Commits |
-| ------------------------------------- | ---------------------------------------------- | ------------------------ | ------- | ------- |
-| 1 (M1 Foundation)                     | **In progress** (Plans 01-01 + 01-02 complete) | 3 / 2                    | 15 / 10 | 10      |
-| 2 (M2 Single-agent)                   | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
-| 3 (M3 Worktree dispatcher)            | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
-| 4 (M4 Token meter & cache discipline) | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
-| 5 (M5 Multi-provider)                 | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
-| 6 (M6 Decommission, benchmark, ship)  | Pending                                        | 0 / 0                    | 0 / 0   | 0       |
+| Phase                                 | Status                                           | Plans written / executed | Tasks   | Commits |
+| ------------------------------------- | ------------------------------------------------ | ------------------------ | ------- | ------- |
+| 1 (M1 Foundation)                     | ✓ **COMPLETE** (M1 exit gate reached 2026-05-12) | 3 / 3                    | 15 / 15 | 15      |
+| 2 (M2 Single-agent)                   | Pending                                          | 0 / 0                    | 0 / 0   | 0       |
+| 3 (M3 Worktree dispatcher)            | Pending                                          | 0 / 0                    | 0 / 0   | 0       |
+| 4 (M4 Token meter & cache discipline) | Pending                                          | 0 / 0                    | 0 / 0   | 0       |
+| 5 (M5 Multi-provider)                 | Pending                                          | 0 / 0                    | 0 / 0   | 0       |
+| 6 (M6 Decommission, benchmark, ship)  | Pending                                          | 0 / 0                    | 0 / 0   | 0       |
 
 **Phase 1 plan breakdown:**
 
 - `01-01-PLAN.md` (wave 1): 5 tasks — PR-01a, PR-01b, PR-02, PR-03, PR-04 — entry-gate edge breaks + architectural scaffolding. **✓ COMPLETE** as of 2026-05-11 (commits `08579dc`, `e0bc8ce`, `3050410`, `74c757c`, `0a623d2`; SUMMARY at `phases/01-m1-foundation/01-01-SUMMARY.md` documents 8 deviations + 17/19 pass on ac_results).
 - `01-02-PLAN.md` (wave 2): 5 tasks — PR-05, PR-06, PR-08, PR-07, PR-09 (executed in that order; PR-08 reordered ahead of PR-07 since it had no cassette dependency) — driver cleanup + test infrastructure + token meter + provider quirks + first end-to-end mocked-Pi integration test. **✓ COMPLETE** as of 2026-05-11 (commits `c390d85`, `795a6cd`, `74b4086`, `7fcb20f`, `df9cc78`; SUMMARY at `phases/01-m1-foundation/01-02-SUMMARY.md` documents 11 deviations + 15/22 pass + 7 partials on ac_results). Two cassette-driven assertions deferred to a user-driven recording session: `runtime/test/meter/cassette-replay.int.test.ts` (PR-07 byte-identical token-count delta=0) and `orchestration/test/dispatcher.int.test.ts` cassette-gated case (PR-09 end-to-end dispatcher → Pi → harvest). Both gated behind `it.skipIf(!HAS_CASSETTE)` and activate automatically when the cassettes land at `packages/test-utils/cassettes/`.
-- `01-03-PLAN.md` (wave 3): 5 tasks — PR-10 (Tasks 1–3), PR-11 (Tasks 4–5) — docs reorg + CI hardening + ADRs 006..013 + ESLint enforcement + `.vbw-planning/v3-tracking.md`. **⏳ Next.** Note: the v3.0.0-alpha.1 CHANGELOG section + the v3-redesign README banner already pre-shipped in commit `c5b3b9a` (within Plan 01-01's docs commit batch) and gets extended with a Plan 01-02 commit-trail table in the same congruency pass that wrote 01-02-SUMMARY.md; PR-10 Task 1's remaining scope is the full `docs/` topical reorganization per TDD2 §18.1 + the driver-mention purge from the existing README body. Pre-PR-10 ADR status: 5 Accepted (001/002/003/004/005), 1 Proposed (011); PR-10 Task 3 drafts the remaining 7 (006..010, 012, 013) as Proposed.
+- `01-03-PLAN.md` (wave 3): 5 tasks — PR-10 (Tasks 1–3), PR-11 (Tasks A–B) — docs reorg + CI hardening + ADRs 006..013 + ESLint enforcement + `.vbw-planning/v3-tracking.md` + 33-test debt remediation. **✓ COMPLETE** as of 2026-05-12 (commits `a83b7e7`, `0ce520b`, `c88fc79`, `6cebe5c`, `bb04054`; SUMMARY at `phases/01-m1-foundation/01-03-SUMMARY.md` documents 12 deviations + ac_results: most pass + 4 partial — partials are the CI-matrix-runs-post-push gate, the `import/no-restricted-paths` runtime-enforcement-pending-M3-resolver gate, the migration-script-spec-not-yet-on-disk link, and the 49-vs-33 test-debt scope drift documented in `docs/decisions/test-debt-tracking.md`). Umbrella tracking issue [#32](https://github.com/swt-labs/stop-wasting-tokens/issues/32) carries the per-cluster test-debt inventory. **HIGH-PRIORITY SECURITY:** `packages/verification/test/guards.test.ts` has 3 real bash-guard denylist regressions (skipped to unblock M1 close); fix in next hotfix or M2 PR-12 per the deviation in 01-03-SUMMARY.md.
+
+**M1 EXIT GATE REACHED 2026-05-12** per TDD2 §13.1.3. All 12 M1 PRs merged across 3 plans / 15 atomic commits. Final ADR matrix: 6 Accepted (001/002/003/004/005/010), 6 Proposed (006/007/008/009/011/012), 1 Deferred (013) — matches TDD2 §22.14 verbatim. M2 entry conditions all met per TDD2 §13.1.5.
 
 ---
 
 ## Phase List
 
-- [ ] [Phase 1: M1 Foundation](#phase-1-m1-foundation)
+- [x] [Phase 1: M1 Foundation](#phase-1-m1-foundation)
 - [ ] [Phase 2: M2 Single-agent path](#phase-2-m2-single-agent-path)
 - [ ] [Phase 3: M3 Worktree dispatcher](#phase-3-m3-worktree-dispatcher)
 - [ ] [Phase 4: M4 Token meter & cache discipline](#phase-4-m4-token-meter-cache-discipline)

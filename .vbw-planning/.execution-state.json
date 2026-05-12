@@ -25,7 +25,7 @@
       "id": "01-03",
       "title": "Documentation + CI Hardening + ADR Acceptance (PR-10 + PR-11)",
       "wave": 3,
-      "status": "pending"
+      "status": "complete"
     }
   ]
 }
