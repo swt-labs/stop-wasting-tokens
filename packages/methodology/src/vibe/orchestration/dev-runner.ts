@@ -18,7 +18,7 @@
  *     a real session don't need synthetic entry plumbing.
  */
 import { createDispatcher, type HarvestStrategy } from '@swt-labs/orchestration';
-import type { TaskResult } from '@swt-labs/shared';
+import type { MeterContext, TaskResult, TokenMeter } from '@swt-labs/shared';
 
 import type { PlanRecord } from './waves.js';
 
@@ -30,6 +30,17 @@ export interface DevRunnerOptions {
    * `{ kind: 'entries', getEntries }` against the active session's entry list.
    */
   readonly harvestStrategy?: HarvestStrategy;
+  /**
+   * Optional TokenMeter forwarded to the dispatcher so real Pi sessions
+   * route `TASK_TOKEN_USAGE` records into the supplied meter (PR-T).
+   */
+  readonly meter?: TokenMeter;
+  /**
+   * Per-session meter dimensions. The dev-runner already knows the
+   * milestone + phase (from `DevRunInput`); callers can layer milestone
+   * + role + tier on top via this field.
+   */
+  readonly meterContext?: MeterContext;
 }
 
 export interface DevTaskOutcome {
@@ -51,8 +62,17 @@ export interface DevRunInput {
 }
 
 export async function runDevTasks(input: DevRunInput): Promise<DevRunSummary> {
+  const opts = input.opts;
+  const meter = opts?.meter;
+  const meterContext: MeterContext = {
+    phase: input.phase,
+    role: 'dev',
+    ...(opts?.meterContext ?? {}),
+  };
   const dispatcher = createDispatcher({
-    harvestStrategy: input.opts?.harvestStrategy ?? 'stub',
+    harvestStrategy: opts?.harvestStrategy ?? 'stub',
+    ...(meter !== undefined ? { meter } : {}),
+    meterContext,
   });
   const outcomes: DevTaskOutcome[] = [];
   for (const plan of input.plans) {

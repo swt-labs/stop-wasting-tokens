@@ -2,7 +2,7 @@
 
 ## 3.0.0-alpha.1 — IN DEVELOPMENT (not yet published)
 
-_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12**, **M2 Single-agent path closed 2026-05-12 (all 10 PRs landed; live TPAC baseline pending user cassette recording)**, **M3 Worktree dispatcher Plan 03-01 closed 2026-05-12**, and **session-wiring follow-up (PR-S) shipped 2026-05-12** — real Pi `createSession` + `swt rpc` live._
+_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12**, **M2 Single-agent path closed 2026-05-12 (all 10 PRs landed; live TPAC baseline pending user cassette recording)**, **M3 Worktree dispatcher Plan 03-01 closed 2026-05-12**, **session-wiring follow-up (PR-S) shipped 2026-05-12** — real Pi `createSession` + `swt rpc` live, and **runMilestone activation follow-up (PR-T) shipped 2026-05-12** — `runVibe` programmatic entry + meter threading + `swt bench` live emit._
 
 > **Branch strategy note (2026-05-12):** v3 development was previously on a `v3-foundation` integration branch with the plan to merge into `main` at the M6 release gate. That branch has been retired; `main` is now the sole development surface for v3. The per-plan "commit trail on `v3-foundation`" section titles below are kept as historical record — the commits themselves are now on `main`'s history.
 
@@ -285,6 +285,49 @@ Single-PR interstitial between Plan 03-01 and Plan 03-02. The structural keyston
 | `swt bench` ships                                                        | **PASS** | PR-21 (structural); live emit pending runMilestone follow-up    |
 
 **Test posture at PR-S close: 1001 passing / 46 skipped / 0 failed.** Commit: `<pending>`.
+
+### Added (runMilestone activation follow-up — PR-T, 2026-05-12)
+
+Single-PR interstitial between PR-S and Plan 03-04. Flips `runMilestone` from `MilestoneInvocationDeferredError` to a real `runVibe`-driven Execute pass and re-points `swt bench` at the harvested `{meterSnapshot, criteriaSatisfied}` directly. The full live emit chain (CLI → test-utils → methodology → runtime/Pi → orchestration → shared) is now structurally complete — only fixture prep (cassettes + spec) remains.
+
+- **Programmatic `runVibe` entry (`@swt-labs/methodology`, PR-T)** — new `packages/methodology/src/run-vibe.ts` exports `runVibe(opts: RunVibeOptions): Promise<RunVibeResult>` where `RunVibeOptions = {cwd, meter?, meterContext?, harvestStrategy?, phase?, slug?}` and `RunVibeResult = {artefactsPath, finalState: 'execute-complete', meterSnapshot, criteriaSatisfied}`. Discovers the first executable phase under `<cwd>/.swt-planning/phases/NN-{slug}/` (with at least one `<NN>-<MM>-PLAN.md`), constructs a synthetic `VibeRoute` of `kind: 'execute'`, and invokes `executeHandler` with an explicit `resolveTarget` callback. `criteriaSatisfied` aggregates `must_haves` from PLAN.md frontmatter for plans whose sibling SUMMARY.md has `status: complete` or `partial` — heuristic, not QA-verified (a real `must_haves[].status` check waits on the qaHandler integration).
+- **Meter threading (PR-T)** — `CreateDispatcherOptions` (orchestration), `DevRunnerOptions` (methodology dev-runner), and `ModeIO` (methodology handlers) each grow optional `meter?: TokenMeter` + `meterContext?: MeterContext` fields. The dispatcher forwards both into the `SessionFactory` call (`{cwd, ephemeral: true, enableResultProtocol: true, taskId, meter, meterContext: {...meterContext, task_id: task.taskId}}`) so the real Pi adapter's `routeUsageToMeter` path receives the meter at session-creation time. `executeHandler` forwards `io.meter` + `io.meterContext` through `runDevTasks` → `createDispatcher`.
+- **`runMilestone` flipped to async `runVibe` driver (`@swt-labs/test-utils`, PR-T)** — `packages/test-utils/src/run-milestone.ts` rewritten: was a sync function throwing `MilestoneInvocationDeferredError` after installing replay; now an async function that builds a `TokenMeter`, calls `runVibe({cwd: tmpRoot, meter, meterContext: {milestone}, harvestStrategy: 'stub'})`, and returns the enriched `RunMilestoneResult = {tmpRoot, dispose, meterSnapshot, criteriaSatisfied}`. New `milestone?: string` option (default `'M2'`). `MilestoneInvocationDeferredError` class deleted (no longer reachable). `CassetteNotRecordedError` still throws when no cassettes exist. `test-utils` gains `@swt-labs/methodology` + `@swt-labs/runtime` workspace deps.
+- **`swt bench` flipped to live emit (`packages/cli/src/commands/bench.ts`, PR-T)** — removed the `harvestRunResult` indirection function entirely. The handler now `await`s `runMilestone({...})` and calls `computeTpac(run.meterSnapshot, {milestone, fixture, provider, criteria_satisfied: run.criteriaSatisfied})` directly, then emits the validated `TpacReport`. Catch block simplified: only `CassetteNotRecordedError` + `NoSatisfiedCriteriaError` map to `EXIT.NOT_IMPLEMENTED` (the `MilestoneInvocationDeferredError` arm is gone). Header banner updated from "deferred until M3 PR-22" → "live emit ready; remaining gates are cassette recording + fixture spec population".
+- **4 new `run-vibe.test.ts` tests** (`packages/methodology/test/run-vibe.test.ts`) — tmpdir + pre-populated `.swt-planning/phases/01-test-phase/01-01-PLAN.md` with `must_haves` flat-string-array frontmatter; covers result shape, SUMMARY.md generation, `criteriaSatisfied` aggregation, and `Error` when no phases exist.
+- **2 new dispatcher meter-threading tests** (`packages/orchestration/test/dispatcher.test.ts`) — asserts `hasMeter: true` + `meterContext: {...given, task_id: taskId}` round-trip into the recording session factory when wired, and `hasMeter: false` + `meterContext: undefined` when omitted.
+- **`packages/cli/test/commands/bench.test.ts` rewrite** — 5 tests (was 4). Test 2 is brand new: happy-path TpacReport emit mocks `runMilestone` to return `{meterSnapshot: {input: 1200, output: 340, ...}, criteriaSatisfied: 4}`, asserts the printed JSON has `tokens_per_criterion: 385`, correct fixture/provider/milestone/recorded_at shape. Existing tests cover `CassetteNotRecordedError` default path, `NoSatisfiedCriteriaError` when `criteriaSatisfied: 0`, unexpected error → `EXIT.RUNTIME_ERROR`, and flag default + override propagation.
+
+### Activations (post PR-T)
+
+| Consumer                            | Before PR-T                                                                 | After PR-T                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `runMilestone`                      | Sync, threw `MilestoneInvocationDeferredError` after replay setup           | **Async, returns real `{meterSnapshot, criteriaSatisfied}`** driven by `runVibe`                                              |
+| `swt bench` live emit               | `harvestRunResult` indirection routed to `MilestoneInvocationDeferredError` | **Direct `computeTpac` over `runMilestone`'s real return** — emits validated `TpacReport` once cassettes + spec are populated |
+| Dispatcher meter threading          | No meter could reach the session factory                                    | **`CreateDispatcherOptions.meter` + `.meterContext`** forwarded into every session factory call (overrides `task_id`)         |
+| Methodology Execute meter threading | `ModeIO` had no meter field                                                 | **`ModeIO.meter` + `.meterContext`** forwarded through `runDevTasks` → `createDispatcher`                                     |
+| Programmatic methodology entry      | Only the CLI's `vibeHandler` (interactive)                                  | **`runVibe(opts)`** exported from `@swt-labs/methodology` for non-interactive consumers (tests, bench, future automation)     |
+
+### Remaining deferrals (post PR-T)
+
+- **User-driven Anthropic cassette recording** (~30–45 min + ~$0.50 API key spend) for the `ref-fastapi-empty` fixture — still required before `swt bench` emits real TPAC numbers.
+- **Fixture spec population** — `packages/test-utils/golden/ref-fastapi/spec/` needs a `ROADMAP.md` + at least one `phases/<NN>-{slug}/<NN>-<MM>-PLAN.md` so `runVibe` finds an executable phase. Today the spec dir is empty; `runVibe` exits with no progress + `NoSatisfiedCriteriaError`.
+- **Pi extension-loader integration for `swt_report_result`** — Pi's `customTools` accepts `ToolDefinition[]`, not extension-factory functions; the PR-26 flag-based contract stays locked, the actual `buildResultProtocolExtension()` registration is a separate concern.
+- **Full FSM `runVibe`** — today only Execute mode runs. Bootstrap, scope, plan, UAT, and archive remain follow-ups when a non-interactive auto-passing path lands.
+- **Real QA-verified `criteriaSatisfied`** — today `runVibe`'s heuristic aggregates declared `must_haves` from PLAN.md frontmatter for any plan whose SUMMARY.md is `complete` or `partial`. A QA-driven `must_haves[].status` check requires running `qaHandler` post-Execute and reading VERIFY artifact `verdict: 'passed'` rows.
+
+### M2 EXIT GATE per TDD2 §13.2.3 — post PR-T
+
+| Criterion                                                                | Status   | Activation gate                                                |
+| ------------------------------------------------------------------------ | -------- | -------------------------------------------------------------- |
+| Reference greenfield project runs full milestone end-to-end on Anthropic | DEFERRED | Cassette recording + fixture-spec population                   |
+| Regression suite passes against v2.3.5 golden                            | DEFERRED | Cassette recording + v2.3.5 golden run + fixture-spec popul.   |
+| TPAC measured + recorded as fixed M2 baseline                            | DEFERRED | Cassette recording + fixture-spec population → `swt bench` run |
+| Dashboard's existing panels work against the new event stream            | **PASS** | PR-17                                                          |
+| `swt rpc` ships                                                          | **PASS** | PR-20 (structural) + PR-S (live)                               |
+| `swt bench` ships                                                        | **PASS** | PR-21 (structural) + PR-T (live emit, fixture-prep pending)    |
+
+**Test posture at PR-T close: 1008 passing / 46 skipped / 0 failed** (+7 from PR-S's 1001: 4 `run-vibe.test.ts` + 2 dispatcher meter-threading + 1 net new bench happy-path). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

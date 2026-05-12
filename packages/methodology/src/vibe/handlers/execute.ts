@@ -86,9 +86,13 @@ export function executeHandler(opts: ExecuteHandlerOptions = {}): ModeHandler {
           phase: target.phase,
           plans: wave.plans,
           cwd: io.cwd,
-          ...(opts.harvestStrategy !== undefined
-            ? { opts: { harvestStrategy: opts.harvestStrategy } }
-            : {}),
+          opts: {
+            ...(opts.harvestStrategy !== undefined
+              ? { harvestStrategy: opts.harvestStrategy }
+              : {}),
+            ...(io.meter !== undefined ? { meter: io.meter } : {}),
+            ...(io.meterContext !== undefined ? { meterContext: io.meterContext } : {}),
+          },
         });
         for (const outcome of runSummary.outcomes) {
           const summaryPayload = mapTaskResultToDevSummary(outcome, target.phase);

@@ -1,9 +1,25 @@
+import type { MeterContext, TokenMeter } from '@swt-labs/shared';
+
 import type { VibeRoute } from '../route.js';
 
 export interface ModeIO {
   readonly cwd: string;
   readonly stdout: NodeJS.WritableStream;
   readonly stderr: NodeJS.WritableStream;
+  /**
+   * Optional TokenMeter forwarded to the dispatcher chain (PR-T).
+   * When supplied, the real Pi adapter routes `TASK_TOKEN_USAGE`
+   * records into it; `swt bench` / regression harness use this to
+   * harvest a `MeterSnapshot` from a full run.
+   */
+  readonly meter?: TokenMeter;
+  /**
+   * Per-session meter dimensions (milestone, phase, role, tier).
+   * The handler layer knows the phase + the role it's spawning;
+   * milestone + tier come from the caller (typically a fixture-aware
+   * test harness or the CLI's config).
+   */
+  readonly meterContext?: MeterContext;
 }
 
 export interface HandlerResult {

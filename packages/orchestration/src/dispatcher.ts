@@ -1,4 +1,5 @@
 import { createSession, type SwtSession, type SwtSessionOptions } from '@swt-labs/runtime';
+import type { MeterContext, TokenMeter } from '@swt-labs/shared';
 
 import type { ClaimRegistry } from './claim-registry.js';
 import {
@@ -65,6 +66,22 @@ export interface CreateDispatcherOptions {
    * checking automatically.
    */
   readonly claimRegistry?: ClaimRegistry;
+  /**
+   * Optional TokenMeter passed to the session factory so the runtime's
+   * real Pi adapter routes `TASK_TOKEN_USAGE` records into the supplied
+   * meter (PR-T meter-threading, M3 §13.3). When omitted, the dispatcher
+   * still works — the session factory falls back to its own meter
+   * handling (the mock factory ignores it; the real Pi adapter omits
+   * meter records).
+   */
+  readonly meter?: TokenMeter;
+  /**
+   * Per-session meter dimensions threaded into `SwtSessionOptions.meterContext`.
+   * The dispatcher itself doesn't know the milestone/phase context (those
+   * come from the methodology layer above); accept them as opaque and
+   * forward.
+   */
+  readonly meterContext?: MeterContext;
 }
 
 /**
@@ -86,6 +103,8 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
   const factory: SessionFactory = opts.sessionFactory ?? createSession;
   const strategy: HarvestStrategy = opts.harvestStrategy ?? 'stub';
   const claimRegistry = opts.claimRegistry;
+  const meter = opts.meter;
+  const meterContext = opts.meterContext;
 
   const dispatch = async (task: TaskBrief): Promise<TaskResult> => {
     // Claim check (PR-23). When a registry is wired AND the task
@@ -120,6 +139,10 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
       ephemeral: true,
       enableResultProtocol: true,
       taskId: task.taskId,
+      ...(meter !== undefined ? { meter } : {}),
+      ...(meterContext !== undefined
+        ? { meterContext: { ...meterContext, task_id: task.taskId } }
+        : {}),
     });
     try {
       // PR-09: session.prompt() is still a no-op (createSession ships a

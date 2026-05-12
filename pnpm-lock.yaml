@@ -214,6 +214,9 @@ importers:
       '@swt-labs/orchestration':
         specifier: workspace:*
         version: link:../orchestration
+      '@swt-labs/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@swt-labs/shared':
         specifier: workspace:*
         version: link:../shared
@@ -270,6 +273,12 @@ importers:
 
   packages/test-utils:
     dependencies:
+      '@swt-labs/methodology':
+        specifier: workspace:*
+        version: link:../methodology
+      '@swt-labs/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@swt-labs/shared':
         specifier: workspace:*
         version: link:../shared

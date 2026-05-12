@@ -17,26 +17,24 @@
  * `@earendil-works/*` directly — the Pi session lives behind the
  * `@swt-labs/test-utils`/`@swt-labs/runtime` boundary.
  *
- * **Today's behaviour:** the structural chain (CLI → test-utils →
- * orchestration → shared) is locked in place but the live milestone
- * invocation is deferred until M3 PR-22 wires real Pi prompting.
- * `runMilestone` throws `CassetteNotRecordedError` (no cassettes
- * recorded yet) or `MilestoneInvocationDeferredError` (cassettes
- * present, prompt() still a no-op). Both errors land on stderr with
- * exit code `EXIT.NOT_IMPLEMENTED` (2). Unexpected errors land on
- * `EXIT.RUNTIME_ERROR` (3). Once PR-22 activates `runMilestone`'s real
- * return path, this handler emits a validated TpacReport without any
- * other change to the CLI surface.
+ * **Today's behaviour (PR-T):** the live emit path is wired. `runMilestone`
+ * drives `runVibe` against the fixture and returns a real `MeterSnapshot`
+ * + `criteriaSatisfied`; this handler reduces that to a validated
+ * `TpacReport` and emits JSON to stdout (or `--output <file>`). The
+ * remaining gate is cassette presence — `CassetteNotRecordedError` and
+ * `NoSatisfiedCriteriaError` map to `EXIT.NOT_IMPLEMENTED` (2);
+ * unexpected errors map to `EXIT.RUNTIME_ERROR` (3). Recording the
+ * Anthropic cassettes + pre-populating the fixture remain user-driven
+ * follow-ups.
  */
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { computeTpac, NoSatisfiedCriteriaError } from '@swt-labs/orchestration';
-import { TpacReportSchema, type MeterSnapshot, type TpacReport } from '@swt-labs/shared';
+import { TpacReportSchema, type TpacReport } from '@swt-labs/shared';
 import {
   CassetteNotRecordedError,
-  MilestoneInvocationDeferredError,
   disposeRun,
   runMilestone,
   type RunMilestoneResult,
@@ -75,29 +73,21 @@ export const benchHandler: CommandHandler = async (parsed, io: CommandIO): Promi
   let run: RunMilestoneResult | undefined;
   try {
     const fixtureRoot = resolveFixtureDir(io.cwd, opts.fixture);
-    run = runMilestone({
+    run = await runMilestone({
       fixture: fixtureRoot,
+      milestone: opts.milestone,
       ...(opts.cassettesDir !== undefined ? { cassettesDir: opts.cassettesDir } : {}),
     });
-    // M3 PR-22 activation point: `runMilestone` will return a
-    // `MeterSnapshot` + a `criteria_satisfied` count harvested from
-    // the QA result. Until then the call above throws — this branch
-    // is unreachable today but locks the contract for the flip.
-    const harvest = await harvestRunResult(run);
-    const report = computeTpac(harvest.snapshot, {
+    const report = computeTpac(run.meterSnapshot, {
       milestone: opts.milestone,
       fixture: opts.fixture,
       provider: opts.provider,
-      criteria_satisfied: harvest.criteria_satisfied,
+      criteria_satisfied: run.criteriaSatisfied,
     });
     emitReport(io, opts.outputPath, report);
     return EXIT.SUCCESS;
   } catch (err) {
-    if (
-      err instanceof CassetteNotRecordedError ||
-      err instanceof MilestoneInvocationDeferredError ||
-      err instanceof NoSatisfiedCriteriaError
-    ) {
+    if (err instanceof CassetteNotRecordedError || err instanceof NoSatisfiedCriteriaError) {
       io.stderr.write(`${err.message}\n`);
       return EXIT.NOT_IMPLEMENTED;
     }
@@ -131,21 +121,6 @@ function stringFlag(value: string | boolean | undefined): string | undefined {
 function resolveFixtureDir(cwd: string, fixture: string): string {
   const dir = FIXTURE_DIRS[fixture] ?? fixture;
   return join(cwd, 'packages', 'test-utils', 'golden', dir);
-}
-
-/**
- * Harvest the meter snapshot + satisfied-criteria count from a
- * completed milestone run. Today this throws
- * `MilestoneInvocationDeferredError` because `runMilestone` itself
- * throws before this is called — the function exists so the M3 PR-22
- * flip is local (replace the body with the real harvest off
- * `run.meterSnapshot` + `run.criteriaSatisfied` once those fields
- * land on `RunMilestoneResult`).
- */
-async function harvestRunResult(
-  _run: RunMilestoneResult,
-): Promise<{ snapshot: MeterSnapshot; criteria_satisfied: number }> {
-  throw new MilestoneInvocationDeferredError();
 }
 
 function emitReport(io: CommandIO, outputPath: string | undefined, report: TpacReport): void {

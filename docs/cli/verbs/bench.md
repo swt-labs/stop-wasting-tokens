@@ -2,7 +2,7 @@
 
 Replay the TPAC reference scenario against recorded cassettes and emit a validated `TpacReport` per TDD2 §3.2 + §14.9.
 
-> **Status (M2 PR-21):** structurally complete — the CLI surface, flag set, dependency chain (`@swt-labs/test-utils` → `@swt-labs/orchestration` → `@swt-labs/shared`), and JSON emit path are in place. Live activation requires (a) recorded Anthropic cassettes at `packages/test-utils/golden/ref-fastapi/cassettes/*.jsonl` and (b) M3 PR-22 wiring real Pi `session.prompt()` in `runMilestone`. Today the verb returns `EXIT.NOT_IMPLEMENTED` (2) with a clear pointer to the activation gate.
+> **Status (M3 PR-T, 2026-05-12):** live emit ready. The CLI surface, flag set, dependency chain (`@swt-labs/test-utils` → `@swt-labs/orchestration` → `@swt-labs/shared`), JSON emit path, and the real `runMilestone` → `runVibe` → `MeterSnapshot` + `criteriaSatisfied` harvest are all in place. The remaining gates are (a) user-driven Anthropic cassette recording at `packages/test-utils/cassettes/*.jsonl` and (b) pre-populating `ref-fastapi-empty` with a `ROADMAP.md` + at least one `phases/<NN>/<NN>-<MM>-PLAN.md` so `runVibe` has an executable phase. When both land, the verb emits a validated TpacReport with no further code change.
 
 ## Synopsis
 
@@ -22,8 +22,8 @@ swt bench [--fixture=<name>] [--provider=<name>] [--cassettes=<path>] [--output=
 
 `swt bench` is the user-facing wrapper on the same machinery the regression test (`test/regression/ref-fastapi.regression.test.ts`) consumes:
 
-1. **`runMilestone`** (`@swt-labs/test-utils`) installs the cassette replay against the frozen fixture spec, copies the spec into a tmpdir, and replays the milestone end-to-end through the v3 methodology layer.
-2. **`computeTpac`** (`@swt-labs/orchestration`) reduces the resulting `MeterSnapshot` into a milestone-scoped `TpacReport` (input/output tokens, criteria satisfied, `tokens_per_criterion`).
+1. **`runMilestone`** (`@swt-labs/test-utils`) installs the cassette replay against the frozen fixture spec, copies the spec into a tmpdir, and invokes `runVibe` (from `@swt-labs/methodology`) to drive the Execute pass through the dispatcher → `runtime/createSession` → Pi loop. Returns `{ meterSnapshot, criteriaSatisfied, artefactsPath, finalState }`.
+2. **`computeTpac`** (`@swt-labs/orchestration`) reduces the resulting `MeterSnapshot` + `criteriaSatisfied` into a milestone-scoped `TpacReport` (input/output tokens, criteria satisfied, `tokens_per_criterion`).
 3. **`TpacReportSchema`** (`@swt-labs/shared`) validates the report at the emit boundary — same Zod contract M4 PR-32's `−40% vs M2` target check consumes.
 
 The output JSON is `schema_version: 1` and frozen. Any field change requires a new schema version + an ADR.
@@ -48,28 +48,28 @@ The output JSON is `schema_version: 1` and frozen. Any field change requires a n
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                                              |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | TpacReport emitted + validated (PR-22+ behaviour; not yet reachable today).                                                                          |
-| 1    | `EXIT.USAGE_ERROR` — `parseSwtArgv` rejected an unknown/missing flag value.                                                                          |
-| 2    | `EXIT.NOT_IMPLEMENTED` — deferred-mode error caught (`CassetteNotRecordedError`, `MilestoneInvocationDeferredError`, or `NoSatisfiedCriteriaError`). |
-| 3    | `EXIT.RUNTIME_ERROR` — unexpected error from the runtime/test-utils/orchestration layers.                                                            |
+| Code | Meaning                                                                                                        |
+| ---- | -------------------------------------------------------------------------------------------------------------- |
+| 0    | TpacReport emitted + validated (reachable from PR-T once cassettes + fixture are populated).                   |
+| 1    | `EXIT.USAGE_ERROR` — `parseSwtArgv` rejected an unknown/missing flag value.                                    |
+| 2    | `EXIT.NOT_IMPLEMENTED` — fixture-prep error caught (`CassetteNotRecordedError` or `NoSatisfiedCriteriaError`). |
+| 3    | `EXIT.RUNTIME_ERROR` — unexpected error from the runtime/test-utils/orchestration layers.                      |
 
 ## Activation path
 
-The verb activates without any surface change to the CLI handler once both of the following land:
+The handler is wired end-to-end at PR-T. Remaining gates are fixture prep, not code:
 
-1. **User-driven cassette recording** per [`docs/operations/cassette-recording.md`](../../operations/cassette-recording.md#recording-the-ref-fastapi-empty-cassettes-for-the-m2-regression-baseline). One cassette per role dispatched during the milestone (Scout, Architect, Lead, Dev × N, QA). Requires an Anthropic API key and ~30–45 min of developer-local time. Independent of M3 PR-22.
-2. **M3 PR-22** wires real `session.prompt()` in `packages/runtime/src/session.ts` and extends `RunMilestoneResult` with `meterSnapshot` + `criteriaSatisfied` fields. The internal `harvestRunResult` function in `packages/cli/src/commands/bench.ts` then has its body replaced (a single line flip) to read those fields off `run`.
+1. **User-driven cassette recording** per [`docs/operations/cassette-recording.md`](../../operations/cassette-recording.md#recording-the-ref-fastapi-empty-cassettes-for-the-m2-regression-baseline). One cassette per role dispatched during the milestone (Scout, Architect, Lead, Dev × N, QA). Requires an Anthropic API key and ~30–45 min of developer-local time.
+2. **Fixture spec population.** `packages/test-utils/golden/ref-fastapi/spec/` needs a `ROADMAP.md` + at least one `phases/<NN>-{slug}/<NN>-<MM>-PLAN.md` so `runVibe` finds an executable phase to drive. `runMilestone` copies the spec into a tmpdir + drives `runVibe` against it; today the spec is empty and `runVibe` exits with no progress, producing `NoSatisfiedCriteriaError`.
 
-The locked imports (`runMilestone`, `disposeRun`, `CassetteNotRecordedError`, `MilestoneInvocationDeferredError`, `computeTpac`, `NoSatisfiedCriteriaError`, `TpacReportSchema`) at the top of `bench.ts` are the regression guards — a future change to those symbols breaks the build here, not at runtime.
+The locked imports (`runMilestone`, `disposeRun`, `CassetteNotRecordedError`, `computeTpac`, `NoSatisfiedCriteriaError`, `TpacReportSchema`) at the top of `bench.ts` are the regression guards — a future change to those symbols breaks the build here, not at runtime.
 
 ## Reproducibility
 
 The `swt bench` invocation is the canonical way to reproduce the M2 baseline numbers recorded in [`.vbw-planning/v3-tracking.md`](../../../.vbw-planning/v3-tracking.md)'s Metrics table:
 
 ```bash
-# Once cassettes are recorded + M3 PR-22 lands:
+# Once cassettes are recorded + the fixture spec is populated:
 swt bench --fixture=ref-fastapi-empty --provider=anthropic --output=tpac-m2-baseline.json
 ```
 
@@ -92,4 +92,4 @@ Per [TDD2 §4.3](../../../TDD2.md):
 - **[`packages/orchestration/src/tpac-meter.ts`](../../../packages/orchestration/src/tpac-meter.ts)** — the milestone-scoped aggregator.
 - **[`packages/shared/src/schemas/tpac-report.ts`](../../../packages/shared/src/schemas/tpac-report.ts)** — the frozen Zod schema.
 - **[`docs/operations/cassette-recording.md`](../../operations/cassette-recording.md)** — cassette recording workflow.
-- **[`swt rpc`](./rpc.md)** — sibling verb that activates at the same M3 PR-22 gate.
+- **[`swt rpc`](./rpc.md)** — sibling verb that uses the same runtime adapter layer.

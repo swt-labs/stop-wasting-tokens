@@ -1,28 +1,19 @@
 /**
- * `swt bench` handler tests (M2 PR-21).
+ * `swt bench` handler tests (M3 PR-T — post runMilestone activation).
  *
- * Today the handler chains through `runMilestone` →
- * `harvestRunResult` → `computeTpac` but `runMilestone` itself throws
- * before the harvest can run. Tests cover the deferred-state
- * contract:
+ * Post-PR-T the handler:
  *
  *   1. With no cassettes recorded (today's repo state), `runMilestone`
  *      throws `CassetteNotRecordedError`; the handler catches it,
  *      reports on stderr, returns `EXIT.NOT_IMPLEMENTED` (2).
- *   2. With `runMilestone` mocked to resolve, the internal
- *      `harvestRunResult` throws `MilestoneInvocationDeferredError`
- *      until M3 PR-22 wires real Pi prompting — also caught,
- *      `EXIT.NOT_IMPLEMENTED`.
- *   3. Unexpected errors land in `EXIT.RUNTIME_ERROR` (3).
- *   4. Flag defaults + overrides propagate through to `runMilestone`'s
- *      arguments. This locks the activation contract so PR-22 can flip
- *      a single line in `bench.ts` (the body of `harvestRunResult`)
- *      without touching the CLI surface.
- *
- * When M3 PR-22 activates real Pi sessions, the first two tests
- * invert (asserting `runMilestone` reaches the real prompt path) and
- * a new test covers the happy path's TpacReport emit. The contract
- * surface stays the same.
+ *   2. With cassettes + a planned fixture, runMilestone returns real
+ *      MeterSnapshot + criteriaSatisfied; bench emits a validated
+ *      TpacReport. Tested here by mocking runMilestone.
+ *   3. NoSatisfiedCriteriaError (zero must_haves) lands on
+ *      EXIT.NOT_IMPLEMENTED (caller should record cassettes + fixture
+ *      with at least one passing must_have).
+ *   4. Unexpected errors land in `EXIT.RUNTIME_ERROR` (3).
+ *   5. Flag defaults + overrides propagate through to `runMilestone`.
  */
 
 import type * as TestUtilsModule from '@swt-labs/test-utils';
@@ -30,7 +21,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { StringStream } from '../_helpers.js';
 
-describe('benchHandler — M2 PR-21 deferred state', () => {
+describe('benchHandler — M3 PR-T live state', () => {
   it('returns NOT_IMPLEMENTED + reports CassetteNotRecordedError on stderr when no cassettes are recorded', async () => {
     vi.resetModules();
     const { benchHandler } = await import('../../src/commands/bench.js');
@@ -48,16 +39,80 @@ describe('benchHandler — M2 PR-21 deferred state', () => {
     expect(exit).toBe(2);
   });
 
-  it('returns NOT_IMPLEMENTED + reports MilestoneInvocationDeferredError when runMilestone resolves but harvest is deferred', async () => {
+  it('emits a validated TpacReport to stdout when runMilestone returns enriched fields', async () => {
     vi.resetModules();
     vi.doMock('@swt-labs/test-utils', async () => {
       const actual = await vi.importActual<typeof TestUtilsModule>('@swt-labs/test-utils');
       return {
         ...actual,
-        runMilestone: () => ({
+        runMilestone: async () => ({
           artefactsPath: '/tmp/fake-artefacts',
           cassettesActivated: ['scout-noop'],
           replayHandles: [],
+          meterSnapshot: {
+            records: [
+              {
+                timestamp: '2026-05-12T19:00:00.000Z',
+                milestone: 'M2',
+                phase: '01',
+                task_id: 'T-001',
+                role: 'dev',
+                tier: 'balanced',
+                provider: 'anthropic',
+                model: 'claude-sonnet-4-5-20250929',
+                turn: 1,
+                input: 1200,
+                output: 340,
+                cacheRead: 0,
+                cacheWrite: 0,
+              },
+            ],
+            totals: { input: 1200, output: 340, cacheRead: 0, cacheWrite: 0 },
+          },
+          criteriaSatisfied: 4,
+        }),
+      };
+    });
+    const { benchHandler } = await import('../../src/commands/bench.js');
+    const stdout = new StringStream();
+    const stderr = new StringStream();
+
+    const exit = await benchHandler(
+      { verb: 'bench', positionals: [], flags: {} },
+      { cwd: '/tmp', stdout, stderr },
+    );
+
+    expect(exit).toBe(0);
+    expect(stderr.text()).toBe('');
+    const json = JSON.parse(stdout.text()) as Record<string, unknown>;
+    expect(json['schema_version']).toBe(1);
+    expect(json['milestone']).toBe('M2');
+    expect(json['fixture']).toBe('ref-fastapi-empty');
+    expect(json['tpac_input']).toBe(1200);
+    expect(json['tpac_output']).toBe(340);
+    expect(json['tpac_total']).toBe(1540);
+    expect(json['criteria_satisfied']).toBe(4);
+    expect(json['tokens_per_criterion']).toBe(385);
+
+    vi.doUnmock('@swt-labs/test-utils');
+    vi.resetModules();
+  });
+
+  it('returns NOT_IMPLEMENTED when criteriaSatisfied is 0 (NoSatisfiedCriteriaError)', async () => {
+    vi.resetModules();
+    vi.doMock('@swt-labs/test-utils', async () => {
+      const actual = await vi.importActual<typeof TestUtilsModule>('@swt-labs/test-utils');
+      return {
+        ...actual,
+        runMilestone: async () => ({
+          artefactsPath: '/tmp/fake-artefacts',
+          cassettesActivated: [],
+          replayHandles: [],
+          meterSnapshot: {
+            records: [],
+            totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          },
+          criteriaSatisfied: 0,
         }),
       };
     });
@@ -71,8 +126,7 @@ describe('benchHandler — M2 PR-21 deferred state', () => {
     );
 
     expect(stdout.text()).toBe('');
-    expect(stderr.text()).toContain('M3 PR-22');
-    expect(stderr.text()).toContain('Pi prompting');
+    expect(stderr.text()).toContain('criteria_satisfied');
     expect(exit).toBe(2);
 
     vi.doUnmock('@swt-labs/test-utils');
@@ -85,7 +139,7 @@ describe('benchHandler — M2 PR-21 deferred state', () => {
       const actual = await vi.importActual<typeof TestUtilsModule>('@swt-labs/test-utils');
       return {
         ...actual,
-        runMilestone: () => {
+        runMilestone: async () => {
           throw new Error('boom — undici dispatcher mid-handshake');
         },
       };
@@ -115,7 +169,7 @@ describe('benchHandler — M2 PR-21 deferred state', () => {
       const actual = await vi.importActual<typeof TestUtilsModule>('@swt-labs/test-utils');
       return {
         ...actual,
-        runMilestone: (opts: { fixture: string; cassettesDir?: string }) => {
+        runMilestone: async (opts: { fixture: string; cassettesDir?: string }) => {
           captured.push({ fixture: opts.fixture, cassettesDir: opts.cassettesDir });
           throw new actual.CassetteNotRecordedError(opts.cassettesDir ?? opts.fixture);
         },

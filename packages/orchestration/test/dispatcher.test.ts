@@ -1,4 +1,5 @@
 import type { SwtSession } from '@swt-labs/runtime';
+import type { TokenMeter } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -21,6 +22,14 @@ interface RecordedSessionCall {
   readonly ephemeral?: boolean;
   readonly enableResultProtocol?: boolean;
   readonly taskId?: string;
+  readonly hasMeter: boolean;
+  readonly meterContext?: {
+    milestone?: string;
+    phase?: string;
+    task_id?: string;
+    role?: string;
+    tier?: string;
+  };
 }
 
 function makeRecordingSessionFactory(): {
@@ -36,6 +45,8 @@ function makeRecordingSessionFactory(): {
       ephemeral: opts.ephemeral,
       enableResultProtocol: opts.enableResultProtocol,
       taskId: opts.taskId,
+      hasMeter: opts.meter !== undefined,
+      ...(opts.meterContext !== undefined ? { meterContext: opts.meterContext } : {}),
     });
     const session: SwtSession = {
       sessionId: `mock-${calls.length}`,
@@ -98,6 +109,7 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
           ephemeral: true,
           enableResultProtocol: true,
           taskId: 'T-test-002',
+          hasMeter: false,
         },
       ]);
     });
@@ -115,6 +127,51 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
       expect(results.length).toBe(3);
       expect(results.map((r) => r.task_id)).toEqual(['T-1', 'T-2', 'T-3']);
       expect(recording.calls.map((c) => c.cwd)).toEqual(['/tmp/a', '/tmp/b', '/tmp/c']);
+    });
+  });
+
+  describe('createDispatcher — meter threading (M3 PR-T)', () => {
+    it('passes through meter + meterContext to the session factory when provided', async () => {
+      const recording = makeRecordingSessionFactory();
+      const meter: TokenMeter = {
+        record: () => undefined,
+        snapshot: () => ({
+          records: [],
+          totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        }),
+        subscribe: () => () => undefined,
+      };
+      const dispatcher = createDispatcher({
+        sessionFactory: recording.factory,
+        meter,
+        meterContext: { milestone: 'M3', phase: '03', role: 'dev', tier: 'balanced' },
+      });
+      await dispatcher.dispatch({
+        taskId: 'T-PRT-meter-001',
+        role: 'dev',
+        cwd: '/tmp/a',
+      });
+      expect(recording.calls).toHaveLength(1);
+      expect(recording.calls[0]?.hasMeter).toBe(true);
+      expect(recording.calls[0]?.meterContext).toEqual({
+        milestone: 'M3',
+        phase: '03',
+        role: 'dev',
+        tier: 'balanced',
+        task_id: 'T-PRT-meter-001', // dispatcher overrides task_id with the brief's taskId
+      });
+    });
+
+    it('omits meter when none is wired (default opt-out)', async () => {
+      const recording = makeRecordingSessionFactory();
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      await dispatcher.dispatch({
+        taskId: 'T-PRT-no-meter',
+        role: 'dev',
+        cwd: '/tmp/a',
+      });
+      expect(recording.calls[0]?.hasMeter).toBe(false);
+      expect(recording.calls[0]?.meterContext).toBeUndefined();
     });
   });
 

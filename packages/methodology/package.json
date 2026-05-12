@@ -14,6 +14,7 @@
     "@swt-labs/artifacts": "workspace:*",
     "@swt-labs/core": "workspace:*",
     "@swt-labs/orchestration": "workspace:*",
+    "@swt-labs/runtime": "workspace:*",
     "@swt-labs/shared": "workspace:*",
     "@swt-labs/verification": "workspace:*",
     "zod": "^3.23.8"

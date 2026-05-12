@@ -65,17 +65,18 @@ This test activates the moment both gates land: the Anthropic cassette set + the
 
 ## What's deferred (and to where)
 
-| Deferred concern                           | Lands at                                              |
-| ------------------------------------------ | ----------------------------------------------------- |
-| Claim-conflict detection                   | M3 PR-23 (`claim-registry.ts`) ✓                      |
-| `depends_on` → parallel batch resolution   | M3 PR-24 (`dag-resolver.ts`) ✓                        |
-| PID-liveness lock files + crash recovery   | M3 PR-25 (`lock-files.ts`) ✓                          |
-| `swt_report_result` Extension registration | M3 PR-26 (`dispatcher.ts` hook) ✓                     |
-| Per-worktree Pi session creation           | Session-wiring follow-up (PR-S — landed 2026-05-12) ✓ |
-| Dashboard Worktrees panel                  | M3 PR-27 (Plan 03-02)                                 |
-| SIGKILL-at-every-transition chaos suite    | M3 PR-28 (Plan 03-02)                                 |
-| `swt cleanup` verb (worktree retention)    | M3 PR-29 (Plan 03-02)                                 |
-| Windows worktree path discipline (ADR-009) | M3 PR-30 (Plan 03-02)                                 |
+| Deferred concern                             | Lands at                                              |
+| -------------------------------------------- | ----------------------------------------------------- |
+| Claim-conflict detection                     | M3 PR-23 (`claim-registry.ts`) ✓                      |
+| `depends_on` → parallel batch resolution     | M3 PR-24 (`dag-resolver.ts`) ✓                        |
+| PID-liveness lock files + crash recovery     | M3 PR-25 (`lock-files.ts`) ✓                          |
+| `swt_report_result` Extension registration   | M3 PR-26 (`dispatcher.ts` hook) ✓                     |
+| Per-worktree Pi session creation             | Session-wiring follow-up (PR-S — landed 2026-05-12) ✓ |
+| `runMilestone` activation (real return path) | runMilestone follow-up (PR-T — landed 2026-05-12) ✓   |
+| Dashboard Worktrees panel                    | M3 PR-27 (Plan 03-04)                                 |
+| SIGKILL-at-every-transition chaos suite      | M3 PR-28 (Plan 03-04)                                 |
+| `swt cleanup` verb (worktree retention)      | M3 PR-29 (Plan 03-04)                                 |
+| Windows worktree path discipline (ADR-009)   | M3 PR-30 (Plan 03-04)                                 |
 
 The `WorktreeManager.dispatch` method has an explicit `TODO(session-wiring follow-up)` comment marking the Pi session creation insertion point.
 
