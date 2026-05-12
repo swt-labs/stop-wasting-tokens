@@ -90,3 +90,89 @@ body {
   background: rgba(255, 82, 82, 0.15);
   color: var(--danger-red);
 }
+
+.worktrees-panel .panel-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.worktrees-conn-status {
+  font-size: 11px;
+  color: var(--slate-muted);
+  font-weight: 400;
+}
+
+.worktrees-empty {
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--slate-muted);
+}
+
+.worktrees-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.worktrees-table th,
+.worktrees-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--slate-muted-15);
+}
+
+.worktrees-table th {
+  color: var(--slate-muted);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.worktrees-task-id {
+  color: var(--ghost-white);
+  font-weight: 500;
+}
+
+.worktrees-transition,
+.worktrees-timestamp {
+  color: var(--slate-muted);
+}
+
+.worktree-state-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  background: var(--slate-muted-15);
+  color: var(--slate-muted);
+}
+
+.worktree-state-created,
+.worktree-state-claimed {
+  background: var(--slate-muted-15);
+  color: var(--ghost-white);
+}
+
+.worktree-state-dispatched,
+.worktree-state-agent_running {
+  background: rgba(0, 229, 255, 0.15);
+  color: var(--neon-cyan);
+}
+
+.worktree-state-agent_complete,
+.worktree-state-harvested,
+.worktree-state-removed {
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+}
+
+.worktree-state-failed {
+  background: rgba(255, 82, 82, 0.15);
+  color: var(--danger-red);
+}

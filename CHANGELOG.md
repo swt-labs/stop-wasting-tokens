@@ -327,7 +327,18 @@ Single-PR interstitial between PR-S and Plan 03-04. Flips `runMilestone` from `M
 | `swt rpc` ships                                                          | **PASS** | PR-20 (structural) + PR-S (live)                               |
 | `swt bench` ships                                                        | **PASS** | PR-21 (structural) + PR-T (live emit, fixture-prep pending)    |
 
-**Test posture at PR-T close: 1008 passing / 46 skipped / 0 failed** (+7 from PR-S's 1001: 4 `run-vibe.test.ts` + 2 dispatcher meter-threading + 1 net new bench happy-path). Commit: `<pending>`.
+**Test posture at PR-T close: 1008 passing / 46 skipped / 0 failed** (+7 from PR-S's 1001: 4 `run-vibe.test.ts` + 2 dispatcher meter-threading + 1 net new bench happy-path). Commit: `49b85fe`.
+
+### Added (M3 close — Plan 03-04 — PR-27, 2026-05-12)
+
+First PR of Plan 03-04 (closes M3 Worktree dispatcher). Plan 03-04 ships PR-27..PR-30 as 4 atomic commits.
+
+- **`GET /api/worktrees/sse` route** (`packages/dashboard/src/server/routes/worktrees.ts`) — chokidar-tails `<projectRoot>/.swt-planning/journal/wt-*.jsonl`; emits a `worktree.snapshot` initial frame with the last-entry-per-file state map, then streams `worktree.update` per newly-appended journal entry. Dedup via a per-task last-timestamp map (snapshot covers existing lines so the tailer's initial-scan replay doesn't double-emit). 503 when `projectRoot === null` (greenfield daemon). Duck-type validates each line (skips corrupt JSON without halting). Wires into `server/index.ts` via `registerWorktreesRoute(app, projectRoot)`.
+- **`WorktreesPanel` SolidJS component** (`packages/dashboard/src/client/components/WorktreesPanel.tsx`) — connects via `EventSource`, maintains a local `Map<taskId, WorktreeJournalEntry>` keyed by `worktree.snapshot` + `worktree.update` frames, renders one table row per active worktree with state pill colour-coded by FSM state, relative-time timestamp, and `from → to` transition. Empty state ("No active worktrees") for greenfield + no-parallel-dispatch projects. Mounted in `App.tsx` beside `CostPanel`. Read-only — operator actions ship as `swt cleanup` (PR-29).
+- **CSS** (`packages/dashboard/src/client/styles.css`) — `.worktrees-panel`, `.worktrees-table`, `.worktree-state-pill` + per-state colour classes (created/claimed → muted; dispatched/agent_running → neon-cyan; agent_complete/harvested/removed → terminal-green; failed → danger-red). Pure informational colour mapping, no behavioural coupling.
+- **4 route tests** (`packages/dashboard/test/worktrees-route.test.ts`) — initial-snapshot read with last-entry-per-file, `worktree.update` emission on file append, 503 on null projectRoot, corrupt-JSON-skip defence.
+
+**Test posture at PR-27 close: 1012 passing / 46 skipped / 0 failed** (+4 from PR-T's 1008). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

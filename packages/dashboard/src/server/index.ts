@@ -25,6 +25,7 @@ import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { registerUpdateRoute } from './routes/update.js';
 import { registerVibeRoutes } from './routes/vibe.js';
+import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
 import { CodexMethodologyAgent } from './vibe/codex-methodology-agent.js';
 import type { MethodologyAgentFactory } from './vibe/methodology-agent.js';
@@ -177,6 +178,10 @@ export function createApp(
     registerArtifactRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
   }
+  // Plan 03-04 PR-27: Worktrees panel SSE route. Registers unconditionally
+  // with a nullable projectRoot — the route returns 503 when projectRoot is
+  // null (greenfield daemon) so the client can still discover the endpoint.
+  registerWorktreesRoute(app, projectRoot);
   registerInitRoute(
     app,
     cwd,

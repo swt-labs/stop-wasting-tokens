@@ -16,6 +16,7 @@ import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { UpdatePanel } from './components/UpdatePanel.js';
+import { WorktreesPanel } from './components/WorktreesPanel.js';
 import { detectExtensionInterference } from './lib/detect-extension-interference.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
 import { createDashboardStore } from './state/dashboard-store.js';
@@ -244,6 +245,7 @@ export const App: Component = () => {
                   class="resizable-panel"
                 >
                   <CostPanel cost={state.snapshot?.cost_summary ?? null} />
+                  <WorktreesPanel />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>
