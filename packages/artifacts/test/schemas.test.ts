@@ -39,8 +39,12 @@ describe('artefact schemas', () => {
     expect(entry.status).toBe('pending');
   });
 
-  it('roadmap requires at least one phase', () => {
-    expect(() => RoadmapSchema.parse({ project_name: 'swt', phases: [] })).toThrow();
+  it('roadmap accepts an empty phases array (post-bootstrap, pre-scope)', () => {
+    // M2 PR-15: relaxed from `.min(1)` to `.min(0)` so the bootstrap handler
+    // can write a valid ROADMAP.md before any phases are scoped. Scope mode
+    // adds phases; the schema permits the in-between state.
+    const parsed = RoadmapSchema.parse({ project_name: 'swt', phases: [] });
+    expect(parsed.phases).toEqual([]);
   });
 
   it('state schema preserves unknown keys via passthrough', () => {

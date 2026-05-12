@@ -211,6 +211,9 @@ importers:
       '@swt-labs/shared':
         specifier: workspace:*
         version: link:../shared
+      '@swt-labs/verification':
+        specifier: workspace:*
+        version: link:../verification
       zod:
         specifier: ^3.23.8
         version: 3.25.76

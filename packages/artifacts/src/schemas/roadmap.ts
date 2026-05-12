@@ -14,7 +14,10 @@ export type PhaseEntry = z.infer<typeof PhaseEntrySchema>;
 
 export const RoadmapSchema = z.object({
   project_name: z.string().min(1),
-  phases: z.array(PhaseEntrySchema).min(1),
+  // 0 phases is the valid initial state right after `swt vibe` bootstraps a
+  // project — the user has named the project + described it, but hasn't
+  // scoped any phases yet. Scope mode adds phases.
+  phases: z.array(PhaseEntrySchema).min(0),
 });
 
 export type Roadmap = z.infer<typeof RoadmapSchema>;

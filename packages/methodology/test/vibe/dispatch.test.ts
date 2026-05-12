@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -12,7 +8,7 @@ import {
 } from '../../src/vibe/handlers/index.js';
 import type { VibeRoute } from '../../src/vibe/route.js';
 
-describe.skip('ModeRegistry', () => {
+describe('ModeRegistry', () => {
   it('registers and dispatches a known mode', async () => {
     const registry = new ModeRegistry();
     let called = false;
@@ -49,7 +45,7 @@ describe.skip('ModeRegistry', () => {
   });
 });
 
-describe.skip('buildStubRegistry', () => {
+describe('buildStubRegistry', () => {
   const registry = buildStubRegistry();
 
   it.each<VibeRoute['kind']>([

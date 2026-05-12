@@ -17,15 +17,32 @@ export interface CodexVersionLike {
   readonly version: string;
 }
 
+/**
+ * Pi peer-dep status surfaced from the runtime's `SpawnerEnvironment.probe()`.
+ * When `available === true`, `version` carries the Pi peer-dep version (e.g.
+ * `0.74.0`). When false, `reason` explains why (e.g. `pi peerDep missing`).
+ * M2 PR-15 wired this through the doctor command so `swt doctor` makes the
+ * Pi installation status visible at a glance.
+ */
+export interface PiStatusLike {
+  readonly available: boolean;
+  readonly name: string;
+  readonly version?: string;
+  readonly reason?: string;
+}
+
 export interface DoctorReport {
   readonly node: string;
   readonly codex: CodexVersionLike | undefined;
+  readonly pi: PiStatusLike | undefined;
   readonly planningDirExists: boolean;
 }
 
 export interface DoctorDeps {
   readonly node?: () => string;
   readonly codex?: () => Promise<CodexVersionLike | undefined>;
+  /** Override Pi probe (test seam). When omitted, derived from `spawnerEnv.probe()`. */
+  readonly pi?: () => Promise<PiStatusLike | undefined>;
   readonly spawnerEnv?: SpawnerEnvironment;
   readonly stat?: (path: string) => Promise<unknown>;
 }
@@ -49,9 +66,26 @@ export async function buildDoctorReport(cwd: string, deps: DoctorDeps = {}): Pro
       }
       return undefined;
     });
+  // M2 PR-15: surface Pi peer-dep status from `spawnerEnv.probe()`. When the
+  // probe reports `name: 'pi-*'`, lift it through to `report.pi`. Tests
+  // override via `deps.pi` for deterministic output.
+  const piFn =
+    deps.pi ??
+    (async (): Promise<PiStatusLike | undefined> => {
+      if (deps.spawnerEnv === undefined) return undefined;
+      const probe = await deps.spawnerEnv.probe();
+      if (!probe.name.startsWith('pi-')) return undefined;
+      return {
+        available: probe.available,
+        name: probe.name,
+        ...(probe.version !== undefined ? { version: probe.version } : {}),
+        ...(probe.reason !== undefined ? { reason: probe.reason } : {}),
+      };
+    });
   const statFn = deps.stat ?? ((p: string): Promise<unknown> => stat(p));
   const node = nodeFn();
   const codex = await codexFn();
+  const pi = await piFn();
   let planningDirExists = false;
   try {
     await statFn(join(cwd, '.swt-planning'));
@@ -59,7 +93,7 @@ export async function buildDoctorReport(cwd: string, deps: DoctorDeps = {}): Pro
   } catch {
     planningDirExists = false;
   }
-  return { node, codex, planningDirExists };
+  return { node, codex, pi, planningDirExists };
 }
 
 export function renderDoctorReport(report: DoctorReport): string {
@@ -74,6 +108,15 @@ export function renderDoctorReport(report: DoctorReport): string {
     lines.push(`  ✓ Codex CLI ${report.codex.version}`);
   } else {
     lines.push('  ⚠ Codex CLI not found on PATH');
+  }
+  if (report.pi !== undefined) {
+    if (report.pi.available && report.pi.version !== undefined) {
+      lines.push(`  ✓ Pi runtime ${report.pi.version} (${report.pi.name})`);
+    } else {
+      lines.push(
+        `  ⚠ Pi runtime not available${report.pi.reason !== undefined ? ` — ${report.pi.reason}` : ''}`,
+      );
+    }
   }
   lines.push(
     report.planningDirExists

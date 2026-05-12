@@ -1,13 +1,10 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
 
 import type { AgentSpawner, AgentSpec, SpawnRequest, SpawnResult } from '@swt-labs/core';
+import type { StaticCheck, StaticCheckResult } from '@swt-labs/verification';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { qaHandler } from '../../../src/vibe/handlers/qa.js';
@@ -76,20 +73,78 @@ afterEach(async () => {
   await rm(cwd, { recursive: true, force: true });
 });
 
-function makeIO() {
+function makeIO(): {
+  io: { cwd: string; stdout: StringStream; stderr: StringStream };
+  stdout: StringStream;
+  stderr: StringStream;
+} {
   const stdout = new StringStream();
   const stderr = new StringStream();
   return { io: { cwd, stdout, stderr }, stdout, stderr };
 }
 
-describe.skip('qaHandler', () => {
-  it('throws NotImplementedError when no spawner is supplied', async () => {
-    const handler = qaHandler();
-    const { io } = makeIO();
-    await expect(handler.run(route, io)).rejects.toThrow(/AgentSpawner/);
+function passingCheck(name: string): StaticCheck {
+  return {
+    name,
+    async run(): Promise<StaticCheckResult> {
+      return { name, status: 'passed', exitCode: 0, durationMs: 1, outputTail: `${name} ok` };
+    },
+  };
+}
+
+function failingCheck(name: string): StaticCheck {
+  return {
+    name,
+    async run(): Promise<StaticCheckResult> {
+      return { name, status: 'failed', exitCode: 1, durationMs: 1, outputTail: `${name} broke` };
+    },
+  };
+}
+
+const ALL_PASS: ReadonlyArray<StaticCheck> = [
+  passingCheck('typecheck'),
+  passingCheck('lint'),
+  passingCheck('format'),
+  passingCheck('tests'),
+];
+
+describe('qaHandler', () => {
+  it('runs the static-check ladder with NO spawner — writes a pass VERIFICATION.md when all checks pass', async () => {
+    const handler = qaHandler({
+      checks: ALL_PASS,
+      resolveHeadCommit: async () => 'deadbeef00112233',
+      today: () => '2026-05-06',
+    });
+    const { io, stdout } = makeIO();
+    const result = await handler.run(route, io);
+    expect(result.exit).toBe(0);
+    expect(stdout.text()).toContain('static-check ladder passed');
+    const verification = await readFile(join(phaseDir, '01-VERIFICATION.md'), 'utf8');
+    expect(verification).toContain('result: "PASS"');
+    expect(verification).toContain('STATIC-TYPECHECK');
   });
 
-  it('writes VERIFICATION.md and updates known-issues from a QA handoff', async () => {
+  it('writes a failed VERIFICATION.md when the static-check ladder fails — and skips the must-haves dispatch', async () => {
+    const spawner = new QaSpawner({});
+    const handler = qaHandler({
+      checks: [passingCheck('typecheck'), failingCheck('lint')],
+      spawner,
+      qaSpec,
+      resolveHeadCommit: async () => 'cafe',
+      today: () => '2026-05-06',
+    });
+    const { io, stdout } = makeIO();
+    const result = await handler.run(route, io);
+    expect(result.exit).toBe(1);
+    expect(stdout.text()).toContain('static-check ladder failed at lint');
+    expect(spawner.seen).toHaveLength(0); // must-haves dispatch NOT called
+    const verification = await readFile(join(phaseDir, '01-VERIFICATION.md'), 'utf8');
+    expect(verification).toContain('result: "FAIL"');
+    expect(verification).toContain('STATIC-CHECK');
+    expect(verification).toContain('lint failed');
+  });
+
+  it('writes VERIFICATION.md and updates known-issues from a QA handoff (ladder passes, agent verifies must-haves)', async () => {
     const handoff = {
       from: 'qa',
       to: 'orchestrator',
@@ -107,6 +162,7 @@ describe.skip('qaHandler', () => {
       metadata: { created_at: '2026-05-06T00:00:00.000Z' },
     };
     const handler = qaHandler({
+      checks: ALL_PASS,
       spawner: new QaSpawner(handoff),
       qaSpec,
       resolveHeadCommit: async () => 'deadbeef00112233',
@@ -128,7 +184,7 @@ describe.skip('qaHandler', () => {
     expect(known.issues[0].status).toBe('open');
   });
 
-  it('returns exit=1 when QA result is fail', async () => {
+  it('returns exit=1 when QA result is fail (after ladder passes)', async () => {
     const handoff = {
       from: 'qa',
       to: 'orchestrator',
@@ -143,6 +199,7 @@ describe.skip('qaHandler', () => {
       metadata: { created_at: '2026-05-06T00:00:00.000Z' },
     };
     const handler = qaHandler({
+      checks: ALL_PASS,
       spawner: new QaSpawner(handoff),
       qaSpec,
       resolveHeadCommit: async () => 'cafe',

@@ -9,6 +9,7 @@
     { "path": "../core" },
     { "path": "../artifacts" },
     { "path": "../orchestration" },
-    { "path": "../shared" }
+    { "path": "../shared" },
+    { "path": "../verification" }
   ]
 }

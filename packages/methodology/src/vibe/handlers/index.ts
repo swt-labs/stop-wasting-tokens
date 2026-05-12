@@ -43,3 +43,4 @@ export class ModeRegistry {
 }
 
 export * from './stubs.js';
+export { NotImplementedError, RoutingError } from '../errors.js';
