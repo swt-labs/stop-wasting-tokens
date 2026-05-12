@@ -613,7 +613,21 @@ Fourth PR of Plan 05-01. Provider fallback chain + retry budget per TDD2 §7.3. 
 
 PR-43 (next) ships the per-provider cost panel; PR-44 wires the fallback chain into the failover simulation.
 
-**Test posture at PR-42 close: 1144 passing / 46 skipped / 0 failed** (+9 from PR-41's 1135). Commit: `<pending>`.
+**Test posture at PR-42 close: 1144 passing / 46 skipped / 0 failed** (+9 from PR-41's 1135). Commit: `9fa2145`.
+
+### Added (M5 — Plan 05-01 — PR-43, 2026-05-12)
+
+Fifth PR of Plan 05-01. Per-provider cost panel per TDD2 §12.3.4. When the fallback chain (PR-42) advances mid-task, cost gets attributed across multiple providers — this panel makes the attribution visible in real time.
+
+- **`packages/runtime/src/meter/cost-by-provider.ts`** (NEW) — `computeCostByProvider(snapshot: MeterSnapshot): CostByProvider[]` aggregator. Per-row: `{provider, cost_usd, input, output, cacheRead, cacheWrite, share_pct}`. Sort: descending `cost_usd`, alphabetical tie-break for determinism. `share_pct` computed as `(cost_usd / total_cost) * 100`; when total cost is 0 (e.g., free-tier OpenRouter, Ollama), shares are split evenly across present providers so the bar chart still renders.
+- **`GET /api/provider-cost/sse`** route (`packages/dashboard/src/server/routes/provider-cost.ts`) — accepts `getMeter: () => TokenMeter | null` getter (symmetric with the cache-hits + budget routes). Emits `provider-cost.snapshot` initial frame + re-emits on every `METER_UPDATED` event when wired. Heartbeat + abort handler. Empty rows when null.
+- **`ProviderCostPanel`** SolidJS component — horizontal bar per provider with cost amount (right-aligned, formatted USD), percentage share + token breakdown (in / out / cache R / W). Empty state "No provider cost data yet" when rows are empty.
+- **Mount + CSS** — `App.tsx` adds the panel as the sixth right-column entry; `styles.css` adds the per-row bar styling (4px height, neon-cyan fill).
+- **Tests** — 7 unit (`packages/runtime/test/meter/cost-by-provider.test.ts`): empty snapshot → empty array, per-provider aggregation, multi-provider partition with `share_pct`, descending cost ordering, alphabetical tie-break, even-split on zero total cost, all four token bucket aggregation. 3 route (`packages/dashboard/test/provider-cost-route.test.ts`): null/wired emission, mid-stream re-emit on `METER_UPDATED`.
+
+PR-44 (final PR of Plan 05-01) wires the fallback chain into a failover simulation + promotes ADR-011 to Accepted.
+
+**Test posture at PR-43 close: 1154 passing / 46 skipped / 0 failed** (+10 from PR-42's 1144). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

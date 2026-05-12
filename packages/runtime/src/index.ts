@@ -30,11 +30,13 @@ export {
   groupRecordsByDimension,
   calculateCost,
   computeCacheHitRatio,
+  computeCostByProvider,
   ratioFromCounts,
   type CreateTokenMeterOptions,
   type UsageCounts,
   type ModelCost,
   type CacheHitSummary,
+  type CostByProvider,
 } from './meter/index.js';
 export {
   extractUsage,

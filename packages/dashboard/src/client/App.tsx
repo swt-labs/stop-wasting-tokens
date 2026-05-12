@@ -15,6 +15,7 @@ import { ExtensionDefenseBanner } from './components/ExtensionDefenseBanner.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
+import { ProviderCostPanel } from './components/ProviderCostPanel.js';
 import { TopBar } from './components/TopBar.js';
 import { TpacPanel } from './components/TpacPanel.js';
 import { UatModal } from './components/UatModal.js';
@@ -252,6 +253,7 @@ export const App: Component = () => {
                   <CacheHitPanel />
                   <BudgetPanel />
                   <TpacPanel />
+                  <ProviderCostPanel />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>

@@ -23,6 +23,7 @@ import { registerDoctorRoute } from './routes/doctor.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
+import { registerProviderCostRoute } from './routes/provider-cost.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
@@ -201,6 +202,10 @@ export function createApp(
   // watches for new reports. Empty state when projectRoot is null OR
   // .tpac/ is missing/empty.
   registerTpacRoute(app, projectRoot);
+  // Plan 05-01 PR-43: per-provider cost panel SSE route. Symmetric
+  // with cache-hits + budget routes — registers with a `() => null`
+  // placeholder until the methodology layer wires a live meter.
+  registerProviderCostRoute(app, () => null);
   registerInitRoute(
     app,
     cwd,
