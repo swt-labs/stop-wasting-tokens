@@ -58,6 +58,7 @@
     "test:provider-matrix": "vitest run test/provider-matrix/",
     "coverage": "vitest run --coverage",
     "docs:gen": "tsx scripts/docs-gen.ts",
+    "public-benchmark": "node scripts/public-benchmark.mjs",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build && changeset publish",

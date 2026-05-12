@@ -684,7 +684,29 @@ Second PR of Plan 06-01. Trim redundant stubs from `STUB_SPECS`.
 - **18 remaining stubs preserved** (`plan`, `execute`, `qa`, `map`, `debug`, `fix`, `archive`, `release`, `resume`, `pause`, `audit`, `assumptions`, `research`, `discuss`, `phase`, `todo`, `skills`, `whats-new`, `uninstall`). All genuine post-release roadmap items (M7+ work). They continue returning `EXIT.NOT_IMPLEMENTED` with a pointer to the roadmap phase.
 - **Auto-regenerated `docs/reference/cli.mdx`** via `pnpm docs:gen` — the new file omits the trimmed entries.
 
-**Test posture at PR-46 close: 1150 passing / 46 skipped / 0 failed** (unchanged — stub removal doesn't affect tests). Commit: `<pending>`.
+**Test posture at PR-46 close: 1150 passing / 46 skipped / 0 failed** (unchanged — stub removal doesn't affect tests). Commit: `bd0a7a4`.
+
+### Added (M6 — Plan 06-01 — PR-47 + PR-48, 2026-05-12)
+
+Third + fourth PRs of Plan 06-01.
+
+**PR-47 — Vendor-agnostic doc rewrite.**
+
+- `docs/architecture.md` (NEW) — 6-layer diagram (Layer 1 shared → Layer 2 core → Layer 3 runtime [ONLY layer importing `@earendil-works/*`] → Layer 4 orchestration → Layer 5 methodology → Layer 6 surfaces); the four principles (Pi-only in runtime, methodology preserved verbatim, artefacts as source of truth, aggregate-only telemetry); v3 capability table; ADR matrix at v3.0 (11 Accepted + 1 Deferred).
+- `README.md` `## Project status` refreshed: v3.0.0-alpha.1 marked **STRUCTURALLY COMPLETE** 2026-05-12; per-milestone table updated through M6; test posture pinned at 1150/46/0; architecture.md cross-referenced.
+- `migrating-from-v2.md` already mentioned `swt migrate --to=v3` properly — no changes needed.
+
+Commit: `10aa2a4`.
+
+**PR-48 — Public benchmark scaffolding.**
+
+- `docs/public-benchmark/README.md` (NEW) — reference benchmark scenario doc covering fixture (`ref-fastapi-empty` frozen 3-milestone FastAPI greenfield), provider matrix (≥3 of {Anthropic, OpenAI, OpenRouter, Google, Bedrock, Ollama} per ADR-011), TPAC metric + cache + cost targets (TDD2 §1.2), run workflow (record cassettes → `swt bench --output ...` per provider → `pnpm public-benchmark` aggregates), 7-item recording checklist (~30-45 min × 3-6 providers, ~$5-$10 total).
+- `scripts/public-benchmark.mjs` (NEW, ~190 lines) — aggregator that reads `.swt-planning/.tpac/*.json` reports + emits a markdown table for the project homepage. Auto-detects M2 baseline via `--baseline <file>` flag or `milestone: 'M2'` field; computes per-provider deltas against baseline; sorts baseline first then by milestone + provider; empty-state notice when no reports yet. Per ADR-011, every number is reproducible from committed cassettes — CI never hits real APIs.
+- `pnpm public-benchmark` script added.
+
+Real recording is user-driven release-time work; the scaffolding consumes reports automatically the moment they land.
+
+**Test posture at PR-47/PR-48 close: 1150 passing / 46 skipped / 0 failed** (unchanged — both PRs are docs + script additions). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
