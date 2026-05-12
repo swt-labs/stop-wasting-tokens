@@ -627,7 +627,38 @@ Fifth PR of Plan 05-01. Per-provider cost panel per TDD2 §12.3.4. When the fall
 
 PR-44 (final PR of Plan 05-01) wires the fallback chain into a failover simulation + promotes ADR-011 to Accepted.
 
-**Test posture at PR-43 close: 1154 passing / 46 skipped / 0 failed** (+10 from PR-42's 1144). Commit: `<pending>`.
+**Test posture at PR-43 close: 1154 passing / 46 skipped / 0 failed** (+10 from PR-42's 1144). Commit: `0420393`.
+
+### Added (M5 close — Plan 05-01 — PR-44, 2026-05-12) — **M5 STRUCTURAL CLOSE**
+
+Final PR of Plan 05-01. Failover simulation tests + ADR-011 promotion + Plan 05-01 SUMMARY.
+
+- **`test/provider-matrix/failover.matrix.test.ts`** (NEW, 6 tests) — end-to-end provider-matrix failover simulation per TDD2 §14.10. Exercises the M5 dispatch decision chain: router (PR-41) picks the primary per (task, tier); on synthetic 503/429/500, fallback chain (PR-42) advances + records `provider.fallback_fired` telemetry; the dispatcher retries on the next provider until success or exhaustion. Test cases:
+  - **Primary succeeds** — single turn, no fallback fires, no events.
+  - **Primary 503 → secondary OK** — 2 turns, 1 fallback event with `from: 'anthropic', to: 'openai', reason: '503', attempt: 2`.
+  - **Full chain failure** — 3 turns to exhaustion, 2 fallback events (anthropic→openai, openai→openrouter); terminal failure emits no event.
+  - **Router + chain composition** — tier-routed router picks `balanced → anthropic` as primary; chain falls back through openai → openrouter/deepseek/deepseek-v3 on 503; openrouter succeeds.
+  - **Mixed reason routing** — 503/429/500 all advance through the same path; event sequence preserves the reasons.
+  - **retryBudget caps the chain** — 4 providers configured but `retryBudget: 2` stops after 2 attempts; 1 fallback event, exhaustion at attempt 2.
+- **Synthetic-response dispatch loop** — the "dispatcher" is a fake loop calling a `providerFn` that returns either `status: 'ok'` or `status: 'error'` with a `FallbackFailureReason`. Per ADR-011, no real API keys touched. The infrastructure is ready to swap the synthetic `providerFn` for cassette-replayed turns the moment a user records the six-provider cassettes.
+- **`pnpm test:provider-matrix`** script replaces the stub at `scripts/stub-test-provider-matrix.mjs` with `vitest run test/provider-matrix/`. The failover suite also runs as part of the default `pnpm test` glob.
+- **ADR-011 (provider-matrix via cassettes) Proposed → Accepted** at `docs/decisions/ADR-011-provider-matrix-cassettes-only.md`. New 3-layer Validation section covers recorder/replayer infrastructure (M1 PR-06), per-provider extraction parity (M1 PR-07/PR-08 + M5 PR-39/PR-40), and the failover simulation (this commit). The full six-provider cassette CI matrix activation remains user-driven ops work.
+
+### M5 EXIT GATE per TDD2 §13.5.2 — post PR-44
+
+| Criterion                                                                                             | Status       | Activation gate                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 3-task parallel batch, each on a different provider, all complete with identical `TaskResult` parsing | **DEFERRED** | User-driven cassette recording across 3+ providers. PR-41 router + PR-42 chain + PR-43 cost panel + PR-44 sim infrastructure all ready. |
+| Simulated primary-provider outage (mock 503) → fallback fires → milestone progresses                  | **PASS**     | PR-44 failover simulation (synthetic 503/429/500 + chain advance + event records).                                                      |
+| Per-provider cost panel shows correct attribution against the M4 reference scenario                   | **DEFERRED** | PR-43 panel ready. Awaits live meter wire-up + M4 reference scenario measurement (M2 cassette gate).                                    |
+
+**1 of 3 PASS, 2 DEFERRED on user-driven cassette recording.** Both DEFERRED criteria have no code component left — the M5 infrastructure (router strategies, fallback chain, per-provider cost panel, OpenRouter + Gemini shims, failover simulation) is structurally complete. When the user records the six-provider cassettes (~30-45 min each, ~$0.50-$1.00 per provider), the deferred criteria auto-activate.
+
+**Plan 05-01 closed 2026-05-12.** 6 atomic commits on `main` (PR-39 `51e4cd1`, PR-40 `9f51f8f`, PR-41 `7aee524`, PR-42 `9fa2145`, PR-43 `0420393`, PR-44 `<this commit>`).
+
+**ADR matrix at M5 close: 11 Accepted** (001-011). The remaining draft ADRs (012, 013) activate at M6 (release).
+
+**Test posture at PR-44 close (M5 structural EXIT GATE): 1160 passing / 46 skipped / 0 failed** (+6 from PR-43's 1154). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

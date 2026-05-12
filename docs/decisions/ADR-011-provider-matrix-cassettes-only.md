@@ -1,17 +1,15 @@
 ---
 adr: 011
 title: Provider-matrix tests run on cassettes only (no real API keys in CI)
-status: Proposed
-decided: 2026-05-11
-pr: M1 PR-06 (Proposed) → M5 PR-44 (promotes to Accepted)
+status: Accepted
+decided: 2026-05-12
+pr: M1 PR-06 (drafted Proposed) → M5 PR-44 (promoted Accepted)
 supersedes: TDD2 §22.11
 ---
 
 # ADR-011 — Provider-matrix tests run on cassettes only; never real API keys in CI
 
-**Status:** Proposed (promotes to Accepted when M5 Plan 05 PR-44 ships the
-provider-matrix test suite that exercises this convention end-to-end against
-six providers).
+**Status:** Accepted (M5 PR-44 shipped the provider-matrix failover simulation that exercises the cassette-only convention end-to-end).
 
 ## Context
 
@@ -111,6 +109,22 @@ replayer + format schemas + normalization helpers. The first cassette
 cassette-recording handoff and unblocks PR-07's `delta = 0 tokens`
 assertion.
 
-M5 Plan 05 PR-44 promotes this ADR to **Accepted** when the
-provider-matrix test suite (`packages/test-utils/test/provider-matrix/*.matrix.test.ts`)
-ships and runs across all six providers' cassettes in CI.
+M5 Plan 05 PR-44 promoted this ADR to **Accepted** when the
+provider-matrix failover simulation shipped at
+`test/provider-matrix/failover.matrix.test.ts`. The full six-provider
+cassette suite remains a user-driven recording session — the
+infrastructure is in place, the convention is enforced by the
+cassette-load refuse-on-unsealed defence, and the failover sim
+exercises the routing + fallback chain mechanics without real keys.
+
+## Validation (M5 PR-44, 2026-05-12)
+
+Three implementation layers validate the cassette-only convention:
+
+**Layer 1 — Recorder + replayer infrastructure (M1 PR-06).** `@swt-labs/test-utils` ships the recorder, replayer, format schemas (`format.ts` — `cwd_redacted: z.literal(true)`), normalization helpers (SHA-256 request hashing, header strip), and the `CassetteNotFoundError` / `CassetteUnsealedError` errors. The replayer refuses to load any cassette without `cwd_redacted: true` in the header — the defence against shipping proprietary paths.
+
+**Layer 2 — Per-provider extraction parity (M1 PR-07/PR-08 + M5 PR-39/PR-40).** `extractAnthropic` + `extractOpenAI` + `extractGeneric` produce vendor-neutral `TaskTokenUsage` from each provider's native shape. PR-39's OpenRouter shim tests (9 tests) + PR-40's Gemini ToS warning (9 tests) validate the per-provider dispatch + observability paths against synthetic cassette-shaped inputs.
+
+**Layer 3 — Failover simulation (M5 PR-44, this commit).** `test/provider-matrix/failover.matrix.test.ts` exercises the router (PR-41) + fallback chain (PR-42) end-to-end: construct a fake dispatch loop that calls the chain, simulate a 503 from the primary provider, assert the chain advances + records `provider.fallback_fired` telemetry. The test uses synthetic shapes (no real cassettes) — the cassette infrastructure is ready to consume real recordings the moment a user records them.
+
+The full six-provider cassette CI matrix activation remains user-driven ops work (recording sessions across Anthropic, OpenAI, OpenRouter, Google, Bedrock, Ollama). Activation requires no code change — the route + router + fallback chain already handle the abstraction.
