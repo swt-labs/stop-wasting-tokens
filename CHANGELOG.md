@@ -495,7 +495,24 @@ Fifth PR of Plan 04-01. Budget Gate live implementation per TDD2 §8.4 + ADR-007
 
 PR-37 (next) ships the dashboard TPAC panel; PR-38 promotes ADR-006 + ADR-007 to Accepted.
 
-**Test posture at PR-35 close: 1100 passing / 46 skipped / 0 failed** (+19 from PR-34's 1081: 12 gate + 7 route). Commit: `<pending>`.
+**Test posture at PR-35 close: 1100 passing / 46 skipped / 0 failed** (+19 from PR-34's 1081: 12 gate + 7 route). Commit: `41d9b90`.
+
+### Added (M4 — Plan 04-01 — PR-37, 2026-05-12)
+
+Sixth PR of Plan 04-01 (in plan order; PR-36 stays hard-deferred). Dashboard TPAC history panel per TDD2 §12.3.5. Renders the latest `TpacReport` recorded under `.swt-planning/.tpac/*.json` with a delta-vs-baseline badge — the surface where operators verify the M4 EXIT GATE −40% target once cassettes + fixture spec land.
+
+- **`packages/dashboard/src/server/routes/tpac.ts`** (NEW) — `GET /api/tpac/sse` reads `<projectRoot>/.swt-planning/.tpac/*.json` on connect, validates each file against `TpacReportSchema`, returns the ordered list sorted by `recorded_at` ascending (baseline = `reports[0]`, latest = `reports[last]`). Chokidar-watches the dir; re-emits the snapshot when a new report lands. Skips corrupt JSON + schema-invalid files without halting valid ones. Empty state when `projectRoot === null` (greenfield daemon) OR `.tpac/` is missing/empty.
+- **`packages/dashboard/src/client/components/TpacPanel.tsx`** (NEW) — SolidJS panel:
+  - **Headline** — latest report's `tokens_per_criterion` rendered large (k/M abbreviation).
+  - **Delta badge** — when ≥ 2 reports exist, `((latest - baseline) / baseline) * 100` displayed as `+N.N% vs <milestone> baseline`. Colour-coded per the M4 EXIT GATE: **green at ≤ −40%** (target hit), cyan for any improvement, slate flat (0%), red for regression.
+  - **Stats table** — milestone / fixture / provider+model / criteria / tokens in-out / cost / recorded_at.
+  - **Empty state** — "No TPAC measurements yet" when the snapshot is empty.
+- **Mount + CSS** — `App.tsx` adds the panel as the fifth right-column entry (CostPanel + WorktreesPanel + CacheHitPanel + BudgetPanel + TpacPanel). `styles.css` adds `.tpac-headline`, `.tpac-delta-{good,improving,flat,bad}` colour classes, and the stats table layout.
+- **4 route tests** (`packages/dashboard/test/tpac-route.test.ts`) — null projectRoot → empty array, missing `.tpac/` → empty array (no crash), populated `*.json` files sorted by `recorded_at`, corrupt JSON + schema-invalid + non-JSON files skipped without halting valid ones.
+
+The panel works today against any TpacReports the operator parks under `.swt-planning/.tpac/`. The M4 EXIT GATE −40% target check (PR-36) auto-activates here visually once the M2 baseline lands and the M4 measurement lands beside it.
+
+**Test posture at PR-37 close: 1104 passing / 46 skipped / 0 failed** (+4 from PR-35's 1100). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

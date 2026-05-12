@@ -16,6 +16,7 @@ import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { TopBar } from './components/TopBar.js';
+import { TpacPanel } from './components/TpacPanel.js';
 import { UatModal } from './components/UatModal.js';
 import { UpdatePanel } from './components/UpdatePanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
@@ -250,6 +251,7 @@ export const App: Component = () => {
                   <WorktreesPanel />
                   <CacheHitPanel />
                   <BudgetPanel />
+                  <TpacPanel />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>

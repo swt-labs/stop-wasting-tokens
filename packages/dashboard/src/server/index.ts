@@ -24,6 +24,7 @@ import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
+import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { registerUpdateRoute } from './routes/update.js';
 import { registerVibeRoutes } from './routes/vibe.js';
@@ -195,6 +196,11 @@ export function createApp(
   // /api/budget/sse keeps the connection open with an empty state when
   // null; /api/budget/bump returns 503.
   registerBudgetRoute(app, () => null);
+  // Plan 04-01 PR-37: TPAC history SSE route. Reads
+  // <projectRoot>/.swt-planning/.tpac/*.json on connect; chokidar-
+  // watches for new reports. Empty state when projectRoot is null OR
+  // .tpac/ is missing/empty.
+  registerTpacRoute(app, projectRoot);
   registerInitRoute(
     app,
     cwd,
