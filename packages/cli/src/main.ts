@@ -3,6 +3,7 @@ import { PiSpawnerEnvironment } from '@swt-labs/orchestration';
 
 import { parseSwtArgv } from './argv.js';
 import { benchHandler } from './commands/bench.js';
+import { cleanupHandler } from './commands/cleanup.js';
 import { configHandler } from './commands/config.js';
 import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
@@ -107,6 +108,12 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[--fixture=<name>] [--provider=<name>] [--cassettes=<path>] [--output=<file>]',
     description: 'Replay the TPAC reference scenario and emit a validated TpacReport',
     handler: benchHandler,
+  });
+  registry.register({
+    name: 'cleanup',
+    usage: '[--list] | [--force --task-id <id>] | [--prune-locks]',
+    description: 'List, force-remove, or prune-locks for parallel-task worktrees',
+    handler: cleanupHandler,
   });
   registerDashboard(registry);
 

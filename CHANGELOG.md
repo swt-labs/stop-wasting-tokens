@@ -338,7 +338,23 @@ First PR of Plan 03-04 (closes M3 Worktree dispatcher). Plan 03-04 ships PR-27..
 - **CSS** (`packages/dashboard/src/client/styles.css`) — `.worktrees-panel`, `.worktrees-table`, `.worktree-state-pill` + per-state colour classes (created/claimed → muted; dispatched/agent_running → neon-cyan; agent_complete/harvested/removed → terminal-green; failed → danger-red). Pure informational colour mapping, no behavioural coupling.
 - **4 route tests** (`packages/dashboard/test/worktrees-route.test.ts`) — initial-snapshot read with last-entry-per-file, `worktree.update` emission on file append, 503 on null projectRoot, corrupt-JSON-skip defence.
 
-**Test posture at PR-27 close: 1012 passing / 46 skipped / 0 failed** (+4 from PR-T's 1008). Commit: `<pending>`.
+**Test posture at PR-27 close: 1012 passing / 46 skipped / 0 failed** (+4 from PR-T's 1008). Commit: `832bb4e`.
+
+### Added (M3 close — Plan 03-04 — PR-29, 2026-05-12)
+
+Second PR of Plan 03-04. `swt cleanup` ships per TDD2 §9.7 — the operator's escape hatch when the worktree FSM crashes mid-transition or a parallel-dispatch run is interrupted.
+
+- **`swt cleanup` CLI verb** (`packages/cli/src/commands/cleanup.ts`) — three modes via flags:
+  - `--list` (default) — read-only inventory: reads `.swt-planning/journal/wt-*.jsonl` for last-state-per-task and `.swt-planning/locks/*.lock` via `readLocks({locksRoot, pidChecker})`. Prints a table with `taskId | state | mtime | lock pid + liveness`. Surfaces orphan locks (lock with no journal — recovery-time signal).
+  - `--force --task-id <id>` — runs `git worktree remove --force <path>` via `node:child_process.spawn`, then idempotently deletes the journal + lock. Survives partial-state cleanup (a worktree that never reached `dispatched` has a journal but no parallel dir — `--force` still clears the journal + lock). On `git worktree remove` failure, error lands on stderr but cleanup proceeds — the journal + lock removal is still useful in corrupt-repo cases.
+  - `--prune-locks` — delegates to `purgeStaleLocks({locksRoot, purgeCorrupt: true})` from `@swt-labs/orchestration`. Drops every lock with a dead PID OR a corrupt envelope. Live locks preserved untouched.
+- **`createCleanupHandler({gitRunner?, pidChecker?})` test seam** — production callers use the default no-arg `cleanupHandler`; tests inject mocks so behaviour can be asserted without spawning a real `git` binary or hitting the live process table. Both deps are optional; missing deps fall back to `node:child_process.spawn` + `defaultPidChecker` (`process.kill(pid, 0)`).
+- **Registered in `packages/cli/src/main.ts`** between `bench` and `dashboard`. Usage: `swt cleanup [--list] | [--force --task-id <id>] | [--prune-locks]`.
+- **Exit codes** — 0 success in every mode; 1 `EXIT.USAGE_ERROR` for `--force` without `--task-id`; 2 `EXIT.NOT_IMPLEMENTED` when `.swt-planning/` is missing; 3 `EXIT.RUNTIME_ERROR` for unexpected git/fs errors.
+- **8 tests** (`packages/cli/test/commands/cleanup.test.ts`) — `--list`: missing-planning-dir → NOT_IMPLEMENTED, empty-journal → "No active worktrees", populated journal+lock → table with state + pid + liveness. `--force`: full-cleanup (worktree + journal + lock all removed), USAGE_ERROR on missing `--task-id`, partial-state (no parallel dir) still cleans up journal+lock. `--prune-locks`: removes only dead-PID locks via injected `pidChecker`, "No stale locks found" when all alive.
+- **Docs** at `docs/cli/verbs/cleanup.md` (sample `--list` output, `--force` + `--prune-locks` semantics, exit codes, Principle 1 invariant note). `docs/reference/cli.mdx` auto-regenerated via `pnpm docs:gen`.
+
+**Test posture at PR-29 close: 1020 passing / 46 skipped / 0 failed** (+8 from PR-27's 1012). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
