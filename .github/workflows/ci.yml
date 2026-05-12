@@ -54,6 +54,10 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          # tsup bundles a large dependency graph into dist/cli.mjs; macOS +
+          # Windows runners hit V8 heap exhaustion (~2GB) with default sizing.
+          NODE_OPTIONS: --max-old-space-size=4096
 
   # ADR-010 — byte-identical dist/ outputs from the same commit.
   # Runs on push-to-main only (PR builds get the standard build matrix;
@@ -77,6 +81,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build twice and diff dist/
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           pnpm build
           mv dist dist-first
