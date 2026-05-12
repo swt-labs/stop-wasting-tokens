@@ -4,30 +4,30 @@
 [![CI](https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml/badge.svg)](https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> A spec-driven harness for the OpenAI Codex CLI, built around a single obsession: **stop wasting tokens**.
+> A spec-driven, Pi-native coding harness built around a single obsession: **stop wasting tokens**.
 
-> **⚠ v3 redesign in progress on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch.** The published binary on npm is still v2.3.5 (this README + the [`main`](https://github.com/swt-labs/stop-wasting-tokens) branch describe v2.x). v3 is a full runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved, Codex/Claude-Code/Ollama backends being retired. Read [`TDD2.md`](./TDD2.md) for the design; see [`CHANGELOG.md`](./CHANGELOG.md#300-alpha1--in-development-not-yet-published) for the v3 commit trail; see [`.vbw-planning/ROADMAP.md`](./.vbw-planning/ROADMAP.md) for the 6-milestone plan (M1 Foundation is in progress; v3.0 ships at M6). v2.3.x stays on LTS (security fixes via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive)) per ADR-012.
+> **v3 redesign in active development on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch.** v3 is a runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved verbatim from v2, the Codex/Claude-Code/Ollama backends retired in favor of Pi's provider matrix. **M1 Foundation closed 2026-05-12.** **M2 single-agent path is in flight: 6 of 10 PRs landed** (PR-12 → PR-17). The published binary on npm is still v2.3.5; v3.0 ships at the M6 release gate. v2.3.x stays on LTS via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md).
 
-`swt` is a Node/TypeScript CLI you install once. It wraps every Codex session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
+`swt` is a Node/TypeScript CLI you install once. It wraps every coding-agent session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
 
-If you've ever watched Codex re-read your codebase three times in one session, hallucinate an architecture you already rejected, or chase a fix in circles because the goal drifted mid-stream — that's the waste this tool is engineered to eliminate.
+If you've ever watched a model re-read your codebase three times in one session, hallucinate an architecture you already rejected, or chase a fix in circles because the goal drifted mid-stream — that's the waste this tool is engineered to eliminate.
 
 ---
 
 ## Table of contents
 
 - [What "saving tokens" actually means](#what-saving-tokens-actually-means)
-- [How SWT works](#how-swt-works)
+- [How SWT works (v3 architecture)](#how-swt-works-v3-architecture)
+- [Project status](#project-status)
 - [Prerequisites](#prerequisites)
 - [Install](#install)
-- [Verify the install](#verify-the-install)
 - [Quick start: a real session](#quick-start-a-real-session)
 - [The methodology](#the-methodology)
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
-- [Dashboard](docs/swt-dashboard.md)
+- [Migrating from v2.x](#migrating-from-v2x)
+- [Design + decisions](#design--decisions)
 - [Troubleshooting](#troubleshooting)
-- [Status](#status)
 - [Contributing, security, license](#contributing-security-license)
 
 ---
@@ -36,62 +36,128 @@ If you've ever watched Codex re-read your codebase three times in one session, h
 
 Token waste in AI coding has five concrete sources. SWT is designed to attack each one:
 
-| Waste source                              | Without SWT                                                             | With SWT                                                                                                               |
-| ----------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Re-reading project context every turn     | Codex re-greps, re-globs, re-reads files it saw 5 minutes ago           | Stable cache-prefix prompts; durable `.swt-planning/` artefacts persist between turns                                  |
-| Re-discovering architecture & decisions   | Each session starts cold, re-derives constraints, re-debates trade-offs | `PROJECT.md`, `REQUIREMENTS.md`, `STATE.md` are read once and stay cached for the whole milestone                      |
-| Improvised approaches that get rejected   | Model proposes, you correct, model re-proposes — three turns gone       | Plans are written by Architect/Lead **before** Dev gets the keys; rejected approaches are recorded in `ASSUMPTIONS.md` |
-| Goal drift mid-execution                  | "While I was at it, I also refactored…" — the dreaded scope explosion   | Goal-backward QA verifies output against the **specified** plan, not against improvised goals                          |
-| Re-running QA from scratch on small fixes | Full validation matrix every time                                       | Three QA tiers (`quick` / `standard` / `deep`) plus a `fix` lane that targets only the failed acceptance criterion     |
+| Waste source                              | Without SWT                                                             | With SWT                                                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Re-reading project context every turn     | Agent re-greps, re-globs, re-reads files it saw 5 minutes ago           | Stable cache-prefix prompts (`cacheBreakpointIndex` per ADR-006); durable `.swt-planning/` artefacts persist between turns             |
+| Re-discovering architecture & decisions   | Each session starts cold, re-derives constraints, re-debates trade-offs | `PROJECT.md`, `REQUIREMENTS.md`, `STATE.md` are read once and stay cached for the whole milestone                                      |
+| Improvised approaches that get rejected   | Model proposes, you correct, model re-proposes — three turns gone       | Plans are written by Architect/Lead **before** Dev gets the keys; rejected approaches are recorded as deviations                       |
+| Goal drift mid-execution                  | "While I was at it, I also refactored…" — the dreaded scope explosion   | Goal-backward QA verifies output against the **specified** plan, not against improvised goals                                          |
+| Re-running QA from scratch on small fixes | Full validation matrix every time                                       | Static-check ladder (typecheck → lint → format → tests) short-circuits on first failure; LLM escalation only when a static check fails |
 
-Every design decision in SWT — split prompts, pinned model profiles per agent, the phase artefact pipeline, the verification tiers, even the file-locking system — is downstream of "minimize tokens spent per shipped acceptance criterion."
+Every design decision in SWT — split prompts, per-role thinking levels, the phase artefact pipeline, the verification ladder, even the file-locking system — is downstream of "minimize tokens spent per shipped acceptance criterion."
 
 ---
 
-## How SWT works
+## How SWT works (v3 architecture)
 
-In one sentence: **you write a spec, SWT turns it into a plan, six specialist agents execute the plan, and a verification stage compares output to the spec before anything ships.**
+In one sentence: **you write a spec, SWT turns it into a plan, six specialist agents execute the plan through a vendor-neutral runtime, and a verification stage compares output to the spec before anything ships.**
 
 ```
    You write              SWT turns it into        Six agents execute        Output is verified
    ─────────              ─────────────────        ──────────────────        ─────────────────
-   PROJECT.md             ROADMAP.md (phases)      Scout    → research        QA tier
-   REQUIREMENTS.md        PHASE/PLAN.md (tasks)    Architect → design         Goal-backward
-                                                   Lead     → coordinate      Acceptance criteria
-                                                   Dev      → implement       UAT scenarios
-                                                   QA       → verify
-                                                   Debugger → resolve
+   PROJECT.md             ROADMAP.md (phases)      Scout    → research        Static-check ladder
+   REQUIREMENTS.md        PHASE/PLAN.md (tasks)    Architect → design         (typecheck → lint
+                                                   Lead     → coordinate         → format → tests)
+                                                   Dev      → implement       Goal-backward LLM
+                                                   QA       → verify            verification on
+                                                   Debugger → resolve           failure
 ```
 
-Each agent has a fixed model profile and reasoning effort tuned for its role (Scout uses `gpt-5.5/low`, Architect uses `gpt-5.5/high`, Dev uses `gpt-5.3-codex/medium`, etc). You don't think about model selection — the methodology does.
+### Layered architecture (TDD2 §4.3)
+
+v3 enforces a strict dependency direction — methodology never imports vendor SDKs:
+
+```
+shared (leaf)
+   ↑
+core + runtime           ← runtime is the ONLY layer importing @earendil-works/* (Principle 1)
+   ↑
+orchestration            ← dispatcher + role-router + prompt-builder
+   ↑
+dashboard + methodology  ← methodology dispatches THROUGH orchestration
+   ↑
+cli                      ← the swt binary
+```
+
+The vendor coupling lives in exactly one place (`@swt-labs/runtime`); the rest of the codebase is vendor-neutral. Swapping providers is a runtime-layer concern — methodology, orchestration, dashboard, and CLI never see Pi types.
+
+### Six SDLC roles per TDD2 §10.1
+
+Each role has a fixed default tier + tool subset + session mode + thinking level:
+
+| Role          | Default tier | Tool subset | Session mode | Thinking level |
+| ------------- | ------------ | ----------- | ------------ | -------------- |
+| **Scout**     | `cheap-fast` | read-only   | ephemeral    | `off`          |
+| **Architect** | `quality`    | read-only   | ephemeral    | `medium`       |
+| **Lead**      | `balanced`   | coding      | persistent   | `low`          |
+| **Dev**       | `balanced`   | coding      | ephemeral    | `low`          |
+| **QA**        | `balanced`   | qa-bash     | ephemeral    | `low`          |
+| **Debugger**  | `reasoning`  | coding      | persistent   | `xhigh`        |
+
+Tier ↔ model mapping is per-provider (declared in `runtime/src/providers/default-tiers.json`); ThinkingLevel is Pi-native vocabulary (`off | minimal | low | medium | high | xhigh`). You don't think about model selection — the methodology does.
+
+---
+
+## Project status
+
+Currently **v3.0.0-alpha.1 (in development)** on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch. The published binary on npm is still v2.3.5.
+
+### M1 Foundation — CLOSED 2026-05-12
+
+| Plan  | PRs          | Headline                                                                                                                         |
+| ----- | ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 01-01 | PR-01..PR-04 | Driver-edge audit + `@swt-labs/runtime` / `@swt-labs/orchestration` / `@swt-labs/shared` scaffolding                             |
+| 01-02 | PR-05..PR-09 | Driver packages deleted + cassette infrastructure + token meter + provider quirks + `swt_report_result` Pi Extension             |
+| 01-03 | PR-10..PR-11 | 13 ADRs (5 Accepted + 7 Proposed + 1 Deferred) + v2→v3 migration guide + reproducible-build CI + 33 v2.3.5 test-debt remediation |
+
+### M2 Single-agent path — 6 of 10 PRs landed
+
+| Plan  | PRs           | Status                                                                                                                                                                                                                                                                                                                                                              |
+| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 02-01 | PR-12 → PR-16 | **Complete** — methodology dispatches through `@swt-labs/orchestration`; 6 SDLC role profiles; Dev sequential dispatch with halt-on-failed; QA static-check ladder + LLM escalation contract; UiPermissionGate sibling. HIGH-priority bash-guard security regression FIXED. 12 of 22 in-scope umbrella #32 test debts cleared (methodology 9/9 + verification 3/3). |
+| 02-02 | PR-17 → PR-21 | **In progress** — PR-17 shipped (dashboard SSE rewire + chokidar v4 fix + LogPanel TS2322 + 9 dashboard test debts). PR-18..PR-21 pending (cassette regression, TPAC baseline, `swt rpc`, `swt bench`).                                                                                                                                                             |
+
+### Test posture at HEAD
+
+- **858 tests pass / 45 skipped / 0 fail** across the workspace.
+- `pnpm typecheck` clean (`tsc --build`).
+- `pnpm lint` 0 errors, 221 warnings (mostly demoted `import/no-restricted-paths` pending M3's eslint-import-resolver-typescript wiring).
+- `pnpm format:check` clean.
+
+Per-version changes tracked in [CHANGELOG.md](./CHANGELOG.md). Detailed M1 + M2 commit trails live in [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).
 
 ---
 
 ## Prerequisites
 
-| Tool                                         | Version      | Why                                              |
-| -------------------------------------------- | ------------ | ------------------------------------------------ |
-| **Node.js**                                  | `>= 20.18`   | Runtime for the `swt` CLI itself                 |
-| **OpenAI Codex CLI**                         | `>= 0.124.0` | The backend SWT orchestrates against             |
-| **Git**                                      | any recent   | Phase commits, milestone tags, the pre-push hook |
-| One of: **npm 10+**, **pnpm 9+**, **bun 1+** | —            | Pick whichever you already use                   |
+| Tool                                         | Version    | Why                                                                                        |
+| -------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
+| **Node.js**                                  | `>= 20.18` | Runtime for the `swt` CLI itself                                                           |
+| **A Pi-supported provider**                  | —          | Anthropic, OpenAI, OpenRouter, Google, Bedrock, or local Ollama — your pick; Pi negotiates |
+| **`@earendil-works/pi-coding-agent`**        | `^0.74.0`  | The vendor-neutral substrate `@swt-labs/runtime` wraps. Installed as a peer-dep            |
+| **Git**                                      | any recent | Phase commits, milestone tags, the pre-push hook                                           |
+| One of: **npm 10+**, **pnpm 9+**, **bun 1+** | —          | Pick whichever you already use                                                             |
 
 Optional but recommended:
 
 - **`jq`** — used by some helper scripts; `brew install jq` on macOS, `apt install jq` on Linux.
 - **A terminal with 256-color + Unicode support** — `swt watch` renders an Ink TUI dashboard.
 
-To check Codex is installed and reachable:
+To check Pi is installed and reachable:
 
 ```bash
-codex --version
+swt doctor
 ```
 
-If the Codex CLI isn't installed, follow the OpenAI install guide first — SWT is a methodology layer; it doesn't ship its own model runtime.
+Output includes the Pi peer-dep version, Node version, and `.swt-planning/` presence check. If Pi isn't installed yet, `swt doctor` tells you what to install.
 
 ---
 
 ## Install
+
+> **v3 is alpha; not yet on npm.** The instructions below are for v2.3.5 (the currently-published stable binary). For v3 testers, clone the repo and check out the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch.
+
+### v2.3.5 (stable, on npm)
 
 Install once, globally:
 
@@ -120,77 +186,51 @@ npm install -g stop-wasting-tokens@latest
 swt update              # built-in self-check; prints the upgrade command
 ```
 
-That's it. The package ships an ESM-only bundle with a single `swt` binary. No build step, no peer-dependency negotiation, no native modules.
+The v2.3.5 package ships an ESM-only bundle with a single `swt` binary. No build step, no peer-dependency negotiation, no native modules.
 
-### What the package contains
+### v3.0.0-alpha (source install, v3-foundation branch)
 
-The published tarball is ~1.3 MB compressed and includes:
-
-- `dist/cli.mjs` — the bundled CLI (single file, ~2.1 MB)
-- `dist/cli.d.ts` — TypeScript declarations for programmatic consumers
-- `packages/dashboard/dist/client/` — the localhost dashboard SPA assets (Solid + Vite, ~30 KB gzipped)
-- `README.md`, `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`
-
-Everything reachable from the CLI entry point is bundled in. There are no transitive runtime dependencies installed alongside.
-
----
-
-## Verify the install
-
-After install, run:
-
-```bash
-swt --version          # prints: swt 2.3.5 (or whatever you installed)
-swt --help             # lists the working command surface
-swt doctor             # checks: Node version, Codex CLI, jq, git
-```
-
-`swt doctor` is the one-shot environmental check. If anything's missing or out-of-version it tells you exactly what to fix.
-
-For a deeper smoke test that exercises 18 distinct CLI + dashboard checks against your installed binary (no Codex tokens spent), the repo ships a Python script:
+For early testers willing to track active development:
 
 ```bash
 git clone https://github.com/swt-labs/stop-wasting-tokens.git
 cd stop-wasting-tokens
-python3 a_non_production_files/idiot_check.py
+git checkout v3-foundation
+pnpm install
+pnpm typecheck && pnpm test     # 858 passing at HEAD
+pnpm build                       # produces packages/cli/dist/cli.mjs
+node packages/cli/dist/cli.mjs --version
 ```
 
-Useful when you want to verify a release end-to-end before committing to a daily-driver upgrade.
+Real Pi-backed `swt vibe` sessions require a configured Anthropic / OpenAI / OpenRouter API key. The cassette infrastructure (Plan 01-02 PR-06) lets the test suite replay recorded sessions deterministically without burning tokens.
 
 ---
 
 ## Quick start: a real session
 
-This is what a typical first hour with SWT looks like.
+This is what a typical first hour with SWT looks like (target API: v3, with v2 noted where it differs).
 
-### 1. Bootstrap a project (`swt init`)
+### 1. Bootstrap a project (`swt vibe`, no args)
 
 In an empty directory or an existing repo:
 
 ```bash
-swt init
+swt vibe
 ```
 
 Interactively walks you through:
 
-- Confirming or auto-detecting the tech stack (Node? Python? Rust? Mixed?)
-- Naming the project
-- Capturing 3–5 high-level requirements
+- Naming the project + describing it
+- Capturing 3–5 high-level requirements (via the discussion engine)
 - Choosing your defaults: `effort` (`thorough` / `balanced` / `fast` / `turbo`), `autonomy` (`cautious` / `standard` / `confident` / `pure-vibe`), `verification_tier` (`quick` / `standard` / `deep`)
 
 Result: a populated `.swt-planning/` directory with `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, and a `config.json` capturing your defaults.
 
-### 2. Map an existing codebase (`swt map`, brownfield only)
+### 2. Map an existing codebase (brownfield, optional)
 
-If you ran `swt init` in an existing repo, follow up with:
+If you ran `swt vibe` in an existing repo, the bootstrap flow can run a Scout pass over the codebase to populate `.swt-planning/codebase/` with `STACK.md`, `ARCHITECTURE.md`, `PATTERNS.md`, `CONCERNS.md` — a dense, cache-friendly snapshot of what's already there. Subsequent agent calls read this once and reference it for the whole milestone instead of re-grepping.
 
-```bash
-swt map
-```
-
-This generates `.swt-planning/codebase/` with `STACK.md`, `ARCHITECTURE.md`, `PATTERNS.md`, `CONCERNS.md` — a dense, cache-friendly snapshot of what's already there. Subsequent agent calls read this once and reference it for the whole milestone instead of re-grepping.
-
-### 3. Plan and execute the next phase (`swt vibe`)
+### 3. Plan and execute the next phase
 
 ```bash
 swt vibe
@@ -198,22 +238,26 @@ swt vibe
 
 `vibe` is the orchestrator. It detects what state you're in (no plan? planned but not built? built but not verified? verified but not archived?) and routes you to the right next step. In the common "fresh project" case:
 
-- Spawns **Scout** for ambient research
-- Spawns **Architect** for design decisions
+- Spawns **Scout** for ambient research (read-only tools, `off` thinking — the cheap tier)
+- Spawns **Architect** for design decisions (read-only tools, `medium` thinking — the quality tier)
 - Asks you to confirm scope before any code is written
-- Spawns **Lead** to break the phase into atomic tasks
-- Spawns **Dev** to execute each task with one commit per task
-- Spawns **QA** to verify against the goal-backward acceptance criteria
+- Spawns **Lead** to break the phase into atomic tasks (coding tools, persistent session)
+- Spawns **Dev** to execute each task with one commit per task (coding tools, ephemeral session per task)
+- Runs the **static-check ladder** (typecheck → lint → format → tests) — short-circuits on first failure
+- Escalates to **QA** (LLM-tier must-haves verification) if static checks pass
+- Routes to **Debugger** (full coding tools + `xhigh` extended thinking — the reasoning tier) when QA's ladder finds something a Dev fix can't resolve
 - Asks you to confirm UAT before declaring the phase complete
 
-You can short-circuit to a specific stage with `swt plan`, `swt execute`, `swt qa`, or `swt vibe --plan=03`.
+You can short-circuit to a specific stage with `swt vibe --plan=NN`, `swt vibe --execute=NN`, etc.
 
 ### 4. Inspect progress at any time
 
 ```bash
 swt status               # current phase, milestone, % complete
 swt detect-phase --json  # machine-readable state (used by the statusline / IDE plugins)
+swt doctor               # Node + Pi peer-dep + .swt-planning/ presence
 swt watch                # interactive TUI dashboard scoped to the active milestone
+swt dashboard            # localhost web dashboard daemon
 ```
 
 ### 5. Archive a completed milestone
@@ -221,39 +265,16 @@ swt watch                # interactive TUI dashboard scoped to the active milest
 When all phases in a milestone pass UAT:
 
 ```bash
-swt archive
+swt vibe --archive
 ```
 
-Archives `.swt-planning/phases/*` into `.swt-planning/milestones/<NN>-<slug>/`, runs the 7-point pre-archive audit, generates `RELEASE-NOTES.md`, and tags the commit if `auto_push` is configured.
-
-### 6. Other common entry points
-
-```bash
-swt research "How does feature X interact with Y?"     # Scout-only pass; saves to RESEARCH.md
-swt fix "auth flow rejects valid tokens"               # quick-fix lane for a single failing UAT scenario
-swt debug "the test in foo.spec.ts fails intermittently"  # hypothesis-driven debugging
-swt todo add "investigate caching bug"                 # add a backlog item to STATE.md
-swt update                                             # check npm for a newer version
-```
+Archives `.swt-planning/phases/*` into `.swt-planning/milestones/<NN>-<slug>/`, runs the 7-point pre-archive audit, generates `SHIPPED.md`, and tags the commit if `auto_push` is configured.
 
 ---
 
 ## The methodology
 
-### The six agents
-
-| Agent         | Model profile   | Reasoning effort | Job                                                    |
-| ------------- | --------------- | ---------------- | ------------------------------------------------------ |
-| **Scout**     | `gpt-5.5`       | `low`            | Ambient research, codebase queries, doc fetches        |
-| **Architect** | `gpt-5.5`       | `high`           | Design decisions, trade-off analysis, scope shaping    |
-| **Lead**      | `gpt-5.3-codex` | `medium`         | Plans phases into atomic tasks; one commit per task    |
-| **Dev**       | `gpt-5.3-codex` | `medium`         | Executes tasks; writes code, tests, docs               |
-| **QA**        | `gpt-5.3-codex` | `medium`         | Goal-backward verification against acceptance criteria |
-| **Debugger**  | `gpt-5.3-codex` | `high`           | Hypothesis-driven root-cause analysis when QA fails    |
-
-You can override profiles per-project in `.swt-planning/config.json`, but the defaults are tuned to balance cost, latency, and quality for typical workloads.
-
-### The phase lifecycle
+### Phase lifecycle (TDD2 §11.1 FSM)
 
 Every phase goes through five states:
 
@@ -266,6 +287,15 @@ needs_discussion  →  needs_plan_and_execute  →  needs_execute  →  needs_ve
 
 `swt vibe` reads `STATE.md` + on-disk artefacts, computes the current state, and routes to the right command. Manual flags (`--plan`, `--execute`, `--verify`, `--archive`) bypass auto-routing when you want to be explicit.
 
+### Static-check ladder (TDD2 §11.2)
+
+QA at v3 runs in two tiers:
+
+1. **Static-check ladder** (cheap, deterministic) — typecheck → lint → format → tests. Short-circuits on first failure. If everything passes AND no LLM-tier verification is wired, the phase passes with `result: 'pass'`.
+2. **LLM must-haves verification** (the rich tier) — when the ladder passes and an `LlmVerificationEscalator` is wired, the QA agent verifies each P0 must-have from the plan against the codebase. Produces `verification: {must_have_id, verdict, evidence}` array.
+
+The ladder always runs first. Most failures are caught at the cheap tier and never spend an LLM token. The LLM tier only fires when the static surface is clean AND a real must-haves question remains.
+
 ### The artefact pipeline
 
 ```
@@ -274,24 +304,26 @@ needs_discussion  →  needs_plan_and_execute  →  needs_execute  →  needs_ve
 ├── REQUIREMENTS.md         ← validated + active + out-of-scope (you write this)
 ├── ROADMAP.md              ← milestones → phases (Architect generates, you approve)
 ├── STATE.md                ← current phase, milestone, todos (machine-managed)
+├── CONTEXT.md              ← milestone-level scope decisions (Scope mode writes this)
 ├── config.json             ← effort, autonomy, model profiles (you tune)
-├── codebase/               ← brownfield map (swt map output)
+├── codebase/               ← brownfield map
 │   ├── STACK.md
 │   ├── ARCHITECTURE.md
 │   ├── PATTERNS.md
 │   └── CONCERNS.md
 ├── phases/
 │   └── 01-{slug}/
-│       ├── ASSUMPTIONS.md  ← discussion outputs
-│       ├── PLAN.md         ← Lead's task breakdown
-│       ├── RESEARCH.md     ← Scout's findings
-│       ├── VERIFICATION.md ← QA's contract verification
-│       └── UAT.md          ← user acceptance scenarios
+│       ├── {NN}-CONTEXT.md  ← discussion outputs
+│       ├── {NN}-RESEARCH.md ← Scout's findings
+│       ├── {NN}-{MM}-PLAN.md ← Lead's task breakdown (per plan in the phase)
+│       ├── {NN}-{MM}-SUMMARY.md ← Dev's per-plan execution record
+│       ├── {NN}-VERIFICATION.md ← QA's contract verification
+│       └── {NN}-UAT.md      ← user acceptance scenarios
 └── milestones/             ← archived phases, frozen
     └── 01-{slug}/
 ```
 
-Artefacts are read at the **start** of each agent call as part of the cache-stable prefix. Token cost: paid once per file, amortised across every turn in the milestone.
+Artefacts are read at the **start** of each agent call as part of the cache-stable prefix. M4 PR-32 inserts the Anthropic `cache_control: ephemeral` marker at the `cacheBreakpointIndex` recorded by `prompt-builder.ts` per ADR-006 — same content, paid once per file, amortised across every turn in the milestone.
 
 ---
 
@@ -301,93 +333,62 @@ Live config lives in `.swt-planning/config.json` and is editable directly or via
 
 The knobs that matter most:
 
-| Key                      | Values                                              | Default    | Effect                                                                                                                                        |
-| ------------------------ | --------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `effort`                 | `thorough` / `balanced` / `fast` / `turbo`          | `balanced` | Planning depth and verification thoroughness; also a turn-budget scalar (1.5× → 0.6×) applied to every agent                                  |
-| `autonomy`               | `cautious` / `standard` / `confident` / `pure-vibe` | `standard` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error      |
-| `verification_tier`      | `quick` / `standard` / `deep`                       | `standard` | What QA runs. `quick` = smoke + lint + types; `standard` = +unit tests + must-have evidence; `deep` = +integration + cross-phase traceability |
-| `model_profile`          | `quality` / `balanced` / `cost`                     | `quality`  | Coarse cost/quality switch applied across all six agents                                                                                      |
-| `prefer_teams`           | `auto` / `always` / `never`                         | `auto`     | Use parallel agent teams (when supported by your runtime).                                                                                    |
-| `auto_uat`               | `true` / `false`                                    | `false`    | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`)                                                                        |
-| `auto_push`              | `never` / `after_phase` / `always`                  | `never`    | When to push commits to `origin`                                                                                                              |
-| `planning_tracking`      | `manual` / `ignore` / `commit`                      | `manual`   | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints)         |
-| `agent_max_turns.{role}` | int                                                 | varies     | Per-agent turn cap. Defaults: scout 15, qa 25, architect 30, lead 50, dev 75, debugger 80                                                     |
-| `model_overrides.{role}` | string                                              | none       | Override the model for a specific agent (e.g. force the Architect onto a cheaper model for a low-stakes project)                              |
+| Key                      | Values                                              | Default    | Effect                                                                                                                                   |
+| ------------------------ | --------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `effort`                 | `thorough` / `balanced` / `fast` / `turbo`          | `balanced` | Planning depth and verification thoroughness; also a turn-budget scalar (1.5× → 0.6×) applied to every agent                             |
+| `autonomy`               | `cautious` / `standard` / `confident` / `pure-vibe` | `standard` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error |
+| `verification_tier`      | `quick` / `standard` / `deep`                       | `standard` | What QA runs. `quick` = static-check ladder only; `standard` = +must-haves; `deep` = +integration + cross-phase traceability             |
+| `model_profile`          | `quality` / `balanced` / `cost`                     | `quality`  | Coarse cost/quality switch applied across all six agents                                                                                 |
+| `prefer_teams`           | `auto` / `always` / `never`                         | `auto`     | Use parallel agent teams (when supported by your runtime).                                                                               |
+| `auto_uat`               | `true` / `false`                                    | `false`    | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`)                                                                   |
+| `auto_push`              | `never` / `after_phase` / `always`                  | `never`    | When to push commits to `origin`                                                                                                         |
+| `planning_tracking`      | `manual` / `ignore` / `commit`                      | `manual`   | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints)    |
+| `agent_max_turns.{role}` | int                                                 | varies     | Per-agent turn cap. Defaults: scout 15, qa 25, architect 30, lead 50, dev 75, debugger 80                                                |
+| `model_overrides.{role}` | string                                              | none       | Override the model for a specific agent (e.g. force the Architect onto a cheaper model for a low-stakes project)                         |
 
 Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks`. Run `swt config show` for the full live config.
+
+> **v2 → v3 config note**: v2's `backend:` field (codex / claude-code / ollama) is gone. v3's runtime negotiates providers via Pi, so the field has no v3 equivalent. The v3 migration script (`swt migrate --to=v3`, M6 PR-49) strips it from existing configs and adds `roles[*].tier` + the `schema_version: 1` marker.
 
 ---
 
 ## Command reference
 
-SWT exposes 32 commands derived from the VBW (`vibe-better-with-claude-code`) methodology surface. Of those, **10 are working** in the published binary and **22 are registered placeholders** that return `swt {verb}: not yet implemented in this build` with a roadmap pointer. The placeholders give users a discoverable surface (`swt help` shows them all) without committing to a v1 implementation; most are reachable today via `swt vibe` flags.
+SWT exposes a CLI surface derived from the VBW (`vibe-better-with-claude-code`) methodology. The v3-foundation HEAD ships these verbs as production-ready; `swt vibe` is the orchestrator that calls every other surface internally.
 
-### Working today (10)
+### Working today (v3-foundation HEAD)
 
 | Command            | Use case                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `swt vibe`         | The methodology entrypoint. Auto-detects project state and routes to discuss / plan / execute / verify / archive. Accepts `--plan N`, `--execute N`, `--discuss N`, `--assumptions N`, `--scope`, `--verify [N]`, `--archive`, `--add "name"`, `--insert N "name"`, `--remove N`, plus modifiers `--effort {thorough\|balanced\|fast\|turbo}`, `--skip-qa`, `--skip-audit`, `--yolo`. |
 | `swt status`       | Show current phase, milestone, plan velocity, todos, blockers, codebase profile.                                                                                                                                                                                                                                                                                                      |
-| `swt doctor`       | Verify SWT prerequisites (Codex CLI ≥ 0.124, Node ≥ 20.18, pnpm, jq). Use this first when something feels off.                                                                                                                                                                                                                                                                        |
+| `swt doctor`       | Verify SWT prerequisites: Node ≥ 20.18, Pi peer-dep, `.swt-planning/` presence. Use this first when something feels off. v3 surfaces `report.pi` populated from `SpawnerEnvironment.probe()` (PR-15).                                                                                                                                                                                 |
 | `swt detect-phase` | Print the computed phase-detection state (`--bash-format` for shell consumption, JSON by default). Helper used by `swt vibe` routing.                                                                                                                                                                                                                                                 |
 | `swt config`       | Read or update SWT configuration: `swt config show \| get <key> \| set <key> <value>`.                                                                                                                                                                                                                                                                                                |
 | `swt update`       | Check npm registry for a newer published SWT version. `--json` for scripting; `--strict` fails offline; `--registry=<url>`, `--no-cache`.                                                                                                                                                                                                                                             |
-| `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs. Coexists with `swt dashboard` through v1.6.x.                                                                                                                                                                                                                                     |
-| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`. Shipped v1.6.0; hardened in v1.6.6.                                                                                                                                                                     |
+| `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs.                                                                                                                                                                                                                                                                                   |
+| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`.                                                                                                                                                                                                      |
 | `swt help`         | Print usage, list all registered commands. Also `swt --help` and `swt {verb} --help`.                                                                                                                                                                                                                                                                                                 |
 | `swt version`      | Print SWT version. Also `swt --version`.                                                                                                                                                                                                                                                                                                                                              |
 
-### Stub (22) — placeholder commands
+### Landing in M2 (Plan 02-02 PR-20/21)
 
-These are registered for discoverability and roadmap visibility but return `EXIT.NOT_IMPLEMENTED` (exit code 78) with a roadmap-phase pointer. **Most are reachable today as `swt vibe` flags** — the standalone command form is alternative ergonomics that elevation will land in v2.
+| Command     | Use case                                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `swt rpc`   | Delegate to Pi's `runRpcMode` for stateless one-shot RPC calls (no methodology surface). Per TDD2 §3.2 + §5.                                |
+| `swt bench` | Run the TPAC token-per-acceptance-criterion benchmark across a recorded cassette. Used to track the M4 −40% target against the M2 baseline. |
 
-| Stub command      | Reach today via                             | Roadmap                                              |
-| ----------------- | ------------------------------------------- | ---------------------------------------------------- |
-| `swt init`        | `swt dashboard` Init button (greenfield UX) | v1.7 (audit finding X-02)                            |
-| `swt plan`        | `swt vibe --plan N`                         | v1.7                                                 |
-| `swt execute`     | `swt vibe --execute N`                      | v1.7                                                 |
-| `swt verify`      | `swt vibe --verify N`                       | v1.7                                                 |
-| `swt archive`     | `swt vibe --archive`                        | Phase 7                                              |
-| `swt phase`       | `swt vibe --add/--insert/--remove`          | Phase 7                                              |
-| `swt discuss`     | `swt vibe --discuss N`                      | Phase 7                                              |
-| `swt assumptions` | `swt vibe --assumptions N`                  | Phase 7                                              |
-| `swt qa`          | (continuous QA runs in `vibe`)              | Phase 8 — standalone goal-backward QA tier           |
-| `swt audit`       | (audit matrix runs in `vibe --archive`)     | Phase 7 — standalone pre-archive audit               |
-| `swt fix`         | (no current path)                           | Phase 8 — quick-fix loop for small UAT issues        |
-| `swt debug`       | (no current path)                           | Phase 8 — hypothesis-driven debugging session        |
-| `swt research`    | (no current path)                           | Phase 7 — Scout-only research pass                   |
-| `swt map`         | (no current path)                           | Phase 7 — codebase mapping                           |
-| `swt todo`        | (manual `STATE.md ## Todos`)                | Phase 7 — managed todo list                          |
-| `swt skills`      | (manual `npx skills add`)                   | Phase 9 — search/install Skills.sh registry          |
-| `swt resume`      | (no current path)                           | Phase 7 — resume paused session                      |
-| `swt pause`       | (no current path)                           | Phase 7 — pause + stash session state                |
-| `swt whats-new`   | (manual `CHANGELOG.md`)                     | Phase 9 — show recent SWT release notes              |
-| `swt uninstall`   | (manual `npm uninstall -g`)                 | Phase 10 — guided uninstall                          |
-| `swt worktree`    | (manual `git worktree`)                     | Phase 7 — manage milestone worktrees                 |
-| `swt lease`       | (no current path)                           | Phase 7 — file-lock coordination for parallel agents |
-| `swt release`     | (`changesets/action` via OIDC)              | Phase 10 — local release wrapper                     |
+### Stubs (placeholder commands)
 
-### VBW commands without an SWT equivalent
-
-The VBW plugin (`vibe-better-with-claude-code`) ships 26 slash commands. SWT's command surface mirrors the methodology subset that maps to a Codex CLI workflow. The four VBW commands below are **intentionally not ported**:
-
-| VBW command                | Decision   | Reasoning                                                                                                                             |
-| -------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `/vbw:compress`            | not ported | Codex CLI handles its own context compaction; the VBW auto-compaction wrapper isn't needed in the Codex-native flow.                  |
-| `/vbw:rtk`                 | not ported | RTK (Runtime Toolkit) is an external VBW-only integration. SWT stays Codex-native.                                                    |
-| `/vbw:teach`               | not ported | Replaced by SWT's MEMORY.md self-healing model (REQ-11) plus the Codex Skills API surface — the same outcome via different mechanics. |
-| `/vbw:report`              | deferred   | No SWT equivalent today. Could land as `swt report` if a concrete reporting use case emerges.                                         |
-| `/vbw:profile`             | folded     | Profile management is folded into `swt config` (one config surface).                                                                  |
-| `/vbw:verify` (standalone) | folded     | Available as `swt vibe --verify N` per VBW's own routing convention.                                                                  |
-| `/vbw:list-todos`          | folded     | Maps to the (currently-stub) `swt todo` viewer; standalone listing landed in `swt status`.                                            |
+A small number of v2-era verbs (`swt init`, `swt plan`, `swt execute`, `swt verify`, `swt fix`, `swt debug`, `swt research`, `swt map`, etc.) are registered as placeholders that point at the `swt vibe` flag equivalents. They print a roadmap pointer and exit 78 (`EXIT.NOT_IMPLEMENTED`). Most are reachable today as `swt vibe` subroutes.
 
 ### Use case quick-pick
 
-- **Fresh project** → `swt dashboard` (then click Initialize) **or** the working stub path: scope a milestone via `swt vibe`
+- **Fresh project** → `swt vibe` (routes to bootstrap)
 - **Existing project, daily work** → `swt vibe` (auto-routes), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
-- **Something feels broken** → `swt doctor` first, then `swt update --json` to check for a newer published version
+- **Something feels broken** → `swt doctor` first
 - **Configuration tweaks** → `swt config show` / `swt config set <key> <value>`
-- **Discoverability** → `swt help` lists all 32 commands; stubs print their roadmap phase when invoked
+- **Discoverability** → `swt help` lists every registered command; stubs print their roadmap phase when invoked
 
 ### Help and flags
 
@@ -399,7 +400,39 @@ swt dashboard --help
 swt config --help
 ```
 
-Top-level flags: `--version` (print version), `--help` (top-level usage). Commands without an explicit handler fall through to the stub message with the roadmap pointer. Full per-command flag reference will live at [docs.stopwastingtokens.dev](https://docs.stopwastingtokens.dev) once that site is up (REQ-18, deferred from v1.5).
+Top-level flags: `--version` (print version), `--help` (top-level usage). Commands without an explicit handler fall through to the stub message with the roadmap pointer.
+
+---
+
+## Migrating from v2.x
+
+If you're upgrading from a v2.3.x project to v3.0, the canonical guide is [`docs/operations/migrating-from-v2.md`](./docs/operations/migrating-from-v2.md).
+
+TL;DR (when v3 ships): `npm install -g stop-wasting-tokens@3` + `swt migrate --to=v3`. The migration script (M6 PR-49) rewrites `.swt-planning/config.json` to drop the `backend:` field, adds `roles[*].tier` + `router_strategy:`, and adds the top-level `schema_version: 1` marker.
+
+**LTS posture**: v2.3.x receives 6 months of security + critical-bug patches per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md); plan your migration before that window closes.
+
+**Key v2 → v3 changes** (none are breaking for the methodology layer):
+
+- Runtime substrate: Codex CLI subprocess → `@earendil-works/pi-coding-agent` peer-dep.
+- Provider choice: `backend: codex|claude-code|ollama` → Pi-native provider matrix (Anthropic / OpenAI / OpenRouter / Google / Bedrock / Ollama).
+- Vocabulary: `reasoning_effort` → `thinking_level` (Pi-native: `off | minimal | low | medium | high | xhigh`).
+- QA: full LLM verification → static-check ladder (typecheck/lint/format/tests) → LLM escalation on failure.
+- The methodology surface (six SDLC roles, phase lifecycle, artefact pipeline) is preserved verbatim.
+
+---
+
+## Design + decisions
+
+The authoritative design document for v3 is [`TDD2.md`](./TDD2.md) at the repo root. It supersedes the v2-era TDD.md. Read [`docs/design/README.md`](./docs/design/README.md) for the suggested reading order.
+
+13 Architecture Decision Records anchor v3, indexed at [`docs/decisions/README.md`](./docs/decisions/README.md):
+
+- **Accepted (5)**: ADR-001 (Pi adoption), ADR-002 (Extension result protocol), ADR-003 (provider quirks JSON), ADR-004 (cache_control at provider-shim), ADR-005 (delete drivers wholesale), ADR-010 (reproducible builds — added at M1 PR-11).
+- **Proposed (7)**: ADR-006 (cache breakpoint placement), ADR-007 (Budget Gate semantics), ADR-008 (worktree-per-task), ADR-009 (Windows worktree paths), ADR-011 (cassette-only provider matrix), ADR-012 (six-month LTS).
+- **Deferred (1)**: ADR-013 (no hosted docs site at v3.0).
+
+Live planning state lives in [`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.md` is the entry point. Per-milestone PR ledger: [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).
 
 ---
 
@@ -415,60 +448,20 @@ You're running a locally-built bundle from before the `CURRENT_VERSION` constant
 Your `autonomy` is set to `cautious` or `standard` (the default). Switch with `swt config set autonomy confident` to auto-chain phases, or `pure-vibe` to auto-loop until a hard error.
 
 **Phase detection is in a weird state**
-Run `swt detect-phase` for a JSON dump of what SWT thinks the state is. The `phase_detect_error=true` line points at root cause. As a last resort, `swt pause` saves your in-progress work and lets you restart cleanly.
+Run `swt detect-phase` for a JSON dump of what SWT thinks the state is. The `phase_detect_error=true` line points at root cause.
 
-**Codex CLI says it can't find `~/.codex/config.toml [mcp_servers.swt]`**
-The agent TOMLs reference `~/.codex/config.toml` (the documented Codex MCP path). If you're on an older Codex setup that uses `~/.codex/mcp.json`, upgrade Codex (`>= 0.124.0`).
+**`swt doctor` reports `Pi runtime not available`**
+Pi is declared as a peer-dep (`^0.74.0`); ensure `@earendil-works/pi-coding-agent` is installed in your project or globally. v3-foundation source installs include it via `pnpm install`.
 
-**Lots of CI failures right after a push**
-Check whether you're using v1.5.0 or earlier — the build pipeline didn't actually compile until v1.5.1. Update with `npm install -g stop-wasting-tokens@latest`.
-
----
-
-## Status
-
-Currently shipping **v2.3.5** — Dashboard 1:1 CLI Parity Panels and cmd-K Command Palette, hardened against browser-extension interference and update-check staleness. v2.3.5 makes `swt update` always query npm fresh (no implicit disk cache) so users see the truth the moment they ask; the dashboard panel keeps a short 5-minute cache for its background polling. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 series notes (panels + palette in 2.3.0; daemon double-spawn fix in 2.3.1; bundled README catch-up in 2.3.2; cache-keyed-by-current fix in 2.3.3; wallet-extension CSP + detector in 2.3.4; asymmetric cache in 2.3.5). Bare `swt` opens the dashboard daemon (since v2.0); the dashboard now exposes the four read-only CLI surfaces (`config`, `doctor`, `detect-phase`, `update`) as live panels in a fifth Tools column, lets you edit `.swt-planning/config.json` and apply CLI updates without dropping into a terminal, and adds a global cmd-K palette so every dashboard-safe `swt` verb is one keystroke away. See [CHANGELOG.md](CHANGELOG.md) for the full v2.3 migration notes.
-
-The terminal CLI surface is unchanged for power users — every verb still works as documented. `SWT_NO_DASHBOARD=1 swt` restores the legacy help screen.
-
-**Recent milestones:**
-
-- **v2.3** — Dashboard CLI parity panels (Config / Doctor / Detect-phase / Update) + cmd-K command palette.
-- **v2.2** — Dashboard 1:1 with the CLI's init mechanic (brownfield detection in greenfield snapshot; merged welcome + InitScreen).
-- **v2.1** — Repo-wide prettier sweep + green CI baseline.
-- **v2.0** — Natural-Language-First Dashboard. Bare `swt` opens the dashboard daemon. Vibe sessions, agent-prompt SSE protocol, dashboard permission gate, natural-language command bar.
-- **v1.6** — Localhost Dashboard MVP (Hono + Solid + SSE + chokidar).
-- **v1.0–1.5** — Methodology runtime, six-agent SDLC, multi-backend forward-compat stubs.
-
-v2.x targeted the Codex CLI as its runtime backend. v3 (in progress on the `v3-foundation` branch) replaces that with the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) runtime; methodology is preserved, but the model-runtime layer is wholly rewritten. See [TDD2.md](./TDD2.md) for the v3 design and [docs/operations/migrating-from-v2.md](./docs/operations/migrating-from-v2.md) for the upgrade path.
-
-Per-version changes are tracked in [CHANGELOG.md](CHANGELOG.md). Stable release notes are in [RELEASE-NOTES-v1.0.md](RELEASE-NOTES-v1.0.md).
+**Tests failing on chokidar 4 fsevents (macOS)**
+The PR-17 chokidar v4 upgrade fixed the glob-support drop; one remaining test (sse-snapshot-changed) is skipped under umbrella issue #32 pending a chokidar v4 close-handler fix or fs.watch migration.
 
 ---
-
-## Migrating from v2.x?
-
-If you're upgrading from a v2.3.x project to v3.0, the canonical guide is
-[`docs/operations/migrating-from-v2.md`](./docs/operations/migrating-from-v2.md).
-TL;DR: `npm install -g stop-wasting-tokens@3` + `swt migrate --to=v3`. The
-migration script (M6 PR-49) rewrites `.swt-planning/config.json` to drop the
-`backend:` field, adds `roles[*].tier` + `router_strategy:`, and adds the
-top-level `schema_version: 1` marker. v2.3.x receives 6 months of security
-
-- critical-bug patches per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md);
-  plan your migration before that window closes.
-
-## Design
-
-The authoritative design document for v3 is [`TDD2.md`](./TDD2.md) at the
-repo root. It supersedes the v2-era TDD.md. Read [`docs/design/README.md`](./docs/design/README.md)
-for the suggested reading order; the 13 Architecture Decision Records that
-anchor v3 are indexed at [`docs/decisions/README.md`](./docs/decisions/README.md).
-Live planning state for the current milestone lives in
-[`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.md` is the entry point.
 
 ## Contributing, security, license
 
 - Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Security disclosures: [SECURITY.md](SECURITY.md).
 - License: MIT, see [LICENSE](LICENSE).
+
+Active development of v3 happens on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch. v2 stable patches land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive). The `main` branch is the v3 stabilization target; v3.0.0 cuts from `main` at the M6 release gate.

@@ -4,11 +4,10 @@
 **Milestone:** M2 Single-agent path (M1 Foundation closed 2026-05-12)
 
 ## Current Phase
-
 Phase: 2 of 6 (M2 Single Agent Path)
-Plans: 0/2
-Progress: 0%
-Status: ready
+Plans: 1/2
+Progress: 50%
+Status: active
 
 ## Reading the metrics
 
@@ -42,6 +41,12 @@ Before any code reaches "beta testing," it has to survive these gates that are b
 See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category test surface.
 
 ## Phase Status
+- **Phase 1 (M1 Foundation):** Complete
+- **Phase 2 (M2 Single Agent Path):** In progress
+- **Phase 3 (M3 Worktree Dispatcher):** Pending
+- **Phase 4 (M4 Token Meter Cache Discipline):** Pending
+- **Phase 5 (M5 Multi Provider):** Pending
+- **Phase 6 (M6 Decommission Benchmark Ship):** Pending
 
 - **Phase 1 (M1 Foundation):** Complete
 - **Phase 2 (M2 Single Agent Path):** Planned
@@ -74,15 +79,14 @@ See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category tes
 | Cluster-level `describe.skip` for v2.3.5 test-debt remediation (not per-test `it.skip`)                                                                            | 2026-05-12 | PR-11 Task A: 35 skipped tests across 19 files use top-level `describe.skip(...)` + a 3-line `// TODO(v3-debt)` header pointing at umbrella issue #32. Faster than per-test `it.skip` edits; equivalent traceability via the umbrella issue's per-cluster inventory + `docs/decisions/test-debt-tracking.md`. Some passing tests inside those describes are also skipped — documented.                                                              |
 | ONE umbrella tracking issue for all v2.3.5 test-debt skips                                                                                                         | 2026-05-12 | PR-11 Task A filed [issue #32](https://github.com/swt-labs/stop-wasting-tokens/issues/32) with cluster-by-cluster inventory + acceptance criteria. Faster than 33+ per-test issues; equivalent traceability. Each skipped file's header points at #32; per-cluster sub-issues can split off later if needed.                                                                                                                                        |
 | M1 EXIT GATE reached 2026-05-12                                                                                                                                    | 2026-05-12 | All 12 M1 PRs merged across 3 plans / 15 atomic commits / 6 ADRs Accepted / 6 Proposed / 1 Deferred. CI matrix all 4 gates green locally (typecheck/lint/format/test). M2 entry conditions met per TDD2 §13.1.5. M1 exit gate signoff row added to `.vbw-planning/v3-tracking.md`.                                                                                                                                                                  |
-
 ## Todos
-
 - **M2 (carry-forward from Plan 01-01 PR-04 deviation):** Rename `AgentSpec.reasoning_effort: CodexReasoningEffort` → `AgentSpec.thinking_level: ThinkingLevel`. Touches `packages/core/src/abstractions/AgentSpawner.ts`, `packages/core/src/types/codex-reasoning-effort.ts` (delete), `packages/methodology/src/vibe/orchestration/agent-spec-resolver.ts` (TOML validation), plus any `AgentSpec` instantiation in methodology. `shared/src/types/thinking-level.ts` is the destination vocabulary (already in place). Delete `codex-reasoning-effort.ts` in the same change so the two files don't drift. Tracked here for visibility when M2 phase planning starts via `/vbw:vibe --plan 2`.
 - ~~**M1 PR-11 (carry-forward from v2.3.5):** ~20 pre-existing v2.3.5 test failures verified via `git stash` baseline (9 methodology bootstrap/handler tests + 11 cli publishConfig/config-doc-drift) plus the dashboard `LogPanel.tsx(78,9)` TS2322 carry-forward; the recon counted 33 total — the remaining ~12 cluster in other packages and surface during PR-11's full-pipeline run.~~ **RESOLVED at PR-11 Task A (`bb04054`, 2026-05-12):** actual count was 49 (drift +16 from PR-04/05/09); 9 deleted as obsolete (codex-plugin-manifest.test.ts), 5 deleted-equivalent (launch-checklist.test.ts 2 describe blocks), 35 skipped at describe-level across 19 files under umbrella tracking issue [#32](https://github.com/swt-labs/stop-wasting-tokens/issues/32). `continue-on-error: true` removed from ci.yml Test step. Full inventory: `docs/decisions/test-debt-tracking.md`.
 - **HIGH-PRIORITY SECURITY (carry-forward from Plan 01-03 PR-11 Task A):** `packages/verification/test/guards.test.ts` has 3 real failures — `checkBashCommand` no longer blocks denylisted patterns (`rm -rf /`, `curl ... | sh`, fork bomb `:(){ :|: & };:`). Either the denylist regressed in a v2.3.x patch or the guard implementation drifted. File skipped to unblock M1 close but the underlying bug is a real security regression. **Fix in the next M1 hotfix or M2 PR-12.** Do NOT let this slide to M6. Source: `packages/verification/src/guards/bash-guard.ts`. Umbrella tracking issue #32 has the cluster row marked HIGH priority.
 - **Cassette recording — `scout-read-readme.jsonl` (carry-forward from Plan 01-02 PR-06):** Run the one-time developer-local recording session against a live Anthropic API. The recorder + replayer + cassette format are fully scaffolded; the file itself is the only missing piece. When committed at `packages/test-utils/cassettes/scout-read-readme.jsonl`, `runtime/test/meter/cassette-replay.int.test.ts` activates automatically (via `it.skipIf(!HAS_CASSETTE)`) and the byte-identical token-count assertion (delta=0 hard requirement) runs. Recording guide: `docs/operations/cassette-recording.md`. Helper script to author: `scripts/record-cassette-scenarios/scout-read-readme.mjs`.
 - **Cassette recording — `scout-search-codebase.jsonl` (carry-forward from Plan 01-02 PR-09):** Same one-time developer-local session. When committed at `packages/test-utils/cassettes/scout-search-codebase.jsonl`, the `orchestration/test/dispatcher.int.test.ts` cassette-gated case activates (dispatcher → mocked Pi → swt_report_result → harvest → parsed TaskResult, schema validation hard requirement). Independent of `scout-read-readme.jsonl` — can be recorded in the same session or separately.
-
+- [KNOWN-ISSUE] LogPanel TS2322 (packages/dashboard/src/client/components/LogPanel.tsx(78,9)): Type assignment incompatible — `tsc --noEmit -p tsconfig.client.json` per-pac... (phase 01, seen 1x) (see 01-VERIFICATION.md) (added 2026-05-12) (ref:420e6c1d)
+- [KNOWN-ISSUE] pnpm-workspace eslint-import resolver (eslint.config.mjs): import/no-restricted-paths` doesn't traverse pnpm symlinks (200+ false-positi... (phase 01, seen 1x) (see 01-VERIFICATION.md) (added 2026-05-12) (ref:feeb58e9)
 ## Blockers
 
 None.

@@ -1,1 +1,43 @@
-{ "schema_version": 1, "items": {} }
+{
+  "schema_version": 1,
+  "items": {
+    "420e6c1d": {
+      "summary": "LogPanel TS2322 (packages/dashboard/src/client/components/LogPanel.tsx(78,9)): Type assignment incompatible — `tsc --noEmit -p tsconfig.client.json` per-pac...",
+      "context": "Known issue from phase 01. Test: LogPanel TS2322. File: packages/dashboard/src/client/components/LogPanel.tsx(78,9). Error: Type assignment incompatible — `tsc --noEmit -p tsconfig.client.json` per-package failure (NOT in CI's `tsc --build` root path; CI matrix stays green). Tracked under umbrella issue #32; resolves at M2 PR-17 (dashboard SSE rewire).. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "packages/dashboard/src/client/components/LogPanel.tsx(78,9)"
+      ],
+      "added": "2026-05-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-m1-foundation/",
+        "test": "LogPanel TS2322",
+        "file": "packages/dashboard/src/client/components/LogPanel.tsx(78,9)",
+        "error": "Type assignment incompatible — `tsc --noEmit -p tsconfig.client.json` per-package failure (NOT in CI's `tsc --build` root path; CI matrix stays green). Tracked under umbrella issue #32; resolves at M2 PR-17 (dashboard SSE rewire).",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "feeb58e9": {
+      "summary": "pnpm-workspace eslint-import resolver (eslint.config.mjs): import/no-restricted-paths` doesn't traverse pnpm symlinks (200+ false-positi...",
+      "context": "Known issue from phase 01. Test: pnpm-workspace eslint-import resolver. File: eslint.config.mjs. Error: import/no-restricted-paths` doesn't traverse pnpm symlinks (200+ false-positive errors on legit cross-workspace imports). Rule demoted from `error` to `warn` pending M3 work that wires `eslint-import-resolver-typescript`. Structural `eslint-boundary.test.ts` validates the rule definitions stay in place. Principle 1 `no-restricted-imports` stays at error severity and works correctly today.. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "eslint.config.mjs"
+      ],
+      "added": "2026-05-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-m1-foundation/",
+        "test": "pnpm-workspace eslint-import resolver",
+        "file": "eslint.config.mjs",
+        "error": "import/no-restricted-paths` doesn't traverse pnpm symlinks (200+ false-positive errors on legit cross-workspace imports). Rule demoted from `error` to `warn` pending M3 work that wires `eslint-import-resolver-typescript`. Structural `eslint-boundary.test.ts` validates the rule definitions stay in place. Principle 1 `no-restricted-imports` stays at error severity and works correctly today.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    }
+  }
+}

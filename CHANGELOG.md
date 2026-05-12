@@ -134,6 +134,70 @@ All 12 M1 PRs merged across 3 plans / 15 atomic commits on `v3-foundation`. M1 F
 
 M2 (single-agent path) entry conditions met per TDD2 §13.1.5. Two cassette-driven test activations stay deferred to a user-driven recording session (orthogonal to M1 exit gate).
 
+### Added (Plan 02-01 — PR-12 → PR-16)
+
+M2 Plan 02-01 — _Methodology Rewire + Single-Agent Path_ — closed 2026-05-12 across 5 atomic commits on `v3-foundation`. **+98 tests** (730 → 828); 0 failures throughout; 0 lint errors; all typecheck green.
+
+- **`packages/methodology/src/profiles/role-profiles.ts` (PR-12, commit `8bc1475`)** — 6 SDLC role profiles per TDD2 §10.1 (`SCOUT_PROFILE`, `ARCHITECT_PROFILE`, `LEAD_PROFILE`, `DEV_PROFILE`, `QA_PROFILE`, `DEBUGGER_PROFILE`) with `defaultTier`, `toolSubset`, `sessionMode`, `defaultThinkingLevel`, `promptPath`. 6 sibling `.prompt.md` files carry the role system prompts per TDD2 §10.3. `ROLE_PROFILES` lookup table + `SDLC_ROLES` array exported.
+- **`packages/orchestration/src/role-router.ts` (PR-12)** — `toolsForRole(role, cwd)` per TDD2 §10.4. Read-only for Scout/Architect; coding for Lead/Dev/Debugger; coding with prompt-level no-edit constraint for QA at M2 (true qa-bash factory at M3+).
+- **`packages/orchestration/src/prompt-builder.ts` (PR-12)** — `buildPrompt(opts)` emits 8-block fixed-order prompt per TDD2 §8.3 (system → project → requirements → state → phase-context → BREAKPOINT → task → must-haves). Records `cacheBreakpointIndex` for the upcoming M4 PR-32 Anthropic `cache_control: ephemeral` wiring per ADR-006.
+- **`CodexReasoningEffort → ThinkingLevel` cascade rename (PR-12)** — M1-deferred from Plan 01-01 PR-04. `AgentSpec` migrated from `@swt-labs/core` to `@swt-labs/shared` with `thinking_level: ThinkingLevel` (Pi-native: `off | minimal | low | medium | high | xhigh`). `packages/core/src/types/codex-reasoning-effort.ts` deleted via `git rm`. `agent-spec-resolver.ts` reads `thinking_level` from TOML; 6 agent template TOMLs renamed `model_reasoning_effort` → `thinking_level`. `grep -rE "reasoning_effort|CodexReasoningEffort" packages/ --include="*.ts"` returns no source hits.
+- **`packages/methodology/src/vibe/orchestration/dev-runner.ts` rewritten (PR-13, commit `b1654b0`)** — `runDevTasks({phase, plans, cwd, opts})` replaces v2's `AgentSpawner`-driven `runDev(input)`. Sequential per TDD2 §11.4 (M3 PR-22 parallelises via worktree-keyed claims). Per plan: calls `dispatcher.dispatch({ role: 'dev', cwd, claims: plan.files_modified, promptContext })`. Halt-on-failed/blocked stops the loop; returns `{outcomes, status, haltReason?}`.
+- **`packages/methodology/src/vibe/handlers/execute.ts` thinned (PR-13)** — drops v2 spawner/devSpec injection; accepts optional `harvestStrategy?` (passed straight to `runDevTasks`). Adapts `TaskResult` → `DevSummaryPayload` for the existing `writeSummary` consumer. Wave-level halt-aware: stops dispatch on `runSummary.status === 'halted'`.
+- **`packages/orchestration/src/dispatcher.ts` defensive task_id-mismatch guard (PR-13)** — on `'entries'`/`'file'` harvest strategies, verifies harvested `result.task_id` matches dispatched `task.taskId`. Catches stale-entry leaks in future M3 worktree-reuse scenarios.
+- **Methodology workspace deps (PR-13)** — `@swt-labs/orchestration` + `@swt-labs/shared` added to `packages/methodology/package.json` + tsconfig project references. Per Principle 2 (TDD2 §4.3): methodology depends on orchestration → runtime → core/shared.
+- **`packages/verification/src/checks/static-checks.ts` (PR-14, commit `dd5c9e3`)** — 4 canonical static checks (`TYPECHECK`, `LINT`, `FORMAT_CHECK`, `UNIT_TESTS`) as `StaticCheck` values with 4 KB output tail. `DEFAULT_STATIC_CHECKS` ordered array. `makeCommandCheck` factory for tests.
+- **`packages/verification/src/runner.ts` ladder (PR-14)** — `runVerificationLadder(opts)` per TDD2 §11.2. Runs the ladder in order; short-circuits on first failure; escalates to `LlmVerificationEscalator` when one is provided. `NOOP_ESCALATOR` ships as the M2 default; M3+ wires the real escalator that dispatches to the QA agent through the orchestration dispatcher.
+- **HIGH-priority bash-guard security fix (PR-14)** — `checkBashCommand` denylist regression flagged at Plan 01-03 PR-11 Task A FIXED. Three regression vectors closed: `rm -rf /` (trailing `\b` after `\/` never matched EOS — replaced with `\/(?:\s|$)`); `curl ... | sh` and fork bomb `:(){ :|: & };:` (splitCompound fragmented `|`/`;` patterns — added full-command pre-pass that catches multi-segment denylist hits before the per-segment pass runs). Also tightened the `>+\s*/dev/(sd|nvme|disk)` redirect pattern (drop leading `\b` which never matched space-before-`>`) + added `\/\w+\b` first-path-component pattern (`rm -rf /etc`). 12-row denylist regression matrix + 3 negative-case tests added to `guards.test.ts`.
+- **`packages/methodology/src/vibe/handlers/qa.ts` ladder-then-handoff (PR-15, commit `e950586`)** — runs `runVerificationLadder` FIRST. If ladder fails → writes `result: 'fail'` VERIFICATION.md, skips must-haves. If ladder passes AND spawner+qaSpec injected → existing v2 must-haves path. If ladder passes AND no spawner → writes static-checks-only `result: 'pass'` VERIFICATION.md.
+- **RoadmapSchema relaxation (PR-15)** — `phases: z.array(...).min(1)` → `.min(0)`. Permits the post-bootstrap pre-scope state (bootstrap writes ROADMAP.md with zero phases; scope adds phases later). The corresponding "roadmap requires at least one phase" test became "roadmap accepts an empty phases array (post-bootstrap, pre-scope)".
+- **`swt doctor` Pi peer-dep surfacing (PR-15)** — new `PiStatusLike` shape on `DoctorReport.pi` populated from `SpawnerEnvironment.probe()` when probe `name` starts with `pi-`. Renders `✓ Pi runtime X.Y.Z` (success) or `⚠ Pi runtime not available — <reason>` (failure) lines.
+- **`handlers/index.ts` re-exports `NotImplementedError` + `RoutingError` (PR-15)** — restores v2 import surface for `dispatch.test.ts`. The split at Plan 01-01 PR-04 lost the re-export.
+- **9 methodology test-debt unskips (PR-13 + PR-15)** — 4 bootstrap.test ZodError cluster (PR-15 RoadmapSchema relaxation), 2 dispatch.test NotImplementedError shape (PR-15 re-export), 3 plan/qa/execute driver fallout (PR-13 + PR-15 ladder integration). Total: 32+ methodology tests now passing where 0 were before.
+- **`packages/dashboard/src/server/vibe/ui-permission-gate.ts` + `composite-permission-gate.ts` (PR-16, commit `4effa48`)** — `UiPermissionGate` (sessionless audit-trail gate for UI-button POSTs) + `CompositePermissionGate` (session-keyed router) per TDD2 §12. `UiPermissionGate` includes optional `classify` hook for M3+ destructive-op gating + `UiAuditSink` interface with `InMemoryUiAuditSink` as the M2 default. **Contract-only landing** — existing routes (`/api/config`, `/api/init`, `/api/command`) keep their localhost trust-model behavior; adoption lives at M3 when destructive-op classifiers + SSE-audit consumers exist.
+
+### Plan 02-01 commit trail on `v3-foundation`
+
+|  PR   |                                   Commit                                    | Subject                                                                                                                     |
+| :---: | :-------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------- |
+| PR-12 | [`8bc1475`](https://github.com/swt-labs/stop-wasting-tokens/commit/8bc1475) | `feat(methodology,orchestration)`: role profiles + role-router + prompt-builder + CodexReasoningEffort→ThinkingLevel rename |
+| PR-13 | [`b1654b0`](https://github.com/swt-labs/stop-wasting-tokens/commit/b1654b0) | `feat(methodology,orchestration)`: Dev role through dispatcher + dev-runner sequential loop + execute handler rewire        |
+| PR-14 | [`dd5c9e3`](https://github.com/swt-labs/stop-wasting-tokens/commit/dd5c9e3) | `feat(verification,methodology)`: QA static-check ladder + LLM escalation + bash-guard HIGH-priority security fix           |
+| PR-15 | [`e950586`](https://github.com/swt-labs/stop-wasting-tokens/commit/e950586) | `feat(methodology,verification,cli)`: QA ladder integration + roadmap relax + Pi doctor + 9 v2.3.5 test debts cleared       |
+| PR-16 | [`4effa48`](https://github.com/swt-labs/stop-wasting-tokens/commit/4effa48) | `feat(dashboard)`: UiPermissionGate + CompositePermissionGate contract (Plan 02-01 close)                                   |
+
+Test posture at Plan 02-01 close: **828 passed / 75 skipped / 0 failed**. `pnpm typecheck` clean, `pnpm lint` 0 errors. Methodology cluster (9/9) + Verification HIGH-priority bash-guard cluster (3/3) of umbrella issue #32 resolved.
+
+### Added (Plan 02-02 — PR-17, in progress)
+
+PR-17 shipped 2026-05-12 as the first commit of Plan 02-02. Remaining PRs (PR-18 cassette regression, PR-19 TPAC baseline, PR-20 `swt rpc`, PR-21 `swt bench`) pending.
+
+- **LogPanel.tsx(78,9) TS2322 FIXED (PR-17, commit `3ae8e6c`)** — pre-existing v2.3.5 carry-forward. `{scheduleSnap()}` inline JSX call returned `void` (not a renderable type). Moved to `createEffect(() => scheduleSnap())` per SolidJS idiom; the side-effect (queued auto-scroll) still fires on every reactive re-render but no longer appears as a JSX child. `pnpm -F @swt-labs/dashboard exec tsc --noEmit -p tsconfig.client.json` now clean.
+- **chokidar v4 glob-support fix (PR-17)** — chokidar 4.0.3 dropped built-in glob handling; the v2-era `<dir>/*.jsonl` pattern in `tail-file.ts` was being treated as a literal path that never existed. Rewrote `createFileTailer` to parse the `*.<ext>` tail itself: derive the directory + an extension filter, watch the directory, filter `add`/`change` events by extension. Added a `ready: Promise<void>` to `FileTailer` + `EventsTailer` so tests that write files immediately after construction can `await tailer.ready` before chokidar's initial scan completes. Also dropped `awaitWriteFinish: { stabilityThreshold: 25 }` from the chokidar config — it delayed events 25-50ms even for atomic `writeFileSync` calls; consumers read JSONL via atomic writes.
+- **9 of 10 dashboard test-debt items UNSKIPPED + GREEN (PR-17)** — `sse-snapshot-changed.test.ts` (2 of 2 active), `sse-reconnect.test.ts` (3), `events-tailer.test.ts` (4), `log-rate-limit.test.ts` (2), `server.test.ts` (4), `artifact-route.test.ts` (8), `snapshot-reducer.test.ts` (9). 3 test-side adjustments where v2-shape assertions drifted: `server.test` regex (`/refuses to bind/` → `/[Rr]efus(es|ing) to bind/`); `snapshot-reducer` explicit `generated_at` diff (Date.now ms-resolution collision); `artifact-route` shiki output shape (`class="language-ts"` → styled-span pattern).
+
+### Plan 02-02 commit trail on `v3-foundation` (in progress)
+
+|  PR   |                                   Commit                                    | Subject                                                                                           |
+| :---: | :-------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------ |
+| PR-17 | [`3ae8e6c`](https://github.com/swt-labs/stop-wasting-tokens/commit/3ae8e6c) | `feat(dashboard)`: SSE rewire + chokidar v4 fix + LogPanel TS2322 + 9 v2.3.5 dashboard test debts |
+| PR-18 |                                  _pending_                                  | Cassette regression suite — v2 golden-bundle replay against `ref-fastapi`                         |
+| PR-19 |                                  _pending_                                  | TPAC baseline measurement on `ref-fastapi-empty` reference scenario                               |
+| PR-20 |                                  _pending_                                  | `swt rpc` subcommand (delegates to Pi's `runRpcMode`)                                             |
+| PR-21 |                                  _pending_                                  | `swt bench` subcommand (TPAC bench across cassettes)                                              |
+
+Test posture at PR-17 close: **858 passed / 45 skipped / 0 failed**. `pnpm typecheck` clean, `pnpm lint` 0 errors. Dashboard cluster of umbrella issue #32: 9 of 10 resolved (1 SSE-AC03 test skipped pending chokidar v4 close-handler fix or fs.watch migration). LogPanel TS2322 resolved — `pnpm -r typecheck` clean across both root `tsc --build` AND the dashboard `tsconfig.client.json` side.
+
+### Test-debt umbrella #32 status
+
+| Cluster                         | Pre-M2     | Post-Plan-02-01                 | Post-PR-17                                              |
+| ------------------------------- | ---------- | ------------------------------- | ------------------------------------------------------- |
+| Methodology (9)                 | 9 skipped  | **9 resolved** at PR-13 + PR-15 | unchanged                                               |
+| Verification (3, HIGH-priority) | 3 skipped  | **3 resolved** at PR-14         | unchanged                                               |
+| Dashboard (10)                  | 10 skipped | 10 skipped                      | **9 resolved** at PR-17 (1 chokidar v4 close-hang skip) |
+| LogPanel.tsx TS2322             | failing    | failing                         | **resolved** at PR-17                                   |
+| **In-scope total**              | 22 skipped | 12 resolved                     | **21 of 22 resolved**                                   |
+
 ## 2.3.5
 
 ### Patch Changes
