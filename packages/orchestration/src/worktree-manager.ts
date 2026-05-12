@@ -48,6 +48,37 @@ export interface GitRunResult {
  */
 export type GitRunner = (args: ReadonlyArray<string>, cwd?: string) => Promise<GitRunResult>;
 
+/**
+ * Lock-ops contract per TDD2 §9.5. When provided to `WorktreeManager`,
+ * `acquire` fires on `(none) → created` and the returned handle is
+ * `release`d on `remove` / `fail` (subject to the `keepForForensics`
+ * policy on `remove`). Implementations: the default at
+ * `packages/orchestration/src/lock-files.ts` exposes `acquireLock` +
+ * helpers; tests inject a recording mock.
+ *
+ * The manager intentionally does NOT depend on the concrete lock-file
+ * module — only on this minimal interface — so the lock layer can be
+ * swapped (e.g., to a database-backed implementation for hosted
+ * deployments) without reshaping the manager.
+ */
+export interface LockOps {
+  acquire(opts: {
+    readonly taskId: string;
+    readonly worktreePath: string;
+    readonly state: WorktreeState;
+  }): Promise<LockOpsHandle>;
+}
+
+export interface LockOpsHandle {
+  readonly path: string;
+  release(): Promise<void>;
+  update(patch: {
+    readonly state?: WorktreeState;
+    readonly session_id?: string;
+    readonly worktree_path?: string;
+  }): Promise<void>;
+}
+
 export interface WorktreeManagerOptions {
   /** Parent directory for parallel worktrees. Default: `.swt-planning/parallel`. */
   readonly parallelRoot?: string;
@@ -71,6 +102,16 @@ export interface WorktreeManagerOptions {
    * to assert journal-write semantics without filesystem coupling.
    */
   readonly journalWriter?: (filePath: string, entry: WorktreeJournalEntry) => Promise<void>;
+  /**
+   * Optional lock-ops adapter per TDD2 §9.5 (PR-25). When provided,
+   * `create` acquires a lock file; `remove`/`fail` release it. When
+   * omitted, the FSM runs without lock-file IO (PR-22 ship state).
+   *
+   * The default lock-ops at `packages/orchestration/src/lock-files.ts`
+   * writes per-task lock files at `.swt-planning/locks/task-<taskId>.lock`;
+   * tests inject a recording mock.
+   */
+  readonly lockOps?: LockOps;
 }
 
 export class IllegalTransitionError extends Error {
@@ -105,17 +146,20 @@ export class GitOperationError extends Error {
  */
 export class WorktreeManager {
   private readonly states = new Map<string, WorktreeState>();
+  private readonly lockHandles = new Map<string, LockOpsHandle>();
   private readonly parallelRoot: string;
   private readonly journalRoot: string;
   private readonly gitRunner: GitRunner;
   private readonly clock: () => string;
   private readonly journalWriter: (filePath: string, entry: WorktreeJournalEntry) => Promise<void>;
+  private readonly lockOps: LockOps | undefined;
 
   constructor(opts: WorktreeManagerOptions = {}) {
     this.parallelRoot = opts.parallelRoot ?? DEFAULT_PARALLEL_ROOT;
     this.journalRoot = opts.journalRoot ?? DEFAULT_JOURNAL_ROOT;
     this.gitRunner = opts.gitRunner ?? defaultGitRunner;
     this.clock = opts.clock ?? (() => new Date().toISOString());
+    this.lockOps = opts.lockOps;
     this.journalWriter = opts.journalWriter ?? defaultJournalWriter;
   }
 
@@ -129,11 +173,11 @@ export class WorktreeManager {
   async create(taskId: string, baseRef: string): Promise<{ worktreePath: string }> {
     this.assertCanTransition(taskId, 'created');
     const worktreePath = posix.join(this.parallelRoot, `wt-${taskId}`);
-    // TODO(PR-25 lock-files): acquireLock(taskId, {worktreePath, pid: process.pid, ...})
     const result = await this.gitRunner(['worktree', 'add', worktreePath, baseRef]);
     if (result.exitCode !== 0) {
       // Force-transition straight to `failed` for the create-failure case.
       // The journal records the attempted from=`none` for traceability.
+      // No lock acquired — nothing to release.
       this.states.set(taskId, 'failed');
       await this.writeJournal(taskId, 'none', 'failed', {
         operation: 'create',
@@ -143,6 +187,12 @@ export class WorktreeManager {
         stderr: result.stderr,
       });
       throw new GitOperationError('worktree add', result.exitCode, result.stderr);
+    }
+    // Acquire the per-task lock (PR-25). When `lockOps` is omitted
+    // (PR-22 ship state), the FSM proceeds without lock IO.
+    if (this.lockOps !== undefined) {
+      const handle = await this.lockOps.acquire({ taskId, worktreePath, state: 'created' });
+      this.lockHandles.set(taskId, handle);
     }
     this.states.set(taskId, 'created');
     await this.writeJournal(taskId, 'none', 'created', { worktreePath, baseRef });
@@ -159,6 +209,7 @@ export class WorktreeManager {
   async claim(taskId: string, claims: ReadonlyArray<string>): Promise<void> {
     this.assertCanTransition(taskId, 'claimed');
     this.states.set(taskId, 'claimed');
+    await this.updateLock(taskId, { state: 'claimed' });
     await this.writeJournal(taskId, 'created', 'claimed', { claims: [...claims] });
   }
 
@@ -179,6 +230,12 @@ export class WorktreeManager {
     // notifies via `markAgentRunning` + `markAgentComplete`.
     this.assertCanTransition(taskId, 'dispatched');
     this.states.set(taskId, 'dispatched');
+    const rawSessionId = dispatchDetails?.['session_id'];
+    const sessionId = typeof rawSessionId === 'string' ? rawSessionId : undefined;
+    await this.updateLock(taskId, {
+      state: 'dispatched',
+      ...(sessionId !== undefined ? { session_id: sessionId } : {}),
+    });
     await this.writeJournal(taskId, 'claimed', 'dispatched', dispatchDetails);
   }
 
@@ -191,6 +248,7 @@ export class WorktreeManager {
   async markAgentRunning(taskId: string): Promise<void> {
     this.assertCanTransition(taskId, 'agent_running');
     this.states.set(taskId, 'agent_running');
+    await this.updateLock(taskId, { state: 'agent_running' });
     await this.writeJournal(taskId, 'dispatched', 'agent_running');
   }
 
@@ -203,6 +261,7 @@ export class WorktreeManager {
   async markAgentComplete(taskId: string, outcome: AgentOutcome): Promise<void> {
     this.assertCanTransition(taskId, 'agent_complete');
     this.states.set(taskId, 'agent_complete');
+    await this.updateLock(taskId, { state: 'agent_complete' });
     await this.writeJournal(taskId, 'agent_running', 'agent_complete', { outcome });
   }
 
@@ -216,6 +275,7 @@ export class WorktreeManager {
   async harvest(taskId: string): Promise<void> {
     this.assertCanTransition(taskId, 'harvested');
     this.states.set(taskId, 'harvested');
+    await this.updateLock(taskId, { state: 'harvested' });
     await this.writeJournal(taskId, 'agent_complete', 'harvested');
   }
 
@@ -235,7 +295,9 @@ export class WorktreeManager {
       const result = await this.gitRunner(['worktree', 'remove', worktreePath]);
       if (result.exitCode !== 0) {
         // git worktree remove failure → transition to failed, NOT removed.
+        // Lock stays in place so forensics can identify the stuck task.
         this.states.set(taskId, 'failed');
+        await this.updateLock(taskId, { state: 'failed' });
         await this.writeJournal(taskId, 'harvested', 'failed', {
           operation: 'remove',
           reason: 'git_worktree_remove_failed',
@@ -244,8 +306,8 @@ export class WorktreeManager {
         throw new GitOperationError('worktree remove', result.exitCode, result.stderr);
       }
     }
-    // TODO(PR-25 lock-files): releaseLock(taskId)
     this.states.set(taskId, 'removed');
+    await this.releaseLock(taskId);
     await this.writeJournal(taskId, 'harvested', 'removed', {
       keepForForensics: keep,
     });
@@ -265,6 +327,12 @@ export class WorktreeManager {
       throw new IllegalTransitionError(taskId, from, 'failed');
     }
     this.states.set(taskId, 'failed');
+    // Per TDD2 §9.7, failed worktrees are kept for forensics. The lock
+    // is left in place too — it surfaces in `readLocks` so the operator
+    // (or `swt cleanup` at Plan 03-02 PR-29) can decide whether to drop
+    // it. We DO update the envelope's state to `failed` so liveness
+    // probes have the correct context.
+    await this.updateLock(taskId, { state: 'failed' });
     await this.writeJournal(taskId, from, 'failed', { reason });
   }
 
@@ -282,6 +350,36 @@ export class WorktreeManager {
     if (!isLegalTransition(current, to)) {
       throw new IllegalTransitionError(taskId, current ?? 'none', to);
     }
+  }
+
+  /**
+   * Update the lock envelope for a task if a lock handle exists.
+   * No-op when `lockOps` is undefined or no handle is registered for
+   * the task (e.g., the create path failed before the lock was
+   * acquired).
+   */
+  private async updateLock(
+    taskId: string,
+    patch: {
+      readonly state?: WorktreeState;
+      readonly session_id?: string;
+      readonly worktree_path?: string;
+    },
+  ): Promise<void> {
+    const handle = this.lockHandles.get(taskId);
+    if (handle === undefined) return;
+    await handle.update(patch);
+  }
+
+  /**
+   * Release the lock for a task. Removes the per-task handle entry.
+   * No-op when no handle exists.
+   */
+  private async releaseLock(taskId: string): Promise<void> {
+    const handle = this.lockHandles.get(taskId);
+    if (handle === undefined) return;
+    this.lockHandles.delete(taskId);
+    await handle.release();
   }
 
   private async writeJournal(

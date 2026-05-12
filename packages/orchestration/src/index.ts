@@ -97,3 +97,27 @@ export {
   type DagError,
   type ResolveDagResult,
 } from './dag-resolver.js';
+
+// PR-25 (M3): per-task lock files. Per TDD2 §9.5. PID-liveness via
+// process.kill(pid, 0); LockFileEnvelopeSchema validates on every
+// read + write. WorktreeManager consumes via the optional `lockOps`
+// injection point.
+export {
+  acquireLock,
+  readLocks,
+  purgeStaleLocks,
+  defaultPidChecker,
+  lockPathFor,
+  LockAcquireConflictError,
+  LockFileParseError,
+  DEFAULT_LOCKS_ROOT,
+  LOCK_FILE_PREFIX,
+  LOCK_FILE_SUFFIX,
+  type AcquireLockOptions,
+  type LockHandle,
+  type PidChecker,
+  type PidLiveness,
+  type ReadLockEntry,
+  type ReadLocksOptions,
+  type PurgeStaleLocksOptions,
+} from './lock-files.js';

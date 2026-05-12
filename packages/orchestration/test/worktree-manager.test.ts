@@ -25,6 +25,7 @@ import {
   IllegalTransitionError,
   WorktreeManager,
   type GitRunResult,
+  type LockOps,
   type WorktreeManagerOptions,
 } from '../src/worktree-manager.js';
 
@@ -372,6 +373,187 @@ describe('WorktreeManager — M3 PR-22 lifecycle FSM', () => {
       expect(taskBEntries).toHaveLength(2);
       expect(taskAEntries[0]?.filePath).toBe('.swt-planning/journal/wt-T-500.jsonl');
       expect(taskBEntries[0]?.filePath).toBe('.swt-planning/journal/wt-T-501.jsonl');
+    });
+  });
+
+  describe('lock-ops integration (M3 PR-25)', () => {
+    interface LockCall {
+      readonly op: 'acquire' | 'update' | 'release';
+      readonly taskId: string;
+      readonly args?: unknown;
+    }
+
+    function makeRecordingLockOps(): { ops: LockOps; calls: LockCall[] } {
+      const calls: LockCall[] = [];
+      const ops: LockOps = {
+        acquire: async ({ taskId, worktreePath, state }) => {
+          calls.push({ op: 'acquire', taskId, args: { worktreePath, state } });
+          return {
+            path: `.swt-planning/locks/task-${taskId}.lock`,
+            release: async () => {
+              calls.push({ op: 'release', taskId });
+            },
+            update: async (patch) => {
+              calls.push({ op: 'update', taskId, args: patch });
+            },
+          };
+        },
+      };
+      return { ops, calls };
+    }
+
+    it('acquires a lock on `create` when lockOps is wired', async () => {
+      const { opts } = makeHarness();
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+      await manager.create('T-700', 'HEAD');
+      expect(calls).toEqual([
+        {
+          op: 'acquire',
+          taskId: 'T-700',
+          args: { worktreePath: '.swt-planning/parallel/wt-T-700', state: 'created' },
+        },
+      ]);
+    });
+
+    it('updates the lock envelope on every state transition through harvested', async () => {
+      const { opts } = makeHarness();
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+
+      await manager.create('T-701', 'HEAD');
+      await manager.claim('T-701', ['src/foo.ts']);
+      await manager.dispatch('T-701', { session_id: 'sess-xyz' });
+      await manager.markAgentRunning('T-701');
+      await manager.markAgentComplete('T-701', 'success');
+      await manager.harvest('T-701');
+      await manager.remove('T-701');
+
+      // Sequence: acquire + 5 updates + release.
+      const ops_seen = calls.map((c) => c.op);
+      expect(ops_seen).toEqual([
+        'acquire',
+        'update', // claimed
+        'update', // dispatched
+        'update', // agent_running
+        'update', // agent_complete
+        'update', // harvested
+        'release', // removed
+      ]);
+
+      // dispatch update threads session_id through.
+      const dispatchUpdate = calls.find(
+        (c) => c.op === 'update' && (c.args as { state: string }).state === 'dispatched',
+      );
+      expect((dispatchUpdate?.args as { session_id: string }).session_id).toBe('sess-xyz');
+    });
+
+    it('releases the lock on remove (non-forensics path)', async () => {
+      const { opts } = makeHarness();
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+
+      await manager.create('T-702', 'HEAD');
+      await manager.claim('T-702', []);
+      await manager.dispatch('T-702');
+      await manager.markAgentRunning('T-702');
+      await manager.markAgentComplete('T-702', 'success');
+      await manager.harvest('T-702');
+      await manager.remove('T-702');
+
+      const releaseCount = calls.filter((c) => c.op === 'release').length;
+      expect(releaseCount).toBe(1);
+    });
+
+    it('releases the lock when remove({keepForForensics: true}) is used', async () => {
+      const { opts } = makeHarness();
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+
+      await manager.create('T-703', 'HEAD');
+      await manager.claim('T-703', []);
+      await manager.dispatch('T-703');
+      await manager.markAgentRunning('T-703');
+      await manager.markAgentComplete('T-703', 'success');
+      await manager.harvest('T-703');
+      await manager.remove('T-703', { keepForForensics: true });
+
+      // The worktree directory stays, but the lock still releases —
+      // the lock guards the worktree FSM lifecycle, not the on-disk
+      // directory's retention.
+      const releaseCount = calls.filter((c) => c.op === 'release').length;
+      expect(releaseCount).toBe(1);
+    });
+
+    it('keeps the lock in place when fail() fires (preserved for forensics)', async () => {
+      const { opts } = makeHarness();
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+
+      await manager.create('T-704', 'HEAD');
+      await manager.fail('T-704', 'simulated_failure');
+
+      // Expect acquire + one update (state: failed), but NO release.
+      expect(calls.map((c) => c.op)).toEqual(['acquire', 'update']);
+      const failUpdate = calls.find((c) => c.op === 'update');
+      expect((failUpdate?.args as { state: string }).state).toBe('failed');
+    });
+
+    it('does NOT acquire a lock when `git worktree add` fails', async () => {
+      const { opts } = makeHarness((call) =>
+        call.args[1] === 'add'
+          ? { exitCode: 128, stdout: '', stderr: 'fatal: already exists' }
+          : { exitCode: 0, stdout: '', stderr: '' },
+      );
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+      await expect(manager.create('T-705', 'HEAD')).rejects.toThrow();
+      // The git failure short-circuits before the acquire call.
+      expect(calls).toEqual([]);
+    });
+
+    it('updates the lock to `failed` when `git worktree remove` fails', async () => {
+      let removeCallCount = 0;
+      const { opts } = makeHarness((call) => {
+        if (call.args[1] === 'remove') {
+          removeCallCount += 1;
+          return { exitCode: 128, stdout: '', stderr: 'fatal: locked' };
+        }
+        return { exitCode: 0, stdout: '', stderr: '' };
+      });
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+
+      await manager.create('T-706', 'HEAD');
+      await manager.claim('T-706', []);
+      await manager.dispatch('T-706');
+      await manager.markAgentRunning('T-706');
+      await manager.markAgentComplete('T-706', 'success');
+      await manager.harvest('T-706');
+      await expect(manager.remove('T-706')).rejects.toThrow();
+
+      expect(removeCallCount).toBe(1);
+      // Final update should be the state→failed update. No release.
+      const updates = calls.filter((c) => c.op === 'update');
+      const lastUpdate = updates.at(-1);
+      expect((lastUpdate?.args as { state: string }).state).toBe('failed');
+      expect(calls.filter((c) => c.op === 'release')).toHaveLength(0);
+    });
+
+    it('lock-ops calls are independent across concurrent tasks', async () => {
+      const { opts } = makeHarness();
+      const { ops, calls } = makeRecordingLockOps();
+      const manager = new WorktreeManager({ ...opts, lockOps: ops });
+
+      await manager.create('T-800', 'HEAD');
+      await manager.create('T-801', 'HEAD');
+      await manager.claim('T-800', []);
+      await manager.fail('T-801', 'task_b_failed');
+
+      const taskAOps = calls.filter((c) => c.taskId === 'T-800').map((c) => c.op);
+      const taskBOps = calls.filter((c) => c.taskId === 'T-801').map((c) => c.op);
+      expect(taskAOps).toEqual(['acquire', 'update']); // create + claim
+      expect(taskBOps).toEqual(['acquire', 'update']); // create + fail
     });
   });
 });
