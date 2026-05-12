@@ -1,0 +1,89 @@
+name: release
+
+# Tag-driven npm publish for v3+. Triggered when a `v*` tag lands on `main`.
+#
+# Prerequisites (user-managed, one-time):
+#   - `NPM_TOKEN` secret set on the repo (Settings → Secrets → Actions).
+#     Token must have publish rights to `stop-wasting-tokens` on npmjs.org.
+#   - publishConfig.provenance: true in package.json (already set).
+#   - id-token: write permission on this job (declared below) — gives the
+#     GHA runner an OIDC token that npm uses for Sigstore attestation.
+#
+# Tag → npm dist-tag mapping:
+#   - Tags containing `-` (prereleases: v3.0.0-alpha.1, v3.0.0-beta.2, ...)
+#     publish under dist-tag `next`. Users on `npm install stop-wasting-tokens`
+#     keep getting the stable line.
+#   - Tags without `-` (v3.0.0, v3.0.1, ...) publish under dist-tag `latest`.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify version lockstep
+        run: bash scripts/bump-version.sh --verify
+
+      - name: Verify tag matches package version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Tag and package.json agree on v$PKG_VERSION"
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm build
+
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$TAG_VERSION" == *-* ]]; then
+            echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+            echo "Publishing prerelease $TAG_VERSION under dist-tag next"
+          else
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "Publishing stable $TAG_VERSION under dist-tag latest"
+          fi
+
+      - name: Publish to npm with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm publish --tag ${{ steps.dist_tag.outputs.dist_tag }} --no-git-checks
