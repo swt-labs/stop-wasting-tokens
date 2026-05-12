@@ -97,7 +97,7 @@ Tier ↔ model mapping is per-provider (declared in `runtime/src/providers/defau
 
 ## Project status
 
-Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main). **v3.0.0-alpha.1 is STRUCTURALLY COMPLETE** as of 2026-05-12 — all 6 milestones have shipped on `main`. Release cut to npm awaits user-driven public benchmark recording + v2-archive branch cut (PR-50 + PR-53).
+Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main). **v3.0.0-alpha.1 is STRUCTURALLY COMPLETE** as of 2026-05-12 — all 6 milestones have shipped on `main`. Release cut to npm awaits user-driven public benchmark recording (PR-50).
 
 ### Milestone progress
 
@@ -108,7 +108,7 @@ Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/t
 | M3 Worktree dispatcher | **CLOSED** 2026-05-12 — 4 plans, 9 PRs (Plan 03-01..03-04 + session-wiring + runMilestone follow-ups). `WorktreeManager` FSM, `ClaimRegistry`, `resolveDag`, PID-liveness locks, `swt_report_result` wire-up, real Pi `createSession`, `runVibe` programmatic entry, dashboard Worktrees panel, `swt cleanup` verb, chaos suite, Windows path discipline + ADR-009 Accepted.                                   |
 | M4 Token meter + cache | **STRUCTURALLY COMPLETE** 2026-05-12 — 7 of 8 PRs (PR-31..35 + 37 + 38; PR-36 hard-deferred on M2 baseline). Deterministic `buildPrompt`, Anthropic `cache_control` wiring, cache-hit measurement + dashboard CacheHitPanel, OpenAI auto-cache observation, Budget Gate live + BudgetPanel, dashboard TPAC panel, ADR-006 + ADR-007 Accepted. 2 of 3 M4 EXIT GATE criteria PASS; TPAC −40% awaits M2 baseline. |
 | M5 Multi-provider      | **STRUCTURALLY COMPLETE** 2026-05-12 — 6 PRs (PR-39..PR-44). OpenRouter shim validation, Gemini ToS warnings, four router strategies (pinned/round-robin/tier-routed/cost-optimized), fallback chain + retry budget, per-provider cost panel, failover simulation, ADR-011 Accepted. 1 of 3 M5 EXIT GATE criteria PASS (failover sim); 2 DEFERRED on user-driven cassette recording.                           |
-| M6 Decommission + ship | **In progress** — Plan 06-01 opens with PR-45 (Codex-era removal), PR-46 (stubs trim), PR-47 (docs rewrite). Release operations (public benchmark, npm publish, v2-archive branch cut, homepage update) are user-driven.                                                                                                                                                                                       |
+| M6 Decommission + ship | **STRUCTURALLY COMPLETE** 2026-05-12 — Plan 06-01 closed (PR-45..PR-53). Release operations (public benchmark, npm publish, homepage update) are user-driven. ADR-012 (six-month LTS) was promoted Accepted at PR-53 and retracted same-day; v2.3.x is unsupported post-v3.0.                                                                                                                                  |
 
 ### Test posture at HEAD
 
@@ -171,7 +171,7 @@ alias swt="node $(pwd)/packages/cli/dist/cli.mjs"
 swt --version
 ```
 
-The legacy `v2.3.5` binary is still on npm for projects that haven't migrated yet. v2 patches land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) under the [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md) six-month LTS window.
+The legacy `v2.3.5` tarball remains on npm for projects that haven't migrated yet. v2.x is unsupported post-v3.0 — pin to a specific patch if you cannot migrate immediately. The supported path is `swt migrate --to=v3`.
 
 ---
 
@@ -380,9 +380,9 @@ The authoritative design document is [`TDD2.md`](./TDD2.md) at the repo root. Re
 
 13 Architecture Decision Records anchor the design, indexed at [`docs/decisions/README.md`](./docs/decisions/README.md):
 
-- **Accepted (7)**: ADR-001 (Pi adoption), ADR-002 (Extension result protocol), ADR-003 (provider quirks JSON), ADR-004 (cache_control at provider-shim), ADR-005 (delete drivers wholesale), ADR-008 (worktree-per-task — accepted M3 PR-22), ADR-010 (reproducible builds).
-- **Proposed (5)**: ADR-006 (cache breakpoint placement), ADR-007 (Budget Gate semantics), ADR-009 (Windows worktree paths), ADR-011 (cassette-only provider matrix), ADR-012 (six-month LTS).
+- **Accepted (11)**: ADR-001 (Pi adoption), ADR-002 (Extension result protocol), ADR-003 (provider quirks JSON), ADR-004 (cache_control at provider-shim), ADR-005 (delete drivers wholesale), ADR-006 (cache breakpoint placement), ADR-007 (Budget Gate semantics), ADR-008 (worktree-per-task), ADR-009 (Windows worktree paths), ADR-010 (reproducible builds), ADR-011 (cassette-only provider matrix).
 - **Deferred (1)**: ADR-013 (no hosted docs site at v3.0).
+- **Superseded (1)**: ADR-012 (six-month LTS) — promoted Accepted at M6 PR-53 and retracted same-day; v2.3.x is unsupported post-v3.0.
 
 Live planning state lives in [`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.md` is the entry point. Per-milestone PR ledger: [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).
 
@@ -416,4 +416,4 @@ Expected today. Both verbs are structurally complete (CLI surface + flag parsing
 - Security disclosures: [SECURITY.md](SECURITY.md).
 - License: MIT, see [LICENSE](LICENSE).
 
-Active development happens on `main`. Stable patches for the legacy v2.3.x line land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) under the [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md) six-month LTS window.
+Active development happens on `main`. The legacy v2.3.x line is unsupported post-v3.0; pin to a specific v2.3.x tarball on npm if you cannot migrate immediately, and run `swt migrate --to=v3` when ready.

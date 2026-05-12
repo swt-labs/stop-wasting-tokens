@@ -103,12 +103,12 @@ tar czf swt-planning-v2-backup.tar.gz .swt-planning-v2-backup
 rm -rf .swt-planning-v2-backup
 ```
 
-The backup is your insurance — keep it for the v2.3.x LTS window (6 months per ADR-012) until you're confident v3 is stable in your workflow.
+The backup is your insurance — keep it until you're confident v3 is stable in your workflow. v2.3.x is unsupported post-v3.0 (the planned 6-month LTS in ADR-012 was retracted same-day), so the backup + a pinned v2.3.x tarball on npm are your fallback path.
 
 ## See also
 
 - **TDD2 §13.6.1** — M6 PR-49 specification
 - **[`docs/operations/migrating-from-v2.md`](../../operations/migrating-from-v2.md)** — the full operator-facing migration guide
-- **[ADR-005](../../decisions/ADR-005-delete-legacy-drivers.md)** — why `codex` / `claude-code` / `ollama` backends were removed wholesale
-- **[ADR-012](../../decisions/ADR-012-six-month-lts-policy.md)** — v2.3.x LTS support window
+- **[ADR-005](../../decisions/ADR-005-delete-drivers-wholesale.md)** — why `codex` / `claude-code` / `ollama` backends were removed wholesale
+- **[ADR-012](../../decisions/ADR-012-six-month-lts-policy.md)** — six-month LTS for v2.3.x (Superseded; retracted same-day as v3.0 close)
 - **[`packages/cli/src/commands/migrate.ts`](../../../packages/cli/src/commands/migrate.ts)** — the CLI handler

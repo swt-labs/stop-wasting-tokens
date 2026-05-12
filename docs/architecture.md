@@ -4,7 +4,7 @@ Vendor-agnostic by construction. Per TDD2 §4.3.
 
 > **Audience:** contributors + operators who want to understand how SWT v3 is structured.
 > **Canonical reference:** [`TDD2.md` §4.3](../TDD2.md) for layer boundaries; this document is the operator-facing summary.
-> **Status (M6 PR-47, 2026-05-12):** v3 STRUCTURALLY COMPLETE. Awaits user-driven release operations (public benchmark recording, npm publish, v2-archive branch cut).
+> **Status (M6 PR-47, 2026-05-12):** v3 STRUCTURALLY COMPLETE. Awaits user-driven release operations (public benchmark recording, npm publish).
 
 ## The 6-layer stack
 
@@ -120,11 +120,10 @@ Per ADR-007 + the meter records' shape (`MeterRecord.input/output/cacheRead/cach
 - **ADR-010** Reproducible builds
 - **ADR-011** Provider matrix via cassettes (no real API keys in CI)
 
-Plus 1 Deferred:
+Plus 1 Deferred and 1 Superseded:
 
 - **ADR-013** No hosted docs site at v3.0 — in-tree `docs/` is sufficient (revisit at v3.1)
-
-ADR-012 (LTS policy) promotes to Accepted at M6 PR-53 alongside the v2-archive branch cut.
+- **ADR-012** Six-month LTS for v2.3.x — promoted Accepted at M6 PR-53 and retracted same-day; v2.3.x is unsupported post-v3.0.
 
 ## See also
 

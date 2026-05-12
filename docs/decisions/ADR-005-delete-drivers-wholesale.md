@@ -76,12 +76,13 @@ Easier:
 Harder:
 
 - v2.x users without Pi-supported providers have nowhere to land at v3
-  ship. Mitigation: `swt migrate --to=v3` (M6 PR-49) + the 6-month LTS
-  on v2.3.x (ADR-012). After 6 months, users who couldn't migrate are
-  expected to pin to a v2.3.x patch.
+  ship. Mitigation: `swt migrate --to=v3` (M6 PR-49) is the only support
+  path. The previously-planned 6-month LTS (ADR-012) was retracted, so
+  users who cannot migrate pin to a specific v2.3.x tarball on npm.
 - Anyone who had local forks of the driver packages will lose the
-  upstream merge path. Mitigation: the v2-archive branch preserves the
-  drivers verbatim; forks rebase against v2-archive instead of main.
+  upstream merge path. Mitigation: the v2.3.5 source is still reachable
+  via git history on `main` (final pre-pivot commit) and via the v2.3.x
+  tarballs on npm; rebase forks against that snapshot.
 - The codex-specific `AGENTS.md` per-role TOML blocks that v2's
   codex-driver wrote are gone — Pi reads the user's existing AGENTS.md
   natively (single file, no per-role variants), which is a behaviour

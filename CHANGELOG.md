@@ -2,7 +2,12 @@
 
 ## 3.0.0 — STRUCTURALLY COMPLETE 2026-05-12 (npm publish pending release operations)
 
-_All 6 milestones (M1..M6) shipped on `main`. Plan 06-01 closing PRs land at this section. Release notes: [RELEASE-NOTES-v3.0.md](./RELEASE-NOTES-v3.0.md). The npm publish + GitHub release + v2-archive branch cut are user-driven operations gated on cassette recording + the public benchmark run._
+_All 6 milestones (M1..M6) shipped on `main`. Plan 06-01 closing PRs land at this section. Release notes: [RELEASE-NOTES-v3.0.md](./RELEASE-NOTES-v3.0.md). The npm publish + GitHub release are user-driven operations gated on cassette recording + the public benchmark run._
+
+### Post-M6 housekeeping (2026-05-12, same-day)
+
+- **CI Build OOM fix.** Bumped Node heap to 4GB (`NODE_OPTIONS=--max-old-space-size=4096`) on the cross-platform Build step. tsup bundling of `dist/cli.mjs` was hitting V8 heap exhaustion on macOS + Windows runners (Ubuntu had enough headroom to mask it). Every push to `main` since PR-49 was red on those legs; fix lands at commit `ffdfebb`.
+- **ADR-012 (six-month LTS) retracted same-day.** Promoted Accepted at PR-53 (this section), then retracted on reflection. v2.3.x receives no further patches post-v3.0. Concrete effects: `v2-archive` branch deleted from origin; `release.yml`, `dependabot.yml`, and `docs/operations/lts-policy.md` removed; v2-archive + `release/v2.3-*` triggers stripped from `ci.yml`, `codeql.yml`, `vale.yml`; ADR-012 status flipped Accepted → Superseded with the original body preserved as historical record; README + release notes + migration guide updated to reflect no-LTS posture. Historical v2.3.x tarballs remain on npm; the supported migration path is `swt migrate --to=v3` (PR-49).
 
 **M1 Foundation closed 2026-05-12.** **M2 Single-agent path closed 2026-05-12.** **M3 Worktree dispatcher closed 2026-05-12** (Plan 03-01 + session-wiring follow-up + runMilestone activation follow-up + Plan 03-04). **M4 Token meter + cache discipline structurally closed 2026-05-12** (PR-31..PR-35, PR-37, PR-38; PR-36 hard-deferred on M2 baseline). **M5 Multi-provider structurally closed 2026-05-12.** **M6 Decommission + ship in progress** (Plan 06-01).
 

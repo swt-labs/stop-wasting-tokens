@@ -1,18 +1,37 @@
 ---
 adr: 012
 title: v2.3.x receives 6 months of security + critical-bug patches post-v3.0
-status: Accepted
+status: Superseded
 decided: 2026-05-12
-pr: M1 PR-10 (drafted Proposed) → M6 PR-53 (promoted Accepted)
+pr: M1 PR-10 (drafted Proposed) → M6 PR-53 (promoted Accepted) → 2026-05-12 (retracted, same-day post-M6)
 supersedes: TDD2 §17.5
 related: ADR-005
 ---
 
 # ADR-012 — v2.3.x receives 6 months of security + critical-bug patches post-v3.0
 
-**Status:** Accepted (M6 PR-53 promoted at Plan 06-01 close alongside `docs/operations/lts-policy.md` operator-facing reference)
+**Status:** Superseded — retracted 2026-05-12, same day as the M6 PR-53 promotion. v2.3.x receives no further patches. The `v2-archive` branch, the `release/v2.3-*` backport convention, the dedicated release workflow, and the Dependabot retarget have all been removed. npm continues to serve historical v2.3.x tarballs unchanged.
 
-## Context
+## Retraction (2026-05-12, same day post-M6)
+
+The 6-month LTS commitment is retracted. Rationale:
+
+- The maintainer decided that running two parallel engineering tracks (v3 forward work plus v2.3.x backports) is not justified against the realistic adoption profile of v2.3.x at the v3.0 release moment.
+- `swt migrate --to=v3` (M6 PR-49) is out-of-place and idempotent. Operators who need to defer migration can pin to a specific v2.3.x patch on npm; the tarballs do not disappear.
+- The retraction is documented same-day so the published surface (README, release notes, ADR registry) is internally consistent at the v3.0 mark.
+
+Concrete effects of the retraction:
+
+- `v2-archive` branch deleted from the remote on 2026-05-12.
+- `.github/workflows/release.yml` (the v2-only release workflow) deleted.
+- `.github/dependabot.yml` (Dependabot retargeted to `v2-archive`) deleted.
+- `.github/workflows/{ci,codeql,vale}.yml` trigger blocks no longer include `v2-archive` or `release/v2.3-*` branches.
+- `docs/operations/lts-policy.md` (the operator-facing reference) deleted.
+- README + release notes + migration guide no longer advertise a 6-month support window.
+
+The original ADR body is preserved verbatim below as a historical record of the decision that was made and same-day reversed.
+
+## Context (historical)
 
 v3 is a runtime-layer rewrite (Codex/Claude-Code/Ollama drivers → Pi);
 methodology is preserved, but the dependency surface changes substantially.
@@ -33,60 +52,50 @@ Three positions are tenable:
 3. **Time-bounded LTS** — v2.x receives a defined window of patches with
    explicit SLAs; window has a hard end date and an explicit EOL.
 
-Option 3 balances user obligation with engineering scope. The duration
-matters less than the explicit bound — anything from 3 to 9 months is
-reasonable; 6 months is the chosen middle ground.
+Option 3 was chosen at promotion to balance user obligation with engineering
+scope. Same-day reflection moved the decision back to Option 1.
 
-## Decision
+## Decision (historical — superseded)
 
-v2.3.x enters LTS on the v3.0.0 release date for 6 calendar months. SLAs:
+v2.3.x was to enter LTS on the v3.0.0 release date for 6 calendar months
+with the following SLAs:
 
 - **Security** (CVE, credential leak, RCE): 7-day backport target.
-- **Data-loss / install-breaking** (filesystem corruption, install failure
-  on a supported OS): 14-day backport target.
-- **Regression** (a v2.3.5-released feature stops working): 30-day backport target.
-- **Features / enhancements**: not addressed. v2.x users get fixes only.
+- **Data-loss / install-breaking**: 14-day backport target.
+- **Regression**: 30-day backport target.
+- **Features / enhancements**: not addressed.
 
-After 6 months:
+After 6 months: final patch release, EOL announcement, branch read-only.
 
-- Final patch release on the v2-archive branch.
-- v2-archive tag preserved (already in place from the repository pivot).
-- README on `main` updated with EOL date + pointer to v3.
-- The `v2-archive` branch stays on GitHub (read-only); npm continues to
-  serve historical tarballs.
+Backports were to route through `release/v2.3-*` branches into `v2-archive`.
 
-Backports route through `release/v2.3-*` branches (per the repository pivot
-on 2026-05-11). The `v2-archive` branch carries the v2.3.5 source verbatim
-and receives patches only via these release branches. The Dependabot retarget
-to `v2-archive` (already in place) keeps the LTS branch on supported
-transitive deps without disturbing main.
+## Consequences (historical — superseded)
 
-## Consequences
+Easier (at promotion time):
 
-Easier:
-
-- Maintenance scope bounded and visible. Users have a clear deadline;
-  security obligations are precise.
-- Dual-track sized: 6 months × historical v2.3.x cadence ≈ 8 patch releases
-  worst case.
+- Maintenance scope bounded and visible.
+- Dual-track sized: 6 months × historical v2.3.x cadence ≈ 8 patch releases worst case.
 - After EOL, the v3 team works on v3 only.
 
-Harder:
+Harder (at promotion time):
 
-- 6 months of two-track engineering. Every v3 fix touching shared
-  methodology needs a port/skip/backport decision.
-- The v3 team must staff backport reviews. Mitigation: batched release cuts.
-- Users who can't migrate by month 6 are out of support. Mitigation: the
-  migration guide + `swt migrate --to=v3` script land in M6.
+- 6 months of two-track engineering with per-fix port/skip/backport decisions.
+- Backport-review staffing burden.
+- Users unable to migrate by month 6 lose support.
 
-## Validation (M6 PR-53, 2026-05-12)
+The "Harder" column was the trigger for the same-day retraction.
 
-Three layers of validation operationalize the policy:
+## Validation (historical — no longer in effect)
 
-**Layer 1 — Migration path (M6 PR-49).** `swt migrate --to=v3` ships as a structural verb in `packages/cli/src/commands/migrate.ts` with 8 fixture-driven tests. Out-of-place + idempotent. JSON `backend`/`agent_backend` enum rewrites + markdown frontmatter `reasoning_effort → thinking_level` rename. Operators can migrate at any point during the 6-month LTS window without manual config edits.
+The Validation section originally documented three operationalization layers:
 
-**Layer 2 — Operator-facing reference (M6 PR-53, this commit).** [`docs/operations/lts-policy.md`](../operations/lts-policy.md) documents the SLA matrix (7-day security / 14-day data-loss / 30-day regression / N/A features) + EOL date computation rule (v3.0.0 release date + 6 calendar months) + backport routing (`release/v2.3-*` branches → `v2-archive` branch) + how operators report a CVE / data-loss / regression issue against v2.3.x. The README on `main` carries the EOL date in the project-status section.
+1. Migration path (M6 PR-49) — `swt migrate --to=v3`. **Still in effect** — independent of the LTS commitment.
+2. Operator-facing reference (M6 PR-53) — `docs/operations/lts-policy.md`. **Removed** as part of the retraction.
+3. Infrastructure (`v2-archive` branch + Dependabot retarget + `release/v2.3-*` convention). **Removed** as part of the retraction.
 
-**Layer 3 — Infrastructure already in place.** `v2-archive` branch exists from the 2026-05-12 repository pivot (the M2 baseline before the runtime rewrite started). Dependabot is retargeted to `v2-archive` per `dependabot.yml` so transitive-dep updates keep flowing without disturbing `main`. The `release/v2.3-*` branch convention (one short-lived branch per backport batch) follows the standard semantic-versioning patch flow.
+Layer 1 stands on its own. Layers 2 + 3 are gone.
 
-The LTS commitment is observable from the README on `main` + the operator runbook + the migration script. Operators who cannot migrate on day one have a defined support window with explicit deadlines; the v3 team has a defined engineering scope ceiling at 6 months.
+## See also
+
+- [ADR-005 — Delete legacy drivers wholesale](ADR-005-delete-drivers-wholesale.md) — the migration story is the surviving counterpart to this retracted policy.
+- [`docs/cli/verbs/migrate.md`](../cli/verbs/migrate.md) — the v2 → v3 migration verb that remains the actual support path for v2.x users.

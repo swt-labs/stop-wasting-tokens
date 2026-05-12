@@ -121,16 +121,9 @@ swt status
 
 Full workflow + scope table: [`docs/cli/verbs/migrate.md`](docs/cli/verbs/migrate.md).
 
-## v2.3.x LTS policy
+## v2.3.x support posture
 
-Per ADR-012, v2.3.x receives **6 months** of security + critical-bug patches post-v3.0:
-
-- Security patches: backported within 7 days of public disclosure
-- Critical bug fixes (data-loss, install-breaking): backported within 14 days
-- No new features
-- EOL date is published on the README on `main`
-
-After 6 months, v2.x is archived. Users are expected to have migrated or pinned to a specific v2.3.x patch.
+v2.3.x receives no further patches post-v3.0. Operators who need to defer migration can pin to a specific v2.3.x version on npm — historical tarballs remain available. The previously-considered 6-month LTS window was retracted same-day (see ADR-012 Superseded). The supported migration path is `swt migrate --to=v3`.
 
 ## ADR matrix at v3.0
 
@@ -150,11 +143,10 @@ After 6 months, v2.x is archived. Users are expected to have migrated or pinned 
 | ADR-010 | Reproducible builds                                               | M1       |
 | ADR-011 | Provider matrix via cassettes (no real API keys in CI)            | M5 PR-44 |
 
-Plus 1 Deferred:
+Plus 1 Deferred and 1 Superseded:
 
 - **ADR-013** No hosted docs site at v3.0 — in-tree `docs/` is sufficient (revisit at v3.1)
-
-ADR-012 (LTS policy) promotes to Accepted at PR-53 alongside the v2-archive branch cut.
+- **ADR-012** Six-month LTS policy — promoted Accepted at M6 PR-53 and retracted same-day. See ADR-012 (Superseded).
 
 ## Test posture at v3.0
 
@@ -188,7 +180,6 @@ For the operator running the npm publish:
 - [ ] Run `pnpm public-benchmark` + paste table into homepage
 - [ ] PR-36 regression test flips from `skipIf(!HAS_BASELINE)` to active
 - [ ] `pnpm test` + `pnpm test:chaos` + `pnpm test:provider-matrix` all green
-- [ ] Cut `v2-archive` branch at the last v2.3.x commit
 - [ ] `pnpm release` (npm publish with provenance + signed tag)
 - [ ] GitHub release with these notes attached
 - [ ] Homepage updated with public benchmark numbers

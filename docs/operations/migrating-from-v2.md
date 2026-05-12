@@ -19,11 +19,10 @@ If you've been on v2.x for a while, this migration is mostly mechanical. The
 `swt migrate --to=v3` script (M6 PR-49) does the bulk of the work; this guide
 explains what it does and how to verify the result.
 
-> **6-month LTS reminder.** v2.3.x receives security + critical-bug patches for
-> 6 months after v3.0 ships (per ADR-012 — 7-day backport SLA for security,
-> 14-day for data-loss / install-breaking, 30-day for regressions). If you
-> genuinely can't migrate on day one, you have a defined support window — but
-> the window has a hard end date, and that date is now in the README on `main`.
+> **v2.3.x support posture.** v2.3.x receives no further patches after v3.0
+> ships. The previously-planned 6-month LTS window (ADR-012) was retracted
+> same-day. Historical v2.3.x tarballs remain on npm; pin to a specific patch
+> if you cannot migrate immediately, and run `swt migrate --to=v3` when ready.
 
 ## What changed at a glance
 
@@ -236,8 +235,8 @@ the original values for every field touched. The script's `--undo` mode reads
 this log and reverses the transformations. Note: this path is best-effort;
 explicit backups (A or B) are recommended.
 
-After backing out, your project is on v2.3.x again. The 6-month LTS clock is
-still ticking, so plan a re-migration before the EOL date.
+After backing out, your project is on v2.3.x again. There is no v2.3.x patch
+stream — pin a specific tarball on npm and plan a re-migration when you can.
 
 ## FAQ
 
@@ -274,10 +273,10 @@ picks. With `pinned`, a missing provider falls back to the project default.
 
 **Will v2.x still get patches?**
 
-Yes, 6 months of security + critical-bug patches per ADR-012. Cadence,
-SLAs, and EOL date are on the README. After 6 months, v2.x receives no
-further changes; the `v2-archive` tag and branch stay readable on GitHub
-indefinitely. npm continues to serve historical tarballs.
+No. The 6-month LTS window planned in ADR-012 was retracted same-day as
+the v3.0 structural close. v2.3.x receives no further patches; pin to a
+specific v2.3.x tarball on npm if you cannot migrate immediately. The
+supported path is `swt migrate --to=v3`.
 
 **Is my data backed up automatically?**
 
@@ -300,12 +299,11 @@ the cleaner log.
 
 **What about the v2.3.5 test failures the project shipped with?**
 
-v3 inherits them via the v3-foundation branch cut from v2-archive. M1 Plan
-01-03 PR-11 remediates them — either fixes, deletes (obsolete tests for
-deleted driver code), or `it.skip(...)`s with tracking-issue URLs. After
-PR-11 merges, `ci.yml`'s Test step becomes required (no `continue-on-error`).
-Your migrated project picks up the fixes the moment you upgrade past v3.0.1
-or the v3.0.x patch that includes them.
+v3 inherited them via the M1 Foundation branch cut. M1 Plan 01-03 PR-11
+remediates them — either fixes, deletes (obsolete tests for deleted driver
+code), or `it.skip(...)`s with tracking-issue URLs. After PR-11 merged,
+`ci.yml`'s Test step became required (no `continue-on-error`). Your
+migrated project picks up the fixes the moment you upgrade to v3.0.
 
 ## Known migration issues
 

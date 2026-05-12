@@ -5,7 +5,7 @@ status: Deferred
 decided: 2026-05-11
 pr: M6 PR-47
 supersedes: TDD2 §18.6
-related: ADR-005, ADR-012
+related: ADR-005
 ---
 
 # ADR-013 — No hosted documentation site at v3.0; in-tree docs/ is sufficient
