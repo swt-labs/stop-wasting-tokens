@@ -85,3 +85,15 @@ export {
   type ClaimConflict,
   type RegisterResult,
 } from './claim-registry.js';
+
+// PR-24 (M3): DAG resolver. Per TDD2 §9.3. Converts a plan's task
+// array (with depends_on[]) into ordered parallel batches via Kahn's
+// algorithm. Cycle + missing-dep + duplicate-ID detection up front.
+export {
+  resolveDag,
+  CycleDetectedError,
+  MissingDependencyError,
+  DuplicateTaskError,
+  type DagError,
+  type ResolveDagResult,
+} from './dag-resolver.js';
