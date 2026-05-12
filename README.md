@@ -6,7 +6,7 @@
 
 > A spec-driven, Pi-native coding harness built around a single obsession: **stop wasting tokens**.
 
-> **v3 redesign in active development on `main`.** v3 is a runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved verbatim from v2, the Codex/Claude-Code/Ollama backends retired in favor of Pi's provider matrix. **M1 Foundation closed 2026-05-12.** **M2 single-agent path is in flight: 6 of 10 PRs landed** (PR-12 → PR-17). The published binary on npm is still v2.3.5; v3.0 cuts from `main` at the M6 release gate. v2.3.x stays on LTS via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md).
+> **v3 redesign in active development on `main`.** v3 is a runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved verbatim from v2, the Codex/Claude-Code/Ollama backends retired in favor of Pi's provider matrix. **M1 Foundation closed 2026-05-12.** **M2 Single-agent path closed 2026-05-12** (all 10 PRs structurally complete; live TPAC baseline pending user cassette recording + session-wiring follow-up). **M3 Worktree dispatcher in flight: PR-22 (WorktreeManager FSM) landed.** The published binary on npm is still v2.3.5; v3.0 cuts from `main` at the M6 release gate. v2.3.x stays on LTS via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md).
 
 `swt` is a Node/TypeScript CLI you install once. It wraps every coding-agent session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
 
@@ -110,18 +110,26 @@ Currently **v3.0.0-alpha.1 (in development)** on the [`main`](https://github.com
 | 01-02 | PR-05..PR-09 | Driver packages deleted + cassette infrastructure + token meter + provider quirks + `swt_report_result` Pi Extension             |
 | 01-03 | PR-10..PR-11 | 13 ADRs (5 Accepted + 7 Proposed + 1 Deferred) + v2→v3 migration guide + reproducible-build CI + 33 v2.3.5 test-debt remediation |
 
-### M2 Single-agent path — 6 of 10 PRs landed
+### M2 Single-agent path — CLOSED 2026-05-12 (structurally complete; live baseline pending user-driven activation)
 
-| Plan  | PRs           | Status                                                                                                                                                                                                                                                                                                                                                              |
-| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 02-01 | PR-12 → PR-16 | **Complete** — methodology dispatches through `@swt-labs/orchestration`; 6 SDLC role profiles; Dev sequential dispatch with halt-on-failed; QA static-check ladder + LLM escalation contract; UiPermissionGate sibling. HIGH-priority bash-guard security regression FIXED. 12 of 22 in-scope umbrella #32 test debts cleared (methodology 9/9 + verification 3/3). |
-| 02-02 | PR-17 → PR-21 | **In progress** — PR-17 shipped (dashboard SSE rewire + chokidar v4 fix + LogPanel TS2322 + 9 dashboard test debts). PR-18..PR-21 pending (cassette regression, TPAC baseline, `swt rpc`, `swt bench`).                                                                                                                                                             |
+| Plan  | PRs           | Status                                                                                                                                                                                                                                                                                                                                                                          |
+| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 02-01 | PR-12 → PR-16 | **Complete** — methodology dispatches through `@swt-labs/orchestration`; 6 SDLC role profiles; Dev sequential dispatch with halt-on-failed; QA static-check ladder + LLM escalation contract; UiPermissionGate sibling. HIGH-priority bash-guard security regression FIXED. 12 of 22 in-scope umbrella #32 test debts cleared (methodology 9/9 + verification 3/3).             |
+| 02-02 | PR-17 → PR-21 | **Complete** — dashboard SSE rewire + chokidar v4 fix + LogPanel TS2322 (PR-17); cassette regression scaffolding + `diffArtefacts` (PR-18); TPAC aggregator + `TpacReportSchema` frozen at `schema_version: 1` (PR-19); `swt rpc` verb (PR-20); `swt bench` verb (PR-21). Final 9 dashboard test debts cleared. Live TPAC baseline pending cassette recording + session-wiring. |
+
+**M2 EXIT GATE per TDD2 §13.2.3:** 3 of 6 criteria PASS today (PR-17/20/21). The 3 deferred criteria — full milestone end-to-end run, regression suite live diff, recorded TPAC baseline — are all structurally complete; activation requires (a) an Anthropic cassette recording session (user-driven, ~30–45 min + ~$0.50 API spend) and (b) a single-file `session.prompt()` activation PR (deferred from M3 PR-22 after empirical scope discovery).
+
+### M3 Worktree dispatcher — in flight (PR-22 landed)
+
+| Plan  | PRs           | Status                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 03-01 | PR-22 → PR-26 | **In progress** — PR-22 shipped (`WorktreeManager` 8-state lifecycle FSM + per-task journal + ADR-008 Accepted). PR-23..PR-26 pending (`claim-registry.ts`, `dag-resolver.ts`, `lock-files.ts`, `swt_report_result` dispatcher wire-up). Real Pi `session.prompt()` wiring was scoped out of PR-22 after empirical cost discovery; tracked as a dedicated follow-up PR before Plan 03-02 begins. |
 
 ### Test posture at HEAD
 
-- **858 tests pass / 45 skipped / 0 fail** across the workspace.
+- **921 tests pass / 46 skipped / 0 fail** across the workspace.
 - `pnpm typecheck` clean (`tsc --build`).
-- `pnpm lint` 0 errors, 221 warnings (mostly demoted `import/no-restricted-paths` pending M3's eslint-import-resolver-typescript wiring).
+- `pnpm lint` 0 errors, 235 warnings (mostly demoted `import/no-restricted-paths` pending M3's eslint-import-resolver-typescript wiring).
 - `pnpm format:check` clean.
 
 Per-version changes tracked in [CHANGELOG.md](./CHANGELOG.md). Detailed M1 + M2 commit trails live in [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).

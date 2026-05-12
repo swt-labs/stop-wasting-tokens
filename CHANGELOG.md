@@ -2,7 +2,7 @@
 
 ## 3.0.0-alpha.1 — IN DEVELOPMENT (not yet published)
 
-_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12** and **M2 single-agent path is in flight (PR-17 of 21 landed)**._
+_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12**, **M2 Single-agent path closed 2026-05-12 (all 10 PRs landed; live TPAC baseline pending user cassette recording + session-wiring follow-up)**, and **M3 Worktree dispatcher in flight (PR-22 landed)**._
 
 > **Branch strategy note (2026-05-12):** v3 development was previously on a `v3-foundation` integration branch with the plan to merge into `main` at the M6 release gate. That branch has been retired; `main` is now the sole development surface for v3. The per-plan "commit trail on `v3-foundation`" section titles below are kept as historical record — the commits themselves are now on `main`'s history.
 
@@ -170,35 +170,75 @@ M2 Plan 02-01 — _Methodology Rewire + Single-Agent Path_ — closed 2026-05-12
 
 Test posture at Plan 02-01 close: **828 passed / 75 skipped / 0 failed**. `pnpm typecheck` clean, `pnpm lint` 0 errors. Methodology cluster (9/9) + Verification HIGH-priority bash-guard cluster (3/3) of umbrella issue #32 resolved.
 
-### Added (Plan 02-02 — PR-17, in progress)
+### Added (Plan 02-02 — PR-17 → PR-21, complete)
 
-PR-17 shipped 2026-05-12 as the first commit of Plan 02-02. Remaining PRs (PR-18 cassette regression, PR-19 TPAC baseline, PR-20 `swt rpc`, PR-21 `swt bench`) pending.
+All 5 PRs of Plan 02-02 shipped 2026-05-12. M2 single-agent path closed.
 
 - **LogPanel.tsx(78,9) TS2322 FIXED (PR-17, commit `3ae8e6c`)** — pre-existing v2.3.5 carry-forward. `{scheduleSnap()}` inline JSX call returned `void` (not a renderable type). Moved to `createEffect(() => scheduleSnap())` per SolidJS idiom; the side-effect (queued auto-scroll) still fires on every reactive re-render but no longer appears as a JSX child. `pnpm -F @swt-labs/dashboard exec tsc --noEmit -p tsconfig.client.json` now clean.
 - **chokidar v4 glob-support fix (PR-17)** — chokidar 4.0.3 dropped built-in glob handling; the v2-era `<dir>/*.jsonl` pattern in `tail-file.ts` was being treated as a literal path that never existed. Rewrote `createFileTailer` to parse the `*.<ext>` tail itself: derive the directory + an extension filter, watch the directory, filter `add`/`change` events by extension. Added a `ready: Promise<void>` to `FileTailer` + `EventsTailer` so tests that write files immediately after construction can `await tailer.ready` before chokidar's initial scan completes. Also dropped `awaitWriteFinish: { stabilityThreshold: 25 }` from the chokidar config — it delayed events 25-50ms even for atomic `writeFileSync` calls; consumers read JSONL via atomic writes.
-- **9 of 10 dashboard test-debt items UNSKIPPED + GREEN (PR-17)** — `sse-snapshot-changed.test.ts` (2 of 2 active), `sse-reconnect.test.ts` (3), `events-tailer.test.ts` (4), `log-rate-limit.test.ts` (2), `server.test.ts` (4), `artifact-route.test.ts` (8), `snapshot-reducer.test.ts` (9). 3 test-side adjustments where v2-shape assertions drifted: `server.test` regex (`/refuses to bind/` → `/[Rr]efus(es|ing) to bind/`); `snapshot-reducer` explicit `generated_at` diff (Date.now ms-resolution collision); `artifact-route` shiki output shape (`class="language-ts"` → styled-span pattern).
+- **9 of 10 dashboard test-debt items UNSKIPPED + GREEN (PR-17)** — `sse-snapshot-changed.test.ts` (1 residual chokidar v4 close-handler edge case skipped), `sse-reconnect.test.ts` (3), `events-tailer.test.ts` (4), `log-rate-limit.test.ts` (2), `server.test.ts` (4), `artifact-route.test.ts` (8), `snapshot-reducer.test.ts` (9). 3 test-side adjustments where v2-shape assertions drifted: `server.test` regex (`/refuses to bind/` → `/[Rr]efus(es|ing) to bind/`); `snapshot-reducer` explicit `generated_at` diff (Date.now ms-resolution collision); `artifact-route` shiki output shape (`class="language-ts"` → styled-span pattern).
+- **Cassette regression scaffolding (PR-18, commit `7a1b20c`)** — `packages/test-utils/golden/ref-fastapi/` frozen reference fixture (PROJECT.md + REQUIREMENTS.md + `v2-baseline/.gitkeep` + `cassettes/.gitkeep`). `runMilestone` test harness in `packages/test-utils/src/run-milestone.ts` with cassette discovery + tmpdir spec copy + replay install; throws `CassetteNotRecordedError` (no cassettes today) or `MilestoneInvocationDeferredError` (post-cassette, until M3 session.prompt() activation). `diffArtefacts` allowed-drift comparator in `packages/test-utils/src/diff-artefacts.ts` per TDD2 §14.6 — 5 artefact categories (state-md, plan-md, verification-counts, semantic-fingerprint, byte-exact) with two-row Levenshtein DP. `test/regression/ref-fastapi.regression.test.ts` ships with `skipIf(!READY)`; `scripts/stub-test-regression.mjs` rewritten to invoke `vitest run test/regression/` directly; `.github/workflows/regression.yml` Test step calls `pnpm test:regression` with no fallback.
+- **TPAC aggregator + Zod schema (PR-19, commit `454eed2`)** — `packages/orchestration/src/tpac-meter.ts` exports `computeTpac(snapshot, opts) → TpacReport` (filter `MeterSnapshot.records` by milestone, sum input/output/cost, divide by `criteria_satisfied`) + `summariseRoles(snapshot, {milestone})` for the per-role dashboard breakdown + `NoSatisfiedCriteriaError` zero-denominator guard. `packages/shared/src/schemas/tpac-report.ts` exports `TpacReportSchema` frozen at `schema_version: 1` — same Zod contract M4 PR-32's `−40% vs M2` target check consumes. `docs/operations/observability.md` extended with the M2 measurement methodology + M4 cache-hit-ratio preview.
+- **`swt rpc` verb (PR-20, commit `44a5ba3`)** — delegates to Pi's `runRpcMode` under the `swt` binary name per TDD2 §3.2 + §5. `packages/runtime/src/rpc-runner.ts` imports `runRpcMode` value-level (the Pi import lives in runtime/, per Principle 1). `packages/cli/src/commands/rpc.ts` honours Pi's stdout-reserved-for-protocol convention (asserted by 3 tests). Handler catches `RpcModeUnavailableError` until M3 session-wiring follow-up wires the full `AgentSessionRuntime` construction; today the verb exits `EXIT.NOT_IMPLEMENTED` (2) with a clear pointer to the activation gate. Per-verb doc at `docs/cli/verbs/rpc.md`.
+- **`swt bench` verb (PR-21, commit `46fb02c`)** — user-facing wrapper on the cassette regression machinery. `packages/cli/src/commands/bench.ts` wires the chain `runMilestone (test-utils) → harvestRunResult → computeTpac (orchestration) → TpacReportSchema.parse (shared) → emit (stdout or --output file)`. Flag set: `--fixture` (default `ref-fastapi-empty`), `--provider` (`anthropic`), `--cassettes`, `--output`, `--milestone` (`M2`). 4 tests cover the deferred-state contract (`CassetteNotRecordedError` + `MilestoneInvocationDeferredError` + unexpected-error + flag-defaults/overrides spy). `@swt-labs/test-utils` promoted from pure dev-time package to runtime dep of `@swt-labs/cli`. Per-verb doc at `docs/cli/verbs/bench.md`.
 
-### Plan 02-02 commit trail on `v3-foundation` (in progress)
+### Plan 02-02 commit trail on `main`
+
+|  PR   |                                   Commit                                    | Subject                                                                                                       |
+| :---: | :-------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------ |
+| PR-17 | [`3ae8e6c`](https://github.com/swt-labs/stop-wasting-tokens/commit/3ae8e6c) | `feat(dashboard)`: SSE rewire + chokidar v4 fix + LogPanel TS2322 + 9 v2.3.5 dashboard test debts             |
+| PR-18 | [`7a1b20c`](https://github.com/swt-labs/stop-wasting-tokens/commit/7a1b20c) | `feat(test-utils,regression)`: cassette regression suite scaffolding + diffArtefacts allowed-drift comparator |
+| PR-19 | [`454eed2`](https://github.com/swt-labs/stop-wasting-tokens/commit/454eed2) | `feat(orchestration,shared)`: TPAC aggregator + TpacReport schema + observability docs                        |
+| PR-20 | [`44a5ba3`](https://github.com/swt-labs/stop-wasting-tokens/commit/44a5ba3) | `feat(runtime,cli)`: `swt rpc` verb delegating to Pi `runRpcMode`                                             |
+| PR-21 | [`46fb02c`](https://github.com/swt-labs/stop-wasting-tokens/commit/46fb02c) | `feat(cli,bench)`: `swt bench` verb wrapping ref-fastapi TPAC harness                                         |
+
+Test posture at Plan 02-02 close: **905 passed / 46 skipped / 0 failed**. `pnpm typecheck` clean, `pnpm lint` 0 errors, `pnpm format:check` clean. Dashboard cluster of umbrella issue #32: 9 of 10 resolved (1 `sse-snapshot-changed` chokidar v4 close-handler edge case skipped pending chokidar 5 / fs.watch migration). LogPanel TS2322 resolved.
+
+### M2 EXIT GATE — 2026-05-12 (structurally complete; live baseline pending user-driven activation)
+
+Per TDD2 §13.2.3 — 3 of 6 criteria PASS today, 3 deferred but structurally complete:
+
+| Criterion                                                                | Status   | Activation gate                                                 |
+| ------------------------------------------------------------------------ | -------- | --------------------------------------------------------------- |
+| Reference greenfield project runs full milestone end-to-end on Anthropic | DEFERRED | Anthropic cassette recording + session-wiring follow-up         |
+| Regression suite passes against v2.3.5 golden                            | DEFERRED | Cassette recording + v2.3.5 golden run                          |
+| TPAC measured + recorded as fixed M2 baseline                            | DEFERRED | Cassette recording + session-wiring follow-up → `swt bench` run |
+| Dashboard's existing panels work against the new event stream            | **PASS** | PR-17 — closes 9 of 10 dashboard test debts                     |
+| `swt rpc` ships                                                          | **PASS** | PR-20 — structural; live activation at session-wiring follow-up |
+| `swt bench` ships                                                        | **PASS** | PR-21 — structural; live activation at session-wiring follow-up |
+
+**No further code is needed in Plan 02-02 / M2 to satisfy the gate.** The remaining work is a user-driven Anthropic recording session (~30–45 min + ~$0.50 API spend) + a single-file `session.prompt()` activation PR (deferred from M3 PR-22's original scope after empirical cost discovery).
+
+### Added (M3 entry — Plan 03-01 PR-22)
+
+- **`WorktreeManager` lifecycle FSM (PR-22, commit `48514a0`)** — `packages/orchestration/src/worktree-manager.ts` ships the 8-state FSM per TDD2 §9.1 (`created → claimed → dispatched → agent_running → agent_complete → harvested → removed`; `failed` reachable from any non-terminal state). Backed by `git worktree add/remove` via pluggable git runner + per-task line-delimited journal at `.swt-planning/journal/wt-<taskId>.jsonl`. Methods: `create` / `claim` / `dispatch` / `markAgentRunning` / `markAgentComplete` / `harvest` / `remove({keepForForensics?})` / `fail`. Illegal transitions throw `IllegalTransitionError`. Git failures during `create` / `remove` transition to `failed` and throw `GitOperationError`. 16 tests cover happy path + illegal transitions + git failures + fail-from-any-state + keepForForensics + concurrent tasks. Per-worktree Pi session wiring is explicitly NOT in this PR — marked as `TODO(session-wiring follow-up)` at the `dispatch` method insertion point. `WorktreeState` + `WorktreeJournalEntry` types land in `packages/shared/src/types/worktree.ts`.
+- **PR-22 scope-down note** — the original Plan 03-01 draft asked PR-22 to also wire real Pi `session.prompt()` + flip 4 M2-deferred consumers (`swt rpc`, `swt bench`, `runMilestone`, `dispatch.test`) in the same commit. After empirically scoping Pi's `createAgentSession` + `createAgentSessionRuntime` (requires auth/model/settings configuration + cross-package test-scaffolding churn), that scope was 2-3× a single-session commit. Plan 03-01 was amended to honor TDD2 §13.3.1's literal PR-22 scope (just `worktree-manager.ts`); the real-Pi wiring is deferred to a dedicated follow-up PR before Plan 03-02 begins. The 4 M2-deferred consumers stay deferred until that follow-up lands.
+
+### ADRs (M3 entry)
+
+- **ADR-008 — One git worktree per dispatched task** promoted Proposed → **Accepted** at PR-22 (2026-05-12). Final ADR matrix: **7 Accepted** (001/002/003/004/005/008/010), **5 Proposed** (006/007/009/011/012), **1 Deferred** (013).
+
+### Plan 03-01 commit trail on `main` (in progress)
 
 |  PR   |                                   Commit                                    | Subject                                                                                           |
 | :---: | :-------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------ |
-| PR-17 | [`3ae8e6c`](https://github.com/swt-labs/stop-wasting-tokens/commit/3ae8e6c) | `feat(dashboard)`: SSE rewire + chokidar v4 fix + LogPanel TS2322 + 9 v2.3.5 dashboard test debts |
-| PR-18 |                                  _pending_                                  | Cassette regression suite — v2 golden-bundle replay against `ref-fastapi`                         |
-| PR-19 |                                  _pending_                                  | TPAC baseline measurement on `ref-fastapi-empty` reference scenario                               |
-| PR-20 |                                  _pending_                                  | `swt rpc` subcommand (delegates to Pi's `runRpcMode`)                                             |
-| PR-21 |                                  _pending_                                  | `swt bench` subcommand (TPAC bench across cassettes)                                              |
+| PR-22 | [`48514a0`](https://github.com/swt-labs/stop-wasting-tokens/commit/48514a0) | `feat(orchestration)`: `WorktreeManager` lifecycle FSM + ADR-008 Accepted                         |
+| PR-23 |                                  _pending_                                  | `claim-registry.ts` — file-claim conflict prevention (SHA-1 normalized, case-insensitive FS safe) |
+| PR-24 |                                  _pending_                                  | `dag-resolver.ts` — `depends_on` → parallel batches                                               |
+| PR-25 |                                  _pending_                                  | `lock-files.ts` — PID liveness + crash recovery                                                   |
+| PR-26 |                                  _pending_                                  | `swt_report_result` Extension wired through dispatcher                                            |
 
-Test posture at PR-17 close: **858 passed / 45 skipped / 0 failed**. `pnpm typecheck` clean, `pnpm lint` 0 errors. Dashboard cluster of umbrella issue #32: 9 of 10 resolved (1 SSE-AC03 test skipped pending chokidar v4 close-handler fix or fs.watch migration). LogPanel TS2322 resolved — `pnpm -r typecheck` clean across both root `tsc --build` AND the dashboard `tsconfig.client.json` side.
+Test posture at PR-22 close: **921 passed / 46 skipped / 0 failed** (+16 from Plan 02-02 close's 905). `pnpm typecheck` clean, `pnpm lint` 0 errors, `pnpm format:check` clean.
 
 ### Test-debt umbrella #32 status
 
-| Cluster                         | Pre-M2     | Post-Plan-02-01                 | Post-PR-17                                              |
-| ------------------------------- | ---------- | ------------------------------- | ------------------------------------------------------- |
-| Methodology (9)                 | 9 skipped  | **9 resolved** at PR-13 + PR-15 | unchanged                                               |
-| Verification (3, HIGH-priority) | 3 skipped  | **3 resolved** at PR-14         | unchanged                                               |
-| Dashboard (10)                  | 10 skipped | 10 skipped                      | **9 resolved** at PR-17 (1 chokidar v4 close-hang skip) |
-| LogPanel.tsx TS2322             | failing    | failing                         | **resolved** at PR-17                                   |
-| **In-scope total**              | 22 skipped | 12 resolved                     | **21 of 22 resolved**                                   |
+| Cluster                         | Pre-M2     | Post-Plan-02-01                 | Post-Plan-02-02                                                 |
+| ------------------------------- | ---------- | ------------------------------- | --------------------------------------------------------------- |
+| Methodology (9)                 | 9 skipped  | **9 resolved** at PR-13 + PR-15 | unchanged                                                       |
+| Verification (3, HIGH-priority) | 3 skipped  | **3 resolved** at PR-14         | unchanged                                                       |
+| Dashboard (10)                  | 10 skipped | 10 skipped                      | **9 resolved** at PR-17 (1 residual: chokidar v4 close-handler) |
+| LogPanel.tsx TS2322             | failing    | failing                         | **resolved** at PR-17                                           |
+| **In-scope total**              | 22 skipped | 12 resolved                     | **21 of 22 resolved (95%)**                                     |
 
 ## 2.3.5
 
