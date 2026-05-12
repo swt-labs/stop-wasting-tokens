@@ -209,33 +209,15 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
           break;
         case 'outdated':
           io.stdout.write(`↑ Update available: v${result.current} → v${result.latest}\n`);
-          if (shouldApply) {
-            const apply = applyUpdate(io, spawnFn);
-            if (apply.ok) {
-              io.stdout.write(
-                `\n✓ Upgraded to v${result.latest} via ${apply.manager}.\n` +
-                  `  Restart any running 'swt' processes to pick up the new bin.\n`,
-              );
-            } else {
-              io.stderr.write(`\n✗ Upgrade failed: ${apply.reason}\n\n`);
-              io.stderr.write(`Run one of these manually:\n`);
-              for (const cmd of UPGRADE_COMMANDS) {
-                io.stderr.write(`  ${cmd}\n`);
-              }
-              return EXIT.USAGE_ERROR;
-            }
-          } else {
-            io.stdout.write(`\nUpgrade with one of:\n`);
-            for (const cmd of UPGRADE_COMMANDS) {
-              io.stdout.write(`  ${cmd}\n`);
-            }
-            io.stdout.write(`\n(Or run \`swt update\` without --check to apply automatically.)\n`);
-          }
           break;
         case 'unreachable':
           io.stderr.write(`⚠ Could not check for updates: ${result.error ?? 'unknown error'}\n`);
           break;
       }
+      // Emit the marketplace info before any auto-apply runs. The marketplace
+      // section is informational about the version landscape — operators want
+      // it regardless of whether auto-apply ultimately succeeds (e.g. on hosts
+      // where npm/pnpm/bun aren't on PATH and applyUpdate early-returns).
       if (marketplaceResult !== undefined) {
         if (marketplaceResult.version === result.latest) {
           io.stdout.write(`  (also published on marketplace at v${marketplaceResult.version})\n`);
@@ -246,6 +228,30 @@ export function updateHandler(opts: UpdateHandlerOptions = {}): CommandHandler {
         }
       } else if (marketplaceError !== undefined) {
         io.stderr.write(`  (marketplace lookup skipped: ${marketplaceError})\n`);
+      }
+      if (result.status === 'outdated') {
+        if (shouldApply) {
+          const apply = applyUpdate(io, spawnFn);
+          if (apply.ok) {
+            io.stdout.write(
+              `\n✓ Upgraded to v${result.latest} via ${apply.manager}.\n` +
+                `  Restart any running 'swt' processes to pick up the new bin.\n`,
+            );
+          } else {
+            io.stderr.write(`\n✗ Upgrade failed: ${apply.reason}\n\n`);
+            io.stderr.write(`Run one of these manually:\n`);
+            for (const cmd of UPGRADE_COMMANDS) {
+              io.stderr.write(`  ${cmd}\n`);
+            }
+            return EXIT.USAGE_ERROR;
+          }
+        } else {
+          io.stdout.write(`\nUpgrade with one of:\n`);
+          for (const cmd of UPGRADE_COMMANDS) {
+            io.stdout.write(`  ${cmd}\n`);
+          }
+          io.stdout.write(`\n(Or run \`swt update\` without --check to apply automatically.)\n`);
+        }
       }
     }
 
