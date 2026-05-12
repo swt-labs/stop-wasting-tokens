@@ -68,6 +68,22 @@ export {
   buildAllProviderConfigs,
 } from './extensions/provider-overrides.js';
 
+// PR-32 (M4): Anthropic cache_control breakpoint insertion. Consumes the
+// orchestration layer's `BuiltPrompt`-shape (blocks + cacheBreakpointIndex)
+// and produces a Pi-bound message array with `cache_control: {type:
+// 'ephemeral'}` attached. ADR-006.
+export {
+  applyCacheControl,
+  estimatePromptTokens,
+  ANTHROPIC_CACHE_MIN_TOKENS,
+  APPROX_CHARS_PER_TOKEN,
+  type AnthropicMessage,
+  type CacheControlInput,
+  type CacheControlResult,
+  type CacheSkipReason,
+  type PromptBlockLike,
+} from './providers/cache-control.js';
+
 // PR-09: result-protocol + journal extensions (ADR-002 Accepted).
 // The closure-captured `pi.appendEntry` pattern is encoded in `PiExtensionAPI`
 // (see `extensions/pi-types.ts`) — `PiExtensionContext` intentionally has NO

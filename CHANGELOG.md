@@ -422,7 +422,32 @@ First PR of Plan 04-01 (M4 Token meter + cache discipline). The structural promp
 
 PR-32 wires `cache_control: {type: 'ephemeral'}` onto the Pi-bound payload at the breakpoint index (Anthropic-only — OpenAI auto-caches the prefix). PR-33 builds the cache-hit measurement panel on top of the cache_creation/cache_read counters.
 
-**Test posture at PR-31 close: 1051 passing / 46 skipped / 0 failed** (+9 from PR-30's 1042). Commit: `<pending>`.
+**Test posture at PR-31 close: 1051 passing / 46 skipped / 0 failed** (+9 from PR-30's 1042). Commit: `6479c9d`.
+
+### Added (M4 — Plan 04-01 — PR-32, 2026-05-12)
+
+Second PR of Plan 04-01. Anthropic `cache_control` breakpoint insertion at the runtime layer per ADR-006 + TDD2 §8.2.1. The orchestration layer's `BuiltPrompt` (PR-12 + PR-31) hands a vendor-neutral `blocks + cacheBreakpointIndex`; this module converts it to a Pi-bound Anthropic-shaped message array with the marker attached.
+
+- **`packages/runtime/src/providers/cache-control.ts`** (NEW) — exports `applyCacheControl({blocks, cacheBreakpointIndex, provider})` → `{messages, breakpointApplied, skipReason?, estimatedPrefixTokens}`:
+  - **Happy path (Anthropic + prefix ≥ 1024 estimated tokens):** `cache_control: {type: 'ephemeral'}` attached to the LAST block before the breakpoint per ADR-006. All other blocks pass through unmarked. `breakpointApplied: true`.
+  - **`skipReason: 'prefix-too-small'`** — prefix < 1024 estimated tokens (chars/4 rule-of-thumb). Marker omitted; messages still produced as valid wire payload.
+  - **`skipReason: 'provider-not-anthropic'`** — OpenAI auto-caches; other providers ignore the field. Marker omitted.
+  - **`skipReason: 'no-blocks-before-breakpoint'`** — `cacheBreakpointIndex === 0`. Marker omitted.
+  - All three skip reasons emit structured telemetry the methodology layer can act on (downgrade tier, log warning, etc.).
+- **`estimatePromptTokens(text)`** — exported helper: `Math.ceil(text.length / APPROX_CHARS_PER_TOKEN)`. Anthropic's rule-of-thumb for sizing prompts before tokenizing. Used by the block-size guard at request time; cassette-replay token counts remain the exact source of truth post-hoc.
+- **Constants exported** — `ANTHROPIC_CACHE_MIN_TOKENS = 1024` + `APPROX_CHARS_PER_TOKEN = 4`.
+- **Re-exported from `@swt-labs/runtime`** alongside the new types (`AnthropicMessage`, `CacheControlInput`, `CacheControlResult`, `CacheSkipReason`, `PromptBlockLike`).
+- **12 tests** (`packages/runtime/test/providers/cache-control.test.ts`) across 4 describe blocks:
+  - **Anthropic happy path** — marker on the correct block, content preserved verbatim (no truncation/reordering).
+  - **Skip cases** — `prefix-too-small`, `provider-not-anthropic`, `no-blocks-before-breakpoint`, empty-blocks edge case.
+  - **`estimatePromptTokens` boundaries** — length 0/1/4/5/8 + exact cap.
+  - **Exact-cap boundary** — at 1024-token estimate the marker DOES apply; at 1023 (one estimate-token short) it skips.
+
+The Anthropic extractor already captured `cache_read_input_tokens` + `cache_creation_input_tokens` since PR-07 — no extractor change needed in this PR. PR-33 (next) builds the cache-hit measurement panel on top.
+
+**Layer note (Principle 2):** Runtime is below orchestration in the stack, so this module accepts a structural `PromptBlockLike` shape rather than importing `PromptBlock` from `@swt-labs/orchestration`. The structural match works because `orchestration/src/prompt-builder.ts`'s `PromptBlock` and runtime's `PromptBlockLike` both expose `{kind: string, content: string}`.
+
+**Test posture at PR-32 close: 1063 passing / 46 skipped / 0 failed** (+12 from PR-31's 1051). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
