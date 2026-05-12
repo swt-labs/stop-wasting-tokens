@@ -1,5 +1,6 @@
 import { createSession, type SwtSession, type SwtSessionOptions } from '@swt-labs/runtime';
 
+import type { ClaimRegistry } from './claim-registry.js';
 import {
   harvestTaskResult,
   harvestTaskResultFromEntries,
@@ -50,6 +51,20 @@ export interface CreateDispatcherOptions {
    * Defaults to `'stub'` — synthetic success, no session inspection.
    */
   readonly harvestStrategy?: HarvestStrategy;
+  /**
+   * Optional file-claim registry per TDD2 §9.2. When provided, the
+   * dispatcher registers `task.claims` with the registry before
+   * creating a session; a conflict short-circuits with a
+   * `{status: 'blocked', blockers: ['claim-conflict-with-<otherTaskId>']}`
+   * `TaskResult` and never touches the session factory. Claims are
+   * released in the `finally` block alongside `session.dispose()`.
+   *
+   * Sequential dispatch (PR-09 default) doesn't really exercise this —
+   * each task acquires + releases back-to-back. Wire-up is here so the
+   * parallel dispatch path (PR-24 + future) inherits conflict
+   * checking automatically.
+   */
+  readonly claimRegistry?: ClaimRegistry;
 }
 
 /**
@@ -70,8 +85,30 @@ export interface CreateDispatcherOptions {
 export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher {
   const factory: SessionFactory = opts.sessionFactory ?? createSession;
   const strategy: HarvestStrategy = opts.harvestStrategy ?? 'stub';
+  const claimRegistry = opts.claimRegistry;
 
   const dispatch = async (task: TaskBrief): Promise<TaskResult> => {
+    // Claim check (PR-23). When a registry is wired AND the task
+    // declared claims, register them before creating the session.
+    // Conflict → short-circuit with a blocked TaskResult; no session,
+    // no LLM spend.
+    if (claimRegistry !== undefined && task.claims !== undefined && task.claims.length > 0) {
+      const result = claimRegistry.register(task.taskId, task.claims);
+      if (!result.ok) {
+        const blockers = result.conflicts.map(
+          (c) => `claim-conflict-with-${c.otherTaskId}:${c.path}`,
+        );
+        return {
+          schema_version: 1,
+          task_id: task.taskId,
+          status: 'blocked',
+          summary: `claim-registry blocked dispatch — ${result.conflicts.length} conflict(s)`,
+          files_changed: [],
+          must_haves: [],
+          blockers,
+        };
+      }
+    }
     const session = await factory({ cwd: task.cwd, ephemeral: true });
     try {
       // PR-09: session.prompt() is still a no-op (createSession ships a
@@ -101,6 +138,13 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
       return result;
     } finally {
       session.dispose();
+      // Release claims AFTER the session disposes so the slot stays
+      // locked through any harvest-side cleanup. Idempotent — safe
+      // when no claims were registered (the `if` guard above
+      // short-circuited).
+      if (claimRegistry !== undefined && task.claims !== undefined && task.claims.length > 0) {
+        claimRegistry.release(task.taskId);
+      }
     }
   };
 

@@ -2,6 +2,7 @@ import type { SwtSession } from '@swt-labs/runtime';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ClaimRegistry,
   createDispatcher,
   PiSpawnerEnvironment,
   type SessionFactory,
@@ -95,6 +96,93 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
       expect(results.length).toBe(3);
       expect(results.map((r) => r.task_id)).toEqual(['T-1', 'T-2', 'T-3']);
       expect(recording.calls.map((c) => c.cwd)).toEqual(['/tmp/a', '/tmp/b', '/tmp/c']);
+    });
+  });
+
+  describe('createDispatcher — claim-registry (M3 PR-23)', () => {
+    it('passes through when no claimRegistry is wired', async () => {
+      const { factory } = makeRecordingSessionFactory();
+      const dispatcher = createDispatcher({ sessionFactory: factory });
+      const result = await dispatcher.dispatch({
+        taskId: 'T-401',
+        role: 'dev',
+        cwd: '/tmp/a',
+        claims: ['src/foo.ts'],
+      });
+      // No registry → claims are decorative; dispatcher returns the stub success.
+      expect(result.status).toBe('success');
+    });
+
+    it('passes through when claims array is missing or empty', async () => {
+      const { factory } = makeRecordingSessionFactory();
+      const claimRegistry = new ClaimRegistry();
+      const dispatcher = createDispatcher({ sessionFactory: factory, claimRegistry });
+
+      const noClaims = await dispatcher.dispatch({
+        taskId: 'T-402',
+        role: 'dev',
+        cwd: '/tmp/a',
+      });
+      expect(noClaims.status).toBe('success');
+
+      const emptyClaims = await dispatcher.dispatch({
+        taskId: 'T-403',
+        role: 'dev',
+        cwd: '/tmp/a',
+        claims: [],
+      });
+      expect(emptyClaims.status).toBe('success');
+
+      expect(claimRegistry.size()).toBe(0);
+    });
+
+    it('blocks dispatch when a claim conflicts and never creates a session', async () => {
+      const recording = makeRecordingSessionFactory();
+      const claimRegistry = new ClaimRegistry();
+      // Pre-register a conflicting claim from another task.
+      claimRegistry.register('T-other', ['src/foo.ts']);
+
+      const dispatcher = createDispatcher({
+        sessionFactory: recording.factory,
+        claimRegistry,
+      });
+      const result = await dispatcher.dispatch({
+        taskId: 'T-404',
+        role: 'dev',
+        cwd: '/tmp/a',
+        claims: ['src/foo.ts'],
+      });
+
+      expect(result.status).toBe('blocked');
+      expect(result.blockers).toEqual(['claim-conflict-with-T-other:src/foo.ts']);
+      // No session was created — blocking happens BEFORE the session factory is called.
+      expect(recording.calls).toHaveLength(0);
+      expect(recording.disposals).toBe(0);
+    });
+
+    it('releases claims after successful dispatch so the slot frees up', async () => {
+      const { factory } = makeRecordingSessionFactory();
+      const claimRegistry = new ClaimRegistry();
+      const dispatcher = createDispatcher({ sessionFactory: factory, claimRegistry });
+
+      await dispatcher.dispatch({
+        taskId: 'T-405',
+        role: 'dev',
+        cwd: '/tmp/a',
+        claims: ['src/foo.ts'],
+      });
+      // Claim was registered then released in the finally block.
+      expect(claimRegistry.size()).toBe(0);
+
+      // A second task claiming the same path now succeeds.
+      const second = await dispatcher.dispatch({
+        taskId: 'T-406',
+        role: 'dev',
+        cwd: '/tmp/a',
+        claims: ['src/foo.ts'],
+      });
+      expect(second.status).toBe('success');
+      expect(claimRegistry.size()).toBe(0);
     });
   });
 

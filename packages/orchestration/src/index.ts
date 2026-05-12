@@ -75,3 +75,13 @@ export {
   type GitRunResult,
   type WorktreeManagerOptions,
 } from './worktree-manager.js';
+
+// PR-23 (M3): file-claim registry. Per TDD2 §9.2. SHA-1 normalized
+// path identifier (case-insensitive FS safe). Dispatcher wires it as
+// an optional check before per-task session creation.
+export {
+  ClaimRegistry,
+  identifierFor,
+  type ClaimConflict,
+  type RegisterResult,
+} from './claim-registry.js';
