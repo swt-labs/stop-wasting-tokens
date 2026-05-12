@@ -476,7 +476,26 @@ Fourth PR of Plan 04-01. OpenAI auto-cache observation. Unlike Anthropic (which 
   - **M4 EXIT GATE detection** — 10-turn sustained-cache run (90% prefix hit on turns 2-10) aggregates to a ratio ≥ 0.70, validating the M4 target is reachable on OpenAI without any `cache_control` wiring.
 - No extractor changes — the contract was already in place. Live-meter wire-up to the dashboard remains the M4 ops follow-up.
 
-**Test posture at PR-34 close: 1081 passing / 46 skipped / 0 failed** (+6 from PR-33's 1075). Commit: `<pending>`.
+**Test posture at PR-34 close: 1081 passing / 46 skipped / 0 failed** (+6 from PR-33's 1075). Commit: `64f3d4b`.
+
+### Added (M4 — Plan 04-01 — PR-35, 2026-05-12)
+
+Fifth PR of Plan 04-01. Budget Gate live implementation per TDD2 §8.4 + ADR-007 + dashboard panel per TDD2 §12.3.3. The M4 EXIT GATE asserts a configurable low ceiling pauses the milestone; dashboard reflects state; resume works — this PR ships the gate, route, and panel that make that exercisable.
+
+- **`packages/runtime/src/budget/gate.ts`** (NEW) — `createBudgetGate({config, meter, clock?})` returns `{state(), subscribe(listener), bumpCeiling(delta_usd), dispose()}`. Subscribes to `METER_UPDATED`; on every tick recomputes pressure and fires:
+  - **`budget.warning`** when pressure crosses `tier_downgrade_threshold` (default 0.70). Per ADR-007 the methodology layer downgrades tier.
+  - **`budget.pause`** when pressure crosses `pause_threshold` (default 0.95). Milestone halts; dashboard surfaces the resume UX.
+  - **`budget.resume`** when `bumpCeiling(delta_usd)` raises the ceiling enough to drop pressure back below warning.
+- **State-machine guarantees:** Each threshold fires exactly once per crossing — sustained-warning ticks don't re-emit. A single observation that crosses both thresholds in one tick fires warning AND pause in order. `bumpCeiling` resets state cleanly so future crossings can re-fire. Pure event-driven, no IO. `dispose()` unsubscribes from the meter + clears listeners.
+- **`packages/dashboard/src/server/routes/budget.ts`** (NEW) — `GET /api/budget/sse` streams `BudgetGateState` snapshots (initial + on every gate event). `POST /api/budget/bump` accepts `{delta_usd: number}` (rejects non-finite values with 400; null gate with 503). Both routes accept a `getGate: () => BudgetGate | null` getter for live-meter wire-up symmetry with cache-hits.
+- **`packages/dashboard/src/client/components/BudgetPanel.tsx`** (NEW) — SolidJS panel: spend/ceiling rows, percentage bar colour-coded by status (green/amber/red), status pill, and a paused-state-only bump form (`POST /api/budget/bump`). Empty state when gate is null.
+- **CSS** — `.budget-panel`, `.budget-bar`, `.budget-status-{ok,warning,paused}`, `.budget-bump` form styling.
+- **Mount in App.tsx** beside the other right-column panels.
+- **Tests** — 12 gate tests covering all threshold-crossing paths, idempotency (rapid-fire ticks → 1 event), custom thresholds, dispose/unsubscribe semantics, state-shape assertions. 7 route tests covering null/wired snapshot emission, mid-stream re-emit on event, bump happy path, JSON-parse errors, non-finite delta_usd, null-gate 503.
+
+PR-37 (next) ships the dashboard TPAC panel; PR-38 promotes ADR-006 + ADR-007 to Accepted.
+
+**Test posture at PR-35 close: 1100 passing / 46 skipped / 0 failed** (+19 from PR-34's 1081: 12 gate + 7 route). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

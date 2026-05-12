@@ -4,6 +4,7 @@ import { Show, createMemo, createSignal, onCleanup, onMount, type Component } fr
 import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
+import { BudgetPanel } from './components/BudgetPanel.js';
 import { CacheHitPanel } from './components/CacheHitPanel.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
@@ -248,6 +249,7 @@ export const App: Component = () => {
                   <CostPanel cost={state.snapshot?.cost_summary ?? null} />
                   <WorktreesPanel />
                   <CacheHitPanel />
+                  <BudgetPanel />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>

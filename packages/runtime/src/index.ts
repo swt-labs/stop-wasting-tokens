@@ -87,6 +87,19 @@ export {
   type PromptBlockLike,
 } from './providers/cache-control.js';
 
+// PR-35 (M4): Budget Gate. Per TDD2 §8.4 + ADR-007. Subscribes to a
+// TokenMeter; fires budget.warning at 70%, budget.pause at 95%,
+// budget.resume after bumpCeiling drops pressure below the warning
+// threshold. Pure event-driven; no IO.
+export {
+  createBudgetGate,
+  type BudgetEvent,
+  type BudgetGate,
+  type BudgetGateOptions,
+  type BudgetGateState,
+  type BudgetStatus,
+} from './budget/gate.js';
+
 // PR-09: result-protocol + journal extensions (ADR-002 Accepted).
 // The closure-captured `pi.appendEntry` pattern is encoded in `PiExtensionAPI`
 // (see `extensions/pi-types.ts`) — `PiExtensionContext` intentionally has NO

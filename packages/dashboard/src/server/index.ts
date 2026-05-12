@@ -12,6 +12,7 @@ import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactRoute } from './routes/artifact.js';
+import { registerBudgetRoute } from './routes/budget.js';
 import { registerCacheHitsRoute } from './routes/cache-hits.js';
 import { registerCommandRoute } from './routes/command.js';
 import { registerCommandsRoute } from './routes/commands.js';
@@ -188,6 +189,12 @@ export function createApp(
   // wires a live TokenMeter into the dashboard server (separate M4 follow-up).
   // Empty state when null — the panel renders "No cache data yet".
   registerCacheHitsRoute(app, () => null);
+  // Plan 04-01 PR-35: Budget Gate SSE + POST routes. Registers
+  // unconditionally with a getGate() getter that returns null until the
+  // methodology layer wires a live BudgetGate (separate M4 follow-up).
+  // /api/budget/sse keeps the connection open with an empty state when
+  // null; /api/budget/bump returns 503.
+  registerBudgetRoute(app, () => null);
   registerInitRoute(
     app,
     cwd,
