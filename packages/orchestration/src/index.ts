@@ -44,7 +44,9 @@ export {
 export { toolsForRole, ROLE_TOOL_SUBSETS, type AgentToolList } from './role-router.js';
 export {
   buildPrompt,
+  cacheableBlockCount,
   readRolePrompt,
+  serializeBlocks,
   type BuildPromptOptions,
   type BuiltPrompt,
   type PromptBlock,

@@ -400,9 +400,29 @@ Fourth and final PR of Plan 03-04. Closes M3 Worktree dispatcher milestone per T
 
 **6 of 7 PASS** (the chaos-suite criterion has a Windows-CI-matrix sub-deferral that's non-code work, not a blocker for the M3 milestone close per TDD2 §13.3.3's "verified across Linux/macOS/Windows" wording).
 
-**Plan 03-04 + M3 milestone closed 2026-05-12.** 4 atomic commits on `main` (PR-27 `832bb4e`, PR-29 `7b76beb`, PR-28 `12d831c`, PR-30 `<this commit>`).
+**Plan 03-04 + M3 milestone closed 2026-05-12.** 4 atomic commits on `main` (PR-27 `832bb4e`, PR-29 `7b76beb`, PR-28 `12d831c`, PR-30 `c883b0a`).
 
-**Test posture at PR-30 close (M3 EXIT GATE): 1042 passing / 46 skipped / 0 failed** (+9 from PR-28's 1033: 6 worktree-manager.win + 3 lock-files.win). Commit: `<pending>`.
+**Test posture at PR-30 close (M3 EXIT GATE): 1042 passing / 46 skipped / 0 failed** (+9 from PR-28's 1033: 6 worktree-manager.win + 3 lock-files.win). Commit: `c883b0a`.
+
+### Added (M4 open — Plan 04-01 — PR-31, 2026-05-12)
+
+First PR of Plan 04-01 (M4 Token meter + cache discipline). The structural prompt-builder shipped at M2 PR-12; PR-31 adds the documented + tested determinism contract that PR-32 (Anthropic `cache_control` wiring) and PR-33 (cache-hit measurement) consume.
+
+- **`buildPrompt` determinism contract documented** (`packages/orchestration/src/prompt-builder.ts`) — pure function of `BuildPromptOptions`. No clock, no random, no env reads. Two calls with the same opts produce byte-identical `blocks` + `cacheBreakpointIndex`. Property iteration order doesn't matter (function reads each field by name). This guarantee is what makes the cache breakpoint useful: same stable prefix → identical cache key on the wire → real cache hits.
+- **`serializeBlocks(prompt) → string`** — new exported helper: `<kind>:\n<content>` per block, `\n\n` between blocks. Deterministic by construction; used for cassette hashing + cache-key derivation downstream.
+- **`cacheableBlockCount(prompt) → number`** — new exported helper: returns `prompt.cacheBreakpointIndex`. PR-32's Anthropic wiring + PR-33's cache-hit ratio attribution both consume this.
+- **9 tests** (`packages/orchestration/test/prompt-builder.determinism.test.ts`):
+  - **Pure determinism** — two calls with identical opts produce byte-identical `JSON.stringify` output.
+  - **Property-order independence** — opts in reversed property order produce byte-identical output.
+  - **Canonical golden snapshot** — full prompt's 7-block ordering + `cacheBreakpointIndex: 5` pinned; any future refactor that changes block ordering fails here.
+  - **Optional-block shifting** — omitting stable-prefix blocks shifts `cacheBreakpointIndex` correctly. Empty-string blocks are treated as omitted.
+  - **must_haves drop doesn't shift breakpoint** — must-haves are after the breakpoint (variable suffix); dropping them only shrinks the suffix.
+  - **`serializeBlocks` format** — deterministic across calls; documented format; single-block prompts have no trailing separator.
+  - **`cacheableBlockCount` parity** — returns the same as `cacheBreakpointIndex`.
+
+PR-32 wires `cache_control: {type: 'ephemeral'}` onto the Pi-bound payload at the breakpoint index (Anthropic-only — OpenAI auto-caches the prefix). PR-33 builds the cache-hit measurement panel on top of the cache_creation/cache_read counters.
+
+**Test posture at PR-31 close: 1051 passing / 46 skipped / 0 failed** (+9 from PR-30's 1042). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

@@ -17,6 +17,17 @@
  * eligible for caching. Blocks 7-8 are the **variable suffix** — task-
  * specific, never cached. Per ADR-006, the breakpoint goes between them.
  *
+ * **Determinism contract (M4 PR-31).** `buildPrompt` is a pure function
+ * of `BuildPromptOptions`. It reads no clock, no random, no environment.
+ * Two calls with the same opts produce byte-identical results (block
+ * ordering, block content, `cacheBreakpointIndex`). Property iteration
+ * order doesn't matter — the function reads each field by name. This
+ * guarantee is what makes the cache breakpoint useful: same stable
+ * prefix → identical cache key on the wire → Anthropic / OpenAI cache
+ * hits with no behavioural difference between sessions.
+ *
+ * Validated by `packages/orchestration/test/prompt-builder.determinism.test.ts`.
+ *
  * Per Principle 4 (telemetry is aggregate-only): the prompt may contain
  * user data, but the meter / telemetry only ever sees the **counts**, not
  * the content.
@@ -117,6 +128,40 @@ function renderMustHaves(
     lines.push(`- ${mh.id}: ${mh.text}`);
   }
   return lines.join('\n');
+}
+
+/**
+ * Number of blocks in the cacheable prefix (everything before the
+ * `cacheBreakpointIndex`). Used by `cache-control.ts` (M4 PR-32) to
+ * decide whether the prefix meets Anthropic's 1024-token minimum + by
+ * `cache-hit.ts` (M4 PR-33) to attribute cache reads to the prefix.
+ */
+export function cacheableBlockCount(prompt: BuiltPrompt): number {
+  return prompt.cacheBreakpointIndex;
+}
+
+/**
+ * Serialize a `BuiltPrompt` to a deterministic string for cassette
+ * hashing + cache-key derivation. Format:
+ *
+ *   ```
+ *   <kind>:
+ *   <content>
+ *
+ *   <kind>:
+ *   <content>
+ *   ```
+ *
+ * (Each block: `<kind>:\n<content>`, separated by `\n\n`.) The output
+ * is byte-identical across hosts when the input is identical — same
+ * determinism contract as `buildPrompt` itself.
+ *
+ * Doesn't include the cache-breakpoint marker — that's a runtime-layer
+ * concern (M4 PR-32 wires `cache_control` into the Pi-bound payload;
+ * the breakpoint index travels alongside via `BuiltPrompt`).
+ */
+export function serializeBlocks(prompt: BuiltPrompt): string {
+  return prompt.blocks.map((b) => `${b.kind}:\n${b.content}`).join('\n\n');
 }
 
 /**
