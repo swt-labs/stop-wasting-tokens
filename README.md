@@ -6,8 +6,6 @@
 
 > A spec-driven, Pi-native coding harness built around a single obsession: **stop wasting tokens**.
 
-> **v3 redesign in active development on `main`.** v3 is a runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved verbatim from v2, the Codex/Claude-Code/Ollama backends retired in favor of Pi's provider matrix. **M1 Foundation closed 2026-05-12.** **M2 Single-agent path closed 2026-05-12** (all 10 PRs structurally complete; live TPAC baseline pending user cassette recording + session-wiring follow-up). **M3 Worktree dispatcher in flight: PR-22 (WorktreeManager FSM) landed.** The published binary on npm is still v2.3.5; v3.0 cuts from `main` at the M6 release gate. v2.3.x stays on LTS via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md).
-
 `swt` is a Node/TypeScript CLI you install once. It wraps every coding-agent session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
 
 If you've ever watched a model re-read your codebase three times in one session, hallucinate an architecture you already rejected, or chase a fix in circles because the goal drifted mid-stream — that's the waste this tool is engineered to eliminate.
@@ -17,7 +15,7 @@ If you've ever watched a model re-read your codebase three times in one session,
 ## Table of contents
 
 - [What "saving tokens" actually means](#what-saving-tokens-actually-means)
-- [How SWT works (v3 architecture)](#how-swt-works-v3-architecture)
+- [How SWT works](#how-swt-works)
 - [Project status](#project-status)
 - [Prerequisites](#prerequisites)
 - [Install](#install)
@@ -25,7 +23,6 @@ If you've ever watched a model re-read your codebase three times in one session,
 - [The methodology](#the-methodology)
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
-- [Migrating from v2.x](#migrating-from-v2x)
 - [Design + decisions](#design--decisions)
 - [Troubleshooting](#troubleshooting)
 - [Contributing, security, license](#contributing-security-license)
@@ -48,7 +45,7 @@ Every design decision in SWT — split prompts, per-role thinking levels, the ph
 
 ---
 
-## How SWT works (v3 architecture)
+## How SWT works
 
 In one sentence: **you write a spec, SWT turns it into a plan, six specialist agents execute the plan through a vendor-neutral runtime, and a verification stage compares output to the spec before anything ships.**
 
@@ -65,14 +62,14 @@ In one sentence: **you write a spec, SWT turns it into a plan, six specialist ag
 
 ### Layered architecture (TDD2 §4.3)
 
-v3 enforces a strict dependency direction — methodology never imports vendor SDKs:
+A strict dependency direction — methodology never imports vendor SDKs:
 
 ```
 shared (leaf)
    ↑
 core + runtime           ← runtime is the ONLY layer importing @earendil-works/* (Principle 1)
    ↑
-orchestration            ← dispatcher + role-router + prompt-builder
+orchestration            ← dispatcher + role-router + prompt-builder + worktree-manager
    ↑
 dashboard + methodology  ← methodology dispatches THROUGH orchestration
    ↑
@@ -100,39 +97,27 @@ Tier ↔ model mapping is per-provider (declared in `runtime/src/providers/defau
 
 ## Project status
 
-Currently **v3.0.0-alpha.1 (in development)** on the [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main) branch. The published binary on npm is still v2.3.5.
+Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main). The current release line is **v3.0.0-alpha.1** and ships from source until the M6 release gate; the npm-published binary catches up at the release cut.
 
-### M1 Foundation — CLOSED 2026-05-12
+### Milestone progress
 
-| Plan  | PRs          | Headline                                                                                                                         |
-| ----- | ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| 01-01 | PR-01..PR-04 | Driver-edge audit + `@swt-labs/runtime` / `@swt-labs/orchestration` / `@swt-labs/shared` scaffolding                             |
-| 01-02 | PR-05..PR-09 | Driver packages deleted + cassette infrastructure + token meter + provider quirks + `swt_report_result` Pi Extension             |
-| 01-03 | PR-10..PR-11 | 13 ADRs (5 Accepted + 7 Proposed + 1 Deferred) + v2→v3 migration guide + reproducible-build CI + 33 v2.3.5 test-debt remediation |
-
-### M2 Single-agent path — CLOSED 2026-05-12 (structurally complete; live baseline pending user-driven activation)
-
-| Plan  | PRs           | Status                                                                                                                                                                                                                                                                                                                                                                          |
-| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 02-01 | PR-12 → PR-16 | **Complete** — methodology dispatches through `@swt-labs/orchestration`; 6 SDLC role profiles; Dev sequential dispatch with halt-on-failed; QA static-check ladder + LLM escalation contract; UiPermissionGate sibling. HIGH-priority bash-guard security regression FIXED. 12 of 22 in-scope umbrella #32 test debts cleared (methodology 9/9 + verification 3/3).             |
-| 02-02 | PR-17 → PR-21 | **Complete** — dashboard SSE rewire + chokidar v4 fix + LogPanel TS2322 (PR-17); cassette regression scaffolding + `diffArtefacts` (PR-18); TPAC aggregator + `TpacReportSchema` frozen at `schema_version: 1` (PR-19); `swt rpc` verb (PR-20); `swt bench` verb (PR-21). Final 9 dashboard test debts cleared. Live TPAC baseline pending cassette recording + session-wiring. |
-
-**M2 EXIT GATE per TDD2 §13.2.3:** 3 of 6 criteria PASS today (PR-17/20/21). The 3 deferred criteria — full milestone end-to-end run, regression suite live diff, recorded TPAC baseline — are all structurally complete; activation requires (a) an Anthropic cassette recording session (user-driven, ~30–45 min + ~$0.50 API spend) and (b) a single-file `session.prompt()` activation PR (deferred from M3 PR-22 after empirical scope discovery).
-
-### M3 Worktree dispatcher — in flight (PR-22 landed)
-
-| Plan  | PRs           | Status                                                                                                                                                                                                                                                                                                                                                                                           |
-| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 03-01 | PR-22 → PR-26 | **In progress** — PR-22 shipped (`WorktreeManager` 8-state lifecycle FSM + per-task journal + ADR-008 Accepted). PR-23..PR-26 pending (`claim-registry.ts`, `dag-resolver.ts`, `lock-files.ts`, `swt_report_result` dispatcher wire-up). Real Pi `session.prompt()` wiring was scoped out of PR-22 after empirical cost discovery; tracked as a dedicated follow-up PR before Plan 03-02 begins. |
+| Milestone              | Status                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 Foundation          | **CLOSED** 2026-05-12 — 12 PRs across 3 plans / 15 atomic commits. Pi adoption, runtime/orchestration/shared scaffolding, cassette infrastructure, token meter, provider quirks, 13 ADRs, reproducible-build CI, 33-test debt remediation.                                                                                                                                                        |
+| M2 Single-agent path   | **CLOSED** 2026-05-12 — 10 PRs across 2 plans. Methodology dispatches through orchestration; 6 SDLC role profiles; QA static-check ladder; dashboard SSE; cassette regression scaffolding; TPAC aggregator + frozen Zod schema; `swt rpc` + `swt bench` verbs. Live TPAC baseline + 4 deferred runtime consumers pending the session-wiring follow-up + a user-driven cassette recording session. |
+| M3 Worktree dispatcher | **Plan 03-01 closed** 2026-05-12 — 5 PRs / 5 atomic commits. `WorktreeManager` 8-state lifecycle FSM, `ClaimRegistry`, `resolveDag` (Kahn's algorithm), PID-liveness lock-files, `swt_report_result` Extension wire-up contract. ADR-008 promoted to Accepted. Plan 03-02 (dashboard panel + chaos suite + `swt cleanup` + Windows path discipline) next.                                         |
+| M4 Token meter + cache | Pending                                                                                                                                                                                                                                                                                                                                                                                           |
+| M5 Multi-provider      | Pending                                                                                                                                                                                                                                                                                                                                                                                           |
+| M6 Decommission + ship | Pending — v3.0.0 release cut + npm publish at this gate                                                                                                                                                                                                                                                                                                                                           |
 
 ### Test posture at HEAD
 
-- **921 tests pass / 46 skipped / 0 fail** across the workspace.
+- **994 tests pass / 46 skipped / 0 fail** across the workspace.
 - `pnpm typecheck` clean (`tsc --build`).
-- `pnpm lint` 0 errors, 235 warnings (mostly demoted `import/no-restricted-paths` pending M3's eslint-import-resolver-typescript wiring).
+- `pnpm lint` 0 errors (~244 pre-existing `import/no-restricted-paths` warnings — pnpm-workspace resolver carry-forward).
 - `pnpm format:check` clean.
 
-Per-version changes tracked in [CHANGELOG.md](./CHANGELOG.md). Detailed M1 + M2 commit trails live in [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).
+Per-version changes tracked in [CHANGELOG.md](./CHANGELOG.md). Detailed per-milestone commit trails live in [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md). Authoritative design: [`TDD2.md`](./TDD2.md).
 
 ---
 
@@ -163,59 +148,35 @@ Output includes the Pi peer-dep version, Node version, and `.swt-planning/` pres
 
 ## Install
 
-> **v3 is alpha; not yet on npm.** The instructions below are for v2.3.5 (the currently-published stable binary). For v3 testers, clone the repo — `main` IS the v3 development branch.
+> SWT v3 ships from source today. The published npm package (`stop-wasting-tokens`) catches up to `main` at the M6 release gate.
 
-### v2.3.5 (stable, on npm)
-
-Install once, globally:
-
-```bash
-# npm
-npm install -g stop-wasting-tokens
-
-# pnpm
-pnpm add -g stop-wasting-tokens
-
-# bun
-bun add -g stop-wasting-tokens
-```
-
-To pin a specific version (e.g. for CI or reproducible installs):
-
-```bash
-npm install -g stop-wasting-tokens@2.3.5
-```
-
-To upgrade an existing install to the latest published version:
-
-```bash
-npm install -g stop-wasting-tokens@latest
-# or
-swt update              # built-in self-check; prints the upgrade command
-```
-
-The v2.3.5 package ships an ESM-only bundle with a single `swt` binary. No build step, no peer-dependency negotiation, no native modules.
-
-### v3.0.0-alpha (source install from `main`)
-
-For early testers willing to track active development:
+### Source install from `main`
 
 ```bash
 git clone https://github.com/swt-labs/stop-wasting-tokens.git
 cd stop-wasting-tokens
 pnpm install
-pnpm typecheck && pnpm test     # 858 passing at HEAD
+pnpm typecheck && pnpm test     # 994 passing at HEAD
 pnpm build                       # produces packages/cli/dist/cli.mjs
 node packages/cli/dist/cli.mjs --version
 ```
 
-Real Pi-backed `swt vibe` sessions require a configured Anthropic / OpenAI / OpenRouter API key. The cassette infrastructure (Plan 01-02 PR-06) lets the test suite replay recorded sessions deterministically without burning tokens.
+Real Pi-backed `swt vibe` sessions require a configured Anthropic / OpenAI / OpenRouter API key. The cassette infrastructure (M1 PR-06) lets the test suite replay recorded sessions deterministically without burning tokens.
+
+To run the binary from anywhere, alias the built CLI:
+
+```bash
+alias swt="node $(pwd)/packages/cli/dist/cli.mjs"
+swt --version
+```
+
+The legacy `v2.3.5` binary is still on npm for projects that haven't migrated yet. v2 patches land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) under the [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md) six-month LTS window.
 
 ---
 
 ## Quick start: a real session
 
-This is what a typical first hour with SWT looks like (target API: v3, with v2 noted where it differs).
+This is what a typical first hour with SWT looks like.
 
 ### 1. Bootstrap a project (`swt vibe`, no args)
 
@@ -296,7 +257,7 @@ needs_discussion  →  needs_plan_and_execute  →  needs_execute  →  needs_ve
 
 ### Static-check ladder (TDD2 §11.2)
 
-QA at v3 runs in two tiers:
+QA runs in two tiers:
 
 1. **Static-check ladder** (cheap, deterministic) — typecheck → lint → format → tests. Short-circuits on first failure. If everything passes AND no LLM-tier verification is wired, the phase passes with `result: 'pass'`.
 2. **LLM must-haves verification** (the rich tier) — when the ladder passes and an `LlmVerificationEscalator` is wired, the QA agent verifies each P0 must-have from the plan against the codebase. Produces `verification: {must_have_id, verdict, evidence}` array.
@@ -332,6 +293,18 @@ The ladder always runs first. Most failures are caught at the cheap tier and nev
 
 Artefacts are read at the **start** of each agent call as part of the cache-stable prefix. M4 PR-32 inserts the Anthropic `cache_control: ephemeral` marker at the `cacheBreakpointIndex` recorded by `prompt-builder.ts` per ADR-006 — same content, paid once per file, amortised across every turn in the milestone.
 
+### Parallel dispatch (M3 primitives shipping)
+
+When M3 wires the deferred session-wiring follow-up + Plan 03-02 lands, parallel Dev tasks within a phase will fan out across per-task git worktrees:
+
+- **`WorktreeManager`** owns the 8-state lifecycle FSM (created → claimed → dispatched → agent_running → agent_complete → harvested → removed; `failed` reachable from any non-terminal state) per TDD2 §9.1.
+- **`ClaimRegistry`** rejects parallel tasks that overlap on declared `claims[]` (SHA-1-of-normalized-lowercase-path identifier — case-insensitive-FS safe).
+- **`resolveDag`** converts a plan's `depends_on[]` arrays into ordered parallel batches via Kahn's algorithm.
+- **PID-liveness lock files** at `.swt-planning/locks/task-<taskId>.lock` give crash recovery a deterministic signal (`process.kill(pid, 0)`).
+- **`swt_report_result` Pi Extension** persists the per-task result envelope before each agent exits (ADR-002).
+
+These primitives ship today as Plan 03-01. The live parallel dispatch path activates once the runtime layer wires real `session.prompt()` — single-file follow-up tracked separately.
+
 ---
 
 ## Configuration
@@ -355,13 +328,11 @@ The knobs that matter most:
 
 Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks`. Run `swt config show` for the full live config.
 
-> **v2 → v3 config note**: v2's `backend:` field (codex / claude-code / ollama) is gone. v3's runtime negotiates providers via Pi, so the field has no v3 equivalent. The v3 migration script (`swt migrate --to=v3`, M6 PR-49) strips it from existing configs and adds `roles[*].tier` + the `schema_version: 1` marker.
-
 ---
 
 ## Command reference
 
-SWT exposes a CLI surface derived from the VBW (`vibe-better-with-claude-code`) methodology. The `main` HEAD ships these verbs as production-ready; `swt vibe` is the orchestrator that calls every other surface internally.
+`swt vibe` is the orchestrator that calls every other surface internally; the explicit verbs below are escape hatches for power users + IDE integrations.
 
 ### Working today (`main` HEAD)
 
@@ -369,25 +340,16 @@ SWT exposes a CLI surface derived from the VBW (`vibe-better-with-claude-code`) 
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `swt vibe`         | The methodology entrypoint. Auto-detects project state and routes to discuss / plan / execute / verify / archive. Accepts `--plan N`, `--execute N`, `--discuss N`, `--assumptions N`, `--scope`, `--verify [N]`, `--archive`, `--add "name"`, `--insert N "name"`, `--remove N`, plus modifiers `--effort {thorough\|balanced\|fast\|turbo}`, `--skip-qa`, `--skip-audit`, `--yolo`. |
 | `swt status`       | Show current phase, milestone, plan velocity, todos, blockers, codebase profile.                                                                                                                                                                                                                                                                                                      |
-| `swt doctor`       | Verify SWT prerequisites: Node ≥ 20.18, Pi peer-dep, `.swt-planning/` presence. Use this first when something feels off. v3 surfaces `report.pi` populated from `SpawnerEnvironment.probe()` (PR-15).                                                                                                                                                                                 |
+| `swt doctor`       | Verify SWT prerequisites: Node ≥ 20.18, Pi peer-dep, `.swt-planning/` presence. Use this first when something feels off. Surfaces `report.pi` populated from `SpawnerEnvironment.probe()`.                                                                                                                                                                                            |
 | `swt detect-phase` | Print the computed phase-detection state (`--bash-format` for shell consumption, JSON by default). Helper used by `swt vibe` routing.                                                                                                                                                                                                                                                 |
 | `swt config`       | Read or update SWT configuration: `swt config show \| get <key> \| set <key> <value>`.                                                                                                                                                                                                                                                                                                |
 | `swt update`       | Check npm registry for a newer published SWT version. `--json` for scripting; `--strict` fails offline; `--registry=<url>`, `--no-cache`.                                                                                                                                                                                                                                             |
 | `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs.                                                                                                                                                                                                                                                                                   |
 | `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`.                                                                                                                                                                                                      |
+| `swt rpc`          | Delegate to Pi's JSON-RPC mode (stdout reserved for the protocol stream). Per TDD2 §3.2 + §5. **Structurally complete; live activation gated on the session-wiring follow-up.**                                                                                                                                                                                                       |
+| `swt bench`        | Replay the TPAC reference scenario and emit a validated `TpacReport` JSON. Per TDD2 §3.2 + §14.9. **Structurally complete; live activation gated on cassette recording + session-wiring follow-up.**                                                                                                                                                                                  |
 | `swt help`         | Print usage, list all registered commands. Also `swt --help` and `swt {verb} --help`.                                                                                                                                                                                                                                                                                                 |
 | `swt version`      | Print SWT version. Also `swt --version`.                                                                                                                                                                                                                                                                                                                                              |
-
-### Landing in M2 (Plan 02-02 PR-20/21)
-
-| Command     | Use case                                                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `swt rpc`   | Delegate to Pi's `runRpcMode` for stateless one-shot RPC calls (no methodology surface). Per TDD2 §3.2 + §5.                                |
-| `swt bench` | Run the TPAC token-per-acceptance-criterion benchmark across a recorded cassette. Used to track the M4 −40% target against the M2 baseline. |
-
-### Stubs (placeholder commands)
-
-A small number of v2-era verbs (`swt init`, `swt plan`, `swt execute`, `swt verify`, `swt fix`, `swt debug`, `swt research`, `swt map`, etc.) are registered as placeholders that point at the `swt vibe` flag equivalents. They print a roadmap pointer and exit 78 (`EXIT.NOT_IMPLEMENTED`). Most are reachable today as `swt vibe` subroutes.
 
 ### Use case quick-pick
 
@@ -395,7 +357,7 @@ A small number of v2-era verbs (`swt init`, `swt plan`, `swt execute`, `swt veri
 - **Existing project, daily work** → `swt vibe` (auto-routes), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
 - **Something feels broken** → `swt doctor` first
 - **Configuration tweaks** → `swt config show` / `swt config set <key> <value>`
-- **Discoverability** → `swt help` lists every registered command; stubs print their roadmap phase when invoked
+- **Discoverability** → `swt help` lists every registered command
 
 ### Help and flags
 
@@ -407,36 +369,18 @@ swt dashboard --help
 swt config --help
 ```
 
-Top-level flags: `--version` (print version), `--help` (top-level usage). Commands without an explicit handler fall through to the stub message with the roadmap pointer.
-
----
-
-## Migrating from v2.x
-
-If you're upgrading from a v2.3.x project to v3.0, the canonical guide is [`docs/operations/migrating-from-v2.md`](./docs/operations/migrating-from-v2.md).
-
-TL;DR (when v3 ships): `npm install -g stop-wasting-tokens@3` + `swt migrate --to=v3`. The migration script (M6 PR-49) rewrites `.swt-planning/config.json` to drop the `backend:` field, adds `roles[*].tier` + `router_strategy:`, and adds the top-level `schema_version: 1` marker.
-
-**LTS posture**: v2.3.x receives 6 months of security + critical-bug patches per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md); plan your migration before that window closes.
-
-**Key v2 → v3 changes** (none are breaking for the methodology layer):
-
-- Runtime substrate: Codex CLI subprocess → `@earendil-works/pi-coding-agent` peer-dep.
-- Provider choice: `backend: codex|claude-code|ollama` → Pi-native provider matrix (Anthropic / OpenAI / OpenRouter / Google / Bedrock / Ollama).
-- Vocabulary: `reasoning_effort` → `thinking_level` (Pi-native: `off | minimal | low | medium | high | xhigh`).
-- QA: full LLM verification → static-check ladder (typecheck/lint/format/tests) → LLM escalation on failure.
-- The methodology surface (six SDLC roles, phase lifecycle, artefact pipeline) is preserved verbatim.
+Top-level flags: `--version` (print version), `--help` (top-level usage).
 
 ---
 
 ## Design + decisions
 
-The authoritative design document for v3 is [`TDD2.md`](./TDD2.md) at the repo root. It supersedes the v2-era TDD.md. Read [`docs/design/README.md`](./docs/design/README.md) for the suggested reading order.
+The authoritative design document is [`TDD2.md`](./TDD2.md) at the repo root. Read [`docs/design/README.md`](./docs/design/README.md) for the suggested reading order.
 
-13 Architecture Decision Records anchor v3, indexed at [`docs/decisions/README.md`](./docs/decisions/README.md):
+13 Architecture Decision Records anchor the design, indexed at [`docs/decisions/README.md`](./docs/decisions/README.md):
 
-- **Accepted (5)**: ADR-001 (Pi adoption), ADR-002 (Extension result protocol), ADR-003 (provider quirks JSON), ADR-004 (cache_control at provider-shim), ADR-005 (delete drivers wholesale), ADR-010 (reproducible builds — added at M1 PR-11).
-- **Proposed (7)**: ADR-006 (cache breakpoint placement), ADR-007 (Budget Gate semantics), ADR-008 (worktree-per-task), ADR-009 (Windows worktree paths), ADR-011 (cassette-only provider matrix), ADR-012 (six-month LTS).
+- **Accepted (7)**: ADR-001 (Pi adoption), ADR-002 (Extension result protocol), ADR-003 (provider quirks JSON), ADR-004 (cache_control at provider-shim), ADR-005 (delete drivers wholesale), ADR-008 (worktree-per-task — accepted M3 PR-22), ADR-010 (reproducible builds).
+- **Proposed (5)**: ADR-006 (cache breakpoint placement), ADR-007 (Budget Gate semantics), ADR-009 (Windows worktree paths), ADR-011 (cassette-only provider matrix), ADR-012 (six-month LTS).
 - **Deferred (1)**: ADR-013 (no hosted docs site at v3.0).
 
 Live planning state lives in [`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.md` is the entry point. Per-milestone PR ledger: [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).
@@ -446,10 +390,10 @@ Live planning state lives in [`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.m
 ## Troubleshooting
 
 **`swt: command not found` after install**
-Your global npm bin directory isn't on `PATH`. Run `npm config get prefix` and add `<prefix>/bin` to your shell rc.
+The source-install pattern aliases `node packages/cli/dist/cli.mjs` to `swt`; ensure your alias is in the right shell rc. Once the M6 release publishes to npm, the global bin convention takes over.
 
 **`swt --version` reports `0.0.0` after a manual rebuild**
-You're running a locally-built bundle from before the `CURRENT_VERSION` constant was wired up. Reinstall from npm: `npm install -g stop-wasting-tokens`.
+You're running a locally-built bundle from before the `CURRENT_VERSION` constant was wired up. Rebuild with `pnpm build` after pulling latest.
 
 **`swt vibe` keeps asking the same confirmation**
 Your `autonomy` is set to `cautious` or `standard` (the default). Switch with `swt config set autonomy confident` to auto-chain phases, or `pure-vibe` to auto-loop until a hard error.
@@ -460,8 +404,8 @@ Run `swt detect-phase` for a JSON dump of what SWT thinks the state is. The `pha
 **`swt doctor` reports `Pi runtime not available`**
 Pi is declared as a peer-dep (`^0.74.0`); ensure `@earendil-works/pi-coding-agent` is installed in your project or globally. Source installs from `main` include it via `pnpm install`.
 
-**Tests failing on chokidar 4 fsevents (macOS)**
-The PR-17 chokidar v4 upgrade fixed the glob-support drop; one remaining test (sse-snapshot-changed) is skipped under umbrella issue #32 pending a chokidar v4 close-handler fix or fs.watch migration.
+**`swt rpc` / `swt bench` exits with `EXIT.NOT_IMPLEMENTED` (2)**
+Expected today. Both verbs are structurally complete (CLI surface + flag parsing + delegation chain) but the live runtime activation is gated on a single-file `session.prompt()` follow-up PR. The stderr message points at the activation gate.
 
 ---
 
@@ -471,4 +415,4 @@ The PR-17 chokidar v4 upgrade fixed the glob-support drop; one remaining test (s
 - Security disclosures: [SECURITY.md](SECURITY.md).
 - License: MIT, see [LICENSE](LICENSE).
 
-Active development of v3 happens on `main`. v2 stable patches land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive). v3.0.0 cuts from `main` at the M6 release gate.
+Active development happens on `main`. Stable patches for the legacy v2.3.x line land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) under the [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md) six-month LTS window.
