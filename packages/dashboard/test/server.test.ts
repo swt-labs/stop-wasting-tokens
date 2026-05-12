@@ -1,13 +1,9 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { HealthResponseSchema } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createServer, type DashboardServer } from '../src/server/index.js';
 
-describe.skip('dashboard server', () => {
+describe('dashboard server', () => {
   let server: DashboardServer | undefined;
 
   beforeEach(async () => {
@@ -37,7 +33,9 @@ describe.skip('dashboard server', () => {
   });
 
   it('refuses 0.0.0.0 without allowPublic', async () => {
-    await expect(createServer({ port: 0, hostname: '0.0.0.0' })).rejects.toThrow(/refuses to bind/);
+    await expect(createServer({ port: 0, hostname: '0.0.0.0' })).rejects.toThrow(
+      /[Rr]efus(es|ing) to bind/,
+    );
   });
 
   it('accepts 0.0.0.0 when allowPublic=true', async () => {

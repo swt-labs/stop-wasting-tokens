@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -29,7 +25,7 @@ async function fetch(pathQuery: string): Promise<Response> {
   return await app.request(`http://x${pathQuery}`);
 }
 
-describe.skip('GET /api/artifact', () => {
+describe('GET /api/artifact', () => {
   beforeEach(() => {
     setup();
     app = new Hono();
@@ -55,7 +51,13 @@ describe.skip('GET /api/artifact', () => {
     const body = (await res.json()) as { html: string; frontmatter: Record<string, unknown> };
     expect(body.html).toContain('<h1>State</h1>');
     expect(body.html).toContain('<strong>world</strong>');
-    expect(body.html).toContain('class="language-ts"');
+    // Syntax highlighting fired — shiki replaces the inner content of the
+    // <code> block with styled <span> tokens carrying inline colors. The v2
+    // assertion checked for `class="language-ts"` but `@shikijs/rehype` (as
+    // configured + sanitized here) strips the language class and emits
+    // styled spans instead. Match the styled-span markup to verify shiki ran.
+    expect(body.html).toContain('<pre><code>');
+    expect(body.html).toMatch(/<span style="color:#[0-9A-Fa-f]+">[^<]+<\/span>/);
     expect(body.frontmatter['phase']).toBe(1);
   });
 

@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -90,7 +86,7 @@ function setupFixture(): string {
   return root;
 }
 
-describe.skip('buildSnapshot', () => {
+describe('buildSnapshot', () => {
   it('produces a Zod-valid Snapshot from a fixture .swt-planning/ tree', () => {
     const root = setupFixture();
     const snap = buildSnapshot(root);
@@ -154,11 +150,15 @@ describe.skip('buildSnapshot', () => {
   });
 });
 
-describe.skip('snapshotsEqual', () => {
+describe('snapshotsEqual', () => {
   it('returns true for two snapshots that differ only in generated_at', () => {
     const root = setupFixture();
     const a = buildSnapshot(root);
-    const b = buildSnapshot(root);
+    // Force a distinct timestamp — Date.now() resolves to ms and two calls in
+    // the same ms collide. The test's point is `snapshotsEqual` ignores
+    // `generated_at`; we synthesize the diff so the equality assertion
+    // exercises the timestamp-ignoring path deterministically.
+    const b = { ...buildSnapshot(root), generated_at: '2099-12-31T23:59:59.999Z' };
     expect(a.generated_at).not.toBe(b.generated_at);
     expect(snapshotsEqual(a, b)).toBe(true);
   });

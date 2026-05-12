@@ -1,5 +1,5 @@
 import type { VibeReplyBody } from '@swt-labs/shared';
-import { For, Show, createSignal, onMount, type Component } from 'solid-js';
+import { For, Show, createEffect, createSignal, onMount, type Component } from 'solid-js';
 
 import { ansiToHtml } from '../lib/ansi-to-html.js';
 import type { ConversationEntry } from '../state/dashboard-store.js';
@@ -70,11 +70,20 @@ export const LogPanel: Component<LogPanelProps> = (props) => {
     return props.lines.length === 0 && conv.length === 0;
   };
 
+  // Run `scheduleSnap` as a SolidJS effect so the auto-scroll fires every
+  // time `props.lines` (or any other reactive read inside scheduleSnap)
+  // changes. The previous v2-era pattern called `{scheduleSnap()}` inline
+  // in JSX, which works at runtime in Solid but trips TS2322 because
+  // `void` is not a renderable type. `createEffect` is the idiomatic Solid
+  // place for render-time side effects.
+  createEffect(() => {
+    scheduleSnap();
+  });
+
   return (
     <section class="panel log-panel" aria-label="Log Panel">
       <h2 class="panel-header">Log</h2>
       <div ref={scrollerRef} class="log-panel-scroller" onScroll={onScroll}>
-        {scheduleSnap()}
         <Show when={!isEmpty()} fallback={<div class="preview-panel-empty">No log lines yet.</div>}>
           <Show when={props.agentBackend === 'none'}>
             <div class="vibe-no-backend-banner" role="status">

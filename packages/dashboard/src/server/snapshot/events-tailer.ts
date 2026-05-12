@@ -16,6 +16,12 @@ export interface EventsTailerOptions {
 
 export interface EventsTailer {
   close(): Promise<void>;
+  /**
+   * Resolves once the underlying chokidar watcher's initial scan has
+   * completed. Tests that write event JSONL files immediately after
+   * construction MUST await this before expecting the bus to publish.
+   */
+  readonly ready: Promise<void>;
 }
 
 const DEFAULT_LOG_RATE_LIMIT = 100;
@@ -84,6 +90,7 @@ export function createEventsTailer(options: EventsTailerOptions): EventsTailer {
   });
 
   return {
+    ready: tailer.ready,
     close: async () => {
       flushDropNotice();
       await tailer.close();

@@ -76,11 +76,20 @@ export function createSnapshotter(opts: SnapshotterOptions): Snapshotter {
   let cached: Snapshot = buildSnapshot(projectRoot);
   let pending: NodeJS.Timeout | null = null;
 
+  // Chokidar v4 dropped built-in glob support — pass concrete file +
+  // directory paths only. WATCH_GLOBS already returns concrete paths. The
+  // `ignored` config accepts a regex or a predicate in v4 (the v2-era
+  // glob form `'**/node_modules/**'` no longer matches). Keep the
+  // `awaitWriteFinish` stability guard from v2 — the AC-03 500ms budget
+  // accommodates the ~25ms delay.
   const watcher: FSWatcher = chokidar.watch(WATCH_GLOBS(projectRoot), {
     ignoreInitial: true,
     persistent: true,
     awaitWriteFinish: { stabilityThreshold: 25, pollInterval: 10 },
-    ignored: ['**/node_modules/**', '**/.git/**', '**/.cache/**'],
+    ignored: (filePath: string): boolean =>
+      filePath.includes('/node_modules/') ||
+      filePath.includes('/.git/') ||
+      filePath.includes('/.cache/'),
   });
 
   const eventsTailer: EventsTailer = createEventsTailer({ projectRoot, bus });

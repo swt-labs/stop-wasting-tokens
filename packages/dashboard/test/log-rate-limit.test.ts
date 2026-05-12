@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -58,7 +54,7 @@ afterEach(() => {
   rmSync(projectRoot, { recursive: true, force: true });
 });
 
-describe.skip('log.append rate limit (events-tailer)', () => {
+describe('log.append rate limit (events-tailer)', () => {
   it('passes through log lines under the cap', async () => {
     const bus = createEventBus();
     const tailer = createEventsTailer({ projectRoot, bus, logRateLimitPerSec: 100 });

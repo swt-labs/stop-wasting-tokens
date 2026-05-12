@@ -4,8 +4,19 @@ import path from 'node:path';
 import chokidar, { type FSWatcher } from 'chokidar';
 
 export interface FileTailerOptions {
-  /** Glob pattern (supports chokidar globs) describing the files to watch. */
+  /**
+   * Pattern(s) describing the files to watch.
+   *
+   * Each entry must be one of:
+   *   - A directory path (watches every file inside, optionally filtered by `extensions`).
+   *   - A directory-with-basename-glob like `<dir>/*.jsonl` (the `*.<ext>` tail is
+   *     stripped to derive `<dir>` + an extension filter — chokidar v4 dropped
+   *     built-in glob support, so we parse the trailing `*.<ext>` ourselves).
+   *   - A concrete file path (watches just that file).
+   */
   pattern: string | readonly string[];
+  /** Optional extension filter (e.g. `['.jsonl']`). Files outside this set are ignored. */
+  extensions?: readonly string[];
   /** Called for each non-empty line appended to a watched file. */
   onLine: (line: string, filePath: string) => void;
   /** Called when the tailer can't read or parse a file. Errors are non-fatal. */
@@ -14,6 +25,15 @@ export interface FileTailerOptions {
 
 export interface FileTailer {
   close(): Promise<void>;
+  /**
+   * Resolves after chokidar's initial directory scan completes. Callers
+   * who write to a watched glob immediately after construction must await
+   * this before expecting `onLine` to fire — otherwise chokidar may miss
+   * `add` events for files created during its startup window. Production
+   * callers (snapshotter at server boot) can ignore this; only tests that
+   * create files synchronously after construction need to await it.
+   */
+  readonly ready: Promise<void>;
 }
 
 /**
@@ -84,17 +104,60 @@ export function createFileTailer(options: FileTailerOptions): FileTailer {
     });
   };
 
-  const patterns: string[] = typeof pattern === 'string' ? [pattern] : pattern.map((p) => p);
-  const watcher: FSWatcher = chokidar.watch(patterns, {
+  // Chokidar v4 dropped built-in glob support — we accept directory paths
+  // or `<dir>/*.<ext>` shorthand and parse the latter into `<dir>` plus an
+  // extension filter ourselves.
+  const inputPatterns: string[] = typeof pattern === 'string' ? [pattern] : pattern.map((p) => p);
+  const watchTargets: string[] = [];
+  const extensionFilter = new Set<string>(
+    (options.extensions ?? []).map((e) => (e.startsWith('.') ? e : `.${e}`)),
+  );
+  for (const p of inputPatterns) {
+    const match = /^(.+?)[/\\]\*\.([A-Za-z0-9]+)$/.exec(p);
+    if (match !== null) {
+      const dir = match[1];
+      const ext = match[2];
+      if (dir !== undefined) watchTargets.push(dir);
+      if (ext !== undefined) extensionFilter.add(`.${ext}`);
+    } else {
+      watchTargets.push(p);
+    }
+  }
+
+  const matchesExtension = (filePath: string): boolean => {
+    if (extensionFilter.size === 0) return true;
+    return extensionFilter.has(path.extname(filePath));
+  };
+
+  const watcher: FSWatcher = chokidar.watch(watchTargets, {
     ignoreInitial: false,
     persistent: true,
-    awaitWriteFinish: { stabilityThreshold: 25, pollInterval: 10 },
+    // `awaitWriteFinish: false` (default) — `add`/`change` events fire as
+    // soon as chokidar sees them. The stability-threshold guard from the
+    // v2-era config delayed events by ~25-50ms even for atomic
+    // writeFileSync calls; tests that wrote files immediately after
+    // construction observed missed events. Our consumers (events-tailer,
+    // snapshotter) read JSONL lines whose writers are atomic
+    // (writeFileSync / appendFileSync) so chunked-write protection
+    // doesn't apply.
   });
 
-  watcher.on('add', (filePath) => readNewLines(filePath));
-  watcher.on('change', (filePath) => readNewLines(filePath));
+  watcher.on('add', (filePath) => {
+    if (matchesExtension(filePath)) readNewLines(filePath);
+  });
+  watcher.on('change', (filePath) => {
+    if (matchesExtension(filePath)) readNewLines(filePath);
+  });
+
+  // Public `ready` promise — resolves once chokidar's initial scan
+  // completes. Tests await this before writing files; production callers
+  // can ignore it.
+  const ready: Promise<void> = new Promise((resolve) => {
+    watcher.once('ready', () => resolve());
+  });
 
   return {
+    ready,
     close: async () => {
       offsets.clear();
       await watcher.close();

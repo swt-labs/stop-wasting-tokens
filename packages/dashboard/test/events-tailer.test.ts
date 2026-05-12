@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -60,7 +56,7 @@ const sampleLog = {
   line: 'hello',
 };
 
-describe.skip('createEventsTailer', () => {
+describe('createEventsTailer', () => {
   let root: string;
   let eventsDir: string;
   let tailer: EventsTailer | undefined;
@@ -82,6 +78,7 @@ describe.skip('createEventsTailer', () => {
     bus.subscribe((event) => received.push(event));
 
     tailer = createEventsTailer({ projectRoot: root, bus });
+    await tailer.ready;
 
     const filePath = path.join(eventsDir, 'session-1.jsonl');
     writeFileSync(filePath, jsonl([sampleSpawn]));
@@ -100,6 +97,7 @@ describe.skip('createEventsTailer', () => {
     bus.subscribe((event) => received.push(event));
 
     tailer = createEventsTailer({ projectRoot: root, bus });
+    await tailer.ready;
 
     const filePath = path.join(eventsDir, 'session-2.jsonl');
     writeFileSync(
@@ -119,6 +117,7 @@ describe.skip('createEventsTailer', () => {
     bus.subscribe((event) => received.push(event));
 
     tailer = createEventsTailer({ projectRoot: root, bus });
+    await tailer.ready;
 
     const filePath = path.join(eventsDir, 'session-3.jsonl');
     writeFileSync(
@@ -137,6 +136,7 @@ describe.skip('createEventsTailer', () => {
     bus.subscribe((event) => received.push(event));
 
     tailer = createEventsTailer({ projectRoot: root, bus });
+    await tailer.ready;
 
     const fileA = path.join(eventsDir, 'session-a.jsonl');
     const fileB = path.join(eventsDir, 'session-b.jsonl');

@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -66,6 +62,14 @@ function setupFixture(): string {
   return root;
 }
 
+// SKIPPED (M2 PR-17): the full-server-boot integration test hangs on macOS
+// chokidar v4 — both the test itself (5s timeout) and the afterEach hook
+// (10s timeout, server.close) wait forever. The other 9 dashboard tests
+// unskipped in this PR pass; this one exercises a full server boot + SSE
+// roundtrip that hits a chokidar v4 watcher.close() hang specific to the
+// fsevents path on macOS. Tracked under umbrella issue #32; resolution
+// requires either a chokidar v4 upgrade with a fixed close-handler or a
+// switch to native node fs.watch + manual file-mtime polling.
 describe.skip('AC-03: file save → SSE delivery within 500ms', () => {
   let server: DashboardServer | undefined;
   let root: string;

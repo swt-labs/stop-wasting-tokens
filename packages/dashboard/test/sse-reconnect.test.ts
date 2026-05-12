@@ -1,7 +1,3 @@
-// TODO(v3-debt): tracking https://github.com/swt-labs/stop-wasting-tokens/issues/32
-// All describe() blocks below are .skip()-ed pending v2.3.5 test-debt remediation.
-// See `docs/decisions/test-debt-tracking.md` for the cluster classification.
-
 /**
  * Phase 03 / AC-04: 5-second disconnect detection, ≤10s reconnect.
  *
@@ -82,7 +78,7 @@ class FakeEventSource implements FakeEventSourceInstance {
   }
 }
 
-describe.skip('SSE reconnect (AC-04)', () => {
+describe('SSE reconnect (AC-04)', () => {
   beforeEach(() => {
     globalThis.__fakeEventSources = [];
     (globalThis as unknown as { EventSource: typeof FakeEventSource }).EventSource =

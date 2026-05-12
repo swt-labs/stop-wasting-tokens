@@ -81,19 +81,19 @@ files_modified:
   - packages/core/src/types/codex-reasoning-effort.ts (DELETED — PR-12)
 deviations:
   - 'PR-12 plan-amendment: consolidated 6 role-profile files into one `role-profiles.ts` module instead of 6 separate `<role>.ts` files. The 6 `.prompt.md` files ship as separate files per the plan. Rationale: keeps the 6 profile declarations co-located + the `ROLE_PROFILES` lookup table next to them — same v2.x pattern for tier/autonomy/verification profiles. Consumers import named exports (`SCOUT_PROFILE`, `DEV_PROFILE`, etc.); the API surface is identical to per-file profiles.'
-  - 'PR-12 plan-amendment: 9 methodology test debts + plan-handler rewire deferred to PR-13/14/15 (the unskips depend on handler shapes those PRs rewire; the plan-handler dispatcher rewire belongs structurally with PR-13''s dev-runner where the dispatcher is first consumed). Closed: all 9 methodology debts unskipped + passing at PR-15.'
-  - 'PR-13 plan-amendment: `dev-runner.ts` interface ships as `runDevTasks({phase, plans, cwd, opts})` iterating plans (one TaskBrief per plan) rather than the plan''s pseudocode `runDevTasks(plan, cwd, opts?)` iterating `plan.tasks`. At M2 each plan = one Dev work-unit; per-task fan-out belongs at M3 PR-22 when plans get parsed into task arrays for worktree-keyed parallel dispatch. Interface is forward-compatible.'
-  - 'PR-13 plan-amendment: `harvestStrategy` plumbing into `swt vibe` end-to-end deferred to PR-15. The executor surface accepts `harvestStrategy?` but the CLI default stays `''stub''`. PR-15 wires the synthetic entries strategy through the test path.'
-  - 'PR-14 plan-amendment: qa.ts handler rewire to consume `runVerificationLadder` deferred to PR-15 along with the `swt vibe` end-to-end wiring (the handler shape rewire is coupled to PR-15''s FSM reshape). PR-14 ships the ladder + escalator contract; qa.test stayed at describe.skip until PR-15. Closed: qa.test unskipped + ladder integrated at PR-15.'
+  - "PR-12 plan-amendment: 9 methodology test debts + plan-handler rewire deferred to PR-13/14/15 (the unskips depend on handler shapes those PRs rewire; the plan-handler dispatcher rewire belongs structurally with PR-13's dev-runner where the dispatcher is first consumed). Closed: all 9 methodology debts unskipped + passing at PR-15."
+  - "PR-13 plan-amendment: `dev-runner.ts` interface ships as `runDevTasks({phase, plans, cwd, opts})` iterating plans (one TaskBrief per plan) rather than the plan's pseudocode `runDevTasks(plan, cwd, opts?)` iterating `plan.tasks`. At M2 each plan = one Dev work-unit; per-task fan-out belongs at M3 PR-22 when plans get parsed into task arrays for worktree-keyed parallel dispatch. Interface is forward-compatible."
+  - "PR-13 plan-amendment: `harvestStrategy` plumbing into `swt vibe` end-to-end deferred to PR-15. The executor surface accepts `harvestStrategy?` but the CLI default stays `'stub'`. PR-15 wires the synthetic entries strategy through the test path."
+  - "PR-14 plan-amendment: qa.ts handler rewire to consume `runVerificationLadder` deferred to PR-15 along with the `swt vibe` end-to-end wiring (the handler shape rewire is coupled to PR-15's FSM reshape). PR-14 ships the ladder + escalator contract; qa.test stayed at describe.skip until PR-15. Closed: qa.test unskipped + ladder integrated at PR-15."
   - 'PR-14 plan-amendment: 12-row denylist regression matrix + 3 HIGH-priority canonical attack vectors added beyond the plan''s "every pattern round-trips" verify gate to harden the bash-guard surface against future refactors. Also tightened the `>+\s*/dev/(sd|nvme|disk)` redirect pattern (drop leading `\b` which never matched space-before-`>`) + added the `\/\w+\b` first-path-component pattern (`rm -rf /etc`) that the original denylist didn''t cover.'
-  - 'PR-15 plan-amendment: end-to-end vibe-handler test (with synthetic Pi entries) NOT in this PR. The dispatcher entries path is already covered by PR-13''s `execute.test.ts`, `dispatcher-dev.int.test.ts`, and `dev-runner.test.ts`. A fresh test through `vibeHandler` would add CLI-wiring scaffolding without new coverage. The 1 existing init-redirect test in `vibe.test.ts` stays.'
+  - "PR-15 plan-amendment: end-to-end vibe-handler test (with synthetic Pi entries) NOT in this PR. The dispatcher entries path is already covered by PR-13's `execute.test.ts`, `dispatcher-dev.int.test.ts`, and `dev-runner.test.ts`. A fresh test through `vibeHandler` would add CLI-wiring scaffolding without new coverage. The 1 existing init-redirect test in `vibe.test.ts` stays."
   - 'PR-15 plan-amendment: methodology FSM handler rewires (`plan.ts → createDispatcher`, `verify.ts/re-verify.ts` ladder consumption, `all-done.ts` advance-phase routing) stay as v2.x surfaces in this PR. They work as-is per their existing tests. The full FSM reshape per TDD2 §11.1 is M3+ territory.'
-  - 'PR-15 plan-amendment: `agent-spec-resolver.ts` still reads TOML (deferred from PR-12). The full rewire to read `RoleProfile` from `packages/methodology/src/profiles/` lands at M3 with the 4-level override precedence (TDD2 §10.2). M2''s TOML-read path is functionally identical for the ThinkingLevel surface — only the storage source differs.'
+  - "PR-15 plan-amendment: `agent-spec-resolver.ts` still reads TOML (deferred from PR-12). The full rewire to read `RoleProfile` from `packages/methodology/src/profiles/` lands at M3 with the 4-level override precedence (TDD2 §10.2). M2's TOML-read path is functionally identical for the ThinkingLevel surface — only the storage source differs."
   - 'PR-15 code-fix: `RoadmapSchema.phases` relaxed `.min(1)` → `.min(0)` to permit the post-bootstrap pre-scope state. The bootstrap handler writes a ROADMAP.md with zero phases (the user has just named the project — scoping adds phases). The `schemas.test.ts` "roadmap requires at least one phase" assertion is replaced with "roadmap accepts an empty phases array (post-bootstrap, pre-scope)" to document the new contract.'
-  - 'PR-15 code-fix: `handlers/index.ts` re-exports `NotImplementedError` + `RoutingError` from `../errors.js`. The v2 surface re-exported these; PR-04''s split lost the re-export. `dispatch.test.ts` imports `NotImplementedError` from `handlers/index.ts` (the v2 import path). Restored the re-export to fix the test.'
-  - 'PR-16 plan-amendment: route wire-up (`routes/permissions.ts` + `routes/update.ts` consuming the composite) is NOT in this PR. Today''s localhost-only daemon + user-initiated trust model already provides good security for UI button POSTs; adding the composite to every route adds audit-trail value but doesn''t change the security posture. Adoption lives at M3 when destructive-op classifiers + SSE-audit consumers exist; the contract is ready for them.'
-  - 'PR-16 plan-amendment: audit-event SSE channel NOT in this PR. The existing `state.changed` event type has a constrained `changed` enum that doesn''t include audit emissions; adding a new discriminator would widen the enum invasively. The clean fix is a dedicated `audit.entry` event type at M3 PR-17. PR-16 ships the `UiAuditSink` interface + `InMemoryUiAuditSink` as the M2 default; M3 swaps the sink without changing the gate surface.'
-  - 'PR-16 plan-amendment: dashboard test cluster (10 v2.3.5 carry-forward + LogPanel TS2322) stays skipped — per the plan''s verify step 5 close-out is PR-17 territory (Plan 02-02).'
+  - "PR-15 code-fix: `handlers/index.ts` re-exports `NotImplementedError` + `RoutingError` from `../errors.js`. The v2 surface re-exported these; PR-04's split lost the re-export. `dispatch.test.ts` imports `NotImplementedError` from `handlers/index.ts` (the v2 import path). Restored the re-export to fix the test."
+  - "PR-16 plan-amendment: route wire-up (`routes/permissions.ts` + `routes/update.ts` consuming the composite) is NOT in this PR. Today's localhost-only daemon + user-initiated trust model already provides good security for UI button POSTs; adding the composite to every route adds audit-trail value but doesn't change the security posture. Adoption lives at M3 when destructive-op classifiers + SSE-audit consumers exist; the contract is ready for them."
+  - "PR-16 plan-amendment: audit-event SSE channel NOT in this PR. The existing `state.changed` event type has a constrained `changed` enum that doesn't include audit emissions; adding a new discriminator would widen the enum invasively. The clean fix is a dedicated `audit.entry` event type at M3 PR-17. PR-16 ships the `UiAuditSink` interface + `InMemoryUiAuditSink` as the M2 default; M3 swaps the sink without changing the gate surface."
+  - "PR-16 plan-amendment: dashboard test cluster (10 v2.3.5 carry-forward + LogPanel TS2322) stays skipped — per the plan's verify step 5 close-out is PR-17 territory (Plan 02-02)."
 pre_existing_issues:
   - 'Dashboard `packages/dashboard/src/client/components/LogPanel.tsx(78,9)` TS2322 — still a `pnpm -r typecheck` per-package failure (the `tsc --noEmit -p tsconfig.client.json` side). CI runs only `pnpm typecheck` (root: `tsc --build`) so the matrix stays green. Tracked under umbrella issue #32; resolved at M2 PR-17 (dashboard SSE rewire).'
   - "pnpm-workspace eslint-import resolver — `import/no-restricted-paths` doesn't resolve workspace `@swt-labs/<pkg>` imports through pnpm symlinks. Rule stays at `warn` pending M3 work that wires `eslint-import-resolver-typescript`. Structural test still asserts the rule definitions are in place."
@@ -122,7 +122,7 @@ ac_results:
   # ──────────────────────────────────────────────────────────────────────
   - criterion: 'truth: Dev role runs one task at a time end-to-end through the dispatcher; per-task `swt-task-result` Pi Extension custom entries are emitted and harvested per ADR-002.'
     verdict: pass
-    evidence: 'Commit b1654b0; `runDevTasks` iterates plans sequentially; each plan dispatches via `dispatcher.dispatch({ role: ''dev'', cwd, claims, promptContext })`. Halt-on-failed/blocked exits the loop. 6 dev-runner unit tests + 3 dispatcher-dev integration tests cover the surface. The `swt_report_result` extension from Plan 01-02 PR-09 is the production harvest source (mocked via `entries` strategy in tests; real Pi prompt path is M3 PR-22 territory per dispatcher.ts comment).'
+    evidence: "Commit b1654b0; `runDevTasks` iterates plans sequentially; each plan dispatches via `dispatcher.dispatch({ role: 'dev', cwd, claims, promptContext })`. Halt-on-failed/blocked exits the loop. 6 dev-runner unit tests + 3 dispatcher-dev integration tests cover the surface. The `swt_report_result` extension from Plan 01-02 PR-09 is the production harvest source (mocked via `entries` strategy in tests; real Pi prompt path is M3 PR-22 territory per dispatcher.ts comment)."
 
   # ──────────────────────────────────────────────────────────────────────
   # PR-14 must-haves
@@ -137,7 +137,7 @@ ac_results:
   # ──────────────────────────────────────────────────────────────────────
   # PR-15 must-haves
   # ──────────────────────────────────────────────────────────────────────
-  - criterion: "truth: `swt vibe` end-to-end works against a Pi session for a single Anthropic provider (the M2 reference scenario); no driver-package code is invoked."
+  - criterion: 'truth: `swt vibe` end-to-end works against a Pi session for a single Anthropic provider (the M2 reference scenario); no driver-package code is invoked.'
     verdict: partial
     evidence: 'Commit e950586; methodology layer dispatches through `@swt-labs/orchestration` for Dev (PR-13) + QA (PR-14/15) roles. CLI`swt vibe` constructs the dispatcher via the executeHandler. `swt doctor` surfaces Pi peer-dep version. Driver imports were already removed at Plan 01-01 PR-01b. `partial` because the real Anthropic-backed Pi run is a manual smoke test (requires API key + Pi runtime); session.prompt() remains a no-op until M3 PR-22 wires real Pi prompting. The end-to-end methodology FSM is exercised by the synthetic entries strategy in tests.'
   - criterion: 'truth: 9 v2.3.5 carry-forward methodology test failures (4 bootstrap.test.ts ZodError + 2 dispatch.test.ts NotImplementedError shape + 3 plan/qa/execute driver fallout) are unskipped (`describe.skip` → `describe`) and pass.'
@@ -147,7 +147,7 @@ ac_results:
   # ──────────────────────────────────────────────────────────────────────
   # PR-16 must-haves
   # ──────────────────────────────────────────────────────────────────────
-  - criterion: "truth: `UiPermissionGate` lands as a sibling to `DashboardPermissionGate`; UI-button-originated POSTs (no `session_id`) route through it; vibe-session POSTs continue through `DashboardPermissionGate`."
+  - criterion: 'truth: `UiPermissionGate` lands as a sibling to `DashboardPermissionGate`; UI-button-originated POSTs (no `session_id`) route through it; vibe-session POSTs continue through `DashboardPermissionGate`.'
     verdict: partial
     evidence: 'Commit 4effa48; `UiPermissionGate` ships with `requestApproval(call, context)`, `UiAuditSink` interface, `InMemoryUiAuditSink`, optional `classify` hook. `CompositePermissionGate` routes by `session_id` presence per TDD2 §12. 12 new tests (6 ui-gate + 6 composite). `partial` because the existing routes (`/api/config`, `/api/init`, `/api/command`) still use the localhost trust model — the composite is a contract-only landing. Route wire-up is M3 territory when destructive-op classifiers + SSE-audit consumers exist.'
 
@@ -171,7 +171,7 @@ ac_results:
     evidence: 'Commit dd5c9e3; `TYPECHECK`, `LINT`, `FORMAT_CHECK`, `UNIT_TESTS` as `StaticCheck` values + 4 KB output tail. `DEFAULT_STATIC_CHECKS` ordered array. `makeCommandCheck` factory for tests.'
   - criterion: 'artifact: packages/dashboard/src/server/vibe/ui-permission-gate.ts — UiPermissionGate class.'
     verdict: pass
-    evidence: 'Commit 4effa48; `UiPermissionGate` + `UiApprovalDecision` + `UiAuditEntry` + `UiAuditSink` + `InMemoryUiAuditSink`. Default auto-allow with `via: ''ui-trust''`; optional `classify` hook for destructive-op gating.'
+    evidence: "Commit 4effa48; `UiPermissionGate` + `UiApprovalDecision` + `UiAuditEntry` + `UiAuditSink` + `InMemoryUiAuditSink`. Default auto-allow with `via: 'ui-trust'`; optional `classify` hook for destructive-op gating."
   - criterion: 'artifact: packages/dashboard/src/server/vibe/composite-permission-gate.ts — CompositePermissionGate class.'
     verdict: pass
     evidence: 'Commit 4effa48; `CompositePermissionGate` routes by `session_id` presence; missing-session-gate path returns `classified_block`; preserves DashboardPermissionGate denial reasons; 6 composite-routing tests.'
@@ -302,13 +302,13 @@ See the `deviations:` frontmatter array above. Per-PR breakdown:
 
 ## What landed
 
-| PR | Commit | Subject | Tests (delta) |
-| --- | --- | --- | --- |
-| PR-12 | `8bc1475` | Role profiles + role-router + prompt-builder + ThinkingLevel rename | 730 (+11) |
-| PR-13 | `b1654b0` | Dev role through dispatcher + dev-runner sequential loop + execute handler rewire | 744 (+14) |
-| PR-14 | `dd5c9e3` | QA static-check ladder + LLM escalation + bash-guard HIGH-priority security fix | 785 (+41) |
-| PR-15 | `e950586` | QA handler ladder integration + roadmap relax + Pi doctor + 9 v2.3.5 test debts cleared | 816 (+31) |
-| PR-16 | `4effa48` | UiPermissionGate + CompositePermissionGate contract | 828 (+12) |
+| PR    | Commit    | Subject                                                                                 | Tests (delta) |
+| ----- | --------- | --------------------------------------------------------------------------------------- | ------------- |
+| PR-12 | `8bc1475` | Role profiles + role-router + prompt-builder + ThinkingLevel rename                     | 730 (+11)     |
+| PR-13 | `b1654b0` | Dev role through dispatcher + dev-runner sequential loop + execute handler rewire       | 744 (+14)     |
+| PR-14 | `dd5c9e3` | QA static-check ladder + LLM escalation + bash-guard HIGH-priority security fix         | 785 (+41)     |
+| PR-15 | `e950586` | QA handler ladder integration + roadmap relax + Pi doctor + 9 v2.3.5 test debts cleared | 816 (+31)     |
+| PR-16 | `4effa48` | UiPermissionGate + CompositePermissionGate contract                                     | 828 (+12)     |
 
 Test trajectory: **730 → 828 (+98 tests)**, 0 failures throughout. 0 lint errors, all typecheck green, format clean on PR-12..16 code (only pre-existing `.vbw-planning/` housekeeping warnings remain).
 
@@ -331,12 +331,12 @@ PR-14 closed the `packages/verification/test/guards.test.ts` HIGH-priority denyl
 
 ## Test-debt umbrella #32 status
 
-| Cluster | Before Plan 02-01 | After Plan 02-01 |
-| --- | --- | --- |
-| Methodology (9) | 9 skipped | **9 resolved** at PR-13 + PR-15 |
-| Verification (3, HIGH-priority) | 3 skipped | **3 resolved** at PR-14 |
-| Dashboard (10) | 10 skipped | 10 skipped — PR-17 (Plan 02-02) |
-| **Total in-scope for Plan 02-01** | **12 skipped** | **12 resolved** |
+| Cluster                           | Before Plan 02-01 | After Plan 02-01                |
+| --------------------------------- | ----------------- | ------------------------------- |
+| Methodology (9)                   | 9 skipped         | **9 resolved** at PR-13 + PR-15 |
+| Verification (3, HIGH-priority)   | 3 skipped         | **3 resolved** at PR-14         |
+| Dashboard (10)                    | 10 skipped        | 10 skipped — PR-17 (Plan 02-02) |
+| **Total in-scope for Plan 02-01** | **12 skipped**    | **12 resolved**                 |
 
 ## What's next (Plan 02-02 — PR-17..PR-21)
 
