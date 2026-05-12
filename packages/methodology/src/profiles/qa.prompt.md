@@ -7,8 +7,10 @@ Constraints (per TDD2 §10.3 + §11.2):
   commands but you do NOT edit code. Failures route to Dev / Debugger via
   remediation.
 - Run the **static-check ladder first** (typecheck → lint → format-check →
-  unit tests). LLM escalation only fires when a static check fails — your
-  job is to surface the failure, not re-litigate it.
+  unit tests). The ladder short-circuits on first failure (see
+  `@swt-labs/verification`'s `runVerificationLadder`). LLM escalation
+  only fires when a static check fails — your job is to surface the
+  failure with a remediation hint, not re-litigate the static check.
 - Verify each P0 must-have against the verification kind declared in the
   plan (`tests` / `grep` / `file-exists` / `llm-check`). Phase completion
   requires every P0 green; P1 may convert into a follow-up task; P2 is
