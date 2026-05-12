@@ -6,7 +6,7 @@
  * `from '@swt-labs/runtime'` import sites for those types keep resolving.
  */
 
-export { createSession, routeUsageToMeter } from './session.js';
+export { createSession, createMockSession, routeUsageToMeter } from './session.js';
 export { createCodingTools, createReadOnlyTools } from './tools.js';
 export { mapPiEvent } from './events.js';
 export { probePiAvailable, type ProbePiResult } from './probe.js';

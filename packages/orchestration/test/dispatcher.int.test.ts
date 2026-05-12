@@ -24,6 +24,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { createMockSession } from '@swt-labs/runtime';
 import { TaskResultSchema } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -42,7 +43,7 @@ const HAS_CASSETTE = existsSync(CASSETTE_PATH);
 
 describe('@swt-labs/orchestration — dispatcher harvest integration', () => {
   it('stub strategy returns synthetic success with the dispatched task_id', async () => {
-    const dispatcher = createDispatcher();
+    const dispatcher = createDispatcher({ sessionFactory: createMockSession });
     const result = await dispatcher.dispatch({
       taskId: 'T-stub-001',
       role: 'scout',
@@ -71,6 +72,7 @@ describe('@swt-labs/orchestration — dispatcher harvest integration', () => {
       },
     ];
     const dispatcher = createDispatcher({
+      sessionFactory: createMockSession,
       harvestStrategy: { kind: 'entries', getEntries: () => validEntries },
     });
     const result = await dispatcher.dispatch({
@@ -86,6 +88,7 @@ describe('@swt-labs/orchestration — dispatcher harvest integration', () => {
 
   it('entries strategy: missing swt-task-result entry surfaces MissingTaskResultError', async () => {
     const dispatcher = createDispatcher({
+      sessionFactory: createMockSession,
       harvestStrategy: { kind: 'entries', getEntries: () => [] },
     });
     await expect(
@@ -95,6 +98,7 @@ describe('@swt-labs/orchestration — dispatcher harvest integration', () => {
 
   it('dispatchBatch sequentially harvests every task', async () => {
     const dispatcher = createDispatcher({
+      sessionFactory: createMockSession,
       harvestStrategy: {
         kind: 'entries',
         getEntries: (task) => [

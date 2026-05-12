@@ -12,22 +12,28 @@
  * value-level. The rest of the codebase (orchestration, methodology,
  * dashboard, cli) imports `runRpc` from here.
  *
- * **M2 PR-20 ship state — structurally complete; runtime-construction
- * deferred to M3 PR-22.** The full `AgentSessionRuntime` Pi needs
- * (returned by `createAgentSessionRuntime`) requires a real
- * `SessionManager` + a `CreateAgentSessionRuntimeFactory` + the
- * cwd-bound services that Pi's `main.ts` wires from its argv parser.
- * That same construction surface is what `session.prompt()` depends on
- * — both flip together at M3 PR-22 when the runtime layer wires real
- * Pi sessions. Until then, `runRpc` throws `RpcModeUnavailableError`
- * with a clear pointer to the activation gate.
+ * **M3 PR-S activation.** `runRpc` builds an `AgentSessionRuntime` via
+ * `createAgentSessionRuntime` + the cwd-bound services factory, then
+ * delegates to `runRpcMode(runtime)`. The call resolves on clean
+ * client disconnect (returns `void`) — Pi's `runRpcMode` signature is
+ * `Promise<never>` because it only resolves when the process gets
+ * interrupted, but at the SWT surface we treat clean disconnect as
+ * `resolve(undefined)`.
  *
- * The Pi import + the delegation shape are locked in here so PR-22
- * activates with a single function-body replacement — no surface
- * change to `cli/src/commands/rpc.ts` or its tests.
+ * The `RpcModeUnavailableError` class stays exported for one cycle
+ * for backwards compatibility — older builds that catch it on the
+ * import chain still resolve cleanly. The throw site is replaced.
  */
 
-import { runRpcMode } from '@earendil-works/pi-coding-agent';
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
+import {
+  SessionManager,
+  createAgentSessionFromServices,
+  createAgentSessionRuntime,
+  createAgentSessionServices,
+  runRpcMode,
+  type CreateAgentSessionRuntimeFactory,
+} from '@earendil-works/pi-coding-agent';
 
 export interface RunRpcOptions {
   /**
@@ -36,47 +42,65 @@ export interface RunRpcOptions {
    */
   readonly cwd?: string;
   /**
-   * Directory containing the SWT agent profile (the `.swt-planning/`-
-   * adjacent agent config Pi resolves on startup). Defaults to
-   * `~/.swt/agent/` per the documented v3 layout.
+   * Directory containing Pi's agent profile (auth, settings, models).
+   * Defaults to Pi's `getAgentDir()` which resolves to `~/.pi/agent/`.
    */
   readonly agentDir?: string;
 }
 
+/**
+ * Kept for backwards compatibility with downstream consumers that
+ * catch it on the import chain from older SWT builds. Never thrown
+ * by `runRpc` today.
+ */
 export class RpcModeUnavailableError extends Error {
   constructor() {
     super(
-      `swt rpc: Pi AgentSessionRuntime construction is deferred until M3 PR-22.\n\n` +
-        `The Pi RPC mode requires a fully-wired AgentSessionRuntime — the same ` +
-        `infrastructure that backs SwtSession.prompt() (currently a no-op in v3 ` +
-        `pre-M3). Both activate together at M3 PR-22 ("Wire real Pi session ` +
-        `creation through createSession + createAgentSessionRuntime"). The ` +
-        `runRpc surface + the Pi runRpcMode import are locked in here so PR-22 ` +
-        `flips with a single function-body change.\n\n` +
-        `Workaround for early testers: run Pi's binary directly via\n` +
-        `  npx -p @earendil-works/pi-coding-agent pi --mode rpc\n` +
-        `until the SWT-side wiring activates.`,
+      `swt rpc: Pi RPC mode is unavailable in this runtime build. ` +
+        `This error is preserved for backwards compatibility but is ` +
+        `no longer thrown by default — \`runRpc\` invokes ` +
+        `\`runRpcMode\` directly.`,
     );
     this.name = 'RpcModeUnavailableError';
   }
 }
 
 /**
- * Run Pi's RPC mode through SWT's runtime surface. Returns
- * `Promise<never>` because `runRpcMode` only resolves when the RPC
- * client disconnects (or the process is interrupted); the type matches
- * Pi's own signature so callers can't accidentally treat it as a
- * resolved promise.
+ * Run Pi's RPC mode through SWT's runtime surface. Returns `Promise<void>`
+ * because the call resolves on clean RPC-client disconnect (Pi's
+ * `runRpcMode` types this as `Promise<never>` since it only ever
+ * resolves on process interruption, but we treat that as a normal
+ * resolution at the SWT boundary).
  *
- * Today: throws `RpcModeUnavailableError` synchronously after
- * argument validation. PR-22 replaces the throw with the actual
- * `runRpcMode(runtime)` call.
+ * Construction errors (Pi can't read auth, no model available, etc.)
+ * propagate as thrown errors — the `swt rpc` handler catches them and
+ * exits with `EXIT.RUNTIME_ERROR`.
  */
-export async function runRpc(_opts: RunRpcOptions = {}): Promise<never> {
-  // Reference the Pi import so the type system enforces the binding
-  // stays valid through dist build + so a future Pi major version
-  // bump that removes runRpcMode produces a clear compile error here
-  // instead of silently breaking the RPC verb at runtime.
-  void runRpcMode;
-  throw new RpcModeUnavailableError();
+export async function runRpc(opts: RunRpcOptions = {}): Promise<void> {
+  const cwd = opts.cwd ?? process.cwd();
+  const agentDir = opts.agentDir ?? getAgentDir();
+  const sessionManager = SessionManager.create(cwd);
+
+  const createRuntime: CreateAgentSessionRuntimeFactory = async (runtimeOpts) => {
+    const services = await createAgentSessionServices({
+      cwd: runtimeOpts.cwd,
+      agentDir: runtimeOpts.agentDir,
+    });
+    const sessionResult = await createAgentSessionFromServices({
+      services,
+      sessionManager: runtimeOpts.sessionManager,
+      ...(runtimeOpts.sessionStartEvent !== undefined
+        ? { sessionStartEvent: runtimeOpts.sessionStartEvent }
+        : {}),
+    });
+    return { ...sessionResult, services, diagnostics: services.diagnostics };
+  };
+
+  const runtime = await createAgentSessionRuntime(createRuntime, {
+    cwd,
+    agentDir,
+    sessionManager,
+  });
+
+  await runRpcMode(runtime);
 }

@@ -2,7 +2,7 @@
 
 Delegate to Pi's JSON-RPC mode per TDD2 §3.2 + §5.
 
-> **Status (M2 PR-20):** structurally complete — the Pi import, CLI wiring, and stdout/stderr separation are in place. Live activation is deferred to M3 PR-22, which wires the full `AgentSessionRuntime` construction that Pi RPC mode requires (the same infrastructure that backs `SwtSession.prompt()`). Today the verb returns `EXIT.NOT_IMPLEMENTED` (78) with a clear pointer to the activation gate.
+> **Status (M3 PR-S — live as of 2026-05-12):** the verb is fully wired. `runRpc` builds an `AgentSessionRuntime` via `createAgentSessionRuntime` + the cwd-bound services factory, then delegates to `runRpcMode(runtime)`. Returns `EXIT.SUCCESS` (0) on clean client disconnect; `EXIT.RUNTIME_ERROR` (3) on Pi construction failures (missing auth, unavailable model, etc.); `EXIT.NOT_IMPLEMENTED` (2) is preserved for downstream builds that catch the legacy `RpcModeUnavailableError` but is no longer thrown by default.
 
 ## Synopsis
 

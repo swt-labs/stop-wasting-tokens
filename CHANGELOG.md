@@ -2,7 +2,7 @@
 
 ## 3.0.0-alpha.1 — IN DEVELOPMENT (not yet published)
 
-_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12**, **M2 Single-agent path closed 2026-05-12 (all 10 PRs landed; live TPAC baseline pending user cassette recording + session-wiring follow-up)**, and **M3 Worktree dispatcher Plan 03-01 closed 2026-05-12 (5 PRs / 5 atomic commits; session-wiring follow-up + Plan 03-02 next)**._
+_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12**, **M2 Single-agent path closed 2026-05-12 (all 10 PRs landed; live TPAC baseline pending user cassette recording)**, **M3 Worktree dispatcher Plan 03-01 closed 2026-05-12**, and **session-wiring follow-up (PR-S) shipped 2026-05-12** — real Pi `createSession` + `swt rpc` live._
 
 > **Branch strategy note (2026-05-12):** v3 development was previously on a `v3-foundation` integration branch with the plan to merge into `main` at the M6 release gate. That branch has been retired; `main` is now the sole development surface for v3. The per-plan "commit trail on `v3-foundation`" section titles below are kept as historical record — the commits themselves are now on `main`'s history.
 
@@ -246,6 +246,45 @@ All 5 PRs of Plan 03-01 shipped 2026-05-12. M3 orchestration-layer foundation in
 | PR-26 | [`193e26d`](https://github.com/swt-labs/stop-wasting-tokens/commit/193e26d) | `feat(orchestration,runtime,shared)`: `swt_report_result` Extension wired through dispatcher |
 
 Test posture at Plan 03-01 close: **994 passed / 46 skipped / 0 failed** (+89 from Plan 02-02 close's 905). `pnpm typecheck` clean, `pnpm lint` 0 errors, `pnpm format:check` clean.
+
+### Added (session-wiring follow-up — PR-S, 2026-05-12)
+
+Single-PR interstitial between Plan 03-01 and Plan 03-02. The structural keystone the M2 EXIT GATE has been waiting on.
+
+- **Real Pi `createSession` adapter (PR-S)** — `packages/runtime/src/session.ts` flips from the mock to a real Pi adapter calling `createAgentSession({cwd, sessionManager: SessionManager.inMemory(cwd) | SessionManager.create(cwd)})`. `session.prompt(text)` → `agentSession.prompt(text)`. `session.subscribe(listener)` registers a Pi listener that runs every event through `mapPiEvent` (events.ts) before broadcasting; preserves the meter-bridge fan-out for `TASK_TOKEN_USAGE`. `session.dispose()` → `agentSession.dispose()`. `sessionId` reads from Pi's `agentSession.sessionId` getter. **`enableResultProtocol` + `taskId` are recorded structurally** but not yet wired through Pi's extension-loader (Pi's `customTools` accepts `ToolDefinition[]`, not extension-factory functions; the registration path is a separate concern documented in the adapter header).
+- **`createMockSession` test helper (PR-S)** — preserves the prior mock behaviour as an explicit export for unit tests. `packages/runtime/test/session.test.ts` swaps its 3 existing assertions to use the helper. Production callers (the dispatcher's default factory) get the real adapter.
+- **`runRpc` flipped to real `runRpcMode(runtime)` (PR-S)** — `packages/runtime/src/rpc-runner.ts` builds an `AgentSessionRuntime` via `createAgentSessionRuntime` + a cwd-bound services factory (calls `createAgentSessionServices` + `createAgentSessionFromServices`), then delegates to `runRpcMode(runtime)`. Returns `Promise<void>` on clean disconnect. The legacy `RpcModeUnavailableError` class stays as an unused export for one cycle of backwards compatibility.
+- **7 new real-adapter tests (PR-S)** — `packages/runtime/test/session.real-pi.test.ts` mocks `@earendil-works/pi-coding-agent` via `vi.mock` and asserts: sessionId from Pi, prompt-passthrough, subscribe-relay-through-mapPiEvent, meter-bridge fan-out on `TASK_TOKEN_USAGE`, dispose-passthrough, idempotent dispose, prompt-after-dispose rejection.
+- **`rpc.test.ts` inverted (PR-S)** — was 3 deferred-state assertions; now: clean-disconnect returns `EXIT.SUCCESS` (0); legacy `RpcModeUnavailableError` still caught + reported on stderr (BC shim); unexpected errors land on `EXIT.RUNTIME_ERROR` (3); stdout-empty invariant asserted by every test.
+- **3 dispatcher.int.test sites updated** — `createDispatcher()` calls that didn't inject a session factory swapped to `createDispatcher({ sessionFactory: createMockSession })` so they're insulated from real-Pi auth/model dependencies.
+
+### Activations (post PR-S)
+
+| Consumer                          | Before PR-S                          | After PR-S                                                                                  |
+| --------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `swt rpc`                         | `EXIT.NOT_IMPLEMENTED` (2)           | **Live** — clean disconnect returns 0; construction errors land on `EXIT.RUNTIME_ERROR` (3) |
+| `dispatch.test.ts` cassette-gated | `skipIf(!HAS_CASSETTE)` — shape only | Shape activated; live run still gated on cassette recording                                 |
+| `dispatcher.int.test.ts` PR-26    | `skipIf(!HAS_CASSETTE)` — shape only | Shape activated; same gate                                                                  |
+| Production methodology paths      | Mock no-op session                   | **Real Pi sessions** when called (auth + model required at prompt time)                     |
+
+### Remaining deferrals (post PR-S)
+
+- **`runMilestone` full milestone replay** — needs a programmatic methodology entry point (test-utils → CLI's `vibeHandler` OR a methodology programmatic `runVibe(opts)` export). Tracked as a separate follow-up.
+- **`swt bench` `harvestRunResult`** — depends on `runMilestone` returning a real `MeterSnapshot` + `criteriaSatisfied`. Cascades from the runMilestone follow-up.
+- **Pi extension-loader integration for `swt_report_result`** — Pi's `customTools` on `createAgentSession` accepts `ToolDefinition[]`, not extension factory functions. Wiring `buildResultProtocolExtension()` through Pi's extension-discovery path is a separate concern; the flag-based contract from PR-26 stays locked, the actual registration activates separately.
+
+### M2 EXIT GATE per TDD2 §13.2.3 — post PR-S
+
+| Criterion                                                                | Status   | Activation gate                                                 |
+| ------------------------------------------------------------------------ | -------- | --------------------------------------------------------------- |
+| Reference greenfield project runs full milestone end-to-end on Anthropic | DEFERRED | Anthropic cassette recording + runMilestone follow-up           |
+| Regression suite passes against v2.3.5 golden                            | DEFERRED | Cassette recording + v2.3.5 golden run + runMilestone follow-up |
+| TPAC measured + recorded as fixed M2 baseline                            | DEFERRED | Cassette recording + runMilestone follow-up → `swt bench` run   |
+| Dashboard's existing panels work against the new event stream            | **PASS** | PR-17                                                           |
+| `swt rpc` ships                                                          | **PASS** | PR-20 (structural) + PR-S (live)                                |
+| `swt bench` ships                                                        | **PASS** | PR-21 (structural); live emit pending runMilestone follow-up    |
+
+**Test posture at PR-S close: 1001 passing / 46 skipped / 0 failed.** Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 

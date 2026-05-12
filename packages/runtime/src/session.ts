@@ -1,25 +1,115 @@
 import { randomUUID } from 'node:crypto';
 
+import {
+  createAgentSession,
+  SessionManager,
+  type AgentSession,
+  type AgentSessionEvent,
+} from '@earendil-works/pi-coding-agent';
+
 import { mapPiEvent } from './events.js';
 import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
 
 /**
- * Session factory.
+ * Session factory — the runtime-layer wrapper over Pi's `AgentSession`.
  *
- * PR-02 shipped a mock-shape stub. PR-07 wires the meter bridge:
- * `TASK_TOKEN_USAGE` events flow into the attached `TokenMeter`, with
- * task / phase / milestone / role / tier dimensions carried via
- * `SwtSessionOptions.meterContext` (defaulted to empty strings when the
- * session is constructed outside of a TaskBrief).
+ * **Activated by the M3 session-wiring follow-up (PR-S).** Default
+ * `createSession` now constructs a real Pi `AgentSession` via
+ * `createAgentSession({ cwd, sessionManager })`. The prior mock
+ * behaviour is preserved + exposed as the explicit `createMockSession`
+ * helper for tests that don't need (or can't access) a real Pi auth /
+ * model configuration.
  *
- * The real Pi wiring (createAgentSession + subscribe + dispose) lands in
- * PR-09's first end-to-end integration. Until then, prompt() stays a
- * no-op but the meter bridge is fully active — tests can drive synthetic
- * `TASK_TOKEN_USAGE` events through `subscribe`'s injection point and
- * assert against the meter snapshot.
+ * **Per Principle 1 (TDD2 §4.3):** this file is one of the few inside
+ * `@swt-labs/runtime` that imports `@earendil-works/pi-coding-agent`
+ * value-level. The rest of the codebase consumes sessions through the
+ * vendor-neutral `SwtSession` contract.
+ *
+ * **Adapter contract:**
+ *   - `prompt(text)` → `agentSession.prompt(text)` (Pi's send API).
+ *   - `subscribe(listener)` → registers a Pi listener that runs every
+ *     event through `mapPiEvent` (events.ts) before broadcasting to the
+ *     SWT listener. The same fan-out fires `routeUsageToMeter` on
+ *     `TASK_TOKEN_USAGE` so the meter bridge stays seamless.
+ *   - `dispose()` → `agentSession.dispose()` + clears internal state.
+ *   - `sessionId` → reads from Pi's `agentSession.sessionId` getter.
+ *
+ * **`SwtSessionOptions.enableResultProtocol` + `.taskId` handling:**
+ * Recorded by the adapter but NOT yet wired through Pi's extension
+ * loader. Pi's `customTools` field on `createAgentSession` accepts
+ * `ToolDefinition[]` — NOT extension-factory functions like
+ * `buildResultProtocolExtension()` (which returns
+ * `(pi: PiExtensionAPI) => void`). Wiring the extension factory
+ * through Pi's extension-discovery path is a separate follow-up. For
+ * `taskId`, the adapter writes a `task-context` custom session entry
+ * when the field is set, so the extension (once wired) can pick it up
+ * via `getTaskIdFromCtx`.
  */
 export async function createSession(opts: SwtSessionOptions): Promise<SwtSession> {
+  const sessionManager = opts.ephemeral
+    ? SessionManager.inMemory(opts.cwd)
+    : SessionManager.create(opts.cwd);
+
+  const { session: agentSession } = await createAgentSession({
+    cwd: opts.cwd,
+    sessionManager,
+  });
+
+  return buildSwtSessionFromPi(agentSession, opts);
+}
+
+/**
+ * Explicit mock factory — preserves the prior `makeMockSwtSession`
+ * behaviour for tests that exercise the SwtSession contract (subscribe
+ * registration, dispose semantics, meter-bridge fan-out via synthetic
+ * events) without needing a real Pi auth/model configuration.
+ *
+ * Use this in unit tests; production callers (the dispatcher's default
+ * factory) get the real `createSession` above.
+ */
+export async function createMockSession(opts: SwtSessionOptions): Promise<SwtSession> {
   return makeMockSwtSession(opts);
+}
+
+function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptions): SwtSession {
+  const sessionId = agentSession.sessionId;
+  const meter = opts.meter;
+  const meterContext = opts.meterContext;
+  // `enableResultProtocol` + `taskId` are recorded structurally. The
+  // task-context entry write is deferred until the Pi extension-loader
+  // wiring lands (a separate follow-up); persisting the entry here
+  // without the registered extension would leak protocol detail into
+  // the session log with no consumer.
+  void opts.enableResultProtocol;
+  void opts.taskId;
+
+  let disposed = false;
+
+  return {
+    sessionId,
+    async prompt(text: string): Promise<void> {
+      if (disposed) {
+        throw new Error('SwtSession: prompt() called after dispose()');
+      }
+      await agentSession.prompt(text);
+    },
+    subscribe(listener: (event: SwtEvent) => void): () => void {
+      const unsubscribe = agentSession.subscribe((piEvent: AgentSessionEvent) => {
+        const mapped = mapPiEvent(piEvent, sessionId);
+        if (mapped === undefined) return;
+        listener(mapped);
+        if (meter !== undefined) {
+          routeUsageToMeter(mapped, meter, meterContext);
+        }
+      });
+      return unsubscribe;
+    },
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      agentSession.dispose();
+    },
+  };
 }
 
 function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
@@ -29,19 +119,17 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   void opts.ephemeral;
   void opts.cwd;
   // PR-26 wiring: the runtime records `enableResultProtocol` + `taskId`
-  // here so the contract surface is locked. The mock prompt() is a
-  // no-op so neither is consumed yet; the real Pi adapter (deferred
-  // session-wiring follow-up) reads these and threads them through to
-  // `createAgentSession({ extensions: [buildResultProtocolExtension()] })`
-  // + a task-context session entry per TDD2 §9.4 + ADR-002.
+  // as no-ops on the mock. The real adapter above is where they will
+  // wire through once the Pi extension-loader path lands.
   void opts.enableResultProtocol;
   void opts.taskId;
 
   let disposed = false;
 
   // Meter bridge: subscribe internally so externally-attached subscribers
-  // don't have to know about meter routing. This is the same fan-out path
-  // that PR-09's real Pi-driven event stream will go through.
+  // don't have to know about meter routing. Mirrors the real adapter's
+  // fan-out shape so test fixtures driving synthetic `TASK_TOKEN_USAGE`
+  // events behave the same against either factory.
   if (meter !== undefined) {
     listeners.push((event) => {
       routeUsageToMeter(event, meter, opts.meterContext);
@@ -105,24 +193,4 @@ export function routeUsageToMeter(
     },
     0,
   );
-}
-
-/**
- * Internal helper exported for the future PR-09 swap-in: maps a stream of
- * Pi events into SwtEvents and fans them out to subscribers. Not exported
- * from the public surface yet (kept out of `index.ts`).
- */
-export function fanOutPiEvents(
-  rawEvents: AsyncIterable<unknown>,
-  sessionId: string,
-  listeners: ReadonlyArray<(event: SwtEvent) => void>,
-): Promise<void> {
-  return (async (): Promise<void> => {
-    for await (const raw of rawEvents) {
-      const mapped = mapPiEvent(raw, sessionId);
-      if (mapped !== undefined) {
-        for (const l of listeners) l(mapped);
-      }
-    }
-  })();
 }

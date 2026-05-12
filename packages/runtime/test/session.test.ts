@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSession, type SwtSession, MockSpawnerEnvironment } from '../src/index.js';
+import { createMockSession, type SwtSession, MockSpawnerEnvironment } from '../src/index.js';
 
-describe('@swt-labs/runtime — PR-02 surface', () => {
-  describe('createSession', () => {
+describe('@swt-labs/runtime — createMockSession (mock factory for tests)', () => {
+  describe('createMockSession', () => {
     it('returns a SwtSession-shaped object with all required members', async () => {
-      const session: SwtSession = await createSession({
+      const session: SwtSession = await createMockSession({
         cwd: '/tmp/swt-runtime-test',
         ephemeral: true,
       });
@@ -20,7 +20,7 @@ describe('@swt-labs/runtime — PR-02 surface', () => {
     });
 
     it('subscribe returns an unsubscribe function that removes the listener', async () => {
-      const session = await createSession({ cwd: '/tmp/swt-runtime-test', ephemeral: true });
+      const session = await createMockSession({ cwd: '/tmp/swt-runtime-test', ephemeral: true });
       let received = 0;
       const unsubscribe = session.subscribe(() => {
         received += 1;
@@ -33,7 +33,7 @@ describe('@swt-labs/runtime — PR-02 surface', () => {
     });
 
     it('prompt throws if called after dispose', async () => {
-      const session = await createSession({ cwd: '/tmp/swt-runtime-test', ephemeral: true });
+      const session = await createMockSession({ cwd: '/tmp/swt-runtime-test', ephemeral: true });
       session.dispose();
       await expect(session.prompt('hi')).rejects.toThrow(/after dispose/);
     });
