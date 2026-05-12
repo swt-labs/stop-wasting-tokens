@@ -2,10 +2,12 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { parseFrontmatter } from '@swt-labs/artifacts';
-import type { AgentSpec, AgentSpawner, Effort } from '@swt-labs/core';
+import type { DevSummaryPayload } from '@swt-labs/core';
+import type { HarvestStrategy } from '@swt-labs/orchestration';
+import type { TaskResult } from '@swt-labs/shared';
 
-import { NotImplementedError, RoutingError } from '../errors.js';
-import { runDev } from '../orchestration/dev-runner.js';
+import { RoutingError } from '../errors.js';
+import { runDevTasks, type DevTaskOutcome } from '../orchestration/dev-runner.js';
 import { writeSummary } from '../orchestration/summary-writer.js';
 import {
   groupByWave,
@@ -25,15 +27,13 @@ export interface ExecuteHandlerOptions {
   ) => { phase: string; slug: string } | undefined;
   readonly planningDirName?: string;
   /**
-   * Required for real Dev work; tests inject a MockAgentSpawner. When unset
-   * the handler throws NotImplementedError pointing at the codex-driver
-   * AgentSpawner work item.
+   * HarvestStrategy passed straight through to `runDevTasks` → `createDispatcher`.
+   * Defaults to `'stub'` so callers without a real Pi session (or recorded
+   * cassette) still get a synthetic-success `TaskResult` per `TaskResultSchema`.
+   * Production callers (`swt vibe` end-to-end at PR-15) wire the `'entries'`
+   * strategy against the active Pi session's entry list.
    */
-  readonly spawner?: AgentSpawner;
-  readonly devSpec?: AgentSpec;
-  readonly effort?: Effort;
-  /** Override session id for deterministic tests. */
-  readonly sessionId?: string;
+  readonly harvestStrategy?: HarvestStrategy;
 }
 
 export function executeHandler(opts: ExecuteHandlerOptions = {}): ModeHandler {
@@ -43,12 +43,6 @@ export function executeHandler(opts: ExecuteHandlerOptions = {}): ModeHandler {
       const target = (opts.resolveTarget ?? defaultResolveTarget)(route, io);
       if (target === undefined) {
         throw new RoutingError('execute handler requires a phase target', { route });
-      }
-      if (opts.spawner === undefined || opts.devSpec === undefined) {
-        throw new NotImplementedError(
-          'execute',
-          'Phase 9 / Plan 04+ — real Codex AgentSpawner. Until then, inject a Mock via executeHandler({spawner, devSpec}).',
-        );
       }
       const planningDir = join(io.cwd, opts.planningDirName ?? '.swt-planning');
       const phaseDir = join(planningDir, 'phases', `${target.phase}-${target.slug}`);
@@ -61,7 +55,6 @@ export function executeHandler(opts: ExecuteHandlerOptions = {}): ModeHandler {
         );
       }
 
-      // Skip plans that already have a SUMMARY.md.
       const pending: PlanRecord[] = [];
       const completed: string[] = [];
       for (const plan of plans) {
@@ -83,55 +76,103 @@ export function executeHandler(opts: ExecuteHandlerOptions = {}): ModeHandler {
       const waves = groupByWave(pending);
       for (const wave of waves) validateDisjointFiles(wave);
 
-      const sessionId = opts.sessionId ?? `swt-${Date.now().toString(36)}`;
       const writtenSummaries: string[] = [];
       let degradedCount = 0;
+      let haltReason: string | undefined;
 
       for (const wave of waves) {
         io.stdout.write(`◆ Wave ${wave.wave} — ${wave.plans.length} plan(s)\n`);
-        const results = await Promise.all(
-          wave.plans.map((plan) =>
-            runDev({
-              phase: target.phase,
-              plan,
-              phaseDir,
-              spec: opts.devSpec!,
-              spawner: opts.spawner!,
-              cwd: io.cwd,
-              sessionId,
-            }),
-          ),
-        );
-        for (const result of results) {
-          if (result.degraded) degradedCount += 1;
+        const runSummary = await runDevTasks({
+          phase: target.phase,
+          plans: wave.plans,
+          cwd: io.cwd,
+          ...(opts.harvestStrategy !== undefined
+            ? { opts: { harvestStrategy: opts.harvestStrategy } }
+            : {}),
+        });
+        for (const outcome of runSummary.outcomes) {
+          const summaryPayload = mapTaskResultToDevSummary(outcome, target.phase);
+          if (summaryPayload.status !== 'complete') degradedCount += 1;
           const summaryPath = await writeSummary({
             phaseDir,
             phase: target.phase,
-            plan: result.plan,
-            summary: result.summary,
-            ...(typeof result.raw.text === 'string' ? { text: result.raw.text } : {}),
+            plan: outcome.plan,
+            summary: summaryPayload,
+            text: renderSummaryText(outcome.result),
           });
           writtenSummaries.push(summaryPath);
           io.stdout.write(
-            `  ${result.degraded ? '⚠' : '✓'} ${target.phase}-${result.plan.plan}-SUMMARY.md\n`,
+            `  ${summaryPayload.status === 'complete' ? '✓' : '⚠'} ${target.phase}-${outcome.plan.plan}-SUMMARY.md\n`,
           );
+        }
+        if (runSummary.status === 'halted') {
+          haltReason = runSummary.haltReason;
+          break;
         }
       }
 
       io.stdout.write(
         [
           '',
-          `✓ Execute handler — phase ${target.phase}: ${pending.length} plan(s) processed (${completed.length} already complete)`,
+          `✓ Execute handler — phase ${target.phase}: ${writtenSummaries.length} plan(s) processed (${completed.length} already complete)`,
           ...(degradedCount > 0
-            ? [`⚠ ${degradedCount} plan(s) returned a degraded summary (no structured handoff)`]
+            ? [`⚠ ${degradedCount} plan(s) returned a non-complete TaskResult`]
+            : []),
+          ...(haltReason !== undefined
+            ? [
+                `⚠ Dev run halted: ${haltReason}`,
+                '  Remaining waves NOT dispatched. Run QA/Debugger downstream.',
+              ]
             : []),
           '',
         ].join('\n'),
       );
 
-      return { route, exit: 0, ranTo: 'completion' };
+      return { route, exit: haltReason !== undefined ? 1 : 0, ranTo: 'completion' };
     },
   };
+}
+
+function mapTaskResultToDevSummary(outcome: DevTaskOutcome, phase: string): DevSummaryPayload {
+  const tr: TaskResult = outcome.result;
+  const status: DevSummaryPayload['status'] =
+    tr.status === 'success' ? 'complete' : tr.status === 'partial' ? 'partial' : 'failed';
+  return {
+    phase,
+    plan: outcome.plan.plan,
+    status,
+    tasks_completed: tr.status === 'success' ? 1 : 0,
+    tasks_total: 1,
+    files_modified: tr.files_changed.map((f) => f.path),
+    commit_hashes: [],
+    deviations: [],
+  };
+}
+
+function renderSummaryText(tr: TaskResult): string {
+  const parts: string[] = [];
+  parts.push(`task_id: ${tr.task_id}`);
+  parts.push(`status: ${tr.status}`);
+  parts.push('');
+  parts.push(tr.summary);
+  if (tr.notes !== undefined && tr.notes.length > 0) {
+    parts.push('');
+    parts.push('## Notes');
+    parts.push(tr.notes);
+  }
+  if (tr.blockers !== undefined && tr.blockers.length > 0) {
+    parts.push('');
+    parts.push('## Blockers');
+    for (const b of tr.blockers) parts.push(`- ${b}`);
+  }
+  if (tr.must_haves.length > 0) {
+    parts.push('');
+    parts.push('## Must-haves');
+    for (const mh of tr.must_haves) {
+      parts.push(`- ${mh.id}: ${mh.status}${mh.evidence !== undefined ? ` — ${mh.evidence}` : ''}`);
+    }
+  }
+  return parts.join('\n');
 }
 
 async function loadPlans(phaseDir: string, phase: string): Promise<readonly PlanRecord[]> {

@@ -5,5 +5,10 @@
     "outDir": "./dist"
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../artifacts" }]
+  "references": [
+    { "path": "../core" },
+    { "path": "../artifacts" },
+    { "path": "../orchestration" },
+    { "path": "../shared" }
+  ]
 }

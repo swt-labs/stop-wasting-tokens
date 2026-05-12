@@ -90,11 +90,15 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
       }
       if (strategy.kind === 'entries') {
         const entries = strategy.getEntries(task);
-        return harvestTaskResultFromEntries(entries, `task ${task.taskId}`);
+        const result = harvestTaskResultFromEntries(entries, `task ${task.taskId}`);
+        assertTaskIdMatch(result.task_id, task.taskId);
+        return result;
       }
       // strategy.kind === 'file'
       const path = strategy.resolvePath(task);
-      return harvestTaskResult(path);
+      const result = harvestTaskResult(path);
+      assertTaskIdMatch(result.task_id, task.taskId);
+      return result;
     } finally {
       session.dispose();
     }
@@ -110,4 +114,12 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
       return results;
     },
   };
+}
+
+function assertTaskIdMatch(harvestedId: string, dispatchedId: string): void {
+  if (harvestedId !== dispatchedId) {
+    throw new Error(
+      `dispatcher harvest mismatch: dispatched task_id=${dispatchedId} but harvested swt-task-result carried task_id=${harvestedId}. This usually indicates a stale entry leaked across dispatches (the dispatcher creates ephemeral sessions so this should not happen in normal flow).`,
+    );
+  }
 }

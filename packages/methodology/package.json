@@ -13,6 +13,8 @@
     "@iarna/toml": "^2.2.5",
     "@swt-labs/artifacts": "workspace:*",
     "@swt-labs/core": "workspace:*",
+    "@swt-labs/orchestration": "workspace:*",
+    "@swt-labs/shared": "workspace:*",
     "zod": "^3.23.8"
   },
   "publishConfig": {

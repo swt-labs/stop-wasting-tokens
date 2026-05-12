@@ -205,6 +205,12 @@ importers:
       '@swt-labs/core':
         specifier: workspace:*
         version: link:../core
+      '@swt-labs/orchestration':
+        specifier: workspace:*
+        version: link:../orchestration
+      '@swt-labs/shared':
+        specifier: workspace:*
+        version: link:../shared
       zod:
         specifier: ^3.23.8
         version: 3.25.76

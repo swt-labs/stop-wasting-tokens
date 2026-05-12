@@ -1,75 +1,92 @@
-import type { AgentSpec, AgentSpawner, DevSummaryPayload, SpawnResult } from '@swt-labs/core';
+/**
+ * Dev runner — sequential per-plan dispatch through `@swt-labs/orchestration`'s
+ * dispatcher, replacing the v2 `AgentSpawner`-driven path. Per the M2 PR-13
+ * mandate (Plan 02-01) + TDD2 §11.4:
+ *
+ *   - One `dispatcher.dispatch({ role: 'dev', ... })` call per plan.
+ *   - Sequential at M2 (no worktree isolation); M3 PR-22..24 parallelise via
+ *     worktree-keyed claims without reshaping this surface.
+ *   - Halt-on-failed: a `failed` or `blocked` `TaskResult.status` stops the
+ *     loop so QA/Debugger can take over downstream (handled by the methodology
+ *     FSM in M2 PR-15's `re-verify.ts` rewire).
+ *   - The dispatcher's `'entries'` HarvestStrategy is the production path —
+ *     the dev session emits a `swt-task-result` custom entry via the runtime
+ *     Extension (Plan 01-02 PR-09 + ADR-002), the harvester validates against
+ *     `TaskResultSchema`. The dispatcher's defensive task_id mismatch guard
+ *     catches stale entries (added in PR-13).
+ *   - The legacy `'stub'` strategy stays the default so tests that don't wire
+ *     a real session don't need synthetic entry plumbing.
+ */
+import { createDispatcher, type HarvestStrategy } from '@swt-labs/orchestration';
+import type { TaskResult } from '@swt-labs/shared';
 
 import type { PlanRecord } from './waves.js';
 
-export interface DevRunInput {
-  readonly phase: string;
-  readonly plan: PlanRecord;
-  readonly phaseDir: string;
-  readonly spec: AgentSpec;
-  readonly spawner: AgentSpawner;
-  readonly cwd: string;
-  readonly sessionId: string;
+export interface DevRunnerOptions {
+  /**
+   * Passed straight to `createDispatcher`. Defaults to `'stub'` so callers
+   * without a real Pi session (or the entries getter from one) still get a
+   * synthetic success per `TaskResultSchema`. Production callers should wire
+   * `{ kind: 'entries', getEntries }` against the active session's entry list.
+   */
+  readonly harvestStrategy?: HarvestStrategy;
 }
 
-export interface DevRunResult {
+export interface DevTaskOutcome {
   readonly plan: PlanRecord;
-  readonly raw: SpawnResult;
-  /** Parsed Dev summary payload, when the spawner returned one. */
-  readonly summary: DevSummaryPayload | undefined;
-  /** True when no usable summary was returned. */
-  readonly degraded: boolean;
+  readonly result: TaskResult;
+}
+
+export interface DevRunSummary {
+  readonly outcomes: ReadonlyArray<DevTaskOutcome>;
+  readonly status: 'success' | 'halted';
+  readonly haltReason?: string;
+}
+
+export interface DevRunInput {
+  readonly phase: string;
+  readonly plans: ReadonlyArray<PlanRecord>;
+  readonly cwd: string;
+  readonly opts?: DevRunnerOptions;
+}
+
+export async function runDevTasks(input: DevRunInput): Promise<DevRunSummary> {
+  const dispatcher = createDispatcher({
+    harvestStrategy: input.opts?.harvestStrategy ?? 'stub',
+  });
+  const outcomes: DevTaskOutcome[] = [];
+  for (const plan of input.plans) {
+    const taskId = buildTaskId(input.phase, plan.plan);
+    const result = await dispatcher.dispatch({
+      taskId,
+      role: 'dev',
+      cwd: input.cwd,
+      claims: plan.files_modified,
+      promptContext: {
+        phase: input.phase,
+        plan: plan.plan,
+        title: plan.title,
+        wave: plan.wave,
+        depends_on: plan.depends_on,
+      },
+    });
+    outcomes.push({ plan, result });
+    if (result.status === 'failed' || result.status === 'blocked') {
+      return {
+        outcomes,
+        status: 'halted',
+        haltReason: `plan ${plan.plan} returned status=${result.status}: ${result.summary}`,
+      };
+    }
+  }
+  return { outcomes, status: 'success' };
 }
 
 /**
- * Drive a single Dev work-unit. Composes a SpawnRequest and parses the
- * structured handoff into a DevSummaryPayload when present. Falls back to a
- * synthesized summary (status: partial) when the spawner returns text only.
+ * Compose the task_id the dispatcher harvests against. The format
+ * `{phase}-{plan}-dev` keeps it unique within a milestone and trivially
+ * round-trips through the dispatcher's defensive task_id-mismatch guard.
  */
-export async function runDev(input: DevRunInput): Promise<DevRunResult> {
-  const result = await input.spawner.spawn({
-    spec: input.spec,
-    prompt: composePrompt(input),
-    cwd: input.cwd,
-    session_id: input.sessionId,
-  });
-
-  if (result.handoff !== undefined) {
-    const payload = result.handoff as Record<string, unknown>;
-    const possibleSummary = (payload.payload ?? payload) as DevSummaryPayload | undefined;
-    if (looksLikeDevSummary(possibleSummary)) {
-      return { plan: input.plan, raw: result, summary: possibleSummary, degraded: false };
-    }
-  }
-  return { plan: input.plan, raw: result, summary: undefined, degraded: !result.success };
-}
-
-function composePrompt(input: DevRunInput): string {
-  return [
-    `# Dev work unit — Phase ${input.phase} / Plan ${input.plan.plan}`,
-    '',
-    `Title: ${input.plan.title}`,
-    `Wave: ${input.plan.wave}`,
-    input.plan.depends_on.length > 0 ? `Depends on: ${input.plan.depends_on.join(', ')}` : '',
-    '',
-    `Read the plan at ${input.phaseDir}/${input.phase}-${input.plan.plan}-PLAN.md and execute it task-by-task.`,
-    `Persist a summary at ${input.phaseDir}/${input.phase}-${input.plan.plan}-SUMMARY.md.`,
-    '',
-    `Project root: ${input.cwd}.`,
-    `Session: ${input.sessionId}.`,
-  ]
-    .filter((l) => l.length > 0)
-    .join('\n');
-}
-
-function looksLikeDevSummary(value: unknown): value is DevSummaryPayload {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Partial<DevSummaryPayload>;
-  return (
-    typeof v.phase === 'string' &&
-    typeof v.plan === 'string' &&
-    typeof v.status === 'string' &&
-    typeof v.tasks_completed === 'number' &&
-    typeof v.tasks_total === 'number'
-  );
+export function buildTaskId(phase: string, plan: string): string {
+  return `${phase}-${plan}-dev`;
 }

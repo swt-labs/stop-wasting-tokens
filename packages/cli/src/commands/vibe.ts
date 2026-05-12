@@ -109,21 +109,22 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
   io.stdout.write(
     `◆ Spawner: ${probe.name}${probe.version !== undefined ? ` ${probe.version}` : ''}\n\n`,
   );
+  // M2 PR-13: executeHandler no longer takes a spawner/devSpec — it dispatches
+  // through `@swt-labs/orchestration`'s `createDispatcher` via `runDevTasks`.
+  // The lazy-install spawner still warms Pi for the non-dev roles (Scout/
+  // Architect/QA/Debugger), which M2 PR-15 wires through `swt vibe` end-to-end.
+  // PR-13's executor uses the stub HarvestStrategy by default; PR-15 swaps it
+  // for `{ kind: 'entries' }` against the live Pi session's entry list.
   const baseSpawner: AgentSpawner = await io.spawnerEnv.getSpawner();
   const spawner = new LazyInstallSpawner(baseSpawner, (role: AgentRole) =>
     resolveAgentSpec({ role, config, templates_dir: templatesDir }),
   );
-  const devSpec = await resolveAgentSpec({
-    role: 'dev',
-    config,
-    templates_dir: templatesDir,
-  });
 
   const registry = buildVibeRegistry([
     bootstrapOpts !== undefined ? bootstrapHandler(bootstrapOpts) : bootstrapHandler(),
     scopeOpts !== undefined ? scopeHandler(scopeOpts) : scopeHandler(),
     planAndExecuteHandler(),
-    executeHandler({ spawner, devSpec }),
+    executeHandler(),
     qaHandler(),
     verifyHandler(verifyOpts),
     reVerifyHandler(),
