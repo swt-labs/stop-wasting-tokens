@@ -49,6 +49,7 @@ pnpm-debug.log*
 .codex/sessions/
 .claude/worktrees/
 .claude/cache/
+.claude/*.lock
 
 # SWT dashboard live event stream (per-session JSONL emitted by the CLI;
 # session-local state, not project artifact).
