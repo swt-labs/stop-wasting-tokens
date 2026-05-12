@@ -39,3 +39,13 @@ export {
   MissingTaskResultError,
   type PiSessionEntryLike,
 } from './result-harvest.js';
+
+// PR-12 (M2): role-router + prompt-builder. Per TDD2 §10.4 + §8.3.
+export { toolsForRole, ROLE_TOOL_SUBSETS, type AgentToolList } from './role-router.js';
+export {
+  buildPrompt,
+  readRolePrompt,
+  type BuildPromptOptions,
+  type BuiltPrompt,
+  type PromptBlock,
+} from './prompt-builder.js';

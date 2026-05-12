@@ -43,7 +43,7 @@ describe('mock backend driver', () => {
     await spawner.installAgent({
       role: 'lead',
       model: 'gpt-x',
-      reasoning_effort: 'thorough',
+      thinking_level: 'high',
       developer_instructions: 'plan thoroughly',
       allowed_mcp_servers: [],
     });

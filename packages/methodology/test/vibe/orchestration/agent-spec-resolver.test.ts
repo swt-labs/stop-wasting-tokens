@@ -3,14 +3,23 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  CODEX_REASONING_EFFORTS,
   ConfigError,
   DEFAULT_CONFIG,
   parseConfig,
   type AgentRole,
   type SwtConfig,
+  type ThinkingLevel,
 } from '@swt-labs/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+const THINKING_LEVELS_LOCAL: readonly ThinkingLevel[] = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+] as const;
 
 import {
   getBundledAgentTemplatesDir,
@@ -23,7 +32,7 @@ const SCOUT_TEMPLATE = `name = "scout"
 description = "Read-only research agent."
 role = "scout"
 model = "gpt-5.5"
-model_reasoning_effort = "low"
+thinking_level = "low"
 sandbox_mode = "read-only"
 allowed_mcp_servers = ["filesystem"]
 max_turns = 15
@@ -35,7 +44,7 @@ You are the Scout.
 const ARCHITECT_NO_MODEL = `name = "architect"
 description = "Architecture design agent."
 role = "architect"
-model_reasoning_effort = "high"
+thinking_level = "high"
 sandbox_mode = "read-only"
 allowed_mcp_servers = []
 max_turns = 30
@@ -48,7 +57,7 @@ const DEV_TEMPLATE = `name = "dev"
 description = "Implementation agent."
 role = "dev"
 model = "gpt-5.3-codex"
-model_reasoning_effort = "medium"
+thinking_level = "medium"
 sandbox_mode = "workspace-write"
 allowed_mcp_servers = ["filesystem", "shell"]
 max_turns = 75
@@ -61,16 +70,16 @@ const MISMATCHED_ROLE = `name = "qa"
 description = "Mismatched role for negative test."
 role = "qa"
 model = "gpt-5.3-codex"
-model_reasoning_effort = "medium"
+thinking_level = "medium"
 allowed_mcp_servers = []
 developer_instructions = "stub"
 `;
 
 const SWT_EFFORT_LEAK = `name = "qa"
-description = "Uses SWT Effort tier value as Codex reasoning_effort — invalid."
+description = "Uses SWT Effort tier value as Pi thinking_level — invalid."
 role = "qa"
 model = "gpt-5.3-codex"
-model_reasoning_effort = "balanced"
+thinking_level = "balanced"
 allowed_mcp_servers = []
 developer_instructions = "stub"
 `;
@@ -98,7 +107,7 @@ describe('resolveAgentSpec', () => {
     });
     expect(spec.role).toBe('scout');
     expect(spec.model).toBe('gpt-5.5');
-    expect(spec.reasoning_effort).toBe('low');
+    expect(spec.thinking_level).toBe('low');
     expect(spec.allowed_mcp_servers).toEqual(['filesystem']);
     expect(spec.sandbox_mode).toBe('read-only');
     expect(spec.max_turns).toBe(15);
@@ -192,7 +201,7 @@ describe('resolveAgentSpec', () => {
     expect(ollamaSpec.model).toBe('llama3.2');
   });
 
-  it('rejects SWT Effort tier value (e.g. "balanced") used as Codex model_reasoning_effort', async () => {
+  it('rejects SWT Effort tier value (e.g. "balanced") used as Codex thinking_level', async () => {
     await writeFile(join(templatesDir, 'qa.toml'), SWT_EFFORT_LEAK);
     await expect(
       resolveAgentSpec({
@@ -200,7 +209,7 @@ describe('resolveAgentSpec', () => {
         config: DEFAULT_CONFIG,
         templates_dir: templatesDir,
       }),
-    ).rejects.toThrow(/invalid model_reasoning_effort.*minimal.*low.*medium.*high.*xhigh/);
+    ).rejects.toThrow(/invalid thinking_level.*minimal.*low.*medium.*high.*xhigh/);
   });
 });
 
@@ -216,7 +225,7 @@ describe('bundled agent templates Codex schema conformance', () => {
   ];
 
   for (const role of ROLES) {
-    it(`${role}.toml parses with Codex-conformant model + reasoning_effort + name + description`, async () => {
+    it(`${role}.toml parses with Codex-conformant model + Pi thinking_level + name + description`, async () => {
       const spec = await resolveAgentSpec({
         role,
         config: DEFAULT_CONFIG,
@@ -224,8 +233,8 @@ describe('bundled agent templates Codex schema conformance', () => {
       });
       // F-01 — model is in the documented Codex catalog
       expect(CODEX_MODELS).toContain(spec.model);
-      // F-02 — reasoning_effort is in the documented Codex enum
-      expect(CODEX_REASONING_EFFORTS).toContain(spec.reasoning_effort);
+      // F-02 — thinking_level is in the Pi ThinkingLevel enum
+      expect(THINKING_LEVELS_LOCAL).toContain(spec.thinking_level);
       // F-04 — developer_instructions present (the resolver doesn't surface name/description, but the resolver tolerates them per RawTemplate)
       expect(spec.developer_instructions.length).toBeGreaterThan(0);
     });

@@ -1,21 +1,17 @@
-import type { CodexReasoningEffort } from '../types/codex-reasoning-effort.js';
+/**
+ * `AgentSpawner` — backend-specific spawn abstraction.
+ *
+ * `AgentSpec` migrated to `@swt-labs/shared` in M2 PR-12 (the
+ * `CodexReasoningEffort → ThinkingLevel` cascade rename). Re-exported from
+ * here for one-cycle compat; v3.1 drops the re-export and consumers import
+ * from `@swt-labs/shared` directly.
+ */
+
+import type { AgentSpec } from '@swt-labs/shared';
+
 import type { AgentRole } from '../types/index.js';
 
-export interface AgentSpec {
-  readonly role: AgentRole;
-  readonly model: string;
-  readonly reasoning_effort: CodexReasoningEffort;
-  readonly developer_instructions: string;
-  readonly allowed_mcp_servers: readonly string[];
-  readonly sandbox_mode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-  readonly max_turns?: number;
-  /**
-   * Optional alternate names the orchestrator may use to route to this role.
-   * Codex resolves the first matching alias before falling back to `role`.
-   * Empty / undefined => no aliases.
-   */
-  readonly aliases?: readonly string[];
-}
+export type { AgentSpec } from '@swt-labs/shared';
 
 export interface SpawnRequest {
   readonly spec: AgentSpec;
@@ -43,9 +39,9 @@ export interface SpawnResult {
 }
 
 /**
- * Turns a methodology role into a backend-specific spawn. On Codex this writes
- * a TOML agent file and invokes `codex exec`; on other backends it does the
- * equivalent.
+ * Turns a methodology role into a backend-specific spawn. v3's
+ * `PiSpawnerEnvironment` is the canonical implementation (via
+ * `@swt-labs/orchestration`'s dispatcher); legacy backends used codex/etc.
  */
 export interface AgentSpawner {
   installAgent(spec: AgentSpec): Promise<void>;

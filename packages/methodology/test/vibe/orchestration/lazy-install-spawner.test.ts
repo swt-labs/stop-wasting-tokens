@@ -7,7 +7,7 @@ function makeSpec(role: AgentRole): AgentSpec {
   return {
     role,
     model: 'gpt-5-codex',
-    reasoning_effort: 'balanced',
+    thinking_level: 'medium',
     developer_instructions: '',
     allowed_mcp_servers: [],
   };

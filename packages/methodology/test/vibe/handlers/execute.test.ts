@@ -58,7 +58,7 @@ const route: VibeRoute = {
 const devSpec: AgentSpec = {
   role: 'dev',
   model: 'mock',
-  reasoning_effort: 'balanced',
+  thinking_level: 'medium',
   developer_instructions: 'mock',
   allowed_mcp_servers: [],
 };

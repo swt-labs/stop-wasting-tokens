@@ -4,6 +4,7 @@
 **Milestone:** M2 Single-agent path (M1 Foundation closed 2026-05-12)
 
 ## Current Phase
+
 Phase: 2 of 6 (M2 Single Agent Path)
 Plans: 0/2
 Progress: 0%
@@ -41,8 +42,9 @@ Before any code reaches "beta testing," it has to survive these gates that are b
 See [`docs/testing.md`](../docs/testing.md) for the consolidated 12-category test surface.
 
 ## Phase Status
-- **Phase 1 (M1 Foundation):** ✓ **Complete** (15/15 tasks, 15 work commits + 3 congruency-pass commits on `v3-foundation`, M1 exit gate reached 2026-05-12)
-- **Phase 2 (M2 Single-agent path):** **Planned** (2/2 plans authored 2026-05-12; 10 PRs queued; execution starts via `/vbw:vibe --execute 2`)
+
+- **Phase 1 (M1 Foundation):** Complete
+- **Phase 2 (M2 Single Agent Path):** Planned
 - **Phase 3 (M3 Worktree Dispatcher):** Pending
 - **Phase 4 (M4 Token Meter Cache Discipline):** Pending
 - **Phase 5 (M5 Multi Provider):** Pending

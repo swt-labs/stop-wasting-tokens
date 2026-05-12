@@ -6,12 +6,20 @@ import TOML from '@iarna/toml';
 import {
   type AgentRole,
   type AgentSpec,
-  CODEX_REASONING_EFFORTS,
-  type CodexReasoningEffort,
   ConfigError,
   isAgentRole,
   type SwtConfig,
+  type ThinkingLevel,
 } from '@swt-labs/core';
+
+const THINKING_LEVELS: readonly ThinkingLevel[] = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+] as const;
 
 export interface AgentSpecResolverOptions {
   readonly role: AgentRole;
@@ -25,7 +33,8 @@ interface RawTemplate {
   readonly name?: unknown;
   readonly description?: unknown;
   readonly model?: unknown;
-  readonly model_reasoning_effort?: unknown;
+  /** M2 PR-12 rename: `model_reasoning_effort` (v2 Codex vocab) → `thinking_level` (Pi vocab). */
+  readonly thinking_level?: unknown;
   readonly developer_instructions?: unknown;
   readonly allowed_mcp_servers?: unknown;
   readonly sandbox_mode?: unknown;
@@ -89,7 +98,7 @@ export async function resolveAgentSpec(opts: AgentSpecResolverOptions): Promise<
   const overrideModel = config.model_overrides[role];
   const model = overrideModel ?? tomlModel ?? FALLBACK_MODEL;
 
-  const reasoning_effort = resolveReasoningEffort(parsed.model_reasoning_effort, tomlPath);
+  const thinking_level = resolveThinkingLevel(parsed.thinking_level, tomlPath);
 
   const developer_instructions =
     typeof parsed.developer_instructions === 'string' ? parsed.developer_instructions : '';
@@ -112,7 +121,7 @@ export async function resolveAgentSpec(opts: AgentSpecResolverOptions): Promise<
   const spec: AgentSpec = {
     role,
     model,
-    reasoning_effort,
+    thinking_level,
     developer_instructions,
     allowed_mcp_servers,
     ...(sandbox_mode !== undefined ? { sandbox_mode } : {}),
@@ -132,13 +141,13 @@ export function getBundledAgentTemplatesDir(): URL {
   return new URL('../../../templates/agents/', import.meta.url);
 }
 
-function resolveReasoningEffort(value: unknown, tomlPath: string): CodexReasoningEffort {
+function resolveThinkingLevel(value: unknown, tomlPath: string): ThinkingLevel {
   if (value === undefined) return 'medium';
-  if (typeof value === 'string' && (CODEX_REASONING_EFFORTS as readonly string[]).includes(value)) {
-    return value as CodexReasoningEffort;
+  if (typeof value === 'string' && (THINKING_LEVELS as readonly string[]).includes(value)) {
+    return value as ThinkingLevel;
   }
   throw new ConfigError(
-    `${tomlPath} has invalid model_reasoning_effort: ${JSON.stringify(value)} (expected one of ${CODEX_REASONING_EFFORTS.join(', ')})`,
+    `${tomlPath} has invalid thinking_level: ${JSON.stringify(value)} (expected one of ${THINKING_LEVELS.join(', ')})`,
   );
 }
 
