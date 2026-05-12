@@ -21,21 +21,21 @@ self-contained.
 
 ## Status table (as of 2026-05-12, v3.0 structural close + LTS retraction)
 
-|                          ADR                           | Title                                                          | Status         |  Decided   | PR                                 |
-| :----------------------------------------------------: | :------------------------------------------------------------- | :------------- | :--------: | :--------------------------------- |
-|          [001](./ADR-001-pi-sdk-adoption.md)           | Pi SDK as the runtime substrate                                | **Accepted**   | 2026-05-11 | M1 PR-02                           |
-|     [002](./ADR-002-extension-result-protocol.md)      | Result protocol via Extension custom tool                      | **Accepted**   | 2026-05-11 | M1 PR-09                           |
-|       [003](./ADR-003-quirks-json-over-shims.md)       | Provider quirks live in `quirks.json` applied via Pi Extension | **Accepted**   | 2026-05-11 | M1 PR-08                           |
-|      [004](./ADR-004-cache-at-provider-layer.md)       | `cache_control` at provider-shim layer, not Pi-level           | **Accepted**   | 2026-05-11 | M1 PR-02                           |
-|      [005](./ADR-005-delete-drivers-wholesale.md)      | Delete codex/claude-code/ollama drivers wholesale              | **Accepted**   | 2026-05-11 | M1 PR-05                           |
-| [006](./ADR-006-cache-control-breakpoint-placement.md) | Cache-control breakpoint placement                             | **Accepted**   | 2026-05-12 | M4 PR-32                           |
-|       [007](./ADR-007-budget-gate-semantics.md)        | Budget Gate thresholds (70% downgrade, 95% pause)              | **Accepted**   | 2026-05-12 | M4 PR-35                           |
-|         [008](./ADR-008-worktree-per-task.md)          | Worktree-per-task model                                        | **Accepted**   | 2026-05-12 | M3 PR-22                           |
-|  [009](./ADR-009-windows-worktree-path-discipline.md)  | Windows worktree path discipline                               | **Accepted**   | 2026-05-12 | M3 PR-30                           |
-|        [010](./ADR-010-deterministic-builds.md)        | Deterministic builds (byte-identical from same commit)         | **Accepted**   | 2026-05-11 | M1 PR-11                           |
-|   [011](./ADR-011-provider-matrix-cassettes-only.md)   | Provider-matrix CI runs on cassettes only                      | **Accepted**   | 2026-05-12 | M5 PR-44                           |
-|        [012](./ADR-012-six-month-lts-policy.md)        | Six-month LTS for v2.3.x                                       | **Superseded** | 2026-05-12 | M6 PR-53 (Accepted → retracted)    |
-|         [013](./ADR-013-docs-site-posture.md)          | No hosted documentation site at v3.0                           | **Deferred**   | 2026-05-11 | M6 PR-47                           |
+|                          ADR                           | Title                                                          | Status         |  Decided   | PR                              |
+| :----------------------------------------------------: | :------------------------------------------------------------- | :------------- | :--------: | :------------------------------ |
+|          [001](./ADR-001-pi-sdk-adoption.md)           | Pi SDK as the runtime substrate                                | **Accepted**   | 2026-05-11 | M1 PR-02                        |
+|     [002](./ADR-002-extension-result-protocol.md)      | Result protocol via Extension custom tool                      | **Accepted**   | 2026-05-11 | M1 PR-09                        |
+|       [003](./ADR-003-quirks-json-over-shims.md)       | Provider quirks live in `quirks.json` applied via Pi Extension | **Accepted**   | 2026-05-11 | M1 PR-08                        |
+|      [004](./ADR-004-cache-at-provider-layer.md)       | `cache_control` at provider-shim layer, not Pi-level           | **Accepted**   | 2026-05-11 | M1 PR-02                        |
+|      [005](./ADR-005-delete-drivers-wholesale.md)      | Delete codex/claude-code/ollama drivers wholesale              | **Accepted**   | 2026-05-11 | M1 PR-05                        |
+| [006](./ADR-006-cache-control-breakpoint-placement.md) | Cache-control breakpoint placement                             | **Accepted**   | 2026-05-12 | M4 PR-32                        |
+|       [007](./ADR-007-budget-gate-semantics.md)        | Budget Gate thresholds (70% downgrade, 95% pause)              | **Accepted**   | 2026-05-12 | M4 PR-35                        |
+|         [008](./ADR-008-worktree-per-task.md)          | Worktree-per-task model                                        | **Accepted**   | 2026-05-12 | M3 PR-22                        |
+|  [009](./ADR-009-windows-worktree-path-discipline.md)  | Windows worktree path discipline                               | **Accepted**   | 2026-05-12 | M3 PR-30                        |
+|        [010](./ADR-010-deterministic-builds.md)        | Deterministic builds (byte-identical from same commit)         | **Accepted**   | 2026-05-11 | M1 PR-11                        |
+|   [011](./ADR-011-provider-matrix-cassettes-only.md)   | Provider-matrix CI runs on cassettes only                      | **Accepted**   | 2026-05-12 | M5 PR-44                        |
+|        [012](./ADR-012-six-month-lts-policy.md)        | Six-month LTS for v2.3.x                                       | **Superseded** | 2026-05-12 | M6 PR-53 (Accepted → retracted) |
+|         [013](./ADR-013-docs-site-posture.md)          | No hosted documentation site at v3.0                           | **Deferred**   | 2026-05-11 | M6 PR-47                        |
 
 **Tally** — 11 Accepted (001..011), 1 Deferred (013), 1 Superseded (012). ADR-012 was promoted to Accepted at M6 PR-53 and retracted same-day; see the Retraction section in ADR-012 for rationale.
 
