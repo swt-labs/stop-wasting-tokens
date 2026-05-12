@@ -28,6 +28,14 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   const meter = opts.meter;
   void opts.ephemeral;
   void opts.cwd;
+  // PR-26 wiring: the runtime records `enableResultProtocol` + `taskId`
+  // here so the contract surface is locked. The mock prompt() is a
+  // no-op so neither is consumed yet; the real Pi adapter (deferred
+  // session-wiring follow-up) reads these and threads them through to
+  // `createAgentSession({ extensions: [buildResultProtocolExtension()] })`
+  // + a task-context session entry per TDD2 §9.4 + ADR-002.
+  void opts.enableResultProtocol;
+  void opts.taskId;
 
   let disposed = false;
 

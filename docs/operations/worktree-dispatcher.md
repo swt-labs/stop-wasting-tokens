@@ -39,14 +39,38 @@ Each transition writes a JSON object on one line:
 
 Consumers (dashboard's Worktrees panel + the chaos test suite + `swt cleanup` from Plan 03-02 PR-29) tail this file. The `details` field is informational — unknown keys must not be load-bearing.
 
+## `swt_report_result` extension wire-up (M3 PR-26)
+
+Every session the orchestration-layer dispatcher creates carries `enableResultProtocol: true` + the `taskId` on its `SwtSessionOptions`. The runtime layer (today's mock) records these as no-ops; the deferred session-wiring follow-up consumes them to register `buildResultProtocolExtension()` on the real Pi session per [ADR-002](../decisions/ADR-002-extension-result-protocol.md).
+
+The wire-up contract (locked at PR-26):
+
+| Surface                                  | Today (PR-26)                            | Activated (session-wiring follow-up)                                                                          |
+| ---------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `SwtSessionOptions.enableResultProtocol` | Recorded by mock `createSession`; no-op. | Real Pi adapter threads `[buildResultProtocolExtension()]` into `createAgentSession({ customTools: [...] })`. |
+| `SwtSessionOptions.taskId`               | Recorded; no-op.                         | Real Pi adapter writes a `task-context` custom session entry before the first `prompt()`.                     |
+| Dispatcher → factory call                | Every dispatch passes both fields.       | Same — no change at the dispatcher layer.                                                                     |
+
+Principle 1 stays intact: the orchestration layer's dispatcher passes a boolean + a string. It never imports `@earendil-works/*`. The Pi-side wiring lives entirely in `packages/runtime/src/session.ts` + `packages/runtime/src/extensions/result-protocol.ts`.
+
+The cassette-gated integration test at `packages/orchestration/test/dispatcher.int.test.ts` documents the full ADR-002 round-trip:
+
+1. Dispatcher creates a session with `enableResultProtocol: true`.
+2. Real Pi loop fires `swt_report_result` with a `TaskResult`-shaped payload.
+3. Closure-captured `pi.appendEntry` persists a `swt-task-result` custom entry.
+4. `harvestTaskResult` reads + validates against `TaskResultSchema`.
+5. `assertTaskIdMatch` confirms `task_id` round-trips.
+
+This test activates the moment both gates land: the Anthropic cassette set + the session-wiring follow-up PR. No code change needed in the test itself.
+
 ## What's deferred (and to where)
 
 | Deferred concern                           | Lands at                                              |
 | ------------------------------------------ | ----------------------------------------------------- |
-| Claim-conflict detection                   | M3 PR-23 (`claim-registry.ts`)                        |
-| `depends_on` → parallel batch resolution   | M3 PR-24 (`dag-resolver.ts`)                          |
-| PID-liveness lock files + crash recovery   | M3 PR-25 (`lock-files.ts`)                            |
-| `swt_report_result` Extension registration | M3 PR-26 (`dispatcher.ts` hook)                       |
+| Claim-conflict detection                   | M3 PR-23 (`claim-registry.ts`) ✓                      |
+| `depends_on` → parallel batch resolution   | M3 PR-24 (`dag-resolver.ts`) ✓                        |
+| PID-liveness lock files + crash recovery   | M3 PR-25 (`lock-files.ts`) ✓                          |
+| `swt_report_result` Extension registration | M3 PR-26 (`dispatcher.ts` hook) ✓                     |
 | Per-worktree Pi session creation           | Session-wiring follow-up (between Plan 03-01 + 03-02) |
 | Dashboard Worktrees panel                  | M3 PR-27 (Plan 03-02)                                 |
 | SIGKILL-at-every-transition chaos suite    | M3 PR-28 (Plan 03-02)                                 |

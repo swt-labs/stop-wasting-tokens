@@ -18,6 +18,33 @@
  * invariant is asserted by the structural type `PiExtensionContext` (no
  * `appendEntry` field) — a future contributor who writes
  * `ctx.appendEntry(...)` gets a TS error at compile time.
+ *
+ * **M3 PR-26 dispatcher wire-up.** Every session the orchestration-layer
+ * dispatcher creates today carries `enableResultProtocol: true` in its
+ * `SwtSessionOptions` per ADR-002's requirement that "every dispatched
+ * agent emits a `swt_report_result` entry before exit." The runtime
+ * mock's `createSession` records the flag but is otherwise a no-op
+ * (mock `prompt()` doesn't drive a real Pi loop). When the deferred
+ * session-wiring follow-up PR replaces the mock with a real Pi adapter,
+ * the activation lives in `runtime/src/session.ts:makeRealSwtSession`:
+ *
+ * ```ts
+ * const extensions = opts.enableResultProtocol
+ *   ? [buildResultProtocolExtension()]
+ *   : [];
+ * const { session } = await createAgentSession({
+ *   cwd: opts.cwd,
+ *   sessionManager: opts.ephemeral ? SessionManager.inMemory() : SessionManager.create(opts.cwd),
+ *   customTools: extensions.flatMap((ext) => extractTools(ext)),
+ *   // ... etc per Pi's createAgentSession contract
+ * });
+ * if (opts.taskId !== undefined) {
+ *   session.sessionManager.appendEntry({ type: 'custom', customType: 'task-context', data: { taskId: opts.taskId } });
+ * }
+ * ```
+ *
+ * The flag-based contract keeps Principle 1 intact: the dispatcher (in
+ * orchestration/) passes a boolean — it never imports `@earendil-works/*`.
  */
 
 import { createHash } from 'node:crypto';

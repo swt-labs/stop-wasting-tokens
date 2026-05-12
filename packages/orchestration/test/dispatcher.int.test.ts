@@ -127,10 +127,16 @@ describe('@swt-labs/orchestration — cassette-driven end-to-end (M1 headline)',
   it.skipIf(!HAS_CASSETTE)(
     'dispatches Scout end-to-end through mocked Pi → parsed TaskResult',
     async () => {
-      // Activation skeleton — wired the moment `scout-search-codebase.jsonl` lands:
+      // Activation skeleton — wired the moment `scout-search-codebase.jsonl`
+      // lands AND the session-wiring follow-up replaces the mock
+      // `createSession` with a real Pi adapter:
       //
       //   const { uninstall } = installReplay(CASSETTE_NAME);
       //   try {
+      //     // PR-26 contract: every dispatched session carries
+      //     // `enableResultProtocol: true` + `taskId` — the real Pi
+      //     // adapter registers `buildResultProtocolExtension()` and
+      //     // writes a `task-context` entry before prompt().
       //     const dispatcher = createDispatcher({
       //       harvestStrategy: { kind: 'entries', getEntries: () => readPiSessionEntries() },
       //     });
@@ -154,7 +160,7 @@ describe('@swt-labs/orchestration — cassette-driven end-to-end (M1 headline)',
     },
   );
 
-  it('PR-09 scaffolding placeholder — when cassette lands, flip skipIf to activate', () => {
+  it('PR-09 + PR-26 scaffolding placeholder — when cassette + session-wiring land, flip skipIf to activate', () => {
     // Always passes; documents the deferred-but-wired state for any
     // CI artifact reader that summarises the test report.
     expect(typeof HAS_CASSETTE).toBe('boolean');

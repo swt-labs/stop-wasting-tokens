@@ -16,15 +16,27 @@ import {
  * runtime/'s real `createSession` (which today is a mock itself, but PR-06
  * makes it call Pi — these tests stay green either way).
  */
+interface RecordedSessionCall {
+  readonly cwd: string;
+  readonly ephemeral?: boolean;
+  readonly enableResultProtocol?: boolean;
+  readonly taskId?: string;
+}
+
 function makeRecordingSessionFactory(): {
   factory: SessionFactory;
-  calls: Array<{ cwd: string; ephemeral?: boolean }>;
+  calls: RecordedSessionCall[];
   disposals: number;
 } {
-  const calls: Array<{ cwd: string; ephemeral?: boolean }> = [];
+  const calls: RecordedSessionCall[] = [];
   let disposals = 0;
   const factory: SessionFactory = async (opts) => {
-    calls.push({ cwd: opts.cwd, ephemeral: opts.ephemeral });
+    calls.push({
+      cwd: opts.cwd,
+      ephemeral: opts.ephemeral,
+      enableResultProtocol: opts.enableResultProtocol,
+      taskId: opts.taskId,
+    });
     const session: SwtSession = {
       sessionId: `mock-${calls.length}`,
       async prompt() {
@@ -80,7 +92,14 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
         role: 'dev',
         cwd: '/tmp/orchestration-test/dev',
       });
-      expect(recording.calls).toEqual([{ cwd: '/tmp/orchestration-test/dev', ephemeral: true }]);
+      expect(recording.calls).toEqual([
+        {
+          cwd: '/tmp/orchestration-test/dev',
+          ephemeral: true,
+          enableResultProtocol: true,
+          taskId: 'T-test-002',
+        },
+      ]);
     });
 
     it('dispatchBatch runs tasks sequentially in order', async () => {
@@ -96,6 +115,40 @@ describe('@swt-labs/orchestration — PR-03 surface', () => {
       expect(results.length).toBe(3);
       expect(results.map((r) => r.task_id)).toEqual(['T-1', 'T-2', 'T-3']);
       expect(recording.calls.map((c) => c.cwd)).toEqual(['/tmp/a', '/tmp/b', '/tmp/c']);
+    });
+  });
+
+  describe('createDispatcher — result-protocol wire-up (M3 PR-26)', () => {
+    it('threads enableResultProtocol: true + taskId into every session factory call', async () => {
+      const recording = makeRecordingSessionFactory();
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      await dispatcher.dispatch({
+        taskId: 'T-PR26-001',
+        role: 'dev',
+        cwd: '/tmp/a',
+      });
+      expect(recording.calls).toHaveLength(1);
+      expect(recording.calls[0]?.enableResultProtocol).toBe(true);
+      expect(recording.calls[0]?.taskId).toBe('T-PR26-001');
+    });
+
+    it('threads enableResultProtocol consistently across a batch (every task gets the flag)', async () => {
+      const recording = makeRecordingSessionFactory();
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      await dispatcher.dispatchBatch([
+        { taskId: 'T-PR26-batch-1', role: 'scout', cwd: '/a' },
+        { taskId: 'T-PR26-batch-2', role: 'lead', cwd: '/b' },
+        { taskId: 'T-PR26-batch-3', role: 'dev', cwd: '/c' },
+      ]);
+      expect(recording.calls).toHaveLength(3);
+      for (const call of recording.calls) {
+        expect(call.enableResultProtocol).toBe(true);
+      }
+      expect(recording.calls.map((c) => c.taskId)).toEqual([
+        'T-PR26-batch-1',
+        'T-PR26-batch-2',
+        'T-PR26-batch-3',
+      ]);
     });
   });
 

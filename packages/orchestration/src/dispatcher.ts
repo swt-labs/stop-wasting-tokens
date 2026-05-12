@@ -109,7 +109,18 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
         };
       }
     }
-    const session = await factory({ cwd: task.cwd, ephemeral: true });
+    // PR-26 wire-up: every dispatched session carries the
+    // `swt_report_result` extension hook + the task ID so the runtime
+    // can register the Pi Extension + write the `task-context` session
+    // entry before `prompt()` fires. The mock createSession records
+    // both as no-ops today; the real Pi adapter (deferred session-wiring
+    // follow-up) consumes them per ADR-002.
+    const session = await factory({
+      cwd: task.cwd,
+      ephemeral: true,
+      enableResultProtocol: true,
+      taskId: task.taskId,
+    });
     try {
       // PR-09: session.prompt() is still a no-op (createSession ships a
       // mock until M2 swaps in real Pi wiring). The harvest path runs

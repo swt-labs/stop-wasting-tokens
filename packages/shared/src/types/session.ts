@@ -41,6 +41,31 @@ export interface SwtSessionOptions {
   readonly ephemeral?: boolean;
   readonly meter?: TokenMeter;
   readonly meterContext?: MeterContext;
+  /**
+   * When `true`, the runtime registers the `swt_report_result` Pi
+   * Extension on the session before the first `prompt()` per ADR-002.
+   * Required for any dispatched-agent flow that produces a
+   * `TaskResult` envelope (every Dev / QA / Lead task today).
+   *
+   * **M3 PR-26 ship state — recorded but no-op.** The runtime mock's
+   * `createSession` simply records the flag; the real Pi adapter
+   * (deferred session-wiring follow-up before Plan 03-02 begins)
+   * threads `buildResultProtocolExtension()` into Pi's
+   * `createAgentSession({ extensions: [...] })` call.
+   */
+  readonly enableResultProtocol?: boolean;
+  /**
+   * Task ID — needed by the `swt_report_result` extension to label
+   * the persisted result envelope. The dispatcher writes this into a
+   * `task-context` session entry before the first prompt; the runtime
+   * threads it through `meterContext.task_id` already, but the
+   * dedicated field lets the result protocol read it without taking a
+   * meterContext dependency.
+   *
+   * **M3 PR-26 ship state — recorded but no-op.** Wired through to
+   * Pi's session entry by the session-wiring follow-up.
+   */
+  readonly taskId?: string;
 }
 
 /**
