@@ -2,7 +2,9 @@
 
 ## 3.0.0-alpha.1 — IN DEVELOPMENT (not yet published)
 
-_The v3 redesign is being built on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch. The currently-published binary on npm remains v2.3.5. This entry tracks what has shipped to v3-foundation so far; M1 Foundation is the active milestone._
+_The v3 redesign is being built directly on `main`. The currently-published binary on npm remains v2.3.5; v3.0 cuts from `main` at the M6 release gate. This entry tracks what has shipped so far: **M1 Foundation closed 2026-05-12** and **M2 single-agent path is in flight (PR-17 of 21 landed)**._
+
+> **Branch strategy note (2026-05-12):** v3 development was previously on a `v3-foundation` integration branch with the plan to merge into `main` at the M6 release gate. That branch has been retired; `main` is now the sole development surface for v3. The per-plan "commit trail on `v3-foundation`" section titles below are kept as historical record — the commits themselves are now on `main`'s history.
 
 **Authoritative design:** [`TDD2.md`](./TDD2.md). **Active plans:** [`.vbw-planning/`](./.vbw-planning/). **Roadmap:** [`.vbw-planning/ROADMAP.md`](./.vbw-planning/ROADMAP.md).
 

@@ -6,7 +6,7 @@
 
 > A spec-driven, Pi-native coding harness built around a single obsession: **stop wasting tokens**.
 
-> **v3 redesign in active development on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch.** v3 is a runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved verbatim from v2, the Codex/Claude-Code/Ollama backends retired in favor of Pi's provider matrix. **M1 Foundation closed 2026-05-12.** **M2 single-agent path is in flight: 6 of 10 PRs landed** (PR-12 → PR-17). The published binary on npm is still v2.3.5; v3.0 ships at the M6 release gate. v2.3.x stays on LTS via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md).
+> **v3 redesign in active development on `main`.** v3 is a runtime-layer rewrite onto the vendor-neutral [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) substrate — methodology preserved verbatim from v2, the Codex/Claude-Code/Ollama backends retired in favor of Pi's provider matrix. **M1 Foundation closed 2026-05-12.** **M2 single-agent path is in flight: 6 of 10 PRs landed** (PR-12 → PR-17). The published binary on npm is still v2.3.5; v3.0 cuts from `main` at the M6 release gate. v2.3.x stays on LTS via [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive) per [ADR-012](./docs/decisions/ADR-012-six-month-lts-policy.md).
 
 `swt` is a Node/TypeScript CLI you install once. It wraps every coding-agent session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
 
@@ -100,7 +100,7 @@ Tier ↔ model mapping is per-provider (declared in `runtime/src/providers/defau
 
 ## Project status
 
-Currently **v3.0.0-alpha.1 (in development)** on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch. The published binary on npm is still v2.3.5.
+Currently **v3.0.0-alpha.1 (in development)** on the [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main) branch. The published binary on npm is still v2.3.5.
 
 ### M1 Foundation — CLOSED 2026-05-12
 
@@ -155,7 +155,7 @@ Output includes the Pi peer-dep version, Node version, and `.swt-planning/` pres
 
 ## Install
 
-> **v3 is alpha; not yet on npm.** The instructions below are for v2.3.5 (the currently-published stable binary). For v3 testers, clone the repo and check out the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch.
+> **v3 is alpha; not yet on npm.** The instructions below are for v2.3.5 (the currently-published stable binary). For v3 testers, clone the repo — `main` IS the v3 development branch.
 
 ### v2.3.5 (stable, on npm)
 
@@ -188,14 +188,13 @@ swt update              # built-in self-check; prints the upgrade command
 
 The v2.3.5 package ships an ESM-only bundle with a single `swt` binary. No build step, no peer-dependency negotiation, no native modules.
 
-### v3.0.0-alpha (source install, v3-foundation branch)
+### v3.0.0-alpha (source install from `main`)
 
 For early testers willing to track active development:
 
 ```bash
 git clone https://github.com/swt-labs/stop-wasting-tokens.git
 cd stop-wasting-tokens
-git checkout v3-foundation
 pnpm install
 pnpm typecheck && pnpm test     # 858 passing at HEAD
 pnpm build                       # produces packages/cli/dist/cli.mjs
@@ -354,9 +353,9 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 
 ## Command reference
 
-SWT exposes a CLI surface derived from the VBW (`vibe-better-with-claude-code`) methodology. The v3-foundation HEAD ships these verbs as production-ready; `swt vibe` is the orchestrator that calls every other surface internally.
+SWT exposes a CLI surface derived from the VBW (`vibe-better-with-claude-code`) methodology. The `main` HEAD ships these verbs as production-ready; `swt vibe` is the orchestrator that calls every other surface internally.
 
-### Working today (v3-foundation HEAD)
+### Working today (`main` HEAD)
 
 | Command            | Use case                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -451,7 +450,7 @@ Your `autonomy` is set to `cautious` or `standard` (the default). Switch with `s
 Run `swt detect-phase` for a JSON dump of what SWT thinks the state is. The `phase_detect_error=true` line points at root cause.
 
 **`swt doctor` reports `Pi runtime not available`**
-Pi is declared as a peer-dep (`^0.74.0`); ensure `@earendil-works/pi-coding-agent` is installed in your project or globally. v3-foundation source installs include it via `pnpm install`.
+Pi is declared as a peer-dep (`^0.74.0`); ensure `@earendil-works/pi-coding-agent` is installed in your project or globally. Source installs from `main` include it via `pnpm install`.
 
 **Tests failing on chokidar 4 fsevents (macOS)**
 The PR-17 chokidar v4 upgrade fixed the glob-support drop; one remaining test (sse-snapshot-changed) is skipped under umbrella issue #32 pending a chokidar v4 close-handler fix or fs.watch migration.
@@ -464,4 +463,4 @@ The PR-17 chokidar v4 upgrade fixed the glob-support drop; one remaining test (s
 - Security disclosures: [SECURITY.md](SECURITY.md).
 - License: MIT, see [LICENSE](LICENSE).
 
-Active development of v3 happens on the [`v3-foundation`](https://github.com/swt-labs/stop-wasting-tokens/tree/v3-foundation) branch. v2 stable patches land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive). The `main` branch is the v3 stabilization target; v3.0.0 cuts from `main` at the M6 release gate.
+Active development of v3 happens on `main`. v2 stable patches land on [`v2-archive`](https://github.com/swt-labs/stop-wasting-tokens/tree/v2-archive). v3.0.0 cuts from `main` at the M6 release gate.

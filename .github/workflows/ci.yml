@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ['main', 'v3-foundation', 'v2-archive', 'release/v2.3-*']
+    branches: ['main', 'v2-archive', 'release/v2.3-*']
   pull_request:
-    branches: ['main', 'v3-foundation', 'v2-archive', 'release/v2.3-*']
+    branches: ['main', 'v2-archive', 'release/v2.3-*']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -56,13 +56,13 @@ jobs:
         run: pnpm build
 
   # ADR-010 — byte-identical dist/ outputs from the same commit.
-  # Runs on push-to-main / push-to-v3-foundation only (PR builds get the
-  # standard build matrix; main-bound merges additionally get reproducibility).
+  # Runs on push-to-main only (PR builds get the standard build matrix;
+  # main-bound merges additionally get reproducibility).
   reproducible-build:
     name: Reproducibility check
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v3-foundation')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 

@@ -13,7 +13,7 @@ on:
       - 'packages/test-utils/golden/**'
       - 'packages/test-utils/cassettes/**'
   push:
-    branches: ['main', 'v3-foundation']
+    branches: ['main']
 
 jobs:
   regression:

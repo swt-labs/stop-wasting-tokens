@@ -6,6 +6,8 @@ Live ledger surfacing PRs merged, ADRs decided, TPAC measurements, cache-hit rat
 > **Per-milestone plans:** [`.vbw-planning/phases/`](./phases/).
 > **ADR index:** [`docs/decisions/README.md`](../docs/decisions/README.md).
 
+> **Branch strategy (2026-05-12 pivot):** v3 development originally happened on a `v3-foundation` integration branch with the plan to merge into `main` at the M6 release gate (per TDD2 §13). That branch was retired 2026-05-12 — **v3 is now developed directly on `main`**. The "Merged" column in the tables below shows commits as they originally landed on `v3-foundation`; those commits are now on `main`'s history after the 2026-05-12 hard-reset + force-push. v2 stable patches stay on `v2-archive`; v3.0.0 still cuts from `main` at the M6 release gate.
+
 ## M1 — Foundation
 
 **Status:** in progress (Plans 01-01 + 01-02 complete; Plan 01-03 in progress).
