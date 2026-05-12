@@ -537,7 +537,19 @@ Final PR of Plan 04-01 (in plan order; PR-36 stays hard-deferred on M2 baseline)
 
 **ADR matrix at M4 close: 10 Accepted** (001, 002, 003, 004, 005, 006, 007, 008, 009, 010). The remaining draft ADRs (011, 012, 013) activate at their target milestones (M5 provider matrix, M6 release).
 
-**Test posture at PR-38 close (M4 structural EXIT GATE): 1104 passing / 46 skipped / 0 failed** (no test changes — PR-38 is docs + ADR promotion only). Commit: `<pending>`.
+**Test posture at PR-38 close (M4 structural EXIT GATE): 1104 passing / 46 skipped / 0 failed** (no test changes — PR-38 is docs + ADR promotion only). Commit: `92245ae`.
+
+### Added (M5 open — Plan 05-01 — PR-39, 2026-05-12)
+
+First PR of Plan 05-01 (M5 Multi-provider per TDD2 §13.5). OpenRouter shim end-to-end validation. The routing infrastructure (`quirks.json` + `default-tiers.json` + `extractUsage` dispatch) was already wired at PR-07/PR-08 era; PR-39 adds the regression guard that pins the wire-up.
+
+- **`packages/runtime/test/providers/openrouter-shim.test.ts`** (NEW, 9 tests across 3 describe blocks):
+  - **`extractUsage` dispatch (4 tests)** — `openrouter/anthropic/*` routes through `extractAnthropic` with `cache_read_input_tokens` + `cache_creation_input_tokens` preserved; `openrouter/openai/*` routes through `extractOpenAI` with `prompt_tokens_details.cached_tokens` subtracted from `input` (Anthropic-parity); `openrouter/deepseek/*` falls through to `extractGeneric`; dispatch is case-insensitive on the provider prefix.
+  - **`resolveModelForRole` defaults (4 tests)** — pins the OpenRouter tier resolution from `default-tiers.json`: `cheap-fast → meta-llama/llama-3.2-3b-instruct:free`, `balanced → deepseek/deepseek-v3`, `quality → anthropic/claude-opus-4-7`, `reasoning → openai/o4`. Validates the SDLC role → tier → model cascade (e.g., `scout` → `cheap-fast`, `architect` → `quality`, `debugger` → `reasoning`).
+  - **End-to-end through TokenMeter + computeCacheHitRatio (1 test)** — 2 turns through different OpenRouter sub-routes; asserts the meter snapshot aggregates them as 2 distinct cache-hit rows with per-row ratios (Anthropic 1800/2100 ≈ 0.857, OpenAI 600/1000 = 0.6).
+- **No code changes.** The shim was structurally in place; PR-39 is the regression test that locks it in.
+
+**Test posture at PR-39 close: 1113 passing / 46 skipped / 0 failed** (+9 from PR-38's 1104). Commit: `<pending>`.
 
 ### Test-debt umbrella #32 status
 
