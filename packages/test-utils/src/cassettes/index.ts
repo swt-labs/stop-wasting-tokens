@@ -24,3 +24,4 @@ export {
   type ReplayHandle,
   type InstallReplayOptions,
 } from './replayer.js';
+export { RequestNotInCassetteError, CassetteSeqError } from './errors.js';
