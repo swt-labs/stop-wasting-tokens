@@ -30,3 +30,8 @@ export * from './dag.js';
 // prompt.response). The canonical Zod union still lives in schemas/events.ts;
 // this module surfaces the two new variants by name for ergonomic imports.
 export * from './snapshot-event.js';
+// Phase 2 / Plan 02-01 (G-R3) — RateCard + RateCardEntry Zod schemas + types.
+// Pure schema module (no IO); consumed by `@swt-labs/runtime` budget loader
+// (plan 02-01) and the upcoming `cost-optimized-rate-card` strategy in
+// `@swt-labs/orchestration` (plan 02-02).
+export * from './rate-card.js';
