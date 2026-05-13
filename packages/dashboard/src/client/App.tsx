@@ -15,6 +15,7 @@ import { ExtensionDefenseBanner } from './components/ExtensionDefenseBanner.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
+import { PromptCard } from './components/PromptCard.js';
 import { ProviderCostPanel } from './components/ProviderCostPanel.js';
 import { TopBar } from './components/TopBar.js';
 import { TpacPanel } from './components/TpacPanel.js';
@@ -237,6 +238,7 @@ export const App: Component = () => {
                   minSize={0.2}
                   class="resizable-panel"
                 >
+                  <PromptCard />
                   <AgentTimeline events={state.snapshot?.recent_events ?? []} />
                 </Resizable.Panel>
                 <Resizable.Handle
