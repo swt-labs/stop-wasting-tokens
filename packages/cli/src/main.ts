@@ -155,12 +155,14 @@ export async function main(
     return EXIT.USAGE_ERROR;
   }
 
-  // Bare `swt` (no verb, no flags) routes to `vibe` — the methodology
-  // orchestrator that owns the Pi-backed agent lifecycle. The dashboard is
-  // a companion read-only observability surface; users who want it invoke
-  // it explicitly with `swt dashboard`. (v2.x defaulted bare-`swt` to the
-  // dashboard daemon with `SWT_NO_DASHBOARD=1` as the escape hatch; that
-  // default was reversed in v3.0.0-alpha.3.)
+  // Bare `swt` (no verb, no flags) auto-launches the dashboard daemon.
+  // The dashboard is SWT's primary surface — it absorbs the chat-style
+  // UX, the UAT checkpoint loop, and live agent observability. CLI verbs
+  // (`swt cook`, `swt qa`, `swt status`, ...) remain available for power
+  // users and scripts but are not the default invocation. No escape hatch:
+  // if you want a verb, type the verb. See TDD3 §15 + §24 for the design
+  // rationale. (This restores the v3.0.0-alpha.2 default after the brief
+  // alpha.3 detour that routed bare-`swt` to the orchestrator instead.)
   if (parsed.flags.version === true) {
     io.stdout.write(`swt ${deps.version ?? CURRENT_VERSION}\n`);
     return EXIT.SUCCESS;
@@ -174,8 +176,8 @@ export async function main(
     return EXIT.SUCCESS;
   }
   if (parsed.verb === undefined) {
-    const vibeParsed = { ...parsed, verb: 'vibe' };
-    return dispatch(registry, vibeParsed, io);
+    const dashboardParsed = { ...parsed, verb: 'dashboard' };
+    return dispatch(registry, dashboardParsed, io);
   }
 
   return dispatch(registry, parsed, io);

@@ -21,26 +21,26 @@ class CaptureStream extends Writable {
   }
 }
 
-describe('main() no-args behavior (v3.0.0-alpha.3+)', () => {
-  it('dispatches to the vibe verb when argv is empty', async () => {
+describe('main() no-args behavior', () => {
+  it('dispatches to the dashboard verb when argv is empty', async () => {
     const stdout = new CaptureStream();
     const stderr = new CaptureStream();
     let dispatchedVerb: string | undefined;
     const registry = new CommandRegistry();
     registry.register({
-      name: 'vibe',
-      description: 'methodology orchestrator',
+      name: 'dashboard',
+      description: 'launch the dashboard',
       handler: (parsed, io) => {
         dispatchedVerb = parsed.verb;
-        io.stdout.write('vibe launched\n');
+        io.stdout.write('dashboard launched\n');
         return EXIT.SUCCESS;
       },
     });
 
     const code = await main([], { stdout, stderr, registry });
     expect(code).toBe(EXIT.SUCCESS);
-    expect(dispatchedVerb).toBe('vibe');
-    expect(stdout.text()).toContain('vibe launched');
+    expect(dispatchedVerb).toBe('dashboard');
+    expect(stdout.text()).toContain('dashboard launched');
   });
 
   it('renders help when --help is passed', async () => {

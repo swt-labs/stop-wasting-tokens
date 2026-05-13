@@ -23,10 +23,10 @@ npm install -g stop-wasting-tokens@next       # v3 prerelease (recommended)
 ```bash
 swt --version        # 3.0.0-alpha.3
 swt doctor           # checks Node ≥ 20.18, Pi peer-dep, .swt-planning/ presence
-swt                  # bare `swt` enters the Pi-backed agent orchestrator (alias for `swt vibe`)
+swt                  # bare `swt` auto-launches the dashboard — SWT's primary surface
 ```
 
-> **Prefer a visual surface?** Run `swt dashboard` to launch the read-only web companion (Hono + Solid + SSE) at `http://127.0.0.1:43911`. It's a passive observer of the same `.swt-planning/` state — point it at an in-flight `swt vibe` session and watch agents, phases, costs, and token spend in real time.
+> **Bare `swt` is the entry point.** Typing `swt` (no args) auto-launches the dashboard at `http://127.0.0.1:43911` — SWT's primary surface, where you start projects, watch agents work live, review token + cost spend, and walk through UAT. The terminal-driven `swt vibe` orchestrator and the explicit verbs (`swt qa`, `swt status`, …) remain available for power users + scripts.
 
 v3 ships on npm under dist-tag `next` during prerelease. Detailed install + tutorial: [Install](#install).
 
@@ -293,12 +293,12 @@ You can short-circuit to a specific stage with `swt vibe --plan=NN`, `swt vibe -
 ### 4. Inspect progress at any time
 
 ```bash
-swt                      # bare `swt` enters the methodology orchestrator (same as `swt vibe`)
+swt                      # bare `swt` auto-launches the dashboard (SWT's primary surface)
 swt status               # current phase, milestone, % complete
 swt detect-phase --json  # machine-readable state (used by the statusline / IDE plugins)
 swt doctor               # Node + Pi peer-dep + .swt-planning/ presence
 swt watch                # interactive Ink TUI dashboard scoped to the active milestone
-swt dashboard            # localhost web dashboard daemon (companion observability surface)
+swt dashboard            # explicit invocation of the dashboard (same as bare `swt`)
 ```
 
 ### 5. Archive a completed milestone
@@ -405,7 +405,7 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 
 ## Command reference
 
-`swt vibe` is the orchestrator that calls every other surface internally; the explicit verbs below are escape hatches for power users + IDE integrations. Bare `swt` (no verb, no flags) routes to `swt vibe` — the Pi-backed agent orchestrator. The dashboard is a companion observability surface and is invoked explicitly with `swt dashboard`.
+Bare `swt` (no verb, no flags) auto-launches the dashboard — SWT's primary surface and the one-stop place to manage a project (phases, agent activity, tokens, costs, UAT). `swt vibe` is the in-terminal orchestrator for power users + scripts; the explicit verbs below are escape hatches for the same audience.
 
 ### Working today (`main` HEAD)
 
@@ -429,7 +429,7 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 ### Use case quick-pick
 
 - **Fresh project** → `swt vibe` (routes to bootstrap)
-- **Existing project, daily work** → `swt vibe` (auto-routes; bare `swt` is an alias for this), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
+- **Existing project, daily work** → bare `swt` (auto-launches the dashboard, the primary surface) or `swt vibe` (terminal orchestrator), `swt status` (peek), `swt watch` (Ink TUI)
 - **After a crash** → `swt cleanup` to reap stale worktrees + locks, then `swt vibe` to resume
 - **Something feels broken** → `swt doctor` first
 - **Configuration tweaks** → `swt config show` / `swt config set <key> <value>`
