@@ -141,3 +141,9 @@ export {
 // delegation shape locked here; real `AgentSessionRuntime` construction
 // activates at M3 PR-22.
 export { runRpc, RpcModeUnavailableError, type RunRpcOptions } from './rpc-runner.js';
+
+// Plan 01-02 (Phase 1): Pi-substrate primitives 5 + 6 — `swt:installRoot()`
+// and `swt:sessionId()`. Populate SWT_INSTALL_ROOT / SWT_SESSION_ID on
+// `process.env` at CLI bootstrap so every spawned bash script and Pi
+// session inherits the canonical pair (TDD3 §14, REQ-01).
+export { resolveInstallRoot, resolveSessionId, applyEnvToProcess } from './env.js';
