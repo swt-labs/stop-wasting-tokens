@@ -1,38 +1,379 @@
-import type { HarvestStrategy } from '@swt-labs/orchestration';
-import type { MeterContext, MeterSnapshot, TokenMeter } from '@swt-labs/shared';
+/**
+ * `runVibe` — subprocess-spawn bridge to `swt cook` (Phase 5 plan 05-04 T1).
+ *
+ * **R8 (architect): subprocess-spawn (option c).** The prior alpha's
+ * Execute-mode driver (vibe/handlers/execute.ts) was deleted per TDD3 §23.6
+ * and replaced by the `swt cook` orchestrator (TypeScript handler at
+ * `packages/cli/src/commands/cook.ts`, CLI verb registered in
+ * `packages/cli/src/main.ts`). Wave 3 of Phase 5 needed a programmatic
+ * entry into cook that does NOT couple methodology back to cli (option a —
+ * inverts the dep graph) and does NOT require a non-trivial cook.ts
+ * refactor (option b). Subprocess-spawn was chosen for minimal-refactor +
+ * preserves cook.ts as-is. Per research §6.6 + §7 R8: spawn overhead is
+ * ~500ms × ~6-10 phases = 3-5s total, acceptable for <60s CI budget.
+ *
+ * **Contract:** spawn `process.execPath` with the resolved swt cli bundle
+ * (default: `dist/cli.mjs` — the production tsup bundle), pass `cook` as
+ * the verb, inherit `SWT_*` env vars, await exit. On exit, harvest:
+ *
+ *   - `criteria_satisfied` — sum of `passed: N` across every
+ *     `phases/<NN>-*\/<NN>-VERIFICATION.md` under the planning root.
+ *   - `meter_snapshot` — lifted from `.swt-planning/.metrics/{session,phase}-*.json`
+ *     (written by Phase 4 04-01 token-meter) into a `MeterSnapshot` via
+ *     `liftMeterSnapshot()` (Phase 5 plan 05-04 T2, in `@swt-labs/orchestration`).
+ *
+ * **Non-throw semantics:** `runVibe()` returns the child's exit code
+ * rather than throwing on non-zero. Callers (`runMilestone`, `swt bench`)
+ * map non-zero codes to their own error surface. This keeps `runVibe`
+ * pure for tests asserting specific exit codes.
+ *
+ * **Cassettes do NOT cross-process today.** `installReplay()` patches
+ * the in-process undici dispatcher. A spawned child has its own
+ * dispatcher; cassette replay in the child requires either (a) loading
+ * the cassette at child bootstrap via env var, or (b) running cassettes
+ * in-process (which is what `run-agent-parity.ts` does for per-role
+ * cassettes). Phase 5 e2e tests gate behind cassette+baseline existence
+ * via `describe.skipIf(...)`; the full subprocess cassette wiring is a
+ * Phase 6 follow-up.
+ */
+
+import { spawn } from 'node:child_process';
+import * as crypto from 'node:crypto';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+import type { MeterRecord, MeterSnapshot } from '@swt-labs/shared';
 
 export interface RunVibeOptions {
+  /** Project working directory (where `.swt-planning/` will be produced). */
   readonly cwd: string;
-  readonly meter?: TokenMeter;
-  readonly meterContext?: MeterContext;
-  readonly harvestStrategy?: HarvestStrategy;
+  /**
+   * Legacy fields from the deferred-stub contract. Accepted but ignored
+   * by the subprocess-spawn implementation; preserved so callers
+   * compiled against the prior shape (`@swt-labs/test-utils`
+   * `runMilestone`) still typecheck until T4 rewires them.
+   */
+  readonly meter?: unknown;
+  readonly meterContext?: unknown;
+  readonly harvestStrategy?: unknown;
   readonly phase?: string;
   readonly slug?: string;
+  /** Override the planning root. Defaults to `${cwd}/.swt-planning`. */
+  readonly planningRoot?: string;
+  /** Override the session id passed to cook. Defaults to `crypto.randomUUID()`. */
+  readonly sessionId?: string;
+  /** Milestone label used when lifting the meter snapshot. Defaults to the basename of `cwd`. */
+  readonly milestone?: string;
+  /**
+   * Override the path to the swt CLI bundle (`.mjs` or `.js`). Defaults to:
+   *   1. `process.env.SWT_CLI_BIN` (used by tests)
+   *   2. `<repo>/dist/cli.mjs` (production tsup bundle)
+   *   3. `require.resolve('@swt-labs/cli')` (workspace fallback)
+   */
+  readonly swtBin?: string;
+  /** Force non-interactive mode (sets `SWT_FORCE_NON_INTERACTIVE=1`). Defaults to `true`. */
+  readonly nonInteractive?: boolean;
+  /** Subprocess timeout in milliseconds. Defaults to 120_000 (2 min). */
+  readonly spawnTimeoutMs?: number;
+  /**
+   * Default provider label applied to lifted meter records when the
+   * `.metrics/` JSON files lack a provider field. Defaults to `'anthropic'`.
+   */
+  readonly defaultProvider?: string;
+  /**
+   * Default model label applied to lifted meter records when the
+   * `.metrics/` JSON files lack a model field. Defaults to `'unknown'`.
+   */
+  readonly defaultModel?: string;
 }
 
 export interface RunVibeResult {
-  readonly artefactsPath: string;
-  readonly finalState: 'execute-complete';
-  readonly meterSnapshot: MeterSnapshot;
+  /** Session id passed to (or generated for) the spawned cook subprocess. */
+  readonly sessionId: string;
+  /** Absolute planning root used by the spawned cook subprocess. */
+  readonly planningRoot: string;
+  /** Child process exit code (0 on success). Non-zero is returned, not thrown. */
+  readonly exitCode: number;
+  /** Sum of `passed:` counts across every phase's VERIFICATION.md under `planningRoot`. */
   readonly criteriaSatisfied: number;
+  /** Meter snapshot lifted from `.swt-planning/.metrics/*.json` after the run. */
+  readonly meterSnapshot: MeterSnapshot;
+  /** Wall-clock duration of the subprocess in milliseconds. */
+  readonly durationMs: number;
+  /**
+   * Spawn overhead in milliseconds (time between `spawn()` and child's
+   * first metric write). Instrumented per R3 to validate the 3-5s CI
+   * budget. When the run produces no metrics, defaults to 0.
+   */
+  readonly spawnOverheadMs: number;
+  /**
+   * Legacy field — pre-Phase 5 callers consumed `artefactsPath`. Kept as
+   * an alias for `planningRoot` to soften the contract migration.
+   */
+  readonly artefactsPath: string;
 }
 
 /**
- * Deferred stub. The prior alpha's Execute-mode driver
- * (vibe/handlers/execute.ts) was deleted per TDD3 §23.6 and replaced by the
- * `swt cook` orchestrator (TypeScript handler at
- * packages/cli/src/commands/cook.ts, CLI verb registered in
- * packages/cli/src/main.ts).
- *
- * Consumers (test-utils' runMilestone, swt bench) currently compile against
- * this stub and throw at runtime. The intended migration path is to invoke
- * the cook handler directly via the CommandRegistry rather than calling
- * runVibe(); the deeper caller migration is deferred (see plan 03-04 T3).
+ * Spawn `swt cook` as a child process and harvest the produced
+ * `.swt-planning/` tree into a `RunVibeResult`.
  */
-export function runVibe(_opts: RunVibeOptions): Promise<RunVibeResult> {
-  return Promise.reject(
-    new Error(
-      'runVibe() is a deferred stub. Use `swt cook` (CLI verb registered in packages/cli/src/main.ts → packages/cli/src/commands/cook.ts) for the orchestrator entry point. `swt bench` and runMilestone test utils should invoke the cook handler directly via the CommandRegistry rather than calling runVibe().',
-    ),
-  );
+export function runVibe(opts: RunVibeOptions): Promise<RunVibeResult> {
+  const sessionId = opts.sessionId ?? crypto.randomUUID();
+  const planningRoot = opts.planningRoot ?? join(opts.cwd, '.swt-planning');
+  const milestone = opts.milestone ?? basename(opts.cwd);
+  const swtBin = resolveSwtBin(opts.swtBin);
+  const nonInteractive = opts.nonInteractive !== false;
+  const spawnTimeoutMs = opts.spawnTimeoutMs ?? 120_000;
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    SWT_PLANNING_ROOT: planningRoot,
+    SWT_SESSION_ID: sessionId,
+  };
+  if (nonInteractive) {
+    env['SWT_FORCE_NON_INTERACTIVE'] = '1';
+  }
+
+  return new Promise<RunVibeResult>((resolve, reject) => {
+    const start = Date.now();
+    let firstMetricsAt = 0;
+    const metricsDir = join(planningRoot, '.metrics');
+
+    const child = spawn(process.execPath, [swtBin, 'cook'], {
+      cwd: opts.cwd,
+      env,
+      stdio: 'pipe',
+    });
+
+    // Poll once for the first metrics file to land — approximates
+    // spawn-overhead by capturing the gap between `spawn()` and the
+    // first SessionMetrics write. Cheap (one stat per 50ms, cancelled
+    // on exit). Provides a sane R3 instrument until plan 06 adds an
+    // `.events/cook-*.jsonl` timestamp diff.
+    const poller = setInterval(() => {
+      if (firstMetricsAt > 0) return;
+      try {
+        const entries = readdirSync(metricsDir);
+        if (entries.some((e) => e.startsWith('session-') || e.startsWith('phase-'))) {
+          firstMetricsAt = Date.now();
+        }
+      } catch {
+        // metricsDir not present yet — keep polling
+      }
+    }, 50);
+
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+    }, spawnTimeoutMs);
+
+    let stderrBuf = '';
+    child.stderr?.on('data', (chunk: Buffer | string) => {
+      stderrBuf += chunk.toString();
+    });
+    child.stdout?.on('data', () => {
+      // Drained to avoid backpressure; cook's stdout is JSONL/text the
+      // dashboard tails — we capture nothing here.
+    });
+
+    child.on('error', (err: Error) => {
+      clearInterval(poller);
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    child.on('exit', (code: number | null) => {
+      clearInterval(poller);
+      clearTimeout(timeout);
+      const exitCode = code ?? 1;
+      const durationMs = Date.now() - start;
+      const spawnOverheadMs = firstMetricsAt > 0 ? firstMetricsAt - start : 0;
+
+      try {
+        const criteriaSatisfied = countSatisfiedCriteriaInline(planningRoot);
+        const meterSnapshot = liftMeterSnapshotInline({
+          planningRoot,
+          milestone,
+          defaultProvider: opts.defaultProvider ?? 'anthropic',
+          defaultModel: opts.defaultModel ?? 'unknown',
+        });
+
+        resolve({
+          sessionId,
+          planningRoot,
+          exitCode,
+          criteriaSatisfied,
+          meterSnapshot,
+          durationMs,
+          spawnOverheadMs,
+          artefactsPath: planningRoot,
+        });
+      } catch (err) {
+        // Harvest failure is exposed as a reject — caller distinguishes
+        // a clean non-zero exit (resolve with exitCode) from a harvest
+        // crash (reject). stderrBuf is forwarded for diagnostics.
+        const wrapped = new Error(
+          `runVibe: harvest failed after child exit (code ${exitCode}): ${err instanceof Error ? err.message : String(err)}` +
+            (stderrBuf.length > 0 ? `\nchild stderr:\n${stderrBuf}` : ''),
+        );
+        reject(wrapped);
+      }
+    });
+  });
+}
+
+/**
+ * Resolve the swt CLI bundle path. Resolution order:
+ *   1. Caller-supplied `opts.swtBin`.
+ *   2. `process.env.SWT_CLI_BIN` (test override).
+ *   3. `<repo>/dist/cli.mjs` (production tsup bundle, walking up).
+ *   4. `require.resolve('@swt-labs/cli')` (workspace dev path).
+ */
+function resolveSwtBin(override?: string): string {
+  if (override !== undefined && override.length > 0) return override;
+  const envOverride = process.env['SWT_CLI_BIN'];
+  if (envOverride !== undefined && envOverride.length > 0) return envOverride;
+  const here = currentDir();
+  // Walk up from this file looking for a `dist/cli.mjs`. Handles both
+  // the local-dev path (`packages/methodology/src/run-vibe.ts`) and the
+  // tsup-bundled path (everything inlined into `dist/cli.mjs`).
+  const candidates = [
+    join(here, '..', '..', '..', '..', 'dist', 'cli.mjs'),
+    join(here, '..', '..', '..', 'dist', 'cli.mjs'),
+    join(here, '..', '..', 'dist', 'cli.mjs'),
+    join(here, '..', 'dist', 'cli.mjs'),
+    join(process.cwd(), 'dist', 'cli.mjs'),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  try {
+    const require_ = createRequire(import.meta.url);
+    return require_.resolve('@swt-labs/cli');
+  } catch {
+    throw new Error(
+      'runVibe: could not resolve swt CLI bundle. Set SWT_CLI_BIN or pass `swtBin` ' +
+        'to point at a built `dist/cli.mjs`.',
+    );
+  }
+}
+
+function currentDir(): string {
+  try {
+    return fileURLToPath(new URL('.', import.meta.url));
+  } catch {
+    return process.cwd();
+  }
+}
+
+function basename(p: string): string {
+  const norm = p.replace(/\\/g, '/');
+  const idx = norm.lastIndexOf('/');
+  return idx < 0 ? norm : norm.slice(idx + 1);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Inline harvest helpers — T1 minimum.
+//
+// **T2 supersedes these.** Plan 05-04 T2 ships
+// `@swt-labs/orchestration/tpac-from-files` with the canonical
+// `liftMeterSnapshot()` + `countSatisfiedCriteria()`; `runVibe` is
+// rewired to import from there in T2. These inline copies exist only so
+// T1 stands alone with one atomic commit + a self-contained test.
+// ─────────────────────────────────────────────────────────────────────
+
+interface InlineLiftOptions {
+  readonly planningRoot: string;
+  readonly milestone: string;
+  readonly defaultProvider: string;
+  readonly defaultModel: string;
+}
+
+function liftMeterSnapshotInline(opts: InlineLiftOptions): MeterSnapshot {
+  const metricsDir = join(opts.planningRoot, '.metrics');
+  const records: MeterRecord[] = [];
+  let totalIn = 0;
+  let totalOut = 0;
+  let totalCacheRead = 0;
+  let totalCacheWrite = 0;
+  let totalCost = 0;
+
+  if (existsSync(metricsDir)) {
+    for (const f of readdirSync(metricsDir)) {
+      if (!f.endsWith('.json')) continue;
+      if (!f.startsWith('phase-') && !f.startsWith('session-')) continue;
+      // Phase records lift into MeterRecord rows; session records are
+      // reserved for cache-hit-ratio + cost summaries lifted by T2.
+      // For T1 minimal version, only phase-*.json contributes records;
+      // session-*.json is read by T2's separate roll-up path.
+      if (!f.startsWith('phase-')) continue;
+      const raw = readFileSync(join(metricsDir, f), 'utf-8');
+      let data: {
+        phase_slug?: string;
+        tokens?: { in?: number; out?: number; cache_creation?: number; cache_read?: number };
+        cost_usd?: number;
+      };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      const tokens = data.tokens ?? {};
+      const input = tokens.in ?? 0;
+      const output = tokens.out ?? 0;
+      const cacheRead = tokens.cache_read ?? 0;
+      const cacheWrite = tokens.cache_creation ?? 0;
+      const cost = data.cost_usd ?? 0;
+      records.push({
+        timestamp: new Date(0).toISOString(),
+        milestone: opts.milestone,
+        phase: data.phase_slug ?? f.replace(/^phase-/, '').replace(/\.json$/, ''),
+        task_id: 'aggregate',
+        role: 'aggregate',
+        tier: 'aggregate',
+        provider: opts.defaultProvider,
+        model: opts.defaultModel,
+        turn: 0,
+        input,
+        output,
+        cacheRead,
+        cacheWrite,
+        cost_usd: cost,
+      });
+      totalIn += input;
+      totalOut += output;
+      totalCacheRead += cacheRead;
+      totalCacheWrite += cacheWrite;
+      totalCost += cost;
+    }
+  }
+
+  return {
+    totals: {
+      input: totalIn,
+      output: totalOut,
+      cacheRead: totalCacheRead,
+      cacheWrite: totalCacheWrite,
+      cost_usd: totalCost,
+    },
+    records,
+  };
+}
+
+function countSatisfiedCriteriaInline(planningRoot: string): number {
+  const phasesDir = join(planningRoot, 'phases');
+  if (!existsSync(phasesDir)) return 0;
+  let total = 0;
+  for (const phase of readdirSync(phasesDir)) {
+    const m = /^(\d+)-/.exec(phase);
+    if (m === null) continue;
+    const num = m[1];
+    const verPath = join(phasesDir, phase, `${num}-VERIFICATION.md`);
+    if (!existsSync(verPath)) continue;
+    const content = readFileSync(verPath, 'utf-8');
+    const passed = /(?:^|\n)passed:\s*(\d+)/.exec(content);
+    if (passed?.[1] !== undefined) total += Number.parseInt(passed[1], 10);
+  }
+  return total;
 }
