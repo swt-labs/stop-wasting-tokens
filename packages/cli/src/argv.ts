@@ -44,6 +44,10 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       'bash-format': { type: 'boolean', default: false },
       // swt init [<name>] [--description "..."]: scaffold .swt-planning/.
       description: { type: 'string' },
+      // swt init --skip-lead: scaffold-only, bypass the Lead spawn step that
+      // commands/init.md drives. Used by CI smoke tests and snapshot fixtures
+      // that don't have an LLM available. Plan 03-03 T5 (REQ-13).
+      'skip-lead': { type: 'boolean', default: false },
       // swt bench [--fixture <name>] [--provider <name>] [--cassettes <path>]
       // [--output <file>] [--milestone <id>]: TPAC reference benchmark.
       // Per M2 PR-21 / TDD2 §3.2 + §14.9.
