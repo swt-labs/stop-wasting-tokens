@@ -15,7 +15,6 @@ import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
 import { updateHandler } from './commands/update.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
-import { vibeHandler } from './commands/vibe.js';
 import { defaultWatchHandler } from './commands/watch.js';
 import { EXIT, type ExitCode } from './exit-codes.js';
 import { helpHandler, renderHelp } from './help.js';
@@ -81,12 +80,6 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '<name> [--description "..."]',
     description: 'Scaffold .swt-planning/ (PROJECT.md, STATE.md, phases/) for a fresh project',
     handler: initHandler,
-  });
-  registry.register({
-    name: 'vibe',
-    usage: '[N] [--effort=level] [--yolo] [--skip-qa] [--plan=NN]',
-    description: 'Detect project state and route into the right SDLC mode',
-    handler: vibeHandler,
   });
   registry.register({
     name: 'update',

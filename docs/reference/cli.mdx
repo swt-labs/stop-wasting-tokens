@@ -211,14 +211,6 @@ Print the swt version.
 
 **Notes:** _(no override guidance documented)_
 
-### `swt vibe`
-
-Detect project state and route into the right SDLC mode.
-
-**Usage:** `swt vibe [N] [--effort=level] [--yolo] [--skip-qa] [--plan=NN]`
-
-**Notes:** The `vibe` command is the SDLC entry point. With no arguments, it routes based on the current planning state (init-redirect → bootstrap → scope → plan → execute → verify → archive). Pass a phase number (`swt vibe 03`) or a mode flag (`swt vibe --plan 03`) to target a specific stage.
-
 ### `swt watch`
 
 Open an Ink TUI dashboard scoped to the active milestone.
