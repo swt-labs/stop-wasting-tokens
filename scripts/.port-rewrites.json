@@ -1,0 +1,97 @@
+{
+  "_comment": "All §6.3 scripts rewritten or stubbed in Phase 2 milestone (plans 02-01 through 02-05). Future re-runs of port-from-vbw.sh should NOT re-add these scripts to rewrite_required without explicit Lead approval. See PARITY-REPORT.md for the bats parity record.",
+  "rewrite_required": [],
+  "rewrite_complete": [
+    {
+      "script": "agent-pid-tracker.sh",
+      "status": "rewritten",
+      "phase": 2,
+      "plan": "02-01-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Replaced .agent-pids newline state with .swt-planning/.sessions/{sessionId}.json metadata; PID concept now session-scoped via swt-session-state.sh."
+    },
+    {
+      "script": "agent-start.sh",
+      "status": "rewritten",
+      "phase": 2,
+      "plan": "02-02-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Phase 1 dispatcher payload contract — reads role/sessionId from {sessionId, installRoot, cwd, role} instead of CC SubagentStart's {agent_type, pid, agent_name}."
+    },
+    {
+      "script": "agent-stop.sh",
+      "status": "rewritten",
+      "phase": 2,
+      "plan": "02-02-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Mirror of agent-start.sh; SubagentStop crash-recovery last-words path retained, writing to .swt-planning/.agent-last-words/{sessionId}.txt."
+    },
+    {
+      "script": "agent-spawn-guard.sh",
+      "status": "stubbed",
+      "phase": 2,
+      "plan": "02-02-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Decision 2 stub (35 LOC). Pi 0.74 PreToolUse is advisory-only per dispatcher.ts lines 18-66. Real spawn validation lives in TypeScript spawnAgent options (Phase 3). TODO(Phase F) marker preserved in body."
+    },
+    {
+      "script": "clean-stale-teams.sh",
+      "status": "rewritten",
+      "phase": 2,
+      "plan": "02-03-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Scans .swt-planning/.teams/{teamId}.json (Decision 5 lifecycle: active -> stale -> removed). Drops the CC TeamDelete configless-residual heuristic, ~/.claude/teams scan, and vbw-*/tasks pairing. Uses scripts/lib/swt-team-state.sh."
+    },
+    {
+      "script": "tmux-watchdog.sh",
+      "status": "rewritten",
+      "phase": 2,
+      "plan": "02-03-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "TMUX no-op guard (exits 0 when $TMUX unset). PID source switched from agent-pid-tracker list to .swt-planning/.sessions/*.json scan via swt_session_list."
+    },
+    {
+      "script": "lease-lock.sh",
+      "status": "rewritten",
+      "phase": 2,
+      "plan": "02-03-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Path-only finalisation (SWT_PLANNING_DIR cascade, .vbw-planning/.locks references purged). TypeScript reconciliation with packages/orchestration/src/lock-files.ts is Phase 6 (Research Risk 7)."
+    },
+    {
+      "script": "compaction-instructions.sh",
+      "status": "stubbed",
+      "phase": 2,
+      "plan": "02-04-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Stub per TDD3 §20.4 (trust Pi's built-in compaction handling). Writes .swt-planning/.compacting/{sessionId}.json marker for tmux-watchdog compat; emits no CC-hook additionalContext JSON."
+    },
+    {
+      "script": "post-compact.sh",
+      "status": "stubbed",
+      "phase": 2,
+      "plan": "02-04-PLAN.md",
+      "rewritten_at": "2026-05-13",
+      "notes": "Stub per TDD3 §20.4. Cleans .swt-planning/.compacting/{sessionId}.json markers; drops vibe.md resume hint + TaskGet teammate recovery hint (both CC-only)."
+    }
+  ],
+  "fixture_migrations": [
+    {
+      "test": "testing/verify-ghost-team-cleanup.sh",
+      "status": "migrated",
+      "phase": 2,
+      "plan": "02-05-PLAN.md",
+      "migrated_at": "2026-05-13",
+      "notes": "Replaced ~/.claude/teams/vbw-* fixtures with .swt-planning/.teams/{teamId}.json matching Decision 5 schema (active/stale/cleaned + lastHeartbeat). 8 lifecycle tests."
+    },
+    {
+      "test": "testing/verify-agent-spawn-guard.sh",
+      "status": "migrated",
+      "phase": 2,
+      "plan": "02-05-PLAN.md",
+      "migrated_at": "2026-05-13",
+      "notes": "Replaced VBW execute-state marker writes with 8 Decision 2 stub-shape assertions (exits 0 on any input; body contains 'advisory'+'Phase F'; <40 LOC regression catch)."
+    }
+  ],
+  "parity_report": ".vbw-planning/phases/02-script-port-finalisation/PARITY-REPORT.md"
+}

@@ -138,3 +138,6 @@ scripts/lib/*
 !scripts/lib/swt-cache-key.sh
 !scripts/lib/swt-config-root.sh
 !scripts/lib/swt-target-root.sh
+
+# Phase 02 closure manifest — tracks status of §6.3 rewrites for the porter.
+!scripts/.port-rewrites.json
