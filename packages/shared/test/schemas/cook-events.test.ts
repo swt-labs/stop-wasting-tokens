@@ -38,6 +38,12 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       'cook.task_complete',
       'cook.task_fail',
       'cook.resume',
+      // Plan 06-02 T4 (REQ-16) — BudgetGate task-loop integration emits
+      // cook.budget_exceeded (paused_on_entry | paused_during_spawn) when
+      // the milestone budget is exhausted, and cook.budget_resume after
+      // a manual ceiling bump via /api/budget/bump.
+      'cook.budget_exceeded',
+      'cook.budget_resume',
     ]);
   });
 

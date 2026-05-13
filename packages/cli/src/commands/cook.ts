@@ -59,8 +59,10 @@ import {
   markCrashed,
   readExecutionState,
   writeExecutionState,
+  createFileMeterAdapter,
   type ExecutionStateRecord,
   type PhaseDetectResult,
+  type FileMeterAdapter,
 } from '@swt-labs/methodology';
 import {
   spawnOrchestratorSession,
@@ -74,8 +76,13 @@ import {
   type RouterStrategy,
   type RouterTier,
 } from '@swt-labs/orchestration';
-import type { TaskBrief } from '@swt-labs/shared';
-import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
+import type { BudgetConfigSchemaT, TaskBrief } from '@swt-labs/shared';
+import {
+  askUser as defaultAskUser,
+  createBudgetGate,
+  type AskUserResponse,
+  type BudgetGate,
+} from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
@@ -465,6 +472,28 @@ export const DEFAULT_PROVIDERS_CONFIG: CookProvidersConfig = {
 };
 
 /**
+ * Plan 06-02 T4 (REQ-16) — milestone budget config block. Loaded from
+ * `.swt-planning/config.json#budget`. Falls back to safe defaults so cook
+ * runs continue when the user hasn't authored a budget block:
+ *
+ *   - `milestone_usd: 10` — generous ceiling that lets typical
+ *     development sessions complete without paging the gate.
+ *   - `tier_downgrade_threshold: 0.7` — first warning at 70% (matches
+ *     ADR-007 §M4 + research §4.3).
+ *   - `pause_threshold: 0.95` — pause at 95% (the milestone-budget cap
+ *     before runaway-spend triggers).
+ *
+ * `BudgetConfigSchemaT` from `@swt-labs/shared` is the canonical shape
+ * — we mirror its required fields and let Zod parse on load.
+ */
+export const DEFAULT_BUDGET_CONFIG: BudgetConfigSchemaT = {
+  schema_version: 1,
+  milestone_usd: 10,
+  tier_downgrade_threshold: 0.7,
+  pause_threshold: 0.95,
+};
+
+/**
  * Cook configuration (subset of `.swt-planning/config.json` the cook handler
  * reads). Tests inject the shape; production reads from disk via
  * `loadCookConfig`.
@@ -474,6 +503,7 @@ export interface CookConfig {
   readonly agent_max_turns_orchestrator?: number;
   readonly qa_gate_overrides?: QaGateOverrides;
   readonly providers: CookProvidersConfig;
+  readonly budget: BudgetConfigSchemaT;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1003,6 +1033,45 @@ function parseProvidersConfig(raw: unknown): CookProvidersConfig {
   return { strategy, fallbacks, retryBudget, timeBudgetMs };
 }
 
+/**
+ * Plan 06-02 T4 — parse the optional `budget` block from
+ * `.swt-planning/config.json`. Returns DEFAULT_BUDGET_CONFIG on missing or
+ * malformed input. Best-effort: misconfigured values never crash the cook
+ * handler — they fall back to defaults (mirrors providers config parsing).
+ */
+function parseBudgetConfig(raw: unknown): BudgetConfigSchemaT {
+  if (typeof raw !== 'object' || raw === null) return DEFAULT_BUDGET_CONFIG;
+  const block = raw as Record<string, unknown>;
+  const milestone =
+    typeof block['milestone_usd'] === 'number' && (block['milestone_usd'] as number) > 0
+      ? (block['milestone_usd'] as number)
+      : DEFAULT_BUDGET_CONFIG.milestone_usd;
+  const downgrade =
+    typeof block['tier_downgrade_threshold'] === 'number' &&
+    (block['tier_downgrade_threshold'] as number) >= 0 &&
+    (block['tier_downgrade_threshold'] as number) <= 1
+      ? (block['tier_downgrade_threshold'] as number)
+      : DEFAULT_BUDGET_CONFIG.tier_downgrade_threshold;
+  const pause =
+    typeof block['pause_threshold'] === 'number' &&
+    (block['pause_threshold'] as number) >= 0 &&
+    (block['pause_threshold'] as number) <= 1
+      ? (block['pause_threshold'] as number)
+      : DEFAULT_BUDGET_CONFIG.pause_threshold;
+  return {
+    schema_version: 1,
+    milestone_usd: milestone,
+    tier_downgrade_threshold: downgrade,
+    pause_threshold: pause,
+    ...(typeof block['phase_usd'] === 'number' && (block['phase_usd'] as number) > 0
+      ? { phase_usd: block['phase_usd'] as number }
+      : {}),
+    ...(typeof block['task_usd'] === 'number' && (block['task_usd'] as number) > 0
+      ? { task_usd: block['task_usd'] as number }
+      : {}),
+  };
+}
+
 function parseStrategy(raw: unknown): CookProviderStrategy {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_PROVIDERS_CONFIG.strategy;
   const obj = raw as Record<string, unknown>;
@@ -1054,7 +1123,11 @@ export function loadCookConfig(
 ): CookConfig {
   const configPath = resolvePath(cwd, '.swt-planning', 'config.json');
   if (!fsImpl.existsSync(configPath)) {
-    return { auto_uat: false, providers: DEFAULT_PROVIDERS_CONFIG };
+    return {
+      auto_uat: false,
+      providers: DEFAULT_PROVIDERS_CONFIG,
+      budget: DEFAULT_BUDGET_CONFIG,
+    };
   }
   try {
     const raw = fsImpl.readFileSync(configPath, 'utf8');
@@ -1070,22 +1143,83 @@ export function loadCookConfig(
         ? (parsed['agent_max_turns'] as Record<string, unknown>)['orchestrator']
         : undefined;
     const providers = parseProvidersConfig(parsed['providers']);
+    const budget = parseBudgetConfig(parsed['budget']);
     return {
       auto_uat: autoUat,
       providers,
+      budget,
       ...(overrides !== undefined ? { qa_gate_overrides: overrides } : {}),
       ...(typeof maxTurns === 'number' && Number.isFinite(maxTurns)
         ? { agent_max_turns_orchestrator: maxTurns }
         : {}),
     };
   } catch {
-    return { auto_uat: false, providers: DEFAULT_PROVIDERS_CONFIG };
+    return {
+      auto_uat: false,
+      providers: DEFAULT_PROVIDERS_CONFIG,
+      budget: DEFAULT_BUDGET_CONFIG,
+    };
   }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // Top-level handler
 // ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Plan 06-02 T4 — BudgetGate factory signature. Production wires it to
+ * `createBudgetGate({config, meter: createFileMeterAdapter({metricsDir})})`.
+ * Tests inject a hand-rolled fake whose `state()` and `subscribe()` are
+ * deterministic (no chokidar fs watcher). Returns `null` to opt out of
+ * budget gating entirely (legacy / test paths that don't care).
+ */
+export type BudgetGateFactory = (cfg: {
+  readonly config: BudgetConfigSchemaT;
+  readonly cwd: string;
+}) =>
+  | {
+      readonly gate: BudgetGate;
+      /** Optional async disposer (closes the chokidar watcher if present). */
+      readonly dispose?: () => Promise<void> | void;
+    }
+  | null;
+
+/**
+ * Production BudgetGate factory — wires `createFileMeterAdapter` against
+ * `.swt-planning/.metrics/` (where 04-01's `recordUsage` writes the
+ * session aggregates) and hands it to `createBudgetGate`. Returns `null`
+ * (gate disabled) when the metrics dir cannot be opened — best-effort
+ * gating, never blocks a cook turn on filesystem errors.
+ */
+const defaultBudgetGateFactory: BudgetGateFactory = ({ config, cwd }) => {
+  try {
+    const metricsDir = resolvePath(cwd, '.swt-planning', '.metrics');
+    let adapter: FileMeterAdapter;
+    try {
+      adapter = createFileMeterAdapter({ metricsDir });
+    } catch {
+      return null;
+    }
+    const gate = createBudgetGate({ config, meter: adapter });
+    return {
+      gate,
+      dispose: async () => {
+        try {
+          gate.dispose();
+        } catch {
+          // best-effort
+        }
+        try {
+          await adapter.close();
+        } catch {
+          // best-effort
+        }
+      },
+    };
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Dependency injection seam for tests. Production callers omit; tests
@@ -1098,6 +1232,12 @@ export interface CookHandlerDeps {
   readonly execSyncImpl?: typeof nodeExecSync;
   readonly readFileSyncImpl?: typeof readFileSync;
   readonly existsSyncImpl?: typeof existsSync;
+  /**
+   * Plan 06-02 T4 — Test seam for BudgetGate construction. Production
+   * omits; tests inject a fake gate so the runMode budget-gate wiring can
+   * be exercised without a chokidar fs watcher.
+   */
+  readonly budgetGateFactory?: BudgetGateFactory;
 }
 
 /**
@@ -1112,6 +1252,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
   const execSyncFn = deps.execSyncImpl ?? nodeExecSync;
   const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
   const existsSyncFn = deps.existsSyncImpl ?? existsSync;
+  const budgetGateFactoryFn = deps.budgetGateFactory ?? defaultBudgetGateFactory;
 
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
     // 1. Compose the raw arguments string from positionals.
@@ -1211,7 +1352,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           refHash,
           startTs,
         },
-        { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+        { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
       );
     }
 
@@ -1260,7 +1401,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             refHash,
             startTs,
           },
-          { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+          { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
         );
       }
     }
@@ -1376,7 +1517,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             refHash,
             startTs,
           },
-          { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+          { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
         );
       }
       if (qaDecision.kind === 'qa_rerun_required') {
@@ -1402,7 +1543,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         refHash,
         startTs,
       },
-      { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+      { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
     );
   };
 }
@@ -1422,6 +1563,12 @@ interface RunModeDeps {
   readonly spawnFn: typeof spawnOrchestratorSession;
   readonly execSyncFn: typeof nodeExecSync;
   readonly readFileSyncFn: typeof readFileSync;
+  /**
+   * Plan 06-02 T4 — BudgetGate factory. Production wires
+   * `defaultBudgetGateFactory`; tests inject a fake gate (or a factory
+   * returning `null` to opt out of budget gating entirely).
+   */
+  readonly budgetGateFactory: BudgetGateFactory;
 }
 
 /**
@@ -1751,6 +1898,102 @@ async function runMode(
     task_id: taskId,
   });
 
+  // Plan 06-02 T4 (REQ-16) — BudgetGate task-loop integration. Construct
+  // the gate before the spawn so:
+  //   1. We can refuse to spawn when the milestone is already paused
+  //      (gate state === 'paused' on entry → emit cook.budget_exceeded
+  //      and exit with EXIT.RUNTIME_ERROR).
+  //   2. We subscribe to gate transitions so a daughter session that
+  //      blows through the pause threshold mid-spawn surfaces a
+  //      cook.budget_exceeded event on the JSONL channel.
+  //   3. `budget.resume` (after a manual ceiling bump from the dashboard)
+  //      surfaces as `cook.budget_resume` so the dashboard's reducer can
+  //      flip the milestone state back to running.
+  //
+  // The gate is per-runMode; the chokidar adapter starts watching the
+  // metrics dir on construction and stops on dispose. Both are best-effort
+  // — a filesystem error never blocks a cook turn (the factory returns
+  // null in that case and budget gating is silently skipped).
+  const budgetGateHandle = deps.budgetGateFactory({
+    config: config.budget,
+    cwd: io.cwd,
+  });
+  const gate: BudgetGate | undefined = budgetGateHandle?.gate;
+  let gateUnsubscribe: (() => void) | undefined;
+  if (gate !== undefined) {
+    // Pre-spawn evaluation — paused milestone refuses new spawns.
+    const stateOnEntry = gate.state();
+    if (stateOnEntry.status === 'paused') {
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.budget_exceeded',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        reason: 'paused_on_entry',
+        spent_usd: stateOnEntry.spent_usd,
+        ceiling_usd: stateOnEntry.ceiling_usd,
+        threshold: config.budget.pause_threshold,
+      });
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.task_fail',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        plan: planLabel,
+        task_id: taskId,
+        reason: 'budget_paused_on_entry',
+      });
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.completion',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        status: 'failed',
+      });
+      io.stderr.write(
+        `swt cook: milestone budget is paused ` +
+          `(spent=$${stateOnEntry.spent_usd.toFixed(2)} of $${stateOnEntry.ceiling_usd.toFixed(2)}). ` +
+          `Raise the ceiling via the dashboard /api/budget/bump endpoint, then retry.\n`,
+      );
+      try {
+        markCrashed(io.cwd);
+      } catch {
+        // best-effort
+      }
+      if (budgetGateHandle?.dispose !== undefined) {
+        try {
+          await budgetGateHandle.dispose();
+        } catch {
+          // best-effort
+        }
+      }
+      return EXIT.RUNTIME_ERROR;
+    }
+    // Subscribe for in-flight transitions. Daughter sessions writing to
+    // .metrics/ during the spawn may cross the pause threshold; we surface
+    // that on the JSONL channel so the dashboard can react.
+    gateUnsubscribe = gate.subscribe((ev) => {
+      if (ev.type === 'budget.pause') {
+        emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+          type: 'cook.budget_exceeded',
+          ts: ev.ts,
+          session_id: ctx.sessionId,
+          reason: 'paused_during_spawn',
+          spent_usd: ev.spent_usd,
+          ceiling_usd: ev.ceiling_usd,
+          threshold: ev.threshold,
+        });
+      } else if (ev.type === 'budget.resume') {
+        emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+          type: 'cook.budget_resume',
+          ts: ev.ts,
+          session_id: ctx.sessionId,
+          spent_usd: ev.spent_usd,
+          ceiling_usd: ev.ceiling_usd,
+        });
+      }
+      // budget.warning is a notice-only event today; the dashboard renders
+      // it from the SSE feed plumbed by plan 06-02 T5. No JSONL row needed.
+    });
+  }
+
   // Load the cook.md mode section + substitute placeholders.
   const prompt = loadCookModeSection(
     ctx.installRoot,
@@ -1943,6 +2186,24 @@ async function runMode(
     }
     io.stderr.write(`swt cook: orchestrator spawn failed: ${message}\n`);
     return EXIT.RUNTIME_ERROR;
+  } finally {
+    // Plan 06-02 T4 — dispose the BudgetGate + chokidar watcher. The
+    // unsubscribe + watcher.close() are both best-effort; a transient
+    // filesystem error here must NOT mask the upstream return value.
+    if (gateUnsubscribe !== undefined) {
+      try {
+        gateUnsubscribe();
+      } catch {
+        // best-effort
+      }
+    }
+    if (budgetGateHandle?.dispose !== undefined) {
+      try {
+        await budgetGateHandle.dispose();
+      } catch {
+        // best-effort
+      }
+    }
   }
 }
 

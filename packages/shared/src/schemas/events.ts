@@ -293,6 +293,29 @@ const CookResumeEvent = z.object({
   reason: z.string().max(200).optional(),
 });
 
+// Plan 06-02 T4 (REQ-16) — budget gate transition. Emitted on the cook
+// events JSONL when the BudgetGate crosses the pause threshold; the
+// `reason` discriminator carries which transition fired so the dashboard
+// can surface the right copy. `spent_usd` / `ceiling_usd` mirror the
+// BudgetEvent payload at the moment of transition.
+const CookBudgetExceededEvent = z.object({
+  type: z.literal('cook.budget_exceeded'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  reason: z.enum(['paused_on_entry', 'paused_during_spawn']),
+  spent_usd: z.number().nonnegative(),
+  ceiling_usd: z.number().nonnegative(),
+  threshold: z.number().min(0).max(1),
+});
+
+const CookBudgetResumeEvent = z.object({
+  type: z.literal('cook.budget_resume'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  spent_usd: z.number().nonnegative(),
+  ceiling_usd: z.number().nonnegative(),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -318,6 +341,8 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookTaskCompleteEvent,
   CookTaskFailEvent,
   CookResumeEvent,
+  CookBudgetExceededEvent,
+  CookBudgetResumeEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -360,6 +385,8 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.task_complete',
   'cook.task_fail',
   'cook.resume',
+  'cook.budget_exceeded',
+  'cook.budget_resume',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
