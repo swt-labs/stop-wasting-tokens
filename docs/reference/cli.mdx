@@ -121,7 +121,7 @@ Scaffold .swt-planning/ (PROJECT.md, STATE.md, phases/) for a fresh project.
 
 ### `swt map`
 
-Map an existing codebase.
+Map an existing codebase (4 parallel Scouts).
 
 **Notes:** _(no override guidance documented)_
 
@@ -153,7 +153,9 @@ Plan a phase (Scout + Lead).
 
 ### `swt qa`
 
-Run goal-backward QA.
+Run goal-backward QA on a phase.
+
+**Usage:** `swt qa [phase-number]`
 
 **Notes:** _(no override guidance documented)_
 
@@ -166,6 +168,8 @@ Cut a release via Changesets.
 ### `swt research`
 
 Run a Scout-only research pass.
+
+**Usage:** `swt research <topic>`
 
 **Notes:** _(no override guidance documented)_
 
@@ -212,6 +216,14 @@ Check the npm registry for a newer published version.
 **Usage:** `swt update [--json] [--strict] [--registry=<url>] [--no-cache]`
 
 **Notes:** Checks the npm registry for a newer published version. With `config.marketplace.endpoint` set, also queries the Codex Plugin Marketplace and flags any version divergence between the two sources. `--no-marketplace` skips the marketplace path even when configured.
+
+### `swt verify`
+
+Run the UAT checkpoint loop on a phase (inline; no Pi spawn).
+
+**Usage:** `swt verify [phase-number]`
+
+**Notes:** _(no override guidance documented)_
 
 ### `swt version`
 
