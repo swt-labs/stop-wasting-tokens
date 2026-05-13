@@ -9,6 +9,20 @@ import { defineConfig } from 'tsup';
 // without touching the bundle path.
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
+// Plan 06-04 T2 (REQ-26 / R7): when `REPRODUCIBLE_BUILD=1` is set (the
+// `.github/workflows/reproducible-build.yml` CI job sets this), strip every
+// build-time variable input that would make two consecutive builds emit
+// different bytes:
+//
+//   - `sourcemap: false` — sourcemaps embed absolute file paths from the
+//     local filesystem, which differ between runs in CI's mktemp dirs.
+//   - `BUILD_TIME` injection frozen to the Unix epoch — any wall-clock
+//     reference baked into the bundle would otherwise drift.
+//
+// Local developer builds keep sourcemaps + run-time wall-clock metadata;
+// the CI job is the authoritative verification surface.
+const reproducible = process.env['REPRODUCIBLE_BUILD'] === '1';
+
 interface EsbuildPluginBuild {
   onResolve(
     options: { filter: RegExp },
@@ -48,7 +62,7 @@ export default defineConfig({
   // which rollup-dts can't resolve. Skipping dts for it is safe.
   dts: { resolve: true, entry: { cli: 'packages/cli/src/index.ts' } },
   tsconfig: 'tsconfig.build.json',
-  sourcemap: true,
+  sourcemap: !reproducible,
   clean: true,
   splitting: false,
   treeshake: true,
@@ -58,6 +72,9 @@ export default defineConfig({
   esbuildPlugins: [stubDevDeps],
   define: {
     __SWT_VERSION__: JSON.stringify(pkg.version),
+    ...(reproducible
+      ? { __SWT_BUILD_TIME__: JSON.stringify('1970-01-01T00:00:00.000Z') }
+      : {}),
   },
   outExtension({ format }) {
     return { js: format === 'esm' ? '.mjs' : '.cjs' };

@@ -1,0 +1,118 @@
+name: Reproducible Build
+
+# Plan 06-04 T2 (REQ-26 / R7): verifies that two consecutive `pnpm build`
+# invocations from the same commit produce byte-identical dist/ output.
+# This is the in-repo verification surface for the reproducible-build
+# invariant — REPO-ADMIN STEP: mark this workflow as required-for-merge on
+# the protected `main` branch via GitHub repo settings → branches →
+# branch protection rules. This workflow cannot apply branch protection
+# programmatically.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs on the same branch to keep CI minutes manageable.
+concurrency:
+  group: reproducible-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-reproducible:
+    name: Verify two builds are byte-identical
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # SOURCE_DATE_EPOCH is the canonical reproducible-build env var
+      # (https://reproducible-builds.org/specs/source-date-epoch/). Tools
+      # like tar / zip / rollup honour it for timestamp normalisation.
+      SOURCE_DATE_EPOCH: '0'
+      # LC_ALL=C pins locale-sensitive sort / collation to the C locale —
+      # several build steps walk directories and concatenate file lists,
+      # and ordering must be stable across runs.
+      LC_ALL: C
+      # Toggle for tsup.config.ts to disable sourcemaps + freeze any
+      # wall-clock metadata. See `tsup.config.ts` reproducible branch.
+      REPRODUCIBLE_BUILD: '1'
+      # Bundle size + dashboard client build need extra heap.
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pin Node to a specific minor (22.10.0) per research §6.3. Different
+      # Node versions can emit different bytecode-equivalents in their
+      # bundler output, so the byte-identical assertion only holds within
+      # a pinned Node version. Future Node bumps may surface drift; that's
+      # a deliberate signal to re-verify.
+      - name: Setup Node 22.10.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.10.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.12.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: First build
+        run: pnpm build
+
+      - name: Hash first build artefacts
+        id: hash-first
+        run: |
+          set -euo pipefail
+          # Walk dist/ + packages/dashboard/dist/ deterministically:
+          # sort the file list under LC_ALL=C, exclude sourcemaps + .d.ts
+          # (timestamp-bearing tooling output that's expected to vary).
+          {
+            find dist -type f \( -name '*.mjs' -o -name '*.cjs' -o -name '*.js' \) 2>/dev/null || true
+            find packages/dashboard/dist -type f \( -name '*.mjs' -o -name '*.cjs' -o -name '*.js' -o -name '*.css' -o -name '*.html' \) 2>/dev/null || true
+          } | LC_ALL=C sort | xargs -I {} sha256sum {} > build-hash-1.txt
+          echo "--- First build hashes ---"
+          cat build-hash-1.txt
+
+      - name: Clean dist
+        run: |
+          rm -rf dist
+          rm -rf packages/dashboard/dist
+
+      - name: Second build
+        run: pnpm build
+
+      - name: Hash second build artefacts
+        id: hash-second
+        run: |
+          set -euo pipefail
+          {
+            find dist -type f \( -name '*.mjs' -o -name '*.cjs' -o -name '*.js' \) 2>/dev/null || true
+            find packages/dashboard/dist -type f \( -name '*.mjs' -o -name '*.cjs' -o -name '*.js' -o -name '*.css' -o -name '*.html' \) 2>/dev/null || true
+          } | LC_ALL=C sort | xargs -I {} sha256sum {} > build-hash-2.txt
+          echo "--- Second build hashes ---"
+          cat build-hash-2.txt
+
+      - name: Diff build hashes
+        run: |
+          set -euo pipefail
+          if ! diff -u build-hash-1.txt build-hash-2.txt; then
+            echo "::error::dist/ is NOT byte-identical across two builds (REQ-26 violation)"
+            echo "::error::Investigate the diff above — typical causes: timestamps, file ordering, sourcemaps, or non-deterministic plugins."
+            exit 1
+          fi
+          echo "OK: builds are byte-identical."
+
+      - name: Upload hashes on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reproducible-build-hashes
+          path: |
+            build-hash-1.txt
+            build-hash-2.txt
+          retention-days: 7
