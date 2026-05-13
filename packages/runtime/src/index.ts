@@ -167,3 +167,14 @@ export {
   type HookContext,
   type HookDecision,
 } from './hooks/index.js';
+
+// Plan 01-04 (Phase 1): Pi-substrate primitive 4 — `swt:invokeSkill`. Raw
+// SKILL.md file reader with two-tier path resolution (user-installed wins
+// over bundled). The Pi custom-tool registration that bridges this reader
+// onto agent sessions lives in spawnAgent (plan 01-01), not here. TDD3
+// §14, REQ-06.
+export {
+  invokeSkill,
+  resolveSkillPath,
+  type InvokeSkillOptions,
+} from './skills/index.js';
