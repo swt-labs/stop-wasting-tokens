@@ -1,0 +1,36 @@
+{
+  "$schema_version": 1,
+  "_comment": "Plan 01-03 (Phase 1) static hook registry. Paths are SWT_INSTALL_ROOT-relative. The `tool` field is a literal string match; `toolPattern` is compiled to a RegExp. Exactly one of the two may be set per row (or neither, meaning wildcard). Phase 2 expands this seed list with the full Phase-2 hook table.",
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": { "tool": "Bash" },
+      "scriptPath": "scripts/bash-guard.sh",
+      "timeoutMs": 5000
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": { "toolPattern": "^(Write|Edit|MultiEdit)$" },
+      "scriptPath": "scripts/file-guard.sh",
+      "timeoutMs": 5000
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": null,
+      "scriptPath": "scripts/validate-commit.sh",
+      "timeoutMs": 5000
+    },
+    {
+      "event": "SubagentStart",
+      "matcher": null,
+      "scriptPath": "scripts/agent-start.sh",
+      "timeoutMs": 5000
+    },
+    {
+      "event": "SubagentStop",
+      "matcher": null,
+      "scriptPath": "scripts/agent-stop.sh",
+      "timeoutMs": 5000
+    }
+  ]
+}
