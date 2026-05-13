@@ -39,12 +39,13 @@
 
 import { spawn } from 'node:child_process';
 import * as crypto from 'node:crypto';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-import type { MeterRecord, MeterSnapshot } from '@swt-labs/shared';
+import type { MeterSnapshot } from '@swt-labs/shared';
+import { liftMeterSnapshot, countSatisfiedCriteria } from '@swt-labs/orchestration';
 
 export interface RunVibeOptions {
   /** Project working directory (where `.swt-planning/` will be produced). */
@@ -191,12 +192,12 @@ export function runVibe(opts: RunVibeOptions): Promise<RunVibeResult> {
       const spawnOverheadMs = firstMetricsAt > 0 ? firstMetricsAt - start : 0;
 
       try {
-        const criteriaSatisfied = countSatisfiedCriteriaInline(planningRoot);
-        const meterSnapshot = liftMeterSnapshotInline({
+        const criteriaSatisfied = countSatisfiedCriteria(planningRoot);
+        const meterSnapshot = liftMeterSnapshot({
           planningRoot,
           milestone,
-          defaultProvider: opts.defaultProvider ?? 'anthropic',
-          defaultModel: opts.defaultModel ?? 'unknown',
+          ...(opts.defaultProvider !== undefined ? { defaultProvider: opts.defaultProvider } : {}),
+          ...(opts.defaultModel !== undefined ? { defaultModel: opts.defaultModel } : {}),
         });
 
         resolve({
@@ -271,109 +272,4 @@ function basename(p: string): string {
   const norm = p.replace(/\\/g, '/');
   const idx = norm.lastIndexOf('/');
   return idx < 0 ? norm : norm.slice(idx + 1);
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Inline harvest helpers — T1 minimum.
-//
-// **T2 supersedes these.** Plan 05-04 T2 ships
-// `@swt-labs/orchestration/tpac-from-files` with the canonical
-// `liftMeterSnapshot()` + `countSatisfiedCriteria()`; `runVibe` is
-// rewired to import from there in T2. These inline copies exist only so
-// T1 stands alone with one atomic commit + a self-contained test.
-// ─────────────────────────────────────────────────────────────────────
-
-interface InlineLiftOptions {
-  readonly planningRoot: string;
-  readonly milestone: string;
-  readonly defaultProvider: string;
-  readonly defaultModel: string;
-}
-
-function liftMeterSnapshotInline(opts: InlineLiftOptions): MeterSnapshot {
-  const metricsDir = join(opts.planningRoot, '.metrics');
-  const records: MeterRecord[] = [];
-  let totalIn = 0;
-  let totalOut = 0;
-  let totalCacheRead = 0;
-  let totalCacheWrite = 0;
-  let totalCost = 0;
-
-  if (existsSync(metricsDir)) {
-    for (const f of readdirSync(metricsDir)) {
-      if (!f.endsWith('.json')) continue;
-      if (!f.startsWith('phase-') && !f.startsWith('session-')) continue;
-      // Phase records lift into MeterRecord rows; session records are
-      // reserved for cache-hit-ratio + cost summaries lifted by T2.
-      // For T1 minimal version, only phase-*.json contributes records;
-      // session-*.json is read by T2's separate roll-up path.
-      if (!f.startsWith('phase-')) continue;
-      const raw = readFileSync(join(metricsDir, f), 'utf-8');
-      let data: {
-        phase_slug?: string;
-        tokens?: { in?: number; out?: number; cache_creation?: number; cache_read?: number };
-        cost_usd?: number;
-      };
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        continue;
-      }
-      const tokens = data.tokens ?? {};
-      const input = tokens.in ?? 0;
-      const output = tokens.out ?? 0;
-      const cacheRead = tokens.cache_read ?? 0;
-      const cacheWrite = tokens.cache_creation ?? 0;
-      const cost = data.cost_usd ?? 0;
-      records.push({
-        timestamp: new Date(0).toISOString(),
-        milestone: opts.milestone,
-        phase: data.phase_slug ?? f.replace(/^phase-/, '').replace(/\.json$/, ''),
-        task_id: 'aggregate',
-        role: 'aggregate',
-        tier: 'aggregate',
-        provider: opts.defaultProvider,
-        model: opts.defaultModel,
-        turn: 0,
-        input,
-        output,
-        cacheRead,
-        cacheWrite,
-        cost_usd: cost,
-      });
-      totalIn += input;
-      totalOut += output;
-      totalCacheRead += cacheRead;
-      totalCacheWrite += cacheWrite;
-      totalCost += cost;
-    }
-  }
-
-  return {
-    totals: {
-      input: totalIn,
-      output: totalOut,
-      cacheRead: totalCacheRead,
-      cacheWrite: totalCacheWrite,
-      cost_usd: totalCost,
-    },
-    records,
-  };
-}
-
-function countSatisfiedCriteriaInline(planningRoot: string): number {
-  const phasesDir = join(planningRoot, 'phases');
-  if (!existsSync(phasesDir)) return 0;
-  let total = 0;
-  for (const phase of readdirSync(phasesDir)) {
-    const m = /^(\d+)-/.exec(phase);
-    if (m === null) continue;
-    const num = m[1];
-    const verPath = join(phasesDir, phase, `${num}-VERIFICATION.md`);
-    if (!existsSync(verPath)) continue;
-    const content = readFileSync(verPath, 'utf-8');
-    const passed = /(?:^|\n)passed:\s*(\d+)/.exec(content);
-    if (passed?.[1] !== undefined) total += Number.parseInt(passed[1], 10);
-  }
-  return total;
 }

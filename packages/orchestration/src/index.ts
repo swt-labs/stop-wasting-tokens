@@ -95,6 +95,18 @@ export {
   type RoleSummary,
 } from './tpac-meter.js';
 
+// Phase 5 plan 05-04 T2: file → MeterSnapshot lift + criteria counter.
+// Reduces Phase 4 04-01's `.swt-planning/.metrics/phase-*.json` files
+// into a `MeterSnapshot` consumable by `computeTpac()`; walks
+// `phases/<NN>-*/<NN>-VERIFICATION.md` for the `passed:` denominator.
+// Pure file I/O — orchestration owns this because it's the methodology-
+// level interpretation that feeds `computeTpac()`.
+export {
+  liftMeterSnapshot,
+  countSatisfiedCriteria,
+  type LiftMeterSnapshotOptions,
+} from './tpac-from-files.js';
+
 // PR-22 (M3): worktree lifecycle FSM. Per TDD2 §9.1. Standalone FSM —
 // per-worktree Pi session wiring lands in a dedicated follow-up PR.
 export {
