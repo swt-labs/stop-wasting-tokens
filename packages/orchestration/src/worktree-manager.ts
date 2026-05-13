@@ -467,6 +467,39 @@ async function defaultJournalWriter(filePath: string, entry: WorktreeJournalEntr
 }
 
 /**
+ * Plan 06-03 T2 — production adapter from the lock-files module's
+ * `acquireLock` to the `LockOps` shape the WorktreeManager expects. Pi
+ * 0.74 wiring: the cook handler instantiates this adapter when
+ * `worktree_isolation !== 'off'` and hands it to the manager via the
+ * `lockOps` constructor option.
+ *
+ * The adapter is a thin wrapper — `acquireLock` writes the envelope,
+ * returns a `LockHandle`, and the manager invokes `release()` /
+ * `update()` directly on the handle (the shapes match). The
+ * `locksRoot` parameter lets the cook handler pin the lock directory
+ * relative to the project root (defaults to `<cwd>/.swt-planning/locks`).
+ */
+export function createLockOpsFromAcquireLock(
+  acquire: (opts: {
+    readonly taskId: string;
+    readonly worktreePath: string;
+    readonly state: WorktreeState;
+    readonly locksRoot?: string;
+  }) => Promise<LockOpsHandle>,
+  locksRoot?: string,
+): LockOps {
+  return {
+    acquire: (opts) =>
+      acquire({
+        taskId: opts.taskId,
+        worktreePath: opts.worktreePath,
+        state: opts.state,
+        ...(locksRoot !== undefined ? { locksRoot } : {}),
+      }),
+  };
+}
+
+/**
  * Default git runner — spawns `git` via `child_process.spawn` and
  * collects stdout/stderr/exitCode. Tests inject a recording mock to
  * assert command-line semantics without a real git tree.

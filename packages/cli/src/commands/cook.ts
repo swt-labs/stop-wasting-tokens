@@ -70,6 +70,9 @@ import {
   createProviderRouter,
   createFallbackChain,
   FallbackChainExhaustedError,
+  WorktreeManager,
+  acquireLock,
+  createLockOpsFromAcquireLock,
   type PidChecker,
   type ProviderFallbackEvent,
   type FallbackFailureReason,
@@ -1729,6 +1732,109 @@ export function countParallelPlans(cwd: string, phaseTarget: string | undefined)
 }
 
 /**
+ * Plan 06-03 T2 — open WorktreeManager session for an orchestrator spawn.
+ * Returned handle carries the per-task `WorktreeManager` plus the absolute
+ * worktree path (used as `cwd` for the orchestrator + provider router).
+ * Returns `null` (and logs a stderr warning) if worktree acquisition
+ * fails — the cook turn falls back to the shared working tree rather
+ * than blocking on filesystem / git contention.
+ */
+interface WorktreeSpawnSession {
+  readonly manager: WorktreeManager;
+  readonly taskId: string;
+  /** Absolute path to the worktree on disk. */
+  readonly absPath: string;
+  /** Path relative to the project root — used in stderr breadcrumbs. */
+  readonly relPath: string;
+}
+
+async function acquireWorktreeForSpawn(opts: {
+  readonly cwd: string;
+  readonly taskId: string;
+  readonly stderr: NodeJS.WritableStream;
+}): Promise<WorktreeSpawnSession | null> {
+  try {
+    const locksRoot = resolvePath(opts.cwd, '.swt-planning', 'locks');
+    const lockOps = createLockOpsFromAcquireLock(
+      (a) => acquireLock(a),
+      locksRoot,
+    );
+    const manager = new WorktreeManager({
+      parallelRoot: resolvePath(opts.cwd, '.swt-planning', 'parallel'),
+      journalRoot: resolvePath(opts.cwd, '.swt-planning', 'journal'),
+      lockOps,
+    });
+    // The base ref is HEAD — we want to start the worktree at the same
+    // commit the cook invocation was kicked off at. `WorktreeManager.create`
+    // shells out to `git worktree add` which resolves HEAD itself if we
+    // pass 'HEAD' as the ref.
+    const { worktreePath } = await manager.create(opts.taskId, 'HEAD');
+    const absPath = resolvePath(opts.cwd, worktreePath);
+    return { manager, taskId: opts.taskId, absPath, relPath: worktreePath };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    opts.stderr.write(
+      `swt cook: [worktree-isolation] WARNING: worktree acquisition failed (${msg}); ` +
+        `falling back to shared working tree. Set worktree_isolation: 'off' to silence.\n`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Plan 06-03 T2 — drive a happy-path worktree through the FSM tail end
+ * (claimed → dispatched → agent_running → agent_complete → harvested →
+ * removed). The intermediate transitions are required by the
+ * `WorktreeManager` FSM but carry no extra state in cook's single-
+ * orchestrator-spawn shape today (orchestrator's per-teammate worktrees
+ * are managed via the bash scripts that ship with VBW per research §2.3).
+ */
+async function releaseWorktreeOnSuccess(
+  session: WorktreeSpawnSession,
+  stderr: NodeJS.WritableStream,
+): Promise<void> {
+  try {
+    await session.manager.claim(session.taskId, []);
+    await session.manager.dispatch(session.taskId);
+    await session.manager.markAgentRunning(session.taskId);
+    await session.manager.markAgentComplete(session.taskId, 'success');
+    await session.manager.harvest(session.taskId);
+    await session.manager.remove(session.taskId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    stderr.write(
+      `swt cook: [worktree-isolation] WARNING: worktree cleanup failed for ${session.relPath} ` +
+        `(${msg}); kept in place. Run \`swt cleanup\` to reap.\n`,
+    );
+  }
+}
+
+/**
+ * Plan 06-03 T2 — drive the worktree FSM through to `fail` so the lock
+ * envelope reflects the failed state. The worktree directory itself is
+ * preserved on disk per TDD2 §9.7 ("failed: Keep (forensics)") — the
+ * operator decides whether to drop it via `swt cleanup`.
+ */
+async function keepWorktreeForForensics(
+  session: WorktreeSpawnSession,
+  reason: string,
+  stderr: NodeJS.WritableStream,
+): Promise<void> {
+  try {
+    await session.manager.fail(session.taskId, reason);
+    stderr.write(
+      `swt cook: [worktree-isolation] worktree kept at ${session.relPath} for forensics (${reason}).\n`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    stderr.write(
+      `swt cook: [worktree-isolation] WARNING: failed to transition worktree to failed state ` +
+        `for ${session.relPath} (${msg}); the lock file may be stale.\n`,
+    );
+  }
+}
+
+/**
  * Plan 06-01 T2 — write a fresh in_progress execution-state for this
  * runMode invocation. Best-effort: a filesystem error here must NOT
  * break the cook turn (the resume probe will simply not detect the
@@ -2086,6 +2192,32 @@ async function runMode(
     });
   }
 
+  // Plan 06-03 T2 (R6) — when worktree_isolation is enabled, acquire a
+  // dedicated git worktree for the orchestrator session before the spawn.
+  // The orchestrator runs in its own working tree (`.swt-planning/parallel/
+  // wt-<taskId>/`) with its own staging-area index, eliminating the Phase 4
+  // Wave 2 race (commits 7431a02 / 05ebd94). The worktree is harvested +
+  // removed on success; failed runs keep the worktree for forensics per
+  // TDD2 §9.7.
+  //
+  // Best-effort: a worktree creation failure surfaces as a stderr warning
+  // and falls back to the shared working tree. The cook turn must not be
+  // blocked on filesystem / git contention — operators flipping the flag
+  // explicitly accept the experimental wiring (R6 — default 'off').
+  const isolationEnabled =
+    config.worktree_isolation === 'on' ||
+    (config.worktree_isolation === 'auto' &&
+      countParallelPlans(io.cwd, routing.phaseTarget) >= 2);
+  let worktreeSession: WorktreeSpawnSession | null = null;
+  if (isolationEnabled) {
+    worktreeSession = await acquireWorktreeForSpawn({
+      cwd: io.cwd,
+      taskId,
+      stderr: io.stderr,
+    });
+  }
+  const spawnCwd = worktreeSession?.absPath ?? io.cwd;
+
   // Load the cook.md mode section + substitute placeholders.
   const prompt = loadCookModeSection(
     ctx.installRoot,
@@ -2121,13 +2253,13 @@ async function runMode(
     const fallbackTaskBrief: TaskBrief = {
       taskId: taskId,
       role: 'orchestrator',
-      cwd: io.cwd,
+      cwd: spawnCwd,
     };
     const fallbackResult = await runSpawnWithFallback({
       providers: config.providers,
       spawnArgs: {
         prompt: promptWithOpts,
-        cwd: io.cwd,
+        cwd: spawnCwd,
         sessionId: ctx.sessionId,
         installRoot: ctx.installRoot,
         maxTurns,
@@ -2201,6 +2333,13 @@ async function runMode(
         session_id: ctx.sessionId,
         status: 'failed',
       });
+      // Plan 06-03 T2 — keep worktree for forensics on failed/blocked
+      // status per TDD2 §9.7. The lock stays in place so `swt cleanup`
+      // can decide whether to drop it after operator review.
+      if (worktreeSession !== null) {
+        await keepWorktreeForForensics(worktreeSession, `spawn_${result.status}`, io.stderr);
+        worktreeSession = null;
+      }
       // Flip execution-state to crashed so the next cook invocation's
       // resume probe sees the failure as a stale in_progress + dead pid.
       try {
@@ -2240,6 +2379,15 @@ async function runMode(
       session_id: ctx.sessionId,
       status: 'success',
     });
+    // Plan 06-03 T2 — happy path: harvest + remove the worktree. The
+    // remove() call releases the per-task lock; commits made inside the
+    // worktree stay on the worktree's branch (operator-driven merge is
+    // out of scope for v3.0 — the chaos test asserts the staging-area
+    // isolation, merge integration is v3.1).
+    if (worktreeSession !== null) {
+      await releaseWorktreeOnSuccess(worktreeSession, io.stderr);
+      worktreeSession = null;
+    }
     try {
       markCompleted(io.cwd);
     } catch {
@@ -2295,6 +2443,14 @@ async function runMode(
       } catch {
         // best-effort
       }
+    }
+    // Plan 06-03 T2 — catch path / orphaned worktree cleanup. If the
+    // success / failed branches above already disposed the worktree they
+    // null it out; if we reach this point with a non-null session it
+    // means an uncaught error skipped the disposition branches. Keep the
+    // worktree for forensics per TDD2 §9.7.
+    if (worktreeSession !== null) {
+      await keepWorktreeForForensics(worktreeSession, 'uncaught_error', io.stderr);
     }
   }
 }

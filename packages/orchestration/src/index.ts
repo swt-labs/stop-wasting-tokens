@@ -118,9 +118,12 @@ export {
   DEFAULT_PARALLEL_ROOT,
   DEFAULT_JOURNAL_ROOT,
   WORKTREE_PATH_MAX_CHARS,
+  createLockOpsFromAcquireLock,
   type AgentOutcome,
   type GitRunner,
   type GitRunResult,
+  type LockOps,
+  type LockOpsHandle,
   type WorktreeManagerOptions,
 } from './worktree-manager.js';
 
