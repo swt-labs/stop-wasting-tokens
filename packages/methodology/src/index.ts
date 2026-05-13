@@ -9,4 +9,5 @@ export * from './qa/index.js';
 export * from './audit/index.js';
 export * from './discussion/index.js';
 export * from './vibe/index.js';
+export * from './meters/index.js';
 export * from './run-vibe.js';

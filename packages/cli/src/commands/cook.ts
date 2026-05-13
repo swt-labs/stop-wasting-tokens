@@ -49,7 +49,7 @@ import { execSync as nodeExecSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve as resolvePath, join as joinPath } from 'node:path';
 
-import { detectPhase, type PhaseDetectResult } from '@swt-labs/methodology';
+import { detectPhase, recordUsage, type PhaseDetectResult } from '@swt-labs/methodology';
 import { spawnOrchestratorSession } from '@swt-labs/orchestration';
 import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
@@ -1050,14 +1050,31 @@ async function runMode(
         : result.status === 'blocked'
           ? 'blocked'
           : 'failed';
+    const resultUsage = { input_tokens: 0, output_tokens: 0 };
     emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
       type: 'cook.agent_result',
       ts: new Date().toISOString(),
       session_id: ctx.sessionId,
       sub_session_id: subSessionId,
       status: resultStatus,
-      usage: { input_tokens: 0, output_tokens: 0 },
+      usage: resultUsage,
     });
+
+    // R5 (a)+(b) combined: emit live event AND fold the same usage payload
+    // into the rolling .metrics/session-*.json aggregate. Plan 04-02's
+    // reducer consumes the events; plan 04-04 statusline reads the file.
+    // recordUsage is best-effort — a filesystem error must not break the
+    // cook turn (the event channel already carries the live delta).
+    try {
+      recordUsage({
+        sessionId: ctx.sessionId,
+        ...(routing.phaseTarget !== undefined ? { phaseSlug: routing.phaseTarget } : {}),
+        usage: resultUsage,
+        planningRoot: joinPath(io.cwd, '.swt-planning'),
+      });
+    } catch {
+      // swallow — see comment above.
+    }
 
     if (result.status === 'failed' || result.status === 'blocked') {
       emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
