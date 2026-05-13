@@ -1,46 +1,42 @@
 ---
 title: Breaking changes
-description: SWT v1.0 introduces zero breaking changes from VBW. This page tracks future versions.
+description: Tracks breaking changes across SWT major versions, including the v2 → v3 runtime pivot.
 ---
 
 # Breaking changes
 
-## v1.0 (current)
+## v3.0 (current)
 
-**No breaking changes from VBW.**
+**Breaking from v2.x** — the runtime substrate was replaced. The methodology (phases, plans, must-haves, the 6-agent SDLC, the artefact pipeline) is preserved verbatim; the engine underneath changed.
 
-Frontmatter shapes are forward-compatible via Zod transforms. Lifecycle states are 1:1. CLI flag shapes match. Configuration keys are a strict superset.
+What broke:
 
-A VBW project that was working yesterday works on SWT today after a `mv .vbw-planning .swt-planning`. Nothing in the methodology changed.
+- **Codex CLI subprocess removed.** v2.x shelled out to the Codex CLI binary; v3 dispatches through [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) (`^0.74.0`). Existing `backend: codex` config keys are rewritten to per-role `tier:` + `router_strategy:` by the migration script.
+- **`@swt-labs/{codex,claude-code,ollama}-driver` packages deleted.** All three driver packages were removed wholesale per [ADR-005](https://github.com/swt-labs/stop-wasting-tokens/blob/main/docs/decisions/ADR-005-delete-codex-claude-code-ollama-drivers.md). Any custom script that source-imports from them must be rewritten — usually a one-line edit to call the v3 spawner abstraction instead.
+- **`reasoning_effort` → `thinking_level`.** Pi's native thinking-budget vocabulary (`off`/`minimal`/`low`/`medium`/`high`/`xhigh`) replaces the v2 `reasoning_effort` field on `AgentSpec`. The migration script rewrites this in `config.json`.
+- **`swt vibe` deferred / `swt cook` is the orchestrator.** v3's TDD3 entry point is `swt cook`, which auto-detects state and routes via the 11-priority routing table. `swt vibe` remains as an alias / bootstrap shim. Bare `swt` (no args) launches the dashboard — SWT's primary surface per TDD3 §15.
+- **No v2.3.x LTS branch.** [ADR-012](https://github.com/swt-labs/stop-wasting-tokens/blob/main/docs/decisions/ADR-012-six-month-lts-for-v2-3.md) (six-month LTS) was retracted same-day as the v3.0 structural close. v2.3.x receives no further patches. The supported path is `swt migrate --to=v3`. Historical v2.3.x tarballs remain on npm — pin a specific patch if you cannot migrate yet.
 
-## v1.5 (planned)
+The full transformation pass + verification checklist lives in [Migrating from v2.x to v3.0](/operations/migrating-from-v2). Run `swt migrate --to=v3` once your project is committed.
 
-The v1.5 release is when breaking changes (if any) will be introduced. This section is a placeholder; it will be updated as v1.5 scopes.
+The Phase 6 migration boot-clean regression test (`test/regression/migration-boot-clean.test.ts`) gates every release on a successful v2 → v3 transition.
 
-Likely candidates:
+## VBW → SWT migration (no version change)
 
-- **`hooks.*` event taxonomy expansion.** The current `post_archive` is the only hook in v1.0. v1.5 adds `pre_archive`, `post_phase`, `post_uat_fail`, etc. Existing `post_archive` configs continue to work; new event names won't conflict.
-- **Auto-derived reference docs.** v1.5 will replace hand-authored CLI/config/artifact reference pages with docs generated at build time from source. The user-visible URLs stay the same; the content fidelity improves.
-- **Codex AgentSpawner wiring.** v1.0 ships with placeholder AgentSpawner that depends on a real Codex driver landing. v1.5 unblocks live `swt vibe` execution against Codex CLI.
-
-If a v1.5 deliverable does require a breaking change, it will be:
-
-1. Announced in advance via the [v1.5 roadmap](/v1-5-roadmap/index)
-2. Accompanied by a migration script (similar to the SWT-from-VBW path)
-3. Released under a clearly-marked major version bump
+VBW (Vibe Better with Claude Code) is the methodology SWT inherits. The migration is a directory rename (`.vbw-planning/` → `.swt-planning/`) plus the same Zod-validated frontmatter shapes. There are no breaking changes between VBW and SWT methodology surfaces — see [Migration from VBW](/migration/from-vbw) for the rename + verification steps.
 
 ## How we treat breaking changes
 
-SWT follows [semver](https://semver.org). Any breaking change requires a major version bump (1.x → 2.0). Migration tooling ships in the same release.
+SWT follows [semver](https://semver.org). The v2 → v3 break is the major version bump; v3.x will be backwards-compatible at the methodology, CLI verb, and config-key surfaces.
 
-The methodology contract — phases, plans, summaries, the 11 lifecycle states, the 7-point audit — is treated as semver-permanent. We will not change what `next_phase_state` returns or what `ac_results` records. Adding new states / fields is allowed; renaming or removing existing ones is not.
+The methodology contract — phases, plans, summaries, the 11 lifecycle states, the 7-point audit — is treated as semver-permanent within v3.x. We will not change what `next_phase_state` returns or what `ac_results` records. Adding new states / fields is allowed; renaming or removing existing ones is not.
 
-The CLI surface (`swt init`, `swt vibe`, `swt detect-phase`) is also semver-stable. New flags and modes can be added; existing ones cannot be removed.
+The CLI surface (`swt cook`, `swt init`, `swt vibe`, `swt detect-phase`, `swt status`, `swt dashboard`, `swt doctor`, `swt qa`, `swt verify`, `swt research`, `swt map`, `swt discuss`, `swt debug`, `swt cleanup`, `swt rpc`, `swt bench`) is semver-stable. New flags and modes can be added; existing ones cannot be removed within a major. `swt fix` was formally deprecated at v3.0 with a migration pointer to `swt cook` / `swt qa`.
 
 ## Reporting compatibility issues
 
-If you encounter a real-world break (e.g., a VBW frontmatter shape that SWT v1.0 fails to parse), please file an issue:
+If you encounter a real-world break (e.g., a v2.x frontmatter shape that the migration script fails to parse), please file an issue:
 
 [github.com/swt-labs/stop-wasting-tokens/issues](https://github.com/swt-labs/stop-wasting-tokens/issues)
 
-Include the offending file (anonymized) and the parser error. Compatibility bugs are treated as P0 in v1.x.
+Include the offending file (anonymized), the migration log at `.swt-planning/migration-log-YYYY-MM-DD.json`, and the parser error. Compatibility bugs are treated as P0 in v3.x.

@@ -10,8 +10,11 @@ This is the literal command sequence. Allow ~10 minutes.
 ## Pre-flight
 
 - [ ] All in-flight VBW work committed (no uncommitted changes in `.vbw-planning/`)
-- [ ] Latest SWT installed: `npm install -g @swt-labs/cli`
-- [ ] `swt --version` returns 1.0.x
+- [ ] Latest SWT installed: `npm install -g stop-wasting-tokens@next`
+- [ ] `swt --version` returns `3.0.0-alpha.x` (prerelease) or `3.0.0` once stable
+- [ ] `swt doctor` passes (Node ≥ 20.18, Pi peer-dep resolved)
+
+> **Verified by Phase 6 boot-clean test.** The Phase 6 regression test at `test/regression/migration-boot-clean.test.ts` (plan 06-04 T1) gates every release on a clean v2 → v3 boot. The fixture is `packages/test-utils/golden/ref-fastapi/v2-baseline/`. If your project shape resembles that fixture, the migration is exercised end-to-end on every CI run.
 
 ## 1. Snapshot the current state
 
@@ -141,9 +144,14 @@ A schema upgrade (typically Phase 10's typed-shape contract) introduced stricter
 
 ### My `config.json` has VBW-specific keys
 
-SWT v1.0 silently ignores unknown keys. They stay in your `config.json` for VBW compatibility. v1.5 may surface a warning or a migration helper.
+SWT v3 silently ignores unknown keys. They stay in your `config.json` for VBW compatibility. Future v3.x minors may surface a warning or a migration helper for fully VBW-shaped configs.
+
+### I'm coming from SWT v2.x (not VBW)
+
+This guide is for VBW → SWT migration. If you are on SWT v2.x (Codex CLI backend) and want to move to v3 (Pi runtime), see [Migrating from v2.x to v3.0](/operations/migrating-from-v2) — that path uses the `swt migrate --to=v3` script and rewrites `config.json` in place.
 
 ## Next
 
-- [Breaking changes](/migration/breaking-changes) — v1.0 has none; v1.5 placeholder
+- [Breaking changes](/migration/breaking-changes) — v2 → v3 runtime pivot details
+- [Migrating from v2.x to v3.0](/operations/migrating-from-v2) — `swt migrate --to=v3` for SWT v2 users
 - [Recipes: brownfield](/recipes/brownfield) — for the case where SWT migration is also when you're switching from "no methodology" to SWT

@@ -5,38 +5,40 @@ description: SWT and VBW share the same methodology — moving between them is a
 
 # Migration from VBW
 
-[Vibe Better with Claude Code](https://github.com/Hesreallyhim/awesome-claude-code) (VBW) is the methodology SWT is based on. By design, **SWT reads VBW's artifacts unchanged** — same frontmatter shapes, same lifecycle states, same routing logic.
+[Vibe Better with Claude Code](https://github.com/Hesreallyhim/awesome-claude-code) (VBW) is the methodology SWT is based on. By design, **SWT reads VBW's artifacts unchanged** — same frontmatter shapes, same lifecycle states, same routing logic. The v3 runtime swap (Codex CLI → Pi) did not change the methodology contract; VBW projects continue to round-trip through SWT v3.0.
 
-If you have a working VBW project, migrating to SWT is `mv .vbw-planning .swt-planning` plus a few config tweaks.
+If you have a working VBW project, migrating to SWT v3 is `mv .vbw-planning .swt-planning` plus a few config tweaks. Parity evidence: `.vbw-planning/phases/05-agent-tuning-parity-testing/PARITY-REPORT.md` records the 7-agent output-equivalence harness against a known-good fixture phase.
 
 ## Feature parity
 
-| Feature                        | VBW              | SWT                            |
-| ------------------------------ | ---------------- | ------------------------------ |
-| Bootstrap                      | ✅               | ✅                             |
-| Scope (phase decomposition)    | ✅               | ✅                             |
-| Plan + Execute                 | ✅               | ✅                             |
-| Verify (UAT)                   | ✅               | ✅                             |
-| Archive                        | ✅               | ✅                             |
-| Discussion engine              | ✅               | ✅                             |
-| Add / Insert / Remove phase    | ✅               | ✅                             |
-| UAT remediation pipeline       | ✅               | ✅                             |
-| QA remediation pipeline        | ✅               | ✅                             |
-| 7-point archive audit          | ✅               | ✅                             |
-| Hard UAT gate at archive       | ✅               | ✅                             |
-| State-consistency verifier     | ✅               | ✅                             |
-| Hook event taxonomy            | ✅               | ✅ (post_archive only in v1.0) |
-| Codebase mapping (brownfield)  | ✅               | ✅                             |
-| GSD migration import           | ✅               | ✅                             |
-| `--bash-format` phase-detect   | ✅               | ✅                             |
-| Real Codex AgentSpawner wiring | n/a (Claude)     | ⚠ blocked (v1.5)               |
-| Ink TUI dashboard              | ❌               | 📋 v1.5                        |
-| Plugin marketplace listing     | ✅               | 📋 v1.5                        |
-| Multi-driver (Claude / Ollama) | ❌ (Claude only) | 📋 v1.5                        |
+| Feature                       | VBW              | SWT v3.0                              |
+| ----------------------------- | ---------------- | ------------------------------------- |
+| Bootstrap                     | ✅               | ✅ (`swt vibe` / bare `swt`)          |
+| Scope (phase decomposition)   | ✅               | ✅                                    |
+| Plan + Execute                | ✅               | ✅                                    |
+| Verify (UAT)                  | ✅               | ✅                                    |
+| Archive                       | ✅               | ✅                                    |
+| Discussion engine             | ✅               | ✅                                    |
+| Add / Insert / Remove phase   | ✅               | ✅                                    |
+| UAT remediation pipeline      | ✅               | ✅                                    |
+| QA remediation pipeline       | ✅               | ✅                                    |
+| 7-point archive audit         | ✅               | ✅                                    |
+| Hard UAT gate at archive      | ✅               | ✅                                    |
+| State-consistency verifier    | ✅               | ✅                                    |
+| Hook event taxonomy           | ✅               | ✅ (Pi event surface; see Phase 1)    |
+| Codebase mapping (brownfield) | ✅               | ✅                                    |
+| `--bash-format` phase-detect  | ✅               | ✅                                    |
+| AgentSpawner wiring           | Claude Code      | Pi (Anthropic / OpenAI / OpenRouter / Google / Bedrock / Ollama) |
+| Ink TUI dashboard             | ❌               | ✅ (`swt watch`)                      |
+| Web dashboard (primary)       | ❌               | ✅ (`swt dashboard` / bare `swt`)     |
+| Worktree-isolated parallel    | ❌               | ✅ (M3; default `off`, opt-in `auto`) |
+| Cassette-based deterministic CI | ❌             | ✅ (per ADR-011)                      |
+| Provider router + fallback    | ❌               | ✅ (M5; four strategies)              |
+| Budget Gate                   | ❌               | ✅ (70%/95% per ADR-007)              |
 
 ## Frontmatter compatibility
 
-Every VBW frontmatter shape parses cleanly through SWT's Zod schemas. The transforms in `@swt-labs/artifacts/schemas/` accept both shapes:
+Every VBW frontmatter shape parses cleanly through SWT's Zod schemas. The transforms in `@swt-labs/shared/schemas/` accept both shapes:
 
 | Artifact                 | VBW shape                                         | SWT shape                                          | Migration               |
 | ------------------------ | ------------------------------------------------- | -------------------------------------------------- | ----------------------- |
@@ -59,37 +61,40 @@ The 11 SWT lifecycle states map 1:1 to VBW's. Same names, same triggers, same ro
 
 ## Config compatibility
 
-VBW's `config.json` keys are a strict superset of SWT's v1.0 keys. Reading a VBW config through SWT works; SWT silently ignores keys not yet in the v1.0 schema (e.g., VBW-specific `agent_max_turns.architect_v2`).
+VBW's `config.json` keys round-trip cleanly through SWT v3. Reading a VBW config through SWT works; SWT v3 silently ignores keys not yet in the v3 schema (e.g., VBW-specific `agent_max_turns.architect_v2`).
 
-The reverse is also true within v1.0: VBW reads an SWT config without complaining.
+The reverse is true within v3: VBW reads an SWT v3 config without complaining about additive keys (`schema_version`, `router_strategy`, per-role `tier`).
 
 ## What's different
 
 The actual differences are operational, not methodological:
 
 - **Distribution.** VBW is a Claude Code plugin (bash + commands). SWT is an npm package (TypeScript CLI).
-- **Backend.** VBW runs in Claude Code only. SWT v1.0 runs against Codex CLI; v1.5 adds Claude Code and Ollama drivers.
-- **Hooks.** VBW exposes a 12-event hook taxonomy (PreToolUse, PostToolUse, etc.). SWT v1.0 exposes `post_archive` only — the full taxonomy lands in v1.5.
+- **Backend.** VBW runs in Claude Code only. SWT v3 runs against [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) which natively supports Anthropic, OpenAI, OpenRouter, Google, Bedrock, and local Ollama.
+- **Dashboard.** SWT v3 ships a Hono + Solid + SSE web dashboard as the primary surface (TDD3 §15). Bare `swt` (no args) launches it. VBW had no web surface.
+- **Worktree isolation.** SWT v3 dispatches parallel Dev tasks across per-task git worktrees (per ADR-008). Default `worktree_isolation: 'off'` for v3.0; flip to `'auto'` opt-in. VBW serialised parallel work.
 
 Methodologically: identical.
 
 ## When to migrate
 
-Migrate from VBW to SWT if:
+Migrate from VBW to SWT v3 if:
 
-- You're moving to Codex CLI as your primary tool.
+- You want vendor-neutral runtime support (Anthropic / OpenAI / OpenRouter / Google / Bedrock / Ollama) without rewiring per-provider.
 - You want a single CLI distributed via npm rather than a Claude Code plugin install.
 - You want SWT's stricter Zod-validated artifact schemas (e.g., parse-on-read catches malformed YAML earlier than VBW's freeform parser).
+- You want worktree-isolated parallel Dev dispatch + Budget Gate + cassette-deterministic CI.
 
 Stay on VBW if:
 
-- Your team is committed to Claude Code as the only LLM tool.
-- You rely on VBW-specific features that SWT v1.0 hasn't ported (the 12-event hook taxonomy, Agent Teams, isolation modes).
-- You want plugin-marketplace install + auto-update.
+- Your team is committed to Claude Code as the only LLM surface AND you do not need the v3 dashboard / worktree / budget primitives.
+- You rely on VBW-specific features that SWT v3 has not yet wired (Agent Teams beyond per-task workers).
+- You want plugin-marketplace install + auto-update through Claude Code.
 
-Both projects share the methodology. You can run them side-by-side during evaluation — they don't conflict at the file level.
+Both projects share the methodology. You can run them side-by-side during evaluation — they don't conflict at the file level (`.vbw-planning/` vs `.swt-planning/`).
 
 ## Next
 
 - [Step-by-step migration](/migration/step-by-step) — exact commands
-- [Breaking changes](/migration/breaking-changes) — none in v1.0; placeholder for v1.5
+- [Breaking changes](/migration/breaking-changes) — v2 → v3 runtime pivot details
+- [Migrating from v2.x to v3.0](/operations/migrating-from-v2) — if you are coming from SWT v2 directly (not via VBW), run `swt migrate --to=v3`
