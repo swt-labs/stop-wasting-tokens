@@ -60,9 +60,15 @@ npm install -g stop-wasting-tokens@next
 Verify the install:
 
 ```bash
-swt --version        # 3.0.0-alpha.3
+swt --version        # 3.0.0-alpha.4 (prerelease) or 3.0.0 once stable
 swt doctor           # checks Node ≥ 20.18, runtime, .swt-planning/ presence
 ```
+
+### Migrating from an older SWT or VBW?
+
+- **From SWT v2.x** (Codex CLI backend): run `swt migrate --to=v3` after installing. The script rewrites `.swt-planning/config.json` (drops `backend:`, adds per-role `tier:` + `router_strategy:`, sets `schema_version: 1`) and is verified end-to-end by the Phase 6 boot-clean regression test. Full guide: [`docs/operations/migrating-from-v2.md`](./docs/operations/migrating-from-v2.md).
+- **From VBW** (Claude Code plugin): rename `.vbw-planning/` → `.swt-planning/` and re-launch — the methodology contract is preserved verbatim. Step-by-step + breaking-changes reference: [`docs/migration/from-vbw.mdx`](./docs/migration/from-vbw.mdx) and [`docs/migration/step-by-step.mdx`](./docs/migration/step-by-step.mdx).
+- **v2.3.x LTS posture:** there isn't one. ADR-012 (six-month LTS) was retracted same-day as v3.0; the supported path is the migration script. Historical v2.3.x tarballs remain on npm if you must pin.
 
 ### Set a provider key
 
