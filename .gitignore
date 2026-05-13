@@ -153,3 +153,5 @@ scripts/lib/*
 
 # Phase 02 closure manifest — tracks status of §6.3 rewrites for the porter.
 !scripts/.port-rewrites.json
+# Phase 06 plan 06-05 T2: reproducible bulk-sed bats-fixture rename.
+!scripts/bulk-sed-bats-rename.sh
