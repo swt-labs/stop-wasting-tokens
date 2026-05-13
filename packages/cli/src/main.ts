@@ -12,6 +12,7 @@ import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
 import { migrateHandler } from './commands/migrate.js';
+import { qaHandler } from './commands/qa.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
@@ -93,6 +94,14 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[--plan|--execute|--discuss|--assumptions|--scope|--verify|--archive] [arguments]',
     description: 'Run the SWT orchestrator (auto-routes via state detection)',
     handler: cookHandler,
+  });
+  // Plan 03-03 T1 (Phase 3): `swt qa` — spawns a QA agent loading
+  // commands/qa.md. Replaces the v3.0.0-alpha.3 stub (REQ-25).
+  registry.register({
+    name: 'qa',
+    usage: '[phase-number]',
+    description: 'Run goal-backward QA on a phase',
+    handler: qaHandler,
   });
   registry.register({
     name: 'update',
