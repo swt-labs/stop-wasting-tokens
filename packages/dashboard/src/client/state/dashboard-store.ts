@@ -1,4 +1,5 @@
 import type {
+  AgentLiveState,
   AgentPromptContext,
   AgentPromptOption,
   CommandRegistry,
@@ -59,30 +60,6 @@ export interface UatModalState {
 }
 
 export type ConversationEntryStatus = 'pending' | 'answered' | 'expired';
-
-/**
- * Per-agent live state surfaced in the Active Agents pane (Pane 3, plan 04-03).
- * Folded out of `cook.*` SSE events by the reducer. Will move to
- * `@swt-labs/shared` once plan 04-02 extends the Snapshot schema with
- * `active_agents[]`; until then we keep the local mirror to unblock T1
- * which is the wave-2 dependency for live updates.
- */
-export type AgentLiveStatus = 'idle' | 'spawning' | 'running' | 'completed' | 'failed';
-
-export interface AgentLiveState {
-  sub_session_id: string;
-  role: string;
-  status: AgentLiveStatus;
-  current_tool?: string;
-  current_tool_input_excerpt?: string;
-  tokens_in: number;
-  tokens_out: number;
-  cache_read: number;
-  cache_creation: number;
-  cost_usd: number;
-  elapsed_ms: number;
-  started_at: string;
-}
 
 export interface ConversationEntry {
   prompt_id: string;

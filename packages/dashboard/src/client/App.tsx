@@ -15,6 +15,7 @@ import { ExtensionDefenseBanner } from './components/ExtensionDefenseBanner.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
+import { ProjectStatePanel } from './components/ProjectStatePanel.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderCostPanel } from './components/ProviderCostPanel.js';
 import { TopBar } from './components/TopBar.js';
@@ -268,6 +269,10 @@ export const App: Component = () => {
               minSize={0.08}
               class="resizable-panel resizable-stack"
             >
+              <ProjectStatePanel
+                project={state.snapshot?.project ?? null}
+                milestone={state.snapshot?.milestone ?? null}
+              />
               <Resizable
                 orientation="vertical"
                 initialSizes={initialLayout.tools}

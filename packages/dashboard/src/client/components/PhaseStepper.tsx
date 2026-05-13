@@ -1,5 +1,5 @@
-import type { PhaseState, PhaseSummary } from '@swt-labs/shared';
-import { For, type Component } from 'solid-js';
+import type { PhaseState, PhaseSummary, PlanSummary } from '@swt-labs/shared';
+import { For, Show, type Component } from 'solid-js';
 
 const STATE_CLASS: Record<PhaseState, string> = {
   needs_discussion: 'phase-pending',
@@ -20,6 +20,18 @@ const STATE_LABEL: Record<PhaseState, string> = {
   needs_qa_remediation: 'qa remediation',
   needs_uat_remediation: 'uat remediation',
 };
+
+const PLAN_STATUS_ICON: Record<NonNullable<PlanSummary['status']>, string> = {
+  pending: '○',
+  in_progress: '◆',
+  complete: '✓',
+  failed: '✗',
+};
+
+/** Exported for unit testing — see `phase-stepper-helpers.test.ts`. */
+export function planStatusIcon(status: PlanSummary['status']): string {
+  return status === undefined ? '·' : PLAN_STATUS_ICON[status];
+}
 
 function defaultArtifactName(phase: PhaseSummary): string | null {
   // Prefer summary > plan > research > context
@@ -52,6 +64,12 @@ export const PhaseStepper: Component<PhaseStepperProps> = (props) => {
               const name = defaultArtifactName(phase);
               if (name) props.onSelect(phase.slug, name);
             };
+            const plans = (): readonly PlanSummary[] => phase.plans ?? [];
+            // Plan rows render under the selected (or current) phase only —
+            // keeps the column compact while still surfacing the drill-in
+            // (REQ-07 Pane 2).
+            const showPlans = (): boolean =>
+              plans().length > 0 && (isSelected() || isCurrent());
             return (
               <li class="phase-stepper-item">
                 <button
@@ -67,6 +85,26 @@ export const PhaseStepper: Component<PhaseStepperProps> = (props) => {
                   <span class="phase-stepper-name">{phase.name}</span>
                   <span class="phase-stepper-state">{STATE_LABEL[phase.state]}</span>
                 </button>
+                <Show when={showPlans()}>
+                  <ul class="phase-stepper-plans">
+                    <For each={plans()}>
+                      {(plan) => (
+                        <li class={`phase-stepper-plan plan-${plan.status ?? 'pending'}`}>
+                          <span class="plan-id">
+                            {phase.position}-{plan.plan}
+                          </span>
+                          <span class="plan-title">{plan.title}</span>
+                          <span
+                            class="plan-status"
+                            aria-label={`Status: ${plan.status ?? 'pending'}`}
+                          >
+                            {planStatusIcon(plan.status)}
+                          </span>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
               </li>
             );
           }}
