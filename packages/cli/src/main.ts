@@ -155,12 +155,12 @@ export async function main(
     return EXIT.USAGE_ERROR;
   }
 
-  // v2.0: bare `swt` (no verb, no flags) opens the dashboard daemon by
-  // default — the natural-language UX is now the primary surface, terminal
-  // is for power users. Escape hatch for CI / scripts that depend on the
-  // legacy "print help on empty argv" behavior: `SWT_NO_DASHBOARD=1`.
-  // `--help` / `--version` flags continue to short-circuit before the
-  // dashboard launch.
+  // Bare `swt` (no verb, no flags) routes to `vibe` — the methodology
+  // orchestrator that owns the Pi-backed agent lifecycle. The dashboard is
+  // a companion read-only observability surface; users who want it invoke
+  // it explicitly with `swt dashboard`. (v2.x defaulted bare-`swt` to the
+  // dashboard daemon with `SWT_NO_DASHBOARD=1` as the escape hatch; that
+  // default was reversed in v3.0.0-alpha.3.)
   if (parsed.flags.version === true) {
     io.stdout.write(`swt ${deps.version ?? CURRENT_VERSION}\n`);
     return EXIT.SUCCESS;
@@ -174,14 +174,8 @@ export async function main(
     return EXIT.SUCCESS;
   }
   if (parsed.verb === undefined) {
-    if (process.env['SWT_NO_DASHBOARD'] === '1') {
-      io.stdout.write(renderHelp(registry));
-      return EXIT.SUCCESS;
-    }
-    // Dispatch to `dashboard` with the same parsed shape but the verb
-    // filled in. The dashboard handler defaults to opening the browser.
-    const dashboardParsed = { ...parsed, verb: 'dashboard' };
-    return dispatch(registry, dashboardParsed, io);
+    const vibeParsed = { ...parsed, verb: 'vibe' };
+    return dispatch(registry, vibeParsed, io);
   }
 
   return dispatch(registry, parsed, io);

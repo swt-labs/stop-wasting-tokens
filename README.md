@@ -21,10 +21,12 @@ npm install -g stop-wasting-tokens@next       # v3 prerelease (recommended)
 ```
 
 ```bash
-swt --version        # 3.0.0-alpha.1
+swt --version        # 3.0.0-alpha.3
 swt doctor           # checks Node ≥ 20.18, Pi peer-dep, .swt-planning/ presence
-swt vibe             # start here
+swt                  # bare `swt` enters the Pi-backed agent orchestrator (alias for `swt vibe`)
 ```
+
+> **Prefer a visual surface?** Run `swt dashboard` to launch the read-only web companion (Hono + Solid + SSE) at `http://127.0.0.1:43911`. It's a passive observer of the same `.swt-planning/` state — point it at an in-flight `swt vibe` session and watch agents, phases, costs, and token spend in real time.
 
 Plain `stop-wasting-tokens` (no `@next`) still resolves to legacy v2.3.5 until v3 cuts to `latest`. Detailed install paths, source builds, and v2 migration: [Install](#install).
 
@@ -56,7 +58,7 @@ npm install -g stop-wasting-tokens@next
 # or: pnpm add -g stop-wasting-tokens@next
 # or: bun  add -g stop-wasting-tokens@next
 
-swt --version        # 3.0.0-alpha.1
+swt --version        # 3.0.0-alpha.3
 swt doctor
 ```
 
@@ -252,12 +254,12 @@ You can short-circuit to a specific stage with `swt vibe --plan=NN`, `swt vibe -
 ### 4. Inspect progress at any time
 
 ```bash
-swt                      # bare `swt` opens the web dashboard daemon (SWT_NO_DASHBOARD=1 to opt out)
+swt                      # bare `swt` enters the methodology orchestrator (same as `swt vibe`)
 swt status               # current phase, milestone, % complete
 swt detect-phase --json  # machine-readable state (used by the statusline / IDE plugins)
 swt doctor               # Node + Pi peer-dep + .swt-planning/ presence
 swt watch                # interactive Ink TUI dashboard scoped to the active milestone
-swt dashboard            # localhost web dashboard daemon (explicit form)
+swt dashboard            # localhost web dashboard daemon (companion observability surface)
 ```
 
 ### 5. Archive a completed milestone
@@ -364,7 +366,7 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 
 ## Command reference
 
-`swt vibe` is the orchestrator that calls every other surface internally; the explicit verbs below are escape hatches for power users + IDE integrations. Bare `swt` (no verb, no flags) opens the web dashboard daemon — set `SWT_NO_DASHBOARD=1` to restore the legacy "print help" behavior.
+`swt vibe` is the orchestrator that calls every other surface internally; the explicit verbs below are escape hatches for power users + IDE integrations. Bare `swt` (no verb, no flags) routes to `swt vibe` — the Pi-backed agent orchestrator. The dashboard is a companion observability surface and is invoked explicitly with `swt dashboard`.
 
 ### Working today (`main` HEAD)
 
@@ -378,7 +380,7 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 | `swt config`       | Read or update SWT configuration: `swt config show \| get <key> \| set <key> <value>`.                                                                                                                                                                                                                                                                                                |
 | `swt update`       | Check npm registry for a newer published SWT version. `--json` for scripting; `--strict` fails offline; `--registry=<url>`, `--no-cache`.                                                                                                                                                                                                                                             |
 | `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs.                                                                                                                                                                                                                                                                                   |
-| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`. Bare `swt` (no verb) is an alias for this.                                                                                                                                                           |
+| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Companion observability surface for an in-flight `swt vibe` run. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`.                                                                                                                                     |
 | `swt cleanup`      | Reap stale per-task git worktrees and PID-liveness lock files left behind by crashed agents. Safe to run any time; idempotent.                                                                                                                                                                                                                                                        |
 | `swt migrate`      | Migrate a v2.x project to v3. Use `--to=v3` (currently the only supported target). Reads the legacy `.planning/` layout and rewrites it to `.swt-planning/` schemas.                                                                                                                                                                                                                  |
 | `swt rpc`          | Delegate to Pi's JSON-RPC mode (stdout reserved for the protocol stream). Per TDD2 §3.2 + §5.                                                                                                                                                                                                                                                                                         |
@@ -389,7 +391,7 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 ### Use case quick-pick
 
 - **Fresh project** → `swt vibe` (routes to bootstrap)
-- **Existing project, daily work** → `swt vibe` (auto-routes), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view), bare `swt` opens the dashboard
+- **Existing project, daily work** → `swt vibe` (auto-routes; bare `swt` is an alias for this), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
 - **Coming from v2.x** → `swt migrate --to=v3`
 - **After a crash** → `swt cleanup` to reap stale worktrees + locks, then `swt vibe` to resume
 - **Something feels broken** → `swt doctor` first
