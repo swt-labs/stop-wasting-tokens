@@ -55,6 +55,13 @@ const WATCH_GLOBS = (projectRoot: string): string[] => [
   path.join(projectRoot, '.swt-planning', 'REQUIREMENTS.md'),
   path.join(projectRoot, '.swt-planning', 'CONTEXT.md'),
   path.join(projectRoot, '.swt-planning', 'phases'),
+  // Plan 04-02 T2 — directories the new reducer reads. Chokidar v4 watches
+  // directories recursively by default; the existing 25ms stability window
+  // + 50ms debounce already coalesce burst writes.
+  path.join(projectRoot, '.swt-planning', '.sessions'),
+  path.join(projectRoot, '.swt-planning', '.metrics'),
+  path.join(projectRoot, '.swt-planning', '.cook-controls'),
+  path.join(projectRoot, '.swt-planning', '.events'),
 ];
 
 export interface SnapshotterOptions {

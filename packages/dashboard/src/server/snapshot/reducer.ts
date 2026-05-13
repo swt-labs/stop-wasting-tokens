@@ -9,7 +9,16 @@ import {
   type Snapshot,
 } from '@swt-labs/shared';
 
-import { type RawArtifact, type RawPhase, scan } from './scanner.js';
+import {
+  pickActiveSessionId,
+  type RawArtifact,
+  type RawPhase,
+  scan,
+  scanActiveAgents,
+  scanCostSummary,
+  scanPlansInPhaseDir,
+  scanProjectExtensions,
+} from './scanner.js';
 
 interface PhaseHints {
   has_plan: boolean;
@@ -148,6 +157,7 @@ function buildPhaseSummary(
 
   const { summaries } = summarizeArtifacts(rawPhase.artifacts);
   const goal = extractPhaseGoal(roadmapMd, rawPhase.position);
+  const plans = scanPlansInPhaseDir(rawPhase.abs_path);
 
   const summary: PhaseSummary = {
     position: rawPhase.position,
@@ -157,8 +167,33 @@ function buildPhaseSummary(
     qa_status: deriveQaStatus(hints),
     artifacts: summaries,
     ...(goal !== undefined ? { goal } : {}),
+    ...(plans.length > 0 ? { plans } : {}),
   };
   return { summary, hints };
+}
+
+/**
+ * Plan 04-02 T2 — derive `milestone.percent_complete` from per-phase QA
+ * status. Passed/remediated count as 1.0, failed as 0.0, others as a
+ * fractional in-progress weight so the bar advances as phases mature.
+ */
+function computePercentComplete(phases: ReadonlyArray<PhaseSummary>): number {
+  if (phases.length === 0) return 0;
+  let sum = 0;
+  for (const p of phases) {
+    if (p.qa_status === 'passed' || p.qa_status === 'remediated') {
+      sum += 1;
+    } else if (p.state === 'all_done') {
+      sum += 1;
+    } else if (p.state === 'needs_verification') {
+      sum += 0.75;
+    } else if (p.state === 'needs_execute') {
+      sum += 0.4;
+    } else if (p.state === 'needs_plan_and_execute') {
+      sum += 0.15;
+    }
+  }
+  return Math.max(0, Math.min(1, sum / phases.length));
 }
 
 export function buildSnapshot(projectRoot: string): Snapshot {
@@ -172,23 +207,48 @@ export function buildSnapshot(projectRoot: string): Snapshot {
 
   const milestoneName = extractFromState(raw.state_md, 'Milestone') ?? 'unknown';
 
+  // Plan 04-02 T2 — fold in the new substrate.
+  const extensions = scanProjectExtensions(projectRoot);
+  const activeAgents = scanActiveAgents(projectRoot);
+  const activeSessionId = pickActiveSessionId(projectRoot);
+  const milestoneSlugs = phases.map((p) => p.slug);
+  const currentPhase = phases.find(
+    (p) => Number.parseInt(p.position, 10) === extractCurrentPhaseIndex(raw.state_md),
+  );
+  const cost = scanCostSummary(projectRoot, {
+    ...(activeSessionId !== undefined ? { activeSessionId } : {}),
+    ...(currentPhase ? { currentPhaseSlug: currentPhase.slug } : {}),
+    milestonePhaseSlugs: milestoneSlugs,
+  });
+
+  const project: Snapshot['project'] = {
+    name: projectName,
+    root: projectRoot,
+    backend: 'pi',
+    ...(extensions.description !== undefined ? { description: extensions.description } : {}),
+    ...(extensions.codebase_profile !== undefined
+      ? { codebase_profile: extensions.codebase_profile }
+      : {}),
+  };
+
+  const milestone: Snapshot['milestone'] = {
+    name: milestoneName,
+    phase_count: phases.length,
+    phase_index: extractCurrentPhaseIndex(raw.state_md),
+    percent_complete: computePercentComplete(phases),
+    ...(extensions.todos.length > 0 ? { todos: extensions.todos } : {}),
+    ...(extensions.blockers.length > 0 ? { blockers: extensions.blockers } : {}),
+  };
+
   const snapshot: Snapshot = {
     schema_version: '1',
     generated_at: new Date().toISOString(),
-    project: {
-      name: projectName,
-      root: projectRoot,
-      backend: 'pi',
-    },
-    milestone: {
-      name: milestoneName,
-      phase_count: phases.length,
-      phase_index: extractCurrentPhaseIndex(raw.state_md),
-    },
+    project,
+    milestone,
     phases,
-    active_agents: [],
+    active_agents: activeAgents,
     recent_events: [],
-    cost_summary: {
+    cost_summary: cost ?? {
       total_usd: 0,
       today_usd: 0,
       this_milestone_usd: 0,

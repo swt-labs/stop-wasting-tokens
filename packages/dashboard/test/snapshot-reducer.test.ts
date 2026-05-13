@@ -140,6 +140,120 @@ describe('buildSnapshot', () => {
     expect(snap.project.name).toBe('greenfield');
   });
 
+  it('populates phase.plans from PLAN.md frontmatter (Plan 04-02 T2)', () => {
+    const root = setupFixture();
+    const snap = buildSnapshot(root);
+    const p1 = snap.phases.find((p) => p.position === '01');
+    expect(p1?.plans).toBeDefined();
+    expect(p1?.plans?.[0]?.plan).toBe('01-01');
+    expect(p1?.plans?.[0]?.title).toBe('First');
+  });
+
+  it('emits empty active_agents[] when no .sessions/ dir exists', () => {
+    const root = setupFixture();
+    const snap = buildSnapshot(root);
+    expect(snap.active_agents).toEqual([]);
+  });
+
+  it('populates active_agents from .swt-planning/.sessions/*.json (Plan 04-02 T2)', () => {
+    const root = setupFixture();
+    const sessDir = path.join(root, '.swt-planning', '.sessions');
+    mkdirSync(sessDir, { recursive: true });
+    writeFileSync(
+      path.join(sessDir, 'sub-alpha.json'),
+      JSON.stringify({
+        pid: 4321,
+        role: 'dev',
+        status: 'running',
+        sub_session_id: 'sub-alpha',
+        started_at: '2026-05-13T08:00:00.000Z',
+      }),
+    );
+    const snap = buildSnapshot(root);
+    expect(snap.active_agents).toHaveLength(1);
+    expect(snap.active_agents[0]?.sub_session_id).toBe('sub-alpha');
+    expect(snap.active_agents[0]?.role).toBe('dev');
+    expect(snap.active_agents[0]?.status).toBe('running');
+    expect(snap.active_agents[0]?.pid).toBe(4321);
+  });
+
+  it('rolls up cost_summary from .swt-planning/.metrics/ (Plan 04-02 T2)', () => {
+    const root = setupFixture();
+    const metricsDir = path.join(root, '.swt-planning', '.metrics');
+    mkdirSync(metricsDir, { recursive: true });
+    writeFileSync(
+      path.join(metricsDir, 'session-aaa.json'),
+      JSON.stringify({
+        session_id: 'aaa',
+        phase_slug: '02-second-phase',
+        agent_results: 1,
+        tokens: { in: 100, out: 50, cache_creation: 10, cache_read: 200 },
+        cost_usd: 0.42,
+        cache_hit_ratio: 0,
+        last_updated: new Date().toISOString(),
+      }),
+    );
+    const snap = buildSnapshot(root);
+    expect(snap.cost_summary).not.toBeNull();
+    expect(snap.cost_summary?.total_usd).toBeCloseTo(0.42, 5);
+    expect(snap.cost_summary?.today_usd).toBeCloseTo(0.42, 5);
+    expect(snap.cost_summary?.tokens?.cache_read).toBe(200);
+    // cache hit ratio = 200 / (100 + 10 + 200) = ~0.645
+    expect(snap.cost_summary?.cache_hit_ratio).toBeGreaterThan(0.6);
+  });
+
+  it('extracts project description + codebase profile + milestone todos (Plan 04-02 T2)', () => {
+    const root = setupFixture();
+    writeFileSync(
+      path.join(root, '.swt-planning', 'PROJECT.md'),
+      [
+        '# fixture',
+        '',
+        '**Description:** Test fixture project',
+        '**Stack:** TypeScript / Node',
+        '**Languages:** ts, js',
+        '**LOC:** 12345',
+        '',
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(root, '.swt-planning', 'STATE.md'),
+      [
+        '# State',
+        '**Project:** fixture-project',
+        '**Milestone:** v1.6.0 Test Milestone',
+        'Phase: 2 of 2',
+        '',
+        '**Todos:**',
+        '- 04 wire frontend',
+        '- ship docs',
+        '',
+        '**Blockers:**',
+        '- 03 pi gap',
+        '',
+      ].join('\n'),
+    );
+    const snap = buildSnapshot(root);
+    expect(snap.project.description).toBe('Test fixture project');
+    expect(snap.project.codebase_profile?.stack).toBe('TypeScript / Node');
+    expect(snap.project.codebase_profile?.languages).toEqual(['ts', 'js']);
+    expect(snap.project.codebase_profile?.loc).toBe(12345);
+    expect(snap.milestone.todos).toEqual([
+      { text: 'wire frontend', phase: '04' },
+      { text: 'ship docs' },
+    ]);
+    expect(snap.milestone.blockers).toEqual([{ text: 'pi gap', phase: '03' }]);
+  });
+
+  it('computes milestone.percent_complete > 0 once a phase passes (Plan 04-02 T2)', () => {
+    const root = setupFixture();
+    const snap = buildSnapshot(root);
+    // Phase 1 in fixture is all_done with QA pass; phase 2 only has a plan.
+    // Expected: (1 + 0.4) / 2 = 0.7
+    expect(snap.milestone.percent_complete).toBeGreaterThan(0.5);
+    expect(snap.milestone.percent_complete).toBeLessThan(1);
+  });
+
   it('reducer perf <50ms on the fixture (warm)', () => {
     const root = setupFixture();
     buildSnapshot(root); // warm
