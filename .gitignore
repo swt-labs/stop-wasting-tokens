@@ -138,6 +138,8 @@ scripts/lib/*
 !scripts/lib/swt-cache-key.sh
 !scripts/lib/swt-config-root.sh
 !scripts/lib/swt-target-root.sh
+# Phase 04 plan 04-04: SWT-side rewrite (4-line layout + SWT naming + metrics wiring).
+!scripts/swt-statusline.sh
 
 # Phase 02 closure manifest — tracks status of §6.3 rewrites for the porter.
 !scripts/.port-rewrites.json

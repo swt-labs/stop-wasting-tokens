@@ -27,7 +27,7 @@ swt_cache_root() {
   printf '%s' "${SWT_CACHE_ROOT:-${HOME}/.swt/cache}"
 }
 
-vbw_hash_path() {
+swt_hash_path() {
   local root="$1"
   if command -v md5sum &>/dev/null; then
     printf '%s' "$root" | md5sum | cut -c1-8
@@ -38,9 +38,9 @@ vbw_hash_path() {
   fi
 }
 
-vbw_cache_prefix() {
+swt_cache_prefix() {
   local version="$1" uid="$2" root="$3"
   local hash
-  hash=$(vbw_hash_path "$root")
+  hash=$(swt_hash_path "$root")
   printf '/tmp/swt-%s-%s-%s' "${version:-0}" "$uid" "$hash"
 }

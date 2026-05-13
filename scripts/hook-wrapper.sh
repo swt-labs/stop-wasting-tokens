@@ -76,7 +76,7 @@ trap cleanup_on_sighup SIGHUP
 # Resolve SWT workspace root (issue #258: bare .swt-planning/ fails in monorepo submodules)
 # shellcheck source=lib/swt-config-root.sh
 . "$(dirname "$0")/lib/swt-config-root.sh"
-find_vbw_root
+find_swt_root
 
 # Debug mode: SWT_DEBUG=1 enables verbose hook tracing to stderr
 VBW_DEBUG="${VBW_DEBUG:-0}"
