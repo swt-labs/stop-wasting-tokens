@@ -160,6 +160,33 @@ export interface RoutingDecision {
   readonly phaseTarget?: string; // "01"-padded phase number
 }
 
+// TEST SEAM — Phase 5 plan 05-02. Role-to-routing pin table for
+// SWT_DEBUG_ONLY_ROLE. See the per-agent parity tests under
+// test/regression/agent-parity/. Each entry maps an SWT agent role to the
+// CookMode + priority that role's parity test should invoke. Not exported
+// as a public API surface — only consumed at the routeFromPhaseDetect()
+// callsite below when the env-var seam fires.
+export type DebugOnlyRole =
+  | 'scout'
+  | 'architect'
+  | 'lead'
+  | 'dev'
+  | 'qa'
+  | 'debugger'
+  | 'docs';
+
+export const ROLE_TO_ROUTING: Readonly<
+  Record<DebugOnlyRole, { readonly mode: CookMode; readonly priority: number }>
+> = {
+  scout: { mode: 'scope', priority: 6 },
+  architect: { mode: 'discuss', priority: 8 },
+  lead: { mode: 'plan-and-execute', priority: 9 },
+  dev: { mode: 'execute', priority: 10 },
+  qa: { mode: 'verify', priority: 7 },
+  debugger: { mode: 'qa-remediation', priority: 3.5 },
+  docs: { mode: 'archive', priority: 11 },
+};
+
 // ────────────────────────────────────────────────────────────────────────────
 // QA gate types — Task 4 (TDD3 §7.5)
 // ────────────────────────────────────────────────────────────────────────────
@@ -884,7 +911,39 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       io.stderr.write(`swt cook: Run 'swt init' first.\n`);
       return EXIT.SUCCESS;
     }
-    const routing = decision as RoutingDecision;
+    let routing = decision as RoutingDecision;
+
+    // TEST SEAM — Phase 5 plan 05-02. Pins the 11-priority router to a single
+    // role for per-agent parity tests in test/regression/agent-parity/*.
+    // Production users have no reason to set SWT_DEBUG_ONLY_ROLE; we gate
+    // both on a strict role-union match AND on NODE_ENV=test (or
+    // SWT_ALLOW_DEBUG_ROLE=1 for developer-local recording). The router still
+    // runs first so the rest of the cook turn (events, runMode plumbing) sees
+    // a real RoutingDecision shape — we only mutate `mode/priority` to force
+    // single-role execution.
+    const debugOnlyRole = process.env['SWT_DEBUG_ONLY_ROLE'];
+    if (debugOnlyRole !== undefined && debugOnlyRole.length > 0) {
+      if (
+        process.env['NODE_ENV'] !== 'test' &&
+        process.env['SWT_ALLOW_DEBUG_ROLE'] !== '1'
+      ) {
+        throw new Error(
+          'SWT_DEBUG_ONLY_ROLE is a test-only seam. Set NODE_ENV=test or SWT_ALLOW_DEBUG_ROLE=1 to use.',
+        );
+      }
+      const pinned = ROLE_TO_ROUTING[debugOnlyRole as DebugOnlyRole];
+      if (pinned === undefined) {
+        throw new Error(
+          `SWT_DEBUG_ONLY_ROLE=${debugOnlyRole} is not a known role. Valid: ${Object.keys(ROLE_TO_ROUTING).join(', ')}`,
+        );
+      }
+      routing = {
+        mode: pinned.mode,
+        priority: pinned.priority,
+        requiresConfirmation: false,
+        ...(routing.phaseTarget !== undefined ? { phaseTarget: routing.phaseTarget } : {}),
+      };
+    }
     const stateSessionId = resolveSessionId();
 
     // Emit cook.priority_decision immediately after routing resolves. This
