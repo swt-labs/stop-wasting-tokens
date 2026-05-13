@@ -16,6 +16,7 @@ import { registerArtifactDiffRoute } from './routes/artifact-diff.js';
 import { registerArtifactHistoryRoute } from './routes/artifact-history.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerBudgetRoute } from './routes/budget.js';
+import { createLiveBudgetWiring, type BudgetWiring } from './budget-routes.js';
 import { registerCacheHitsRoute } from './routes/cache-hits.js';
 import { registerCommandRoute } from './routes/command.js';
 import { registerCookControlRoute } from './routes/cook-control.js';
@@ -82,6 +83,7 @@ export function createApp(
   bus: EventBus;
   snapshotter: Snapshotter | null;
   projectRoot: string | null;
+  budgetWiring: BudgetWiring | null;
 } {
   const bus = opts.bus ?? createEventBus();
   const startedAt = opts.startedAt ?? Date.now();
@@ -176,12 +178,21 @@ export function createApp(
   // subscribe() is a no-op — re-render is driven by snapshot deltas, not a
   // separate METER_UPDATED channel.
   registerCacheHitsRoute(app, createFileBackedMeterGetter(() => projectRoot));
-  // Plan 04-01 PR-35: Budget Gate SSE + POST routes. Registers
-  // unconditionally with a getGate() getter that returns null until the
-  // methodology layer wires a live BudgetGate (separate M4 follow-up).
-  // /api/budget/sse keeps the connection open with an empty state when
-  // null; /api/budget/bump returns 503.
-  registerBudgetRoute(app, () => null);
+  // Plan 04-01 PR-35: Budget Gate SSE + POST routes. Plan 06-02 T3
+  // replaces the prior `() => null` placeholder with a live BudgetGate
+  // wired through `createLiveBudgetWiring` — the chokidar file-meter
+  // adapter watches `.swt-planning/.metrics/` so spend pressure flows
+  // through the gate in real time, and `budget.pause` / `budget.resume`
+  // events translate to `.cook-controls/<sid>.pending` signal-file
+  // writes for the cook orchestrator's existing boundary consumer.
+  // Greenfield daemons without a projectRoot keep the null placeholder.
+  let budgetWiring: BudgetWiring | null = null;
+  if (projectRoot !== null) {
+    budgetWiring = createLiveBudgetWiring({ projectRoot });
+    registerBudgetRoute(app, budgetWiring.getGate);
+  } else {
+    registerBudgetRoute(app, () => null);
+  }
   // Plan 04-01 PR-37: TPAC history SSE route. Reads
   // <projectRoot>/.swt-planning/.tpac/*.json on connect; chokidar-
   // watches for new reports. Empty state when projectRoot is null OR
@@ -226,7 +237,7 @@ export function createApp(
   // in .vbw-planning/phases/04-dashboard-statusline/PARITY-REPORT.md.
   registerVibeRoutes(app, { projectRoot: projectRoot ?? cwd });
   registerSpaRoutes(app);
-  return { app, bus, snapshotter, projectRoot };
+  return { app, bus, snapshotter, projectRoot, budgetWiring };
 }
 
 /**
@@ -317,7 +328,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
   // Plan 04-05 T1 (R7): the v2 `agentFactory` plumbing was gutted alongside
   // the rest of the `packages/dashboard/src/server/vibe/` subtree. The
   // only supported orchestrator entry is `swt cook` via /api/cook/start.
-  const { app, bus, snapshotter } = createApp({
+  const { app, bus, snapshotter, budgetWiring } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
   });
@@ -338,6 +349,9 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     port: boundPort,
     hostname,
     close: async () => {
+      if (budgetWiring !== null) {
+        await budgetWiring.dispose();
+      }
       if (snapshotter) await snapshotter.close();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
