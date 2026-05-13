@@ -178,3 +178,19 @@ export {
   resolveSkillPath,
   type InvokeSkillOptions,
 } from './skills/index.js';
+
+// Plan 01-05 (Phase 1): Pi-substrate primitive 2 — `swt:askUser`. Dashboard-
+// mediated structured prompt with readline headless fallback (research §2
+// primitive 2). ORCHESTRATOR-ONLY invariant — the swt_ask_user Pi custom
+// tool is registered on the orchestrator session only; spawned roles
+// (dev/qa/scout/lead/architect/debugger/docs) never receive it. The
+// invariant is enforced at spawn-agent.ts (plan 01-01) and mechanically
+// asserted in packages/runtime/test/ask-user/ask-user.test.ts (A.6).
+// TDD3 §14, REQ-01, REQ-06.
+export {
+  askUser,
+  type AskUserOption,
+  type AskUserOptions,
+  type AskUserQuestion,
+  type AskUserResponse,
+} from './ask-user/index.js';
