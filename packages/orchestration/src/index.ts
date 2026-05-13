@@ -66,6 +66,14 @@ export {
   type SpawnAgentExtension,
 } from './spawn-agent.js';
 
+// Phase G / Phase 1 / Plan 01-01 (G-R1 + G-M1): per-provider prompt overlay
+// resolver. Pure function that reads `<installRoot>/provider_overlays/
+// <role>-<provider>.md` if present, strips frontmatter, returns the trimmed
+// body — or `undefined` when the file is absent OR `provider` is undefined.
+// Vendor-neutrality preserved by construction (no overlay → no-op → byte-
+// identical to pre-Phase-1).
+export { readProviderOverlay } from './provider-overlay.js';
+
 // Plan 03-02 T2 (Phase 3, R1): `swt:spawnOrchestratorSession` — the
 // dedicated code path that constructs an orchestrator Pi session.
 // SEPARATE from `spawnAgent` (which keeps its `role === 'orchestrator'`
