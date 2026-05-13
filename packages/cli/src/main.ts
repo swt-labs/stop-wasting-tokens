@@ -16,6 +16,7 @@ import { qaHandler } from './commands/qa.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
+import { verifyHandler } from './commands/verify.js';
 import { updateHandler } from './commands/update.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
 import { defaultWatchHandler } from './commands/watch.js';
@@ -102,6 +103,17 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[phase-number]',
     description: 'Run goal-backward QA on a phase',
     handler: qaHandler,
+  });
+  // Plan 03-03 T2 (Phase 3): `swt verify` — INLINE UAT checkpoint loop.
+  // Does NOT spawn a Pi session per architect-R3 (askUser is orchestrator-
+  // only). The TypeScript handler IS the protocol implementation; the
+  // 890-LOC commands/verify.md is documentation, not LLM prompt.
+  // TDD3 §12.3.
+  registry.register({
+    name: 'verify',
+    usage: '[phase-number]',
+    description: 'Run the UAT checkpoint loop on a phase (inline; no Pi spawn)',
+    handler: verifyHandler,
   });
   registry.register({
     name: 'update',
