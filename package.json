@@ -59,7 +59,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:regression": "node scripts/stub-test-regression.mjs",
+    "test:regression": "vitest run --config vitest.regression.config.ts",
     "test:chaos": "vitest run test/chaos/",
     "test:provider-matrix": "vitest run test/provider-matrix/",
     "coverage": "vitest run --coverage",
