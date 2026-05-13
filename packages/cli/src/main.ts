@@ -8,7 +8,9 @@ import { cleanupHandler } from './commands/cleanup.js';
 import { configHandler } from './commands/config.js';
 import { cookHandler } from './commands/cook.js';
 import { registerDashboard } from './commands/dashboard.js';
+import { debugHandler } from './commands/debug.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
+import { discussHandler } from './commands/discuss.js';
 import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
 import { migrateHandler } from './commands/migrate.js';
@@ -17,7 +19,7 @@ import { qaHandler } from './commands/qa.js';
 import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
-import { stubCommand, STUB_SPECS } from './commands/stubs.js';
+import { fixDeprecatedHandler, stubCommand, STUB_SPECS } from './commands/stubs.js';
 import { verifyHandler } from './commands/verify.js';
 import { updateHandler } from './commands/update.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
@@ -169,6 +171,25 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     handler: migrateHandler,
   });
   registerDashboard(registry);
+
+  // Plan 06-05 T4 — discuss/debug graduate from EXIT.NOT_IMPLEMENTED stubs to
+  // thin shims that delegate to cookHandler. fix stays deprecated but its
+  // message is meaningful (see fixDeprecatedHandler in stubs.ts).
+  registry.register({
+    name: 'discuss',
+    description: 'Discuss the next move via cook priority-8 routing (interactive)',
+    handler: discussHandler,
+  });
+  registry.register({
+    name: 'debug',
+    description: 'Drive debugger role via cook qa-remediation routing pin',
+    handler: debugHandler,
+  });
+  registry.register({
+    name: 'fix',
+    description: 'Deprecated — use `swt cook` or `swt qa` for remediation',
+    handler: fixDeprecatedHandler,
+  });
 
   for (const spec of STUB_SPECS) {
     registry.register({
