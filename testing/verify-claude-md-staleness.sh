@@ -4,7 +4,7 @@ set -euo pipefail
 # verify-claude-md-staleness.sh — Tests for CLAUDE.md VBW section staleness detection
 #
 # Tests:
-#   1. No .vbw-planning → exit 0, not stale
+#   1. No .swt-planning → exit 0, not stale
 #   2. No CLAUDE.md → detected as stale
 #   3. Missing Code Intelligence detected
 #   4. Version mismatch detected
@@ -50,8 +50,8 @@ current_version() {
 }
 
 make_project() {
-  mkdir -p .vbw-planning
-  cat > .vbw-planning/PROJECT.md <<'EOF'
+  mkdir -p .swt-planning
+  cat > .swt-planning/PROJECT.md <<'EOF'
 # TestProject
 
 Test description
@@ -75,12 +75,12 @@ test_no_project_not_stale() {
   echo "test" > CLAUDE.md
   if bash "$SCRIPT" --json >/tmp/claude-stale-test-1.json 2>/dev/null; then
     if grep -q '"stale":false' /tmp/claude-stale-test-1.json; then
-      pass "1: no .vbw-planning → not stale"
+      pass "1: no .swt-planning → not stale"
     else
       fail "1: expected stale=false, got: $(cat /tmp/claude-stale-test-1.json)"
     fi
   else
-    fail "1: no .vbw-planning should exit 0"
+    fail "1: no .swt-planning should exit 0"
   fi
 }
 
@@ -128,7 +128,7 @@ EOF
 test_version_mismatch_detected() {
   make_project
   bash "$BOOTSTRAP" CLAUDE.md "TestProject" "Test value" >/dev/null 2>&1
-  echo "0.0.1" > .vbw-planning/.claude-md-version
+  echo "0.0.1" > .swt-planning/.claude-md-version
 
   bash "$SCRIPT" --json >/tmp/claude-stale-test-4.json 2>/dev/null || true
   if jq -e '.version_mismatch == true' /tmp/claude-stale-test-4.json >/dev/null 2>&1; then
@@ -144,7 +144,7 @@ test_fresh_state() {
 
   make_project
   bash "$BOOTSTRAP" CLAUDE.md "TestProject" "Test value" >/dev/null 2>&1
-  echo "$ver" > .vbw-planning/.claude-md-version
+  echo "$ver" > .swt-planning/.claude-md-version
 
   if bash "$SCRIPT" --json >/tmp/claude-stale-test-5.json 2>/dev/null; then
     if jq -e '.stale == false' /tmp/claude-stale-test-5.json >/dev/null 2>&1; then
@@ -246,16 +246,16 @@ EOF
 test_fix_writes_version_marker() {
   make_project
   bash "$BOOTSTRAP" CLAUDE.md "TestProject" "Test value" >/dev/null 2>&1
-  rm -f .vbw-planning/.claude-md-version
+  rm -f .swt-planning/.claude-md-version
 
   bash "$SCRIPT" --fix >/dev/null 2>&1 || true
 
-  if [ ! -f .vbw-planning/.claude-md-version ]; then
+  if [ ! -f .swt-planning/.claude-md-version ]; then
     fail "8: version marker not written"
     return
   fi
 
-  if [ -z "$(tr -d '[:space:]' < .vbw-planning/.claude-md-version)" ]; then
+  if [ -z "$(tr -d '[:space:]' < .swt-planning/.claude-md-version)" ]; then
     fail "8: version marker is empty"
     return
   fi
@@ -266,7 +266,7 @@ test_fix_writes_version_marker() {
 test_json_output_valid() {
   make_project
   bash "$BOOTSTRAP" CLAUDE.md "TestProject" "Test value" >/dev/null 2>&1
-  echo "0.0.1" > .vbw-planning/.claude-md-version
+  echo "0.0.1" > .swt-planning/.claude-md-version
 
   bash "$SCRIPT" --json >/tmp/claude-stale-test-9.json 2>/dev/null || true
   if jq empty /tmp/claude-stale-test-9.json >/dev/null 2>&1; then

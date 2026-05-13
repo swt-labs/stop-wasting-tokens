@@ -8,6 +8,7 @@ import chokidar from 'chokidar';
 import { Hono } from 'hono';
 
 import { createEventBus, type EventBus } from './event-bus.js';
+import { requireToken, resolveDashboardToken } from './lib/auth.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
 import { createFileBackedMeterGetter } from './lib/file-backed-meter.js';
@@ -66,6 +67,17 @@ export interface CreateServerOptions {
   projectRoot?: string;
   /** Skip snapshot watcher even if projectRoot is provided. For tests. */
   skipSnapshotter?: boolean;
+  /**
+   * Plan 06-03 T4 (Phase 4 R4 carry-forward) — opt into the per-boot
+   * dashboard token gate. When `true`, the daemon writes a fresh 32-byte
+   * hex token to `.swt-planning/.dashboard/token` (or reads
+   * `SWT_DASHBOARD_TOKEN` if set), and every `/api/*` request except
+   * `/api/health` must carry `Authorization: Bearer <token>`. When
+   * `false` (default), the daemon binds loopback-only with no auth gate.
+   *
+   * Auto-enabled when `SWT_DASHBOARD_TOKEN` env var is set + non-empty.
+   */
+  authEnabled?: boolean;
 }
 
 const DEFAULT_PORT = 54321;
@@ -77,6 +89,14 @@ export function createApp(
     startedAt?: number;
     projectRoot?: string;
     snapshotter?: Snapshotter;
+    /**
+     * Plan 06-03 T4 — when provided, install `requireToken` middleware
+     * on `/api/*` after the security-headers middleware and BEFORE any
+     * routes. `/api/health` is exempt (liveness probes). Tests inject
+     * a pre-set token to avoid filesystem coupling; production wiring
+     * calls `resolveDashboardToken()` upstream in `createServer`.
+     */
+    authToken?: string;
   } = {},
 ): {
   app: Hono;
@@ -102,6 +122,13 @@ export function createApp(
       disableCsp: process.env['SWT_DASHBOARD_NO_CSP'] === '1',
     }),
   );
+  // Plan 06-03 T4 (Phase 4 R4) — per-boot dashboard token gate. Applied
+  // to `/api/*` so static SPA assets stay public; `/api/health` is
+  // exempt via the middleware's internal allowlist (liveness probes
+  // shouldn't need the token).
+  if (opts.authToken !== undefined && opts.authToken.length > 0) {
+    app.use('/api/*', requireToken({ token: opts.authToken }));
+  }
   registerHealthRoute(app, startedAt);
   // B-09: pass a snapshot getter so SSE writes an initial snapshot.replace
   // frame on connect. The getter reads the live `snapshotter` closure so
@@ -312,8 +339,6 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     (process.env['SWT_DASHBOARD_UNSAFE_PUBLIC'] === '1' ||
       process.env['SWT_UNSAFE_PUBLIC'] === '1');
 
-  assertSafeBinding({ host: hostname, unsafePublic: allowPublic });
-
   const startedAt = Date.now();
 
   let projectRoot: string | undefined = options.projectRoot;
@@ -325,12 +350,35 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     }
   }
 
+  // Plan 06-03 T4 (Phase 4 R4) — resolve the dashboard token before
+  // binding. Auth is enabled when (a) explicitly requested via
+  // `options.authEnabled`, OR (b) `SWT_DASHBOARD_TOKEN` env var is set.
+  // The binding-guard relaxes its loopback-only restriction when auth
+  // is installed (fail-closed otherwise).
+  const authEnabled =
+    options.authEnabled === true ||
+    (process.env['SWT_DASHBOARD_TOKEN'] !== undefined &&
+      process.env['SWT_DASHBOARD_TOKEN'].length > 0);
+  let authToken: string | undefined;
+  if (authEnabled) {
+    authToken = resolveDashboardToken(
+      projectRoot !== undefined ? { projectRoot } : {},
+    );
+  }
+
+  assertSafeBinding({
+    host: hostname,
+    unsafePublic: allowPublic,
+    authMiddlewareInstalled: authEnabled,
+  });
+
   // Plan 04-05 T1 (R7): the v2 `agentFactory` plumbing was gutted alongside
   // the rest of the `packages/dashboard/src/server/vibe/` subtree. The
   // only supported orchestrator entry is `swt cook` via /api/cook/start.
   const { app, bus, snapshotter, budgetWiring } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
+    ...(authToken !== undefined ? { authToken } : {}),
   });
 
   const server = await new Promise<ServerType>((resolve) => {

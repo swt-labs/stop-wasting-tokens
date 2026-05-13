@@ -4,8 +4,8 @@ set -euo pipefail
 # verify-skill-activation.sh — Verify additive skill activation pipeline
 #
 # Checks:
-# - vbw-dev.md references skills_used activation
-# - vbw-lead.md references skill evaluation and wiring
+# - swt-dev.md references skills_used activation
+# - swt-lead.md references skill evaluation and wiring
 # - orchestrator spawn contracts emit explicit activation OR explicit no-activation blocks
 # - spawned-agent prompts treat orchestrator selection as a starting set, not a ceiling
 # - command prompts select all materially helpful skills, including adjacent/domain skills
@@ -30,7 +30,7 @@ while IFS= read -r file; do
 done < <(tracked_command_reference_files)
 
 COMMAND_SKILL_CONTRACT_FILES=(
-  "$ROOT/commands/vibe.md"
+  "$ROOT/commands/cook.md"
   "$ROOT/commands/research.md"
   "$ROOT/commands/map.md"
   "$ROOT/commands/fix.md"
@@ -49,10 +49,10 @@ AGENT_SKILL_CONTRACT_FILES=(
   "$ROOT/agents/swt-docs.md"
 )
 
-SKILL_FOLLOW_UP_SENTENCE=$(cat <<'EOF'
-After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-EOF
-)
+# Bash 3.2 (macOS default) mis-parses apostrophes inside `<<'EOF'` heredocs
+# wrapped in `$(...)` command substitution — see also DEVN-05 in plan 06-05.
+# Build the string via concat so dev-local pre-parse stays clean.
+SKILL_FOLLOW_UP_SENTENCE='After calling `Skill(...)`, if the loaded skill'"'"'s instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.'
 
 SKILL_FOLLOW_UP_BLOCK_OPEN='<skill_follow_up_files>'
 
@@ -514,11 +514,11 @@ verify_skill_contract_sites() {
 
 echo "=== Skill Activation Pipeline Verification (plan-driven model) ==="
 
-# --- vbw-dev.md checks ---
+# --- swt-dev.md checks ---
 
 DEV_AGENT="$ROOT/agents/swt-dev.md"
 FIX_COMMAND="$ROOT/commands/fix.md"
-VIBE_COMMAND="$ROOT/commands/vibe.md"
+VIBE_COMMAND="$ROOT/commands/cook.md"
 EXECUTE_PROTOCOL="$ROOT/references/execute-protocol.md"
 DEV_TOOLS=$(sed -n '/^---$/,/^---$/p' "$DEV_AGENT" | grep '^tools:' || true)
 DEV_DISALLOWED=$(sed -n '/^---$/,/^---$/p' "$DEV_AGENT" | grep '^disallowedTools:' || true)
@@ -554,54 +554,54 @@ dev_disallowed_has() {
 }
 
 if [ -z "$DEV_TOOLS" ]; then
-  pass "vbw-dev.md: does not pin a tools allowlist (forward-compatible)"
+  pass "swt-dev.md: does not pin a tools allowlist (forward-compatible)"
 else
-  fail "vbw-dev.md: must not pin a tools allowlist (use disallowedTools denylist for forward compatibility)"
+  fail "swt-dev.md: must not pin a tools allowlist (use disallowedTools denylist for forward compatibility)"
 fi
 
 if [ -n "$DEV_DISALLOWED" ]; then
-  pass "vbw-dev.md: declares disallowedTools denylist"
+  pass "swt-dev.md: declares disallowedTools denylist"
 else
-  fail "vbw-dev.md: missing disallowedTools denylist"
+  fail "swt-dev.md: missing disallowedTools denylist"
 fi
 
 if [ "$DEV_MEMORY" = "memory: project" ]; then
-  pass "vbw-dev.md: preserves project memory"
+  pass "swt-dev.md: preserves project memory"
 else
-  fail "vbw-dev.md: memory must remain project (found: ${DEV_MEMORY:-missing})"
+  fail "swt-dev.md: memory must remain project (found: ${DEV_MEMORY:-missing})"
 fi
 
 for required_denied in Task TaskCreate Agent TeamCreate TeamDelete AskUserQuestion; do
   if dev_disallowed_has "$required_denied"; then
-    pass "vbw-dev.md: disallowedTools bans $required_denied"
+    pass "swt-dev.md: disallowedTools bans $required_denied"
   else
-    fail "vbw-dev.md: disallowedTools must ban $required_denied"
+    fail "swt-dev.md: disallowedTools must ban $required_denied"
   fi
 done
 
 for must_remain_available in Bash Read Edit Write Glob Grep LSP Skill WebFetch WebSearch SendMessage TaskGet; do
   if dev_disallowed_has "$must_remain_available"; then
-    fail "vbw-dev.md: disallowedTools must not ban $must_remain_available (Dev relies on it)"
+    fail "swt-dev.md: disallowedTools must not ban $must_remain_available (Dev relies on it)"
   else
-    pass "vbw-dev.md: disallowedTools does not ban $must_remain_available"
+    pass "swt-dev.md: disallowedTools does not ban $must_remain_available"
   fi
 done
 
 if grep -q 'Your frontmatter denylist explicitly bans recursive delegation' <<< "$DEV_CONSTRAINTS_SECTION" \
   && grep -q 'Use the listed implementation tools directly' <<< "$DEV_CONSTRAINTS_SECTION" \
-  && grep -q 'Task`, `TaskCreate`, `Agent`, `TeamCreate`, `TeamDelete`, and `AskUserQuestion`' <<< "$DEV_CONSTRAINTS_SECTION"; then
-  pass "vbw-dev.md: prompt explains denylist no-subagent tool boundary"
+  && grep -q '`Task`, `TaskCreate`, `Agent`, `TeamCreate`, `TeamDelete`, and `AskUserQuestion`' <<< "$DEV_CONSTRAINTS_SECTION"; then
+  pass "swt-dev.md: prompt explains denylist no-subagent tool boundary"
 else
-  fail "vbw-dev.md: missing denylist no-subagent tool-boundary guidance"
+  fail "swt-dev.md: missing denylist no-subagent tool-boundary guidance"
 fi
 
 if grep -q 'SendMessage' <<< "$DEV_COMMUNICATION_SECTION" \
   && grep -q 'execution_update' <<< "$DEV_COMMUNICATION_SECTION" \
   && grep -q 'blocker_report' <<< "$DEV_COMMUNICATION_SECTION" \
   && ! dev_disallowed_has SendMessage; then
-  pass "vbw-dev.md: SendMessage guidance available (not in denylist)"
+  pass "swt-dev.md: SendMessage guidance available (not in denylist)"
 else
-  fail "vbw-dev.md: SendMessage guidance/availability mismatch"
+  fail "swt-dev.md: SendMessage guidance/availability mismatch"
 fi
 
 if grep -q 'TaskGet' <<< "$DEV_BLOCKED_TASK_SECTION" \
@@ -609,23 +609,23 @@ if grep -q 'TaskGet' <<< "$DEV_BLOCKED_TASK_SECTION" \
   && grep -q 'completed' <<< "$DEV_BLOCKED_TASK_SECTION" \
   && grep -q 'self-start' <<< "$DEV_BLOCKED_TASK_SECTION" \
   && ! dev_disallowed_has TaskGet; then
-  pass "vbw-dev.md: TaskGet guidance available (not in denylist)"
+  pass "swt-dev.md: TaskGet guidance available (not in denylist)"
 else
-  fail "vbw-dev.md: TaskGet guidance/availability mismatch"
+  fail "swt-dev.md: TaskGet guidance/availability mismatch"
 fi
 
 if grep -q '^## MCP-Derived Context' "$DEV_AGENT"; then
-  fail "vbw-dev.md: stale '## MCP-Derived Context' section must be removed (subagents may call MCP directly)"
+  fail "swt-dev.md: stale '## MCP-Derived Context' section must be removed (subagents may call MCP directly)"
 else
-  pass "vbw-dev.md: no stale '## MCP-Derived Context' section"
+  pass "swt-dev.md: no stale '## MCP-Derived Context' section"
 fi
 
 if grep -q 'explicit `tools:` allowlist' "$DEV_AGENT" \
   || grep -q 'Assume dynamic MCP server tools are unavailable' "$DEV_AGENT" \
   || grep -q 'Do not ask the orchestrator to add MCP' "$DEV_AGENT"; then
-  fail "vbw-dev.md: stale anti-MCP allowlist guidance must be removed"
+  fail "swt-dev.md: stale anti-MCP allowlist guidance must be removed"
 else
-  pass "vbw-dev.md: no stale anti-MCP allowlist guidance"
+  pass "swt-dev.md: no stale anti-MCP allowlist guidance"
 fi
 
 if grep -q 'Dev uses an explicit allowlist' "$ROOT/README.md" \
@@ -645,14 +645,14 @@ fi
 if grep -q '## Available Tools' "$DEV_AGENT" \
   && grep -q 'denylist' "$DEV_AGENT" \
   && grep -q '## MCP Tool Usage' "$DEV_AGENT"; then
-  pass "vbw-dev.md: documents denylist tool boundary and MCP availability"
+  pass "swt-dev.md: documents denylist tool boundary and MCP availability"
 else
-  fail "vbw-dev.md: missing denylist + MCP availability documentation"
+  fail "swt-dev.md: missing denylist + MCP availability documentation"
 fi
 
 for anti_mcp_target in "$FIX_COMMAND" "$VIBE_COMMAND" "$EXECUTE_PROTOCOL"; do
   target_label=$(basename "$anti_mcp_target")
-  if grep -q 'do not instruct `vbw-dev` to call MCP servers directly' "$anti_mcp_target" \
+  if grep -q 'do not instruct `swt-dev` to call MCP servers directly' "$anti_mcp_target" \
     || grep -q 'pre-extract concise.*for Dev' "$anti_mcp_target" \
     || grep -q 'Do not plan for Dev agents to call MCP servers directly' "$anti_mcp_target"; then
     fail "$target_label: stale anti-MCP gating prose must be removed (subagents may call MCP directly)"
@@ -670,62 +670,62 @@ else
 fi
 
 if grep -q 'skills_used' "$DEV_AGENT"; then
-  pass "vbw-dev.md: references skills_used frontmatter"
+  pass "swt-dev.md: references skills_used frontmatter"
 else
-  fail "vbw-dev.md: missing skills_used reference"
+  fail "swt-dev.md: missing skills_used reference"
 fi
 
 if grep -q 'Skill(skill-name)' "$DEV_AGENT"; then
-  pass "vbw-dev.md: references Skill() activation"
+  pass "swt-dev.md: references Skill() activation"
 else
-  fail "vbw-dev.md: missing Skill() reference"
+  fail "swt-dev.md: missing Skill() reference"
 fi
 
 if ! grep -q 'protocol violation' "$DEV_AGENT"; then
-  pass "vbw-dev.md: no enforcement language"
+  pass "swt-dev.md: no enforcement language"
 else
-  fail "vbw-dev.md: still has 'protocol violation' enforcement language"
+  fail "swt-dev.md: still has 'protocol violation' enforcement language"
 fi
 
 if grep -q 'skill_activation' "$DEV_AGENT" && grep -q 'skill_no_activation' "$DEV_AGENT"; then
-  pass "vbw-dev.md: has orchestrator-aware conditional in deeper protocol"
+  pass "swt-dev.md: has orchestrator-aware conditional in deeper protocol"
 else
-  fail "vbw-dev.md: missing orchestrator-aware conditional (must reference both skill_activation and skill_no_activation)"
+  fail "swt-dev.md: missing orchestrator-aware conditional (must reference both skill_activation and skill_no_activation)"
 fi
 
-# --- vbw-lead.md checks ---
+# --- swt-lead.md checks ---
 
 LEAD_AGENT="$ROOT/agents/swt-lead.md"
 LEAD_TOOLS=$(sed -n '/^---$/,/^---$/p' "$LEAD_AGENT" | grep '^tools:' || true)
 
 if grep -q 'Skill' <<< "$LEAD_TOOLS"; then
-  pass "vbw-lead.md: Skill in tools allowlist"
+  pass "swt-lead.md: Skill in tools allowlist"
 else
-  fail "vbw-lead.md: Skill NOT in tools allowlist"
+  fail "swt-lead.md: Skill NOT in tools allowlist"
 fi
 
 if grep -q 'Wire relevant skills into plans' "$LEAD_AGENT"; then
-  pass "vbw-lead.md: emphasizes wiring skills into plans"
+  pass "swt-lead.md: emphasizes wiring skills into plans"
 else
-  fail "vbw-lead.md: missing plan wiring language"
+  fail "swt-lead.md: missing plan wiring language"
 fi
 
 if grep -q 'Skill completeness check' "$LEAD_AGENT"; then
-  pass "vbw-lead.md: has skill completeness gate in self-review"
+  pass "swt-lead.md: has skill completeness gate in self-review"
 else
-  fail "vbw-lead.md: missing skill completeness gate in self-review"
+  fail "swt-lead.md: missing skill completeness gate in self-review"
 fi
 
 if grep -q 'skill_no_activation' "$LEAD_AGENT"; then
-  pass "vbw-lead.md: recognizes explicit no-activation block"
+  pass "swt-lead.md: recognizes explicit no-activation block"
 else
-  fail "vbw-lead.md: missing explicit no-activation handling"
+  fail "swt-lead.md: missing explicit no-activation handling"
 fi
 
 if ! grep -q 'write YES or NO' "$LEAD_AGENT"; then
-  pass "vbw-lead.md: no written YES/NO evaluation"
+  pass "swt-lead.md: no written YES/NO evaluation"
 else
-  fail "vbw-lead.md: still has written YES/NO evaluation"
+  fail "swt-lead.md: still has written YES/NO evaluation"
 fi
 
 # --- hooks.json negative checks (enforcement gates removed) ---
@@ -754,7 +754,7 @@ fi
 
 # --- Skill in all agent tools: allowlists (or inherited via disallowedTools pattern) ---
 
-for agent_file in vbw-qa.md vbw-scout.md vbw-debugger.md vbw-architect.md vbw-docs.md; do
+for agent_file in swt-qa.md swt-scout.md swt-debugger.md swt-architect.md swt-docs.md; do
   AGENT_PATH="$ROOT/agents/$agent_file"
   AGENT_TOOLS=$(sed -n '/^---$/,/^---$/p' "$AGENT_PATH" | grep '^tools:' || true)
   AGENT_DISALLOWED=$(sed -n '/^---$/,/^---$/p' "$AGENT_PATH" | grep '^disallowedTools:' || true)
@@ -838,144 +838,144 @@ fi
 QA_AGENT="$ROOT/agents/swt-qa.md"
 
 if grep -q 'skills_used' "$QA_AGENT"; then
-  pass "vbw-qa.md: references skills_used for plan-driven activation"
+  pass "swt-qa.md: references skills_used for plan-driven activation"
 else
-  fail "vbw-qa.md: missing skills_used reference"
+  fail "swt-qa.md: missing skills_used reference"
 fi
 
 if grep -q 'Skill(skill-name)' "$QA_AGENT"; then
-  pass "vbw-qa.md: references Skill() activation"
+  pass "swt-qa.md: references Skill() activation"
 else
-  fail "vbw-qa.md: missing Skill() reference"
+  fail "swt-qa.md: missing Skill() reference"
 fi
 
 if grep -q 'skill_no_activation' "$QA_AGENT"; then
-  pass "vbw-qa.md: recognizes explicit no-activation block"
+  pass "swt-qa.md: recognizes explicit no-activation block"
 else
-  fail "vbw-qa.md: missing explicit no-activation handling"
+  fail "swt-qa.md: missing explicit no-activation handling"
 fi
 
 if grep -q 'available_skills' "$QA_AGENT"; then
-  pass "vbw-qa.md: references available_skills for ad-hoc fallback"
+  pass "swt-qa.md: references available_skills for ad-hoc fallback"
 else
-  fail "vbw-qa.md: missing available_skills reference for ad-hoc fallback"
+  fail "swt-qa.md: missing available_skills reference for ad-hoc fallback"
 fi
 
 SCOUT_AGENT="$ROOT/agents/swt-scout.md"
 
 if grep -q 'skills_used' "$SCOUT_AGENT"; then
-  pass "vbw-scout.md: references skills_used for plan-driven path"
+  pass "swt-scout.md: references skills_used for plan-driven path"
 else
-  fail "vbw-scout.md: missing skills_used reference"
+  fail "swt-scout.md: missing skills_used reference"
 fi
 
 if grep -q 'available_skills' "$SCOUT_AGENT"; then
-  pass "vbw-scout.md: references available_skills for ad-hoc path"
+  pass "swt-scout.md: references available_skills for ad-hoc path"
 else
-  fail "vbw-scout.md: missing available_skills reference for ad-hoc path"
+  fail "swt-scout.md: missing available_skills reference for ad-hoc path"
 fi
 
 if grep -q 'skill_no_activation' "$SCOUT_AGENT"; then
-  pass "vbw-scout.md: recognizes explicit no-activation block"
+  pass "swt-scout.md: recognizes explicit no-activation block"
 else
-  fail "vbw-scout.md: missing explicit no-activation handling"
+  fail "swt-scout.md: missing explicit no-activation handling"
 fi
 
 if ! grep -q 'may still honor' "$SCOUT_AGENT"; then
-  pass "vbw-scout.md: no permissive may-still-honor wording on no-activation path"
+  pass "swt-scout.md: no permissive may-still-honor wording on no-activation path"
 else
-  fail "vbw-scout.md: still uses permissive may-still-honor wording on no-activation path"
+  fail "swt-scout.md: still uses permissive may-still-honor wording on no-activation path"
 fi
 
 if grep -Eq 'still honor( its| any)? `skills_used` frontmatter' "$SCOUT_AGENT"; then
-  pass "vbw-scout.md: preserves plan-driven skills_used behavior on no-activation path"
+  pass "swt-scout.md: preserves plan-driven skills_used behavior on no-activation path"
 else
-  fail "vbw-scout.md: missing mandatory skills_used preservation on no-activation path"
+  fail "swt-scout.md: missing mandatory skills_used preservation on no-activation path"
 fi
 
 DEBUGGER_AGENT="$ROOT/agents/swt-debugger.md"
 
 if grep -q 'available_skills' "$DEBUGGER_AGENT"; then
-  pass "vbw-debugger.md: references available_skills for ad-hoc activation"
+  pass "swt-debugger.md: references available_skills for ad-hoc activation"
 else
-  fail "vbw-debugger.md: missing available_skills reference"
+  fail "swt-debugger.md: missing available_skills reference"
 fi
 
 if grep -q 'bounded completeness pass' "$DEBUGGER_AGENT"; then
-  pass "vbw-debugger.md: includes bounded additive completeness pass"
+  pass "swt-debugger.md: includes bounded additive completeness pass"
 else
-  fail "vbw-debugger.md: missing bounded additive completeness pass"
+  fail "swt-debugger.md: missing bounded additive completeness pass"
 fi
 
 if grep -q 'skill_no_activation' "$DEBUGGER_AGENT"; then
-  pass "vbw-debugger.md: recognizes explicit no-activation block"
+  pass "swt-debugger.md: recognizes explicit no-activation block"
 else
-  fail "vbw-debugger.md: missing explicit no-activation handling"
+  fail "swt-debugger.md: missing explicit no-activation handling"
 fi
 
 if grep -q 'starting set, not a ceiling' "$DEBUGGER_AGENT"; then
-  pass "vbw-debugger.md: treats orchestrator selection as a starting set"
+  pass "swt-debugger.md: treats orchestrator selection as a starting set"
 else
-  fail "vbw-debugger.md: missing starting-set additive wording"
+  fail "swt-debugger.md: missing starting-set additive wording"
 fi
 
 ARCHITECT_AGENT="$ROOT/agents/swt-architect.md"
 
 if grep -q 'available_skills' "$ARCHITECT_AGENT"; then
-  pass "vbw-architect.md: references available_skills for ad-hoc activation"
+  pass "swt-architect.md: references available_skills for ad-hoc activation"
 else
-  fail "vbw-architect.md: missing available_skills reference"
+  fail "swt-architect.md: missing available_skills reference"
 fi
 
 if grep -q 'bounded completeness pass' "$ARCHITECT_AGENT"; then
-  pass "vbw-architect.md: includes bounded additive completeness pass"
+  pass "swt-architect.md: includes bounded additive completeness pass"
 else
-  fail "vbw-architect.md: missing bounded additive completeness pass"
+  fail "swt-architect.md: missing bounded additive completeness pass"
 fi
 
 if grep -q 'skill_no_activation' "$ARCHITECT_AGENT"; then
-  pass "vbw-architect.md: recognizes explicit no-activation block"
+  pass "swt-architect.md: recognizes explicit no-activation block"
 else
-  fail "vbw-architect.md: missing explicit no-activation handling"
+  fail "swt-architect.md: missing explicit no-activation handling"
 fi
 
 if grep -q 'starting set, not a ceiling' "$ARCHITECT_AGENT"; then
-  pass "vbw-architect.md: treats orchestrator selection as a starting set"
+  pass "swt-architect.md: treats orchestrator selection as a starting set"
 else
-  fail "vbw-architect.md: missing starting-set additive wording"
+  fail "swt-architect.md: missing starting-set additive wording"
 fi
 
 DOCS_AGENT="$ROOT/agents/swt-docs.md"
 
 if grep -q 'skills_used' "$DOCS_AGENT"; then
-  pass "vbw-docs.md: references skills_used for plan-driven activation"
+  pass "swt-docs.md: references skills_used for plan-driven activation"
 else
-  fail "vbw-docs.md: missing skills_used reference"
+  fail "swt-docs.md: missing skills_used reference"
 fi
 
 if grep -q 'Skill(skill-name)' "$DOCS_AGENT"; then
-  pass "vbw-docs.md: references Skill() activation"
+  pass "swt-docs.md: references Skill() activation"
 else
-  fail "vbw-docs.md: missing Skill() reference"
+  fail "swt-docs.md: missing Skill() reference"
 fi
 
 if grep -q 'skill_no_activation' "$DOCS_AGENT"; then
-  pass "vbw-docs.md: recognizes explicit no-activation block"
+  pass "swt-docs.md: recognizes explicit no-activation block"
 else
-  fail "vbw-docs.md: missing explicit no-activation handling"
+  fail "swt-docs.md: missing explicit no-activation handling"
 fi
 
 if grep -q 'available_skills' "$DOCS_AGENT"; then
-  pass "vbw-docs.md: references available_skills for ad-hoc fallback"
+  pass "swt-docs.md: references available_skills for ad-hoc fallback"
 else
-  fail "vbw-docs.md: missing available_skills reference for ad-hoc fallback"
+  fail "swt-docs.md: missing available_skills reference for ad-hoc fallback"
 fi
 
 # Dev ad-hoc fallback check
 if grep -q 'available_skills' "$DEV_AGENT"; then
-  pass "vbw-dev.md: references available_skills for ad-hoc fallback"
+  pass "swt-dev.md: references available_skills for ad-hoc fallback"
 else
-  fail "vbw-dev.md: missing available_skills reference for ad-hoc fallback"
+  fail "swt-dev.md: missing available_skills reference for ad-hoc fallback"
 fi
 
 # Protocol updated role coverage checks
@@ -991,10 +991,10 @@ else
   fail "execute-protocol.md: ad-hoc paths missing Debugger"
 fi
 
-if grep -q 'vbw:debug' "$PROTOCOL"; then
-  pass "execute-protocol.md: documents /vbw:debug ad-hoc path"
+if grep -q 'swt:debug' "$PROTOCOL"; then
+  pass "execute-protocol.md: documents /swt:debug ad-hoc path"
 else
-  fail "execute-protocol.md: missing /vbw:debug documentation"
+  fail "execute-protocol.md: missing /swt:debug documentation"
 fi
 
 # --- Skill-hook dispatch field name checks ---
@@ -1087,7 +1087,7 @@ fi
 
 # --- Agent YAML: no maxTurns in frontmatter ---
 
-for agent_file in vbw-dev.md vbw-qa.md vbw-docs.md vbw-lead.md vbw-scout.md vbw-architect.md vbw-debugger.md; do
+for agent_file in swt-dev.md swt-qa.md swt-docs.md swt-lead.md swt-scout.md swt-architect.md swt-debugger.md; do
   AGENT_PATH="$ROOT/agents/$agent_file"
   FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$AGENT_PATH")
   if grep -q '^maxTurns:' <<< "$FRONTMATTER"; then
@@ -1107,7 +1107,7 @@ fi
 
 # --- All 7 agents reference <available_skills> ---
 
-for agent_file in vbw-dev.md vbw-qa.md vbw-docs.md vbw-lead.md vbw-scout.md vbw-architect.md vbw-debugger.md; do
+for agent_file in swt-dev.md swt-qa.md swt-docs.md swt-lead.md swt-scout.md swt-architect.md swt-debugger.md; do
   AGENT_PATH="$ROOT/agents/$agent_file"
   if grep -q 'available_skills' "$AGENT_PATH"; then
     pass "$agent_file: references <available_skills>"
@@ -1119,7 +1119,7 @@ done
 echo ""
 echo "=== Additive Agent Skill Model ==="
 
-for agent_file in vbw-dev.md vbw-qa.md vbw-docs.md vbw-lead.md vbw-scout.md vbw-architect.md vbw-debugger.md; do
+for agent_file in swt-dev.md swt-qa.md swt-docs.md swt-lead.md swt-scout.md swt-architect.md swt-debugger.md; do
   AGENT_PATH="$ROOT/agents/$agent_file"
 
   if grep -q 'starting set, not a ceiling' "$AGENT_PATH"; then
@@ -1263,14 +1263,14 @@ for contract_file in "${COMMAND_SKILL_CONTRACT_FILES[@]}"; do
   fi
 done
 
-if ! grep -q 'Same as Add Phase step 5' "$ROOT/commands/vibe.md"; then
+if ! grep -q 'Same as Add Phase step 5' "$ROOT/commands/cook.md"; then
   pass "vibe.md: insert-phase Scout contract is local, not shorthand"
 else
   fail "vibe.md: insert-phase Scout contract still relies on Add Phase shorthand"
 fi
 
 # Layer 1: All 7 agents have conditional skill activation section
-for agent_file in vbw-lead.md vbw-dev.md vbw-qa.md vbw-scout.md vbw-debugger.md vbw-architect.md vbw-docs.md; do
+for agent_file in swt-lead.md swt-dev.md swt-qa.md swt-scout.md swt-debugger.md swt-architect.md swt-docs.md; do
   AGENT_PATH="$ROOT/agents/$agent_file"
   if grep -q '## Skill Activation' "$AGENT_PATH"; then
     pass "$agent_file: has ## Skill Activation section"
@@ -1335,7 +1335,7 @@ else
 fi
 
 # Negative: SKILL_PROMPT_LINE should NOT appear in any command/reference
-VIBE_CMD="$ROOT/commands/vibe.md"
+VIBE_CMD="$ROOT/commands/cook.md"
 RESEARCH_CMD="$ROOT/commands/research.md"
 if ! grep -q 'SKILL_PROMPT_LINE' "$PROTOCOL"; then
   pass "execute-protocol.md: no SKILL_PROMPT_LINE references (removed)"
@@ -1476,7 +1476,7 @@ echo ""
 echo "=== Subagent Type Verification ==="
 
 # Count subagent_type occurrences across commands and references
-_SAT_TOTAL=$(grep -h 'subagent_type.*vbw:' "${TRACKED_COMMAND_REFERENCE_FILES[@]}" 2>/dev/null | wc -l | tr -d ' ')
+_SAT_TOTAL=$(grep -h 'subagent_type.*swt:' "${TRACKED_COMMAND_REFERENCE_FILES[@]}" 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$_SAT_TOTAL" -ge 16 ]; then
   pass "subagent_type: ${_SAT_TOTAL} spawn points specify subagent_type (>= 16 expected)"
@@ -1485,7 +1485,7 @@ else
 fi
 
 # Each role that spawns agents must have subagent_type for that role
-for _role_check in "vbw-scout:commands/vibe.md" "vbw-scout:commands/research.md" "vbw-scout:commands/map.md" "vbw-dev:commands/fix.md" "vbw-dev:references/execute-protocol.md" "vbw-debugger:commands/debug.md" "vbw-qa:commands/qa.md" "vbw-qa:references/execute-protocol.md" "vbw-lead:commands/vibe.md"; do
+for _role_check in "swt-scout:commands/cook.md" "swt-scout:commands/research.md" "swt-scout:commands/map.md" "swt-dev:commands/fix.md" "swt-dev:references/execute-protocol.md" "swt-debugger:commands/debug.md" "swt-qa:commands/qa.md" "swt-qa:references/execute-protocol.md" "swt-lead:commands/cook.md"; do
   _sat_role="${_role_check%%:*}"
   _sat_file="${_role_check#*:}"
   if grep -q "subagent_type.*${_sat_role}" "$ROOT/$_sat_file"; then
@@ -1619,9 +1619,9 @@ fi
 
 if grep -q 'concrete working files or framework markers' "$DEBUGGER_AGENT" \
   && grep -q 'activate `swiftdata` right away' "$DEBUGGER_AGENT"; then
-  pass "vbw-debugger.md: adds immediate early-evidence fallback rule"
+  pass "swt-debugger.md: adds immediate early-evidence fallback rule"
 else
-  fail "vbw-debugger.md: missing immediate early-evidence fallback rule"
+  fail "swt-debugger.md: missing immediate early-evidence fallback rule"
 fi
 
 if grep -q 'bounded sparse-input enrichment' "$PROTOCOL" \
@@ -1699,12 +1699,12 @@ else
   fail "debug.md: follow-up read nudge appears in only $_DEBUG_NUDGE_COUNT raw loci (expected at least 3)"
 fi
 
-# vbw-scout.md: has second surface near File Writing
+# swt-scout.md: has second surface near File Writing
 # Use awk to extract content after "## File Writing" header up to the next "## " header
 if awk '/^## File Writing/{found=1; next} found && /^## /{exit} found' "$SCOUT_AGENT" | grep -Fq "$SKILL_FOLLOW_UP_SENTENCE"; then
-  pass "vbw-scout.md: has runtime-local follow-up read nudge near File Writing"
+  pass "swt-scout.md: has runtime-local follow-up read nudge near File Writing"
 else
-  fail "vbw-scout.md: missing runtime-local follow-up read nudge near File Writing"
+  fail "swt-scout.md: missing runtime-local follow-up read nudge near File Writing"
 fi
 
 echo ""

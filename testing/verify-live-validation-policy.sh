@@ -6,14 +6,14 @@ set -euo pipefail
 # Checks:
 # - execute-protocol.md has validation-before-code hard gate
 # - execute-protocol.md routes authenticated API validation to Bash
-# - vbw-scout.md distinguishes public WebFetch vs authenticated validation
-# - vbw-scout.md handles empty/contradictory results
-# - commands/vibe.md does not over-prescribe WebFetch for auth-required APIs
+# - swt-scout.md distinguishes public WebFetch vs authenticated validation
+# - swt-scout.md handles empty/contradictory results
+# - commands/cook.md does not over-prescribe WebFetch for auth-required APIs
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EXEC_PROTO="$ROOT/references/execute-protocol.md"
 SCOUT_FILE="$ROOT/agents/swt-scout.md"
-VIBE_FILE="$ROOT/commands/vibe.md"
+VIBE_FILE="$ROOT/commands/cook.md"
 RESEARCH_FILE="$ROOT/commands/research.md"
 
 PASS=0
@@ -54,48 +54,48 @@ else
   fail "execute-protocol.md: missing authenticated API → Bash routing"
 fi
 
-# --- vbw-scout.md checks ---
+# --- swt-scout.md checks ---
 
 # 4. Public vs authenticated distinction
 if grep -qi 'public.*WebFetch\|anonymous.*WebFetch\|authenticated.*live.*validation\|REQUIRES.*AUTHENTICATED\|private.*API' "$SCOUT_FILE"; then
-  pass "vbw-scout.md: distinguishes public vs authenticated validation"
+  pass "swt-scout.md: distinguishes public vs authenticated validation"
 else
-  fail "vbw-scout.md: missing public-vs-authenticated distinction"
+  fail "swt-scout.md: missing public-vs-authenticated distinction"
 fi
 
 if grep -qi 'verified-safe Bash helper scripts\|curl wrappers' "$SCOUT_FILE"; then
-  pass "vbw-scout.md: authenticated read-only validation can use Bash helpers"
+  pass "swt-scout.md: authenticated read-only validation can use Bash helpers"
 else
-  fail "vbw-scout.md: missing verified-safe Bash helper guidance"
+  fail "swt-scout.md: missing verified-safe Bash helper guidance"
 fi
 
 if grep -qi 'eval' "$SCOUT_FILE" && grep -qi 'command.*substitution' "$SCOUT_FILE" && grep -qi 'process.*substitution' "$SCOUT_FILE" && grep -qi 'nested shell execution' "$SCOUT_FILE" && grep -qi 'quoted/absolute\|absolute.*interpreter' "$SCOUT_FILE" && grep -qi 'control syntax\|grouping' "$SCOUT_FILE"; then
-  pass "vbw-scout.md: blocks shell evaluation containers"
+  pass "swt-scout.md: blocks shell evaluation containers"
 else
-  fail "vbw-scout.md: missing shell evaluation container guidance"
+  fail "swt-scout.md: missing shell evaluation container guidance"
 fi
 
 # 5. Empty/contradictory response handling
 if grep -qi 'empty.*response\|empty.*result\|contradictory.*finding\|contradiction.*explicit\|broaden.*query' "$SCOUT_FILE"; then
-  pass "vbw-scout.md: handles empty/contradictory responses"
+  pass "swt-scout.md: handles empty/contradictory responses"
 else
-  fail "vbw-scout.md: missing empty/contradictory response handling"
+  fail "swt-scout.md: missing empty/contradictory response handling"
 fi
 
-# --- commands/vibe.md checks ---
+# --- commands/cook.md checks ---
 
 # 6. Remediation path does not blanket-prescribe WebFetch for auth APIs
 #    (Positive check: vibe.md mentions the auth-vs-public distinction somewhere)
 if grep -qi 'authenticated.*live.*validation\|REQUIRES.*AUTHENTICATED\|auth.*API.*bash\|private.*API.*Dev\|bash.capable.*execution' "$VIBE_FILE"; then
-  pass "commands/vibe.md: mentions authenticated validation routing"
+  pass "commands/cook.md: mentions authenticated validation routing"
 else
-  fail "commands/vibe.md: missing authenticated-validation routing guidance"
+  fail "commands/cook.md: missing authenticated-validation routing guidance"
 fi
 
 if grep -qi 'public/anonymous HTTP validation uses WebFetch' "$VIBE_FILE" && grep -qi 'authenticated/private read-only checks use verified-safe Bash helper scripts or curl wrappers' "$VIBE_FILE"; then
-  pass "commands/vibe.md: uses Scout public-vs-authenticated live-validation split"
+  pass "commands/cook.md: uses Scout public-vs-authenticated live-validation split"
 else
-  fail "commands/vibe.md: missing Scout public-vs-authenticated live-validation split"
+  fail "commands/cook.md: missing Scout public-vs-authenticated live-validation split"
 fi
 
 if grep -qi 'public/anonymous HTTP validation uses WebFetch' "$RESEARCH_FILE" && grep -qi 'authenticated/private read-only checks use verified-safe Bash helper scripts or curl wrappers' "$RESEARCH_FILE"; then

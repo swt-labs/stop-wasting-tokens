@@ -135,37 +135,37 @@ else
   fail "method 4: missing cat \"\$DIAG_FILE\" — must read diagnostics from temp file"
 fi
 
-# --- Check 5: DIAG_FILE path uses CLAUDE_SESSION_ID:-default ---
+# --- Check 5: DIAG_FILE path uses SWT_SESSION_ID:-default ---
 
 echo ""
 echo "--- DIAG_FILE path: session-scoped ---"
 
 # Verify the session-scoped path appears in the step 1 code block
-if grep -qF '/tmp/vbw-diag-report-${CLAUDE_SESSION_ID:-default}.txt' <<< "$step1_block"; then
+if grep -qF '/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt' <<< "$step1_block"; then
   pass "DIAG_FILE path: step 1 code block uses session-scoped path"
 else
-  fail "DIAG_FILE path: step 1 code block missing /tmp/vbw-diag-report-\${CLAUDE_SESSION_ID:-default}.txt"
+  fail "DIAG_FILE path: step 1 code block missing /tmp/swt-diag-report-\${SWT_SESSION_ID:-default}.txt"
 fi
 
 # Verify the session-scoped path appears in the Method 1 code block
-if grep -qF '/tmp/vbw-diag-report-${CLAUDE_SESSION_ID:-default}.txt' <<< "$method1_block"; then
+if grep -qF '/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt' <<< "$method1_block"; then
   pass "DIAG_FILE path: Method 1 code block uses session-scoped path"
 else
-  fail "DIAG_FILE path: Method 1 code block missing /tmp/vbw-diag-report-\${CLAUDE_SESSION_ID:-default}.txt"
+  fail "DIAG_FILE path: Method 1 code block missing /tmp/swt-diag-report-\${SWT_SESSION_ID:-default}.txt"
 fi
 
 # Verify the session-scoped path appears in Method 2 section
-if grep -qF '/tmp/vbw-diag-report-${CLAUDE_SESSION_ID:-default}.txt' <<< "$method2_section"; then
+if grep -qF '/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt' <<< "$method2_section"; then
   pass "DIAG_FILE path: Method 2 section uses session-scoped path"
 else
-  fail "DIAG_FILE path: Method 2 section missing /tmp/vbw-diag-report-\${CLAUDE_SESSION_ID:-default}.txt"
+  fail "DIAG_FILE path: Method 2 section missing /tmp/swt-diag-report-\${SWT_SESSION_ID:-default}.txt"
 fi
 
 # Verify the session-scoped path appears in Method 4 section
-if grep -qF '/tmp/vbw-diag-report-${CLAUDE_SESSION_ID:-default}.txt' <<< "$method4_section"; then
+if grep -qF '/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt' <<< "$method4_section"; then
   pass "DIAG_FILE path: Method 4 section uses session-scoped path"
 else
-  fail "DIAG_FILE path: Method 4 section missing /tmp/vbw-diag-report-\${CLAUDE_SESSION_ID:-default}.txt"
+  fail "DIAG_FILE path: Method 4 section missing /tmp/swt-diag-report-\${SWT_SESSION_ID:-default}.txt"
 fi
 
 echo ""

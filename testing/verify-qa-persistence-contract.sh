@@ -32,16 +32,16 @@ QA_AGENT="$ROOT/agents/swt-qa.md"
 
 # 1. No heredoc escape hatch
 if grep -qi 'heredoc' "$QA_AGENT"; then
-  fail "1: vbw-qa.md still mentions heredoc"
+  fail "1: swt-qa.md still mentions heredoc"
 else
-  pass "1: vbw-qa.md does not mention heredoc"
+  pass "1: swt-qa.md does not mention heredoc"
 fi
 
 # 2. QA agent references write-verification.sh
 if grep -q 'write-verification\.sh' "$QA_AGENT"; then
-  pass "2: vbw-qa.md references write-verification.sh"
+  pass "2: swt-qa.md references write-verification.sh"
 else
-  fail "2: vbw-qa.md does not reference write-verification.sh"
+  fail "2: swt-qa.md does not reference write-verification.sh"
 fi
 
 # 3. QA agent tool permissions prevent Write access
@@ -51,20 +51,20 @@ TOOLS_LINE=$(grep '^tools:' "$QA_AGENT" || true)
 PERM_MODE=$(grep '^permissionMode:' "$QA_AGENT" || true)
 if [ -n "$DISALLOWED_LINE" ] && echo "$PERM_MODE" | grep -q 'plan'; then
   # disallowedTools + permissionMode: plan = platform blocks Write/Edit
-  pass "3: vbw-qa.md uses disallowedTools + permissionMode: plan (Write blocked by platform)"
+  pass "3: swt-qa.md uses disallowedTools + permissionMode: plan (Write blocked by platform)"
 elif [ -n "$TOOLS_LINE" ] && echo "$TOOLS_LINE" | grep -qv 'Write'; then
-  pass "3: vbw-qa.md tools allowlist omits Write"
+  pass "3: swt-qa.md tools allowlist omits Write"
 else
-  fail "3: vbw-qa.md: Write access not adequately restricted"
+  fail "3: swt-qa.md: Write access not adequately restricted"
 fi
 
 # 4. QA agent can run Bash commands (not blocked)
 if [ -n "$DISALLOWED_LINE" ] && echo "$DISALLOWED_LINE" | grep -qv 'Bash'; then
-  pass "4: vbw-qa.md disallowedTools does not block Bash"
+  pass "4: swt-qa.md disallowedTools does not block Bash"
 elif [ -n "$TOOLS_LINE" ] && echo "$TOOLS_LINE" | grep -q 'Bash'; then
-  pass "4: vbw-qa.md still has Bash in tools"
+  pass "4: swt-qa.md still has Bash in tools"
 else
-  fail "4: vbw-qa.md Bash access not available"
+  fail "4: swt-qa.md Bash access not available"
 fi
 
 # ── Orchestrator (commands/qa.md) checks ─────────────────────────────
@@ -130,16 +130,16 @@ fi
 
 # 11. QA agent Communication "As teammate" paragraph references persistence
 if grep -qi 'teammate.*persist\|sending.*qa_verdict.*persist\|After sending.*persist' "$QA_AGENT"; then
-  pass "11: vbw-qa.md teammate Communication references persistence"
+  pass "11: swt-qa.md teammate Communication references persistence"
 else
-  fail "11: vbw-qa.md teammate Communication does not reference persistence"
+  fail "11: swt-qa.md teammate Communication does not reference persistence"
 fi
 
 # 12. QA agent Persistence section applies to both modes
 if grep -qi 'both modes\|teammate and subagent' "$QA_AGENT"; then
-  pass "12: vbw-qa.md Persistence section covers both modes"
+  pass "12: swt-qa.md Persistence section covers both modes"
 else
-  fail "12: vbw-qa.md Persistence section does not explicitly cover both modes"
+  fail "12: swt-qa.md Persistence section does not explicitly cover both modes"
 fi
 
 # ── Finding-regression checks (QA round 2) ───────────────────────────
@@ -185,18 +185,18 @@ else
   fail "16: execute-protocol.md QA task descriptions missing \${VBW_PLUGIN_ROOT} (found $PLUGIN_ROOT_COUNT, expected ≥2)"
 fi
 
-if grep -q 'track-known-issues\.sh" sync-summaries' "$ROOT/commands/vibe.md"; then
-  pass "16b: commands/vibe.md backfills summary-known-issues before resumed phase-level QA"
+if grep -q 'track-known-issues\.sh" sync-summaries' "$ROOT/commands/cook.md"; then
+  pass "16b: commands/cook.md backfills summary-known-issues before resumed phase-level QA"
 else
-  fail "16b: commands/vibe.md missing summary-known-issues backfill before resumed phase-level QA"
+  fail "16b: commands/cook.md missing summary-known-issues backfill before resumed phase-level QA"
 fi
 
-# 17. vbw-qa.md Constraints does NOT have blanket "No file modification" without qualification
+# 17. swt-qa.md Constraints does NOT have blanket "No file modification" without qualification
 #     Must qualify with "(Write, Edit, NotebookEdit are platform-denied)" or similar
 if grep -q 'No file modification\.' "$QA_AGENT" && ! grep -q 'No direct file modification' "$QA_AGENT"; then
-  fail "17: vbw-qa.md Constraints has unqualified 'No file modification' contradicting Persistence section"
+  fail "17: swt-qa.md Constraints has unqualified 'No file modification' contradicting Persistence section"
 else
-  pass "17: vbw-qa.md Constraints properly qualifies file modification prohibition"
+  pass "17: swt-qa.md Constraints properly qualifies file modification prohibition"
 fi
 
 # 18. README permission model QA line does NOT say "can't write" without qualification
@@ -208,23 +208,23 @@ fi
 
 # 19. QA remediation instructions require process-exception credibility, not mere docs
 if grep -q 'Process-exception.*justification is credible for this specific FAIL' "$QA_AGENT"; then
-  pass "19: vbw-qa.md requires QA to judge process-exception credibility"
+  pass "19: swt-qa.md requires QA to judge process-exception credibility"
 else
-  fail "19: vbw-qa.md still treats process-exception as documentation-only"
+  fail "19: swt-qa.md still treats process-exception as documentation-only"
 fi
 
 # 20. QA remediation instructions keep fixable issues open despite process-exception labels
 if grep -q 'documentation alone is insufficient when code-fix or plan-amendment is still realistically available' "$QA_AGENT"; then
-  pass "20: vbw-qa.md keeps fixable FAILs open despite process-exception paperwork"
+  pass "20: swt-qa.md keeps fixable FAILs open despite process-exception paperwork"
 else
-  fail "20: vbw-qa.md missing guard against laundering fixable FAILs through process-exception paperwork"
+  fail "20: swt-qa.md missing guard against laundering fixable FAILs through process-exception paperwork"
 fi
 
-# 21. promote-todos must appear in commands/vibe.md for known-issues lifecycle
-if grep -q 'track-known-issues\.sh.*promote-todos' "$ROOT/commands/vibe.md"; then
-  pass "21: commands/vibe.md calls promote-todos for known-issues lifecycle"
+# 21. promote-todos must appear in commands/cook.md for known-issues lifecycle
+if grep -q 'track-known-issues\.sh.*promote-todos' "$ROOT/commands/cook.md"; then
+  pass "21: commands/cook.md calls promote-todos for known-issues lifecycle"
 else
-  fail "21: commands/vibe.md missing promote-todos call — known issues won't auto-promote to STATE.md"
+  fail "21: commands/cook.md missing promote-todos call — known issues won't auto-promote to STATE.md"
 fi
 
 # 22. promote-todos must appear in commands/qa.md for known-issues lifecycle

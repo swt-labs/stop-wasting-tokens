@@ -11,7 +11,7 @@ set -euo pipefail
 #
 # What's allowed:
 #   - Fenced blocks: ```\n!`command`\n``` (these execute via CC template processor)
-#   - Literal paths: /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/...
+#   - Literal paths: /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/...
 #
 # What's NOT allowed:
 #   - Embedded inline spans: `!`echo /tmp/...` in body text or path construction

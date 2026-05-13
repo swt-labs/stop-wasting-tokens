@@ -8,7 +8,7 @@ set -euo pipefail
 # numbered-list-in-question-text workaround with explicit guard language.
 #
 # This verifier also protects the shared VBW interactive prompt pattern:
-# centralized AskUserQuestion guidance, local-vs-shared `/vbw:vibe`
+# centralized AskUserQuestion guidance, local-vs-shared `/swt:vibe`
 # boundaries, intentional freeform/plain-text handoffs, and stable
 # structured-vs-freeform command boundaries.
 #
@@ -434,11 +434,11 @@ require_file_literal "ask-user-question: includes decision-gate example" "### Ex
 forbid_file_regex "ask-user-question: no volatile upstream issue links" 'github\.com/.*issues|fixes #[0-9]+|see #[0-9]+|issue #[0-9]+|parent.*#[0-9]+' "$ASK_USER_QUESTION_REF"
 
 # --------------------------------------------------------------------------
-# Check 4: /vbw:vibe local-vs-shared confirmation boundary
+# Check 4: /swt:vibe local-vs-shared confirmation boundary
 # --------------------------------------------------------------------------
 
 echo ""
-echo "--- Check 4: /vbw:vibe confirmation boundary ---"
+echo "--- Check 4: /swt:vibe confirmation boundary ---"
 
 VIBE_CONFIRMATION_BLOCK="$(extract_heading_block "$VIBE_COMMAND_FILE" "### Confirmation Gate" '^## ' || true)"
 
@@ -608,11 +608,11 @@ require_file_literal "vibe: extractor failure uses error sentinel" '|| echo "uat
 require_file_literal "vibe: extractor unavailable uses unavailable sentinel" 'echo "uat_resume=unavailable"' "$VIBE_COMMAND_FILE"
 
 # --------------------------------------------------------------------------
-# Check 5: /vbw:list-todos intentional plain-text/freeform handoff
+# Check 5: /swt:list-todos intentional plain-text/freeform handoff
 # --------------------------------------------------------------------------
 
 echo ""
-echo "--- Check 5: /vbw:list-todos freeform boundary ---"
+echo "--- Check 5: /swt:list-todos freeform boundary ---"
 
 LIST_TODOS_FRONTMATTER="$(extract_frontmatter "$LIST_TODOS_COMMAND_FILE" || true)"
 LIST_TODOS_STEP_5="$(extract_regex_block "$LIST_TODOS_COMMAND_FILE" 'Display action hints and STOP' '^## ' || true)"
@@ -633,21 +633,21 @@ fi
 
 require_text_literal "list-todos: step 5 displays action hints and stops" "Display action hints and STOP" "$LIST_TODOS_STEP_5"
 require_text_literal "list-todos: step 5 does not prompt the user for input" "Do NOT prompt the user for input" "$LIST_TODOS_STEP_5"
-require_text_literal "list-todos: unfiltered hints preserve /vbw:vibe N" "/vbw:vibe N" "$LIST_TODOS_UNFILTERED_HINTS"
-require_text_literal "list-todos: unfiltered hints preserve /vbw:fix N" "/vbw:fix N" "$LIST_TODOS_UNFILTERED_HINTS"
-require_text_literal "list-todos: unfiltered hints preserve /vbw:debug N" "/vbw:debug N" "$LIST_TODOS_UNFILTERED_HINTS"
-require_text_literal "list-todos: unfiltered hints preserve /vbw:research N" "/vbw:research N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:vibe N" "/swt:vibe N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:fix N" "/swt:fix N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:debug N" "/swt:debug N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:research N" "/swt:research N" "$LIST_TODOS_UNFILTERED_HINTS"
 require_text_regex "list-todos: unfiltered hints preserve remove N" '(^|[[:space:]])remove N([[:space:]]|$)' "$LIST_TODOS_UNFILTERED_HINTS"
 require_text_regex "list-todos: filtered hints preserve remove N" '(^|[[:space:]])remove N([[:space:]]|$)' "$LIST_TODOS_FILTERED_HINTS"
 require_text_regex "list-todos: filtered hints preserve delete N" '(^|[[:space:]])delete N([[:space:]]|$)' "$LIST_TODOS_FILTERED_HINTS"
-require_text_literal "list-todos: filtered hints preserve rerun-unfiltered guard" "rerun unfiltered /vbw:list-todos before using /vbw:vibe N, /vbw:fix N, /vbw:debug N, or /vbw:research N" "$LIST_TODOS_FILTERED_HINTS"
+require_text_literal "list-todos: filtered hints preserve rerun-unfiltered guard" "rerun unfiltered /swt:list-todos before using /swt:vibe N, /swt:fix N, /swt:debug N, or /swt:research N" "$LIST_TODOS_FILTERED_HINTS"
 
 # --------------------------------------------------------------------------
-# Check 6: /vbw:config bounded structured flow
+# Check 6: /swt:config bounded structured flow
 # --------------------------------------------------------------------------
 
 echo ""
-echo "--- Check 6: /vbw:config structured boundary ---"
+echo "--- Check 6: /swt:config structured boundary ---"
 
 CONFIG_NO_ARGS_BLOCK="$(extract_heading_block "$CONFIG_COMMAND_FILE" "### No arguments: Interactive configuration" '^### ' || true)"
 CONFIG_STEP_2="$(extract_regex_block "$CONFIG_COMMAND_FILE" 'Step 2:.*AskUserQuestion with 1 question' 'Step 2\.5:' || true)"
@@ -692,11 +692,11 @@ require_text_literal "config: per-agent overrides keep 2-question second round" 
 forbid_text_regex "config: no-args flow avoids numeric pseudo-menu language" 'enter numbers|comma-separated|numbered list' "$CONFIG_NO_ARGS_BLOCK"
 
 # --------------------------------------------------------------------------
-# Check 7: /vbw:skills structured-vs-freeform boundary
+# Check 7: /swt:skills structured-vs-freeform boundary
 # --------------------------------------------------------------------------
 
 echo ""
-echo "--- Check 7: /vbw:skills structured/freeform boundary ---"
+echo "--- Check 7: /swt:skills structured/freeform boundary ---"
 
 SKILLS_STEP_5="$(extract_regex_block "$SKILLS_COMMAND_FILE" '^### Step 5: Offer installation$' '^### ' || true)"
 SKILLS_ONE_CANDIDATE_BRANCH="$(extract_regex_block "$SKILLS_COMMAND_FILE" 'If the combined list has exactly 1 candidate' 'If the combined list has 2[-–]4 candidates' || true)"
@@ -749,11 +749,11 @@ require_text_literal "skills: 5+ candidate parser accepts skip" 'Accept the word
 require_text_literal "skills: 5+ candidate parser rejects invalid numeric/freeform input" "Reject out-of-range numbers" "$SKILLS_HIGH_CARDINALITY_BRANCH"
 
 # --------------------------------------------------------------------------
-# Check 8: /vbw:init shared interaction contract boundary
+# Check 8: /swt:init shared interaction contract boundary
 # --------------------------------------------------------------------------
 
 echo ""
-echo "--- Check 8: /vbw:init shared interaction boundary ---"
+echo "--- Check 8: /swt:init shared interaction boundary ---"
 
 INIT_SHARED_BLOCK="$(extract_heading_block "$INIT_COMMAND_FILE" "## Shared interaction contract" '^## ' || true)"
 INIT_BODY="$(extract_body "$INIT_COMMAND_FILE")"

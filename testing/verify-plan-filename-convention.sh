@@ -48,7 +48,7 @@ echo ""
 echo "file-guard.sh:"
 
 # Test 1: file-guard blocks type-first PLAN name
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/PLAN-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/PLAN-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks PLAN-01.md (type-first)"
 else
@@ -56,7 +56,7 @@ else
 fi
 
 # Test 2: file-guard blocks type-first SUMMARY name
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/SUMMARY-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/SUMMARY-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks SUMMARY-01.md (type-first)"
 else
@@ -64,7 +64,7 @@ else
 fi
 
 # Test 3: file-guard blocks type-first CONTEXT name
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/CONTEXT-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/CONTEXT-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks CONTEXT-01.md (type-first)"
 else
@@ -72,7 +72,7 @@ else
 fi
 
 # Test 4: file-guard allows number-first PLAN name
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/01-PLAN.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/01-PLAN.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 0 ]; then
   pass "allows 01-PLAN.md (number-first)"
 else
@@ -80,7 +80,7 @@ else
 fi
 
 # Test 5: file-guard allows number-first SUMMARY name
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/01-SUMMARY.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/01-SUMMARY.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 0 ]; then
   pass "allows 01-SUMMARY.md (number-first)"
 else
@@ -153,7 +153,7 @@ else
 fi
 
 # Test 10a: QA remediation round PLAN-R01.md normalizes to R01-PLAN.md
-TDIR="$TMPDIR_TEST/test10a/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10a/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 write_valid_round_plan "$TDIR/PLAN-R01.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -164,7 +164,7 @@ else
 fi
 
 # Test 10b: QA remediation round PLAN-01.md normalizes to R01-PLAN.md, not 01-PLAN.md
-TDIR="$TMPDIR_TEST/test10b/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10b/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 write_valid_round_plan "$TDIR/PLAN-01.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -175,7 +175,7 @@ else
 fi
 
 # Test 10b2: QA remediation round mixed-case extension normalizes to R01-PLAN.md
-TDIR="$TMPDIR_TEST/test10b2/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10b2/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 write_valid_round_plan "$TDIR/PLAN-R01.mD"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -186,7 +186,7 @@ else
 fi
 
 # Test 10c: UAT remediation round PLAN-01.md normalizes to R01-PLAN.md
-TDIR="$TMPDIR_TEST/test10c/.vbw-planning/phases/01-setup/remediation/uat/round-01"
+TDIR="$TMPDIR_TEST/test10c/.swt-planning/phases/01-setup/remediation/uat/round-01"
 mkdir -p "$TDIR"
 write_valid_round_plan "$TDIR/PLAN-01.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -197,7 +197,7 @@ else
 fi
 
 # Test 10c2: legacy remediation round PLAN-01.md normalizes to R01-PLAN.md
-TDIR="$TMPDIR_TEST/test10c2/.vbw-planning/phases/01-setup/remediation/round-01"
+TDIR="$TMPDIR_TEST/test10c2/.swt-planning/phases/01-setup/remediation/round-01"
 mkdir -p "$TDIR"
 write_valid_round_plan "$TDIR/PLAN-01.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -208,7 +208,7 @@ else
 fi
 
 # Test 10c3: legacy remediation round PLAN-R01.md normalizes to R01-PLAN.md
-TDIR="$TMPDIR_TEST/test10c3/.vbw-planning/phases/01-setup/remediation/round-01"
+TDIR="$TMPDIR_TEST/test10c3/.swt-planning/phases/01-setup/remediation/round-01"
 mkdir -p "$TDIR"
 write_valid_round_plan "$TDIR/PLAN-R01.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -219,7 +219,7 @@ else
 fi
 
 # Test 10d: round-dir collision replaces stale canonical R01-PLAN.md with fresh misnamed plan
-TDIR="$TMPDIR_TEST/test10d/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "stale" > "$TDIR/R01-PLAN.md"
 cat > "$TDIR/PLAN-01.md" <<'PLAN'
@@ -253,7 +253,7 @@ else
 fi
 
 # Test 10d2: round-dir conflicting misnamed candidates fail closed instead of picking one
-TDIR="$TMPDIR_TEST/test10d2/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d2/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "stale" > "$TDIR/R01-PLAN.md"
 echo "fresh a" > "$TDIR/PLAN-01.md"
@@ -266,7 +266,7 @@ else
 fi
 
 # Test 10d3: round-dir stale misnamed candidate does not clobber newer canonical plan
-TDIR="$TMPDIR_TEST/test10d3/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d3/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "canonical" > "$TDIR/R01-PLAN.md"
 echo "stale candidate" > "$TDIR/PLAN-01.md"
@@ -281,7 +281,7 @@ else
 fi
 
 # Test 10d3b: opening-only frontmatter delimiter is structurally invalid
-TDIR="$TMPDIR_TEST/test10d3b/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d3b/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 cat > "$TDIR/PLAN-01.md" <<'PLAN'
 ---
@@ -310,7 +310,7 @@ else
 fi
 
 # Test 10d4: round-dir source round token must match containing round directory
-TDIR="$TMPDIR_TEST/test10d4/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d4/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "wrong round" > "$TDIR/PLAN-R02.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -321,7 +321,7 @@ else
 fi
 
 # Test 10d5: bare numeric source round token must also match containing round directory
-TDIR="$TMPDIR_TEST/test10d5/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d5/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "wrong round" > "$TDIR/PLAN-02.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -332,7 +332,7 @@ else
 fi
 
 # Test 10d6: equal-mtime canonical/misnamed conflict fails closed
-TDIR="$TMPDIR_TEST/test10d6/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d6/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "canonical" > "$TDIR/R01-PLAN.md"
 echo "ambiguous candidate" > "$TDIR/PLAN-01.md"
@@ -345,7 +345,7 @@ else
 fi
 
 # Test 10d7: paired equal-mtime misnamed candidates cannot replace different canonical plan
-TDIR="$TMPDIR_TEST/test10d7/.vbw-planning/phases/01-setup/remediation/qa/round-01"
+TDIR="$TMPDIR_TEST/test10d7/.swt-planning/phases/01-setup/remediation/qa/round-01"
 mkdir -p "$TDIR"
 echo "canonical" > "$TDIR/R01-PLAN.md"
 echo "replacement" > "$TDIR/PLAN-01.md"
@@ -359,7 +359,7 @@ else
 fi
 
 # Test 10e: phase directories still normalize PLAN-01.md to 01-PLAN.md
-TDIR="$TMPDIR_TEST/test10e/.vbw-planning/phases/01-setup"
+TDIR="$TMPDIR_TEST/test10e/.swt-planning/phases/01-setup"
 mkdir -p "$TDIR"
 echo "plan" > "$TDIR/PLAN-01.md"
 OUTPUT=$(bash "$NORM_SCRIPT" "$TDIR" 2>&1) && RC=$? || RC=$?
@@ -383,9 +383,9 @@ echo "phase-detect.sh misnamed_plans diagnostic:"
 
 # Test 12: detects misnamed plans
 TDIR="$TMPDIR_TEST/test12"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-01.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-01.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -398,9 +398,9 @@ fi
 
 # Test 13: clean names report false
 TDIR="$TMPDIR_TEST/test13"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/01-PLAN.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/01-PLAN.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -416,7 +416,7 @@ echo ""
 echo "Uppercase extension (.MD) handling:"
 
 # Test 14: file-guard blocks uppercase PLAN-01.MD
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/PLAN-01.MD"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/PLAN-01.MD"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks PLAN-01.MD (uppercase extension)"
 else
@@ -424,7 +424,7 @@ else
 fi
 
 # Test 15: file-guard blocks mixed-case SUMMARY-01.Md
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/SUMMARY-01.Md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/SUMMARY-01.Md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks SUMMARY-01.Md (mixed-case extension)"
 else
@@ -444,9 +444,9 @@ fi
 
 # Test 17: phase-detect catches uppercase PLAN-01.MD
 TDIR="$TMPDIR_TEST/test17"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-01.MD"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-01.MD"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -489,7 +489,7 @@ echo ""
 echo "File-guard precision (false-positive prevention):"
 
 # Test 20: file-guard allows plan-01-review.md (arbitrary name, not a plan)
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/plan-01-review.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/plan-01-review.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 0 ]; then
   pass "allows plan-01-review.md (not a type-first pattern)"
 else
@@ -497,7 +497,7 @@ else
 fi
 
 # Test 21: file-guard allows summary-1custom.md (digits followed by letters)
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/summary-1custom.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/summary-1custom.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 0 ]; then
   pass "allows summary-1custom.md (not a strict type-first pattern)"
 else
@@ -505,7 +505,7 @@ else
 fi
 
 # Test 22: file-guard still blocks PLAN-01-SUMMARY.md (compound type-first)
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/PLAN-01-SUMMARY.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/PLAN-01-SUMMARY.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks PLAN-01-SUMMARY.md (compound type-first)"
 else
@@ -513,7 +513,7 @@ else
 fi
 
 # Test 23: file-guard still blocks PLAN-01-CONTEXT.md (compound type-first)
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/PLAN-01-CONTEXT.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/PLAN-01-CONTEXT.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks PLAN-01-CONTEXT.md (compound type-first)"
 else
@@ -571,9 +571,9 @@ fi
 
 # Test 28: phase-detect ignores PLAN-01-RESEARCH.md (not a misnamed plan)
 TDIR="$TMPDIR_TEST/test28"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "research" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-01-RESEARCH.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "research" > "$TDIR/.swt-planning/phases/01-setup/PLAN-01-RESEARCH.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -590,7 +590,7 @@ echo ""
 echo "Type-aware error messages and path handling:"
 
 # Test 29: file-guard error message references SUMMARY (not PLAN) for SUMMARY-01.md
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/SUMMARY-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/SUMMARY-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "SUMMARY artifact" && echo "$OUTPUT" | grep -q "{NN}-SUMMARY.md"; then
   pass "error references SUMMARY type for SUMMARY-01.md"
 else
@@ -598,7 +598,7 @@ else
 fi
 
 # Test 30: file-guard error message references CONTEXT for CONTEXT-02.md
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/02-impl/CONTEXT-02.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/02-impl/CONTEXT-02.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "CONTEXT artifact" && echo "$OUTPUT" | grep -q "{NN}-CONTEXT.md"; then
   pass "error references CONTEXT type for CONTEXT-02.md"
 else
@@ -606,7 +606,7 @@ else
 fi
 
 # Test 31: file-guard error message references PLAN for plain PLAN-01.md
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/PLAN-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/PLAN-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "PLAN artifact" && echo "$OUTPUT" | grep -q "{NN}-PLAN.md"; then
   pass "error references PLAN type for PLAN-01.md"
 else
@@ -614,7 +614,7 @@ else
 fi
 
 # Test 32: file-guard blocks .. traversal path (e.g., phases/01-setup/../01-setup/PLAN-01.md)
-OUTPUT=$(echo '{"tool_input":{"file_path":".vbw-planning/phases/01-setup/../01-setup/PLAN-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
+OUTPUT=$(echo '{"tool_input":{"file_path":".swt-planning/phases/01-setup/../01-setup/PLAN-01.md"}}' | bash "$SCRIPT_DIR/scripts/file-guard.sh" 2>&1) && RC=$? || RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUTPUT" | grep -q "wrong naming convention"; then
   pass "blocks PLAN-01.md via .. traversal path"
 else
@@ -675,9 +675,9 @@ echo "Multi-digit phase-detect detection:"
 
 # Test 38: phase-detect catches PLAN-100.md (3 digits)
 TDIR="$TMPDIR_TEST/test38"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-100.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-100.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -691,9 +691,9 @@ fi
 
 # Test 39: phase-detect catches PLAN-1000.md (4 digits)
 TDIR="$TMPDIR_TEST/test39"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-1000.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-1000.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -707,9 +707,9 @@ fi
 
 # Test 40: phase-detect still ignores PLAN-100-RESEARCH.md (unknown compound, 3 digits)
 TDIR="$TMPDIR_TEST/test40"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "research" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-100-RESEARCH.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "research" > "$TDIR/.swt-planning/phases/01-setup/PLAN-100-RESEARCH.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
@@ -727,16 +727,16 @@ echo "End-to-end misnamed repair loop:"
 
 # Test 41: misnamed_plans=true → normalize → misnamed_plans=false
 TDIR="$TMPDIR_TEST/test41"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-01.md"
-echo "summary" > "$TDIR/.vbw-planning/phases/01-setup/SUMMARY-01.md"
-echo "context" > "$TDIR/.vbw-planning/phases/01-setup/CONTEXT-01.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-01.md"
+echo "summary" > "$TDIR/.swt-planning/phases/01-setup/SUMMARY-01.md"
+echo "context" > "$TDIR/.swt-planning/phases/01-setup/CONTEXT-01.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
 OUTPUT_BEFORE=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
-bash "$NORM_SCRIPT" "$TDIR/.vbw-planning/phases/01-setup" >/dev/null 2>&1
+bash "$NORM_SCRIPT" "$TDIR/.swt-planning/phases/01-setup" >/dev/null 2>&1
 OUTPUT_AFTER=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
 BEFORE=$(grep misnamed <<<"$OUTPUT_BEFORE" || true)
 AFTER=$(grep misnamed <<<"$OUTPUT_AFTER" || true)
@@ -748,15 +748,15 @@ fi
 
 # Test 42: end-to-end with lowercase misnamed files
 TDIR="$TMPDIR_TEST/test42"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/plan-01.md"
-echo "summary" > "$TDIR/.vbw-planning/phases/01-setup/summary-02.md"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/plan-01.md"
+echo "summary" > "$TDIR/.swt-planning/phases/01-setup/summary-02.md"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
 OUTPUT_BEFORE=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
-bash "$NORM_SCRIPT" "$TDIR/.vbw-planning/phases/01-setup" >/dev/null 2>&1
+bash "$NORM_SCRIPT" "$TDIR/.swt-planning/phases/01-setup" >/dev/null 2>&1
 OUTPUT_AFTER=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
 BEFORE=$(grep misnamed <<<"$OUTPUT_BEFORE" || true)
 AFTER=$(grep misnamed <<<"$OUTPUT_AFTER" || true)
@@ -785,14 +785,14 @@ else
 fi
 
 # Test 45: vibe.md contains normalization guard
-if grep -q 'normalize-plan-filenames.sh' "$SCRIPT_DIR/commands/vibe.md" && grep -q 'misnamed_plans=true' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'normalize-plan-filenames.sh' "$SCRIPT_DIR/commands/cook.md" && grep -q 'misnamed_plans=true' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md contains normalization guard"
 else
   fail "vibe.md missing normalization guard"
 fi
 
 # Test 45b: vibe.md guards QA existing-plan recovery normalizer
-RECOVERY_BLOCK=$(awk '/Existing-plan recovery before spawning Lead/{flag=1} flag{print} flag && /If the canonical/ {exit}' "$SCRIPT_DIR/commands/vibe.md")
+RECOVERY_BLOCK=$(awk '/Existing-plan recovery before spawning Lead/{flag=1} flag{print} flag && /If the canonical/ {exit}' "$SCRIPT_DIR/commands/cook.md")
 if echo "$RECOVERY_BLOCK" | grep -q 'NORM_SCRIPT=' \
   && echo "$RECOVERY_BLOCK" | grep -Fq 'if [ -f "$NORM_SCRIPT" ]; then' \
   && echo "$RECOVERY_BLOCK" | grep -Fq 'bash "$NORM_SCRIPT" "{round_dir}"'; then
@@ -897,20 +897,20 @@ echo "Behavioral state-refresh tests:"
 
 # Test 56: phase-detect shows correct plan/summary counts after normalization
 TDIR="$TMPDIR_TEST/test56"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-01.md"
-echo "plan2" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-02.md"
-printf '%s\n' '---' 'status: complete' '---' 'summary' > "$TDIR/.vbw-planning/phases/01-setup/SUMMARY-01.md"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-01.md"
+echo "plan2" > "$TDIR/.swt-planning/phases/01-setup/PLAN-02.md"
+printf '%s\n' '---' 'status: complete' '---' 'summary' > "$TDIR/.swt-planning/phases/01-setup/SUMMARY-01.md"
 # Before normalization: misnamed, and plan/summary counts should track
 OUTPUT_BEFORE=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
 PLANS_BEFORE=$(echo "$OUTPUT_BEFORE" | grep '^next_phase_plans=' | cut -d= -f2)
 SUMMARIES_BEFORE=$(echo "$OUTPUT_BEFORE" | grep '^next_phase_summaries=' | cut -d= -f2)
 # Normalize
-bash "$NORM_SCRIPT" "$TDIR/.vbw-planning/phases/01-setup" >/dev/null 2>&1
+bash "$NORM_SCRIPT" "$TDIR/.swt-planning/phases/01-setup" >/dev/null 2>&1
 # After normalization: clean, counts should be preserved
 OUTPUT_AFTER=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
 PLANS_AFTER=$(echo "$OUTPUT_AFTER" | grep '^next_phase_plans=' | cut -d= -f2)
@@ -924,18 +924,18 @@ fi
 
 # Test 57: phase-detect next_phase_state transitions correctly after normalization
 TDIR="$TMPDIR_TEST/test57"
-mkdir -p "$TDIR/.vbw-planning/phases/01-setup" "$TDIR/.vbw-planning/phases/02-impl"
-cat > "$TDIR/.vbw-planning/PROJECT.md" << 'EOF'
+mkdir -p "$TDIR/.swt-planning/phases/01-setup" "$TDIR/.swt-planning/phases/02-impl"
+cat > "$TDIR/.swt-planning/PROJECT.md" << 'EOF'
 # Test Project
 This is a test project.
 EOF
-printf '%s\n' '# Roadmap' '' '## Phase 01: Setup' '- Status: complete' '' '## Phase 02: Implementation' '- Status: not started' > "$TDIR/.vbw-planning/ROADMAP.md"
-echo "plan" > "$TDIR/.vbw-planning/phases/01-setup/PLAN-01.md"
-printf '%s\n' '---' 'status: complete' '---' 'done' > "$TDIR/.vbw-planning/phases/01-setup/SUMMARY-01.md"
+printf '%s\n' '# Roadmap' '' '## Phase 01: Setup' '- Status: complete' '' '## Phase 02: Implementation' '- Status: not started' > "$TDIR/.swt-planning/ROADMAP.md"
+echo "plan" > "$TDIR/.swt-planning/phases/01-setup/PLAN-01.md"
+printf '%s\n' '---' 'status: complete' '---' 'done' > "$TDIR/.swt-planning/phases/01-setup/SUMMARY-01.md"
 # misnamed plans in phase 01, phase 02 empty
 OUTPUT_BEFORE=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
 MISNAMED_B=$(echo "$OUTPUT_BEFORE" | grep '^misnamed_plans=' | cut -d= -f2)
-bash "$NORM_SCRIPT" "$TDIR/.vbw-planning/phases/01-setup" >/dev/null 2>&1
+bash "$NORM_SCRIPT" "$TDIR/.swt-planning/phases/01-setup" >/dev/null 2>&1
 OUTPUT_AFTER=$(cd "$TDIR" && bash "$SCRIPT_DIR/scripts/phase-detect.sh" 2>/dev/null)
 MISNAMED_A=$(echo "$OUTPUT_AFTER" | grep '^misnamed_plans=' | cut -d= -f2)
 STATE_A=$(echo "$OUTPUT_AFTER" | grep '^next_phase_state=' | cut -d= -f2)

@@ -7,7 +7,7 @@ set -euo pipefail
 # Lead, and Dev agents run from Claude sidechain CWDs.
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VIBE_FILE="$ROOT/commands/vibe.md"
+VIBE_FILE="$ROOT/commands/cook.md"
 VALIDATOR="$ROOT/scripts/validate-uat-remediation-artifact.sh"
 
 PASS=0

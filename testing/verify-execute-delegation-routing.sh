@@ -41,14 +41,14 @@ make_fixture() {
   local prefer="${2:-auto}"
   local effort="${3:-balanced}"
   FIXTURE="$TMPDIR_BASE/$name"
-  PHASE_DIR="$FIXTURE/.vbw-planning/phases/01-test"
-  mkdir -p "$PHASE_DIR" "$FIXTURE/.vbw-planning/.cache"
-  printf '{"prefer_teams":%s,"effort":"%s"}\n' "$prefer" "$effort" > "$FIXTURE/.vbw-planning/config.json"
+  PHASE_DIR="$FIXTURE/.swt-planning/phases/01-test"
+  mkdir -p "$PHASE_DIR" "$FIXTURE/.swt-planning/.cache"
+  printf '{"prefer_teams":%s,"effort":"%s"}\n' "$prefer" "$effort" > "$FIXTURE/.swt-planning/config.json"
 }
 
 write_state() {
   local json="$1"
-  printf '%s\n' "$json" > "$FIXTURE/.vbw-planning/.execution-state.json"
+  printf '%s\n' "$json" > "$FIXTURE/.swt-planning/.execution-state.json"
 }
 
 write_plan_inline() {
@@ -90,7 +90,7 @@ write_plan_block() {
 }
 
 run_helper() {
-  (cd "$FIXTURE" && "$HELPER" --phase-dir .vbw-planning/phases/01-test "${@}")
+  (cd "$FIXTURE" && "$HELPER" --phase-dir .swt-planning/phases/01-test "${@}")
 }
 
 json_field() {
@@ -314,8 +314,8 @@ assert_eq "$(json_field "$out" '.requested_mode')" "turbo" "phase-level turbo re
 make_fixture smart-turbo '"always"' balanced
 write_state '{"plans":[{"id":"01-01","status":"pending"}],"effort":"balanced","phase_effort":"balanced"}'
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
-printf '{"plans":{"01-01":{"route":"turbo","reason":"smart_route"}}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-out=$(run_helper --route-map .vbw-planning/.cache/execute-route-map.json)
+printf '{"plans":{"01-01":{"route":"turbo","reason":"smart_route"}}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+out=$(run_helper --route-map .swt-planning/.cache/execute-route-map.json)
 assert_eq "$(json_field "$out" '.delegation_mode')" "direct" "smart-routed turbo plan bypasses team even with prefer_teams=always"
 assert_json_array_eq "$(jq -c '.turbo_plan_ids' <<< "$out")" '["01-01"]' "smart-routed turbo plan is reported"
 
@@ -324,8 +324,8 @@ make_fixture mixed-single-delegate '"auto"' balanced
 write_state '{"plans":[{"id":"01-01","status":"pending"},{"id":"01-02","status":"pending"}],"effort":"balanced","phase_effort":"balanced"}'
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
 write_plan_inline 01-02-PLAN.md 01 02 '[]'
-printf '{"plans":{"01-01":{"route":"turbo","reason":"smart_route"}}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-out=$(run_helper --route-map .vbw-planning/.cache/execute-route-map.json)
+printf '{"plans":{"01-01":{"route":"turbo","reason":"smart_route"}}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+out=$(run_helper --route-map .swt-planning/.cache/execute-route-map.json)
 assert_eq "$(json_field "$out" '.delegate_count')" "1" "mixed turbo/delegate counts one delegate-eligible plan"
 assert_eq "$(json_field "$out" '.delegation_mode')" "subagent" "mixed turbo + single delegate does not create team"
 
@@ -335,8 +335,8 @@ write_state '{"plans":[{"id":"01-01","status":"pending"},{"id":"01-02","status":
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
 write_plan_inline 01-02-PLAN.md 01 02 '[]'
 write_plan_inline 01-03-PLAN.md 01 03 '[]'
-printf '{"plans":{"01-03":{"route":"direct","reason":"internal_direct"}}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-out=$(run_helper --route-map .vbw-planning/.cache/execute-route-map.json)
+printf '{"plans":{"01-03":{"route":"direct","reason":"internal_direct"}}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+out=$(run_helper --route-map .swt-planning/.cache/execute-route-map.json)
 assert_eq "$(json_field "$out" '.delegate_count')" "2" "mixed direct/delegate counts two delegate-eligible plans"
 assert_eq "$(json_field "$out" '.delegation_mode')" "team" "mixed direct + two independent delegates creates team"
 
@@ -346,8 +346,8 @@ write_state '{"plans":[{"id":"01-01","status":"pending"},{"id":"01-02","status":
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
 write_plan_inline 01-02-PLAN.md 01 02 '[]'
 write_plan_inline 01-03-PLAN.md 01 03 '["01-01"]'
-printf '{"plans":{"01-03":{"route":"direct","reason":"internal_direct"}}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-out=$(run_helper --route-map .vbw-planning/.cache/execute-route-map.json --segments)
+printf '{"plans":{"01-03":{"route":"direct","reason":"internal_direct"}}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+out=$(run_helper --route-map .swt-planning/.cache/execute-route-map.json --segments)
 assert_json_array_eq "$(jq -c '[.segments[].delegation_mode]' <<< "$out")" '["team","direct"]' "segments can transition team -> direct"
 
 make_fixture segment-direct-team '"auto"' balanced
@@ -355,8 +355,8 @@ write_state '{"plans":[{"id":"01-01","status":"pending"},{"id":"01-02","status":
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
 write_plan_inline 01-02-PLAN.md 01 02 '["01-01"]'
 write_plan_inline 01-03-PLAN.md 01 03 '["01-01"]'
-printf '{"plans":{"01-01":{"route":"direct","reason":"internal_direct"}}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-out=$(run_helper --route-map .vbw-planning/.cache/execute-route-map.json --segments)
+printf '{"plans":{"01-01":{"route":"direct","reason":"internal_direct"}}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+out=$(run_helper --route-map .swt-planning/.cache/execute-route-map.json --segments)
 assert_json_array_eq "$(jq -c '[.segments[].delegation_mode]' <<< "$out")" '["direct","team"]' "segments can transition direct -> team"
 
 make_fixture segment-team-subagent '"auto"' balanced
@@ -417,20 +417,20 @@ expect_helper_failure "execution-state plan empty id fails closed with invalid_d
 make_fixture route-map-scalar-plans '"auto"' balanced
 write_state '{"plans":[{"id":"01-01","status":"pending"}],"effort":"balanced","phase_effort":"balanced"}'
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
-printf '{"plans":"oops"}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-expect_helper_failure "scalar route-map plans fails closed with invalid_dependency_graph" --route-map .vbw-planning/.cache/execute-route-map.json
+printf '{"plans":"oops"}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+expect_helper_failure "scalar route-map plans fails closed with invalid_dependency_graph" --route-map .swt-planning/.cache/execute-route-map.json
 
 make_fixture route-map-scalar-entry '"auto"' balanced
 write_state '{"plans":[{"id":"01-01","status":"pending"}],"effort":"balanced","phase_effort":"balanced"}'
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
-printf '{"plans":{"01-01":"turbo"}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-expect_helper_failure "scalar route-map entry fails closed with invalid_dependency_graph" --route-map .vbw-planning/.cache/execute-route-map.json
+printf '{"plans":{"01-01":"turbo"}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+expect_helper_failure "scalar route-map entry fails closed with invalid_dependency_graph" --route-map .swt-planning/.cache/execute-route-map.json
 
 make_fixture route-map-invalid-route '"auto"' balanced
 write_state '{"plans":[{"id":"01-01","status":"pending"}],"effort":"balanced","phase_effort":"balanced"}'
 write_plan_inline 01-01-PLAN.md 01 01 '[]'
-printf '{"plans":{"01-01":{"route":"parallel"}}}\n' > "$FIXTURE/.vbw-planning/.cache/execute-route-map.json"
-expect_helper_failure "invalid route-map route fails closed with invalid_dependency_graph" --route-map .vbw-planning/.cache/execute-route-map.json
+printf '{"plans":{"01-01":{"route":"parallel"}}}\n' > "$FIXTURE/.swt-planning/.cache/execute-route-map.json"
+expect_helper_failure "invalid route-map route fails closed with invalid_dependency_graph" --route-map .swt-planning/.cache/execute-route-map.json
 
 # prefer_teams canonicalization, including legacy aliases only in tests/helper code
 for raw in '"when_parallel"' 'false' 'null' '""'; do
@@ -469,9 +469,9 @@ assert_json_array_eq "$(jq -c '.plans["01-02"].deps' <<< "$out")" '["01-01"]' "r
 assert_json_array_eq "$(jq -c '.plans["01-03"].deps' <<< "$out")" '["01-02"]' "routing helper retains inline full-id string deps"
 
 CONTRACT_FIXTURE="$TMPDIR_BASE/contract-parser"
-mkdir -p "$CONTRACT_FIXTURE/.vbw-planning/phases/03-test"
-printf '{"max_token_budget":50000,"task_timeout_seconds":600}\n' > "$CONTRACT_FIXTURE/.vbw-planning/config.json"
-cat > "$CONTRACT_FIXTURE/.vbw-planning/phases/03-test/03-04-PLAN.md" <<'PLAN'
+mkdir -p "$CONTRACT_FIXTURE/.swt-planning/phases/03-test"
+printf '{"max_token_budget":50000,"task_timeout_seconds":600}\n' > "$CONTRACT_FIXTURE/.swt-planning/config.json"
+cat > "$CONTRACT_FIXTURE/.swt-planning/phases/03-test/03-04-PLAN.md" <<'PLAN'
 ---
 phase: 3
 plan: 4
@@ -486,15 +486,15 @@ depends_on:
 ### Task 1: Work
 - **Files:** `src/contract.txt`
 PLAN
-(cd "$CONTRACT_FIXTURE" && "$GENERATE_CONTRACT" .vbw-planning/phases/03-test/03-04-PLAN.md >/dev/null)
-contract_deps=$(jq -c '.depends_on' "$CONTRACT_FIXTURE/.vbw-planning/.contracts/3-4.json")
+(cd "$CONTRACT_FIXTURE" && "$GENERATE_CONTRACT" .swt-planning/phases/03-test/03-04-PLAN.md >/dev/null)
+contract_deps=$(jq -c '.depends_on' "$CONTRACT_FIXTURE/.swt-planning/.contracts/3-4.json")
 assert_json_array_eq "$contract_deps" '["03-01","03-02","custom-id"]' "generate-contract retains normalized string dependency edges"
 
 # state-updater: nonterminal/missing SUMMARY status must not mark complete or unlock dependents
 STATE_FIXTURE="$TMPDIR_BASE/state-updater"
-STATE_PHASE="$STATE_FIXTURE/.vbw-planning/phases/01-test"
+STATE_PHASE="$STATE_FIXTURE/.swt-planning/phases/01-test"
 mkdir -p "$STATE_PHASE"
-printf '{"plans":[{"id":"01-01","status":"pending"}],"status":"running","phase":1}\n' > "$STATE_FIXTURE/.vbw-planning/.execution-state.json"
+printf '{"plans":[{"id":"01-01","status":"pending"}],"status":"running","phase":1}\n' > "$STATE_FIXTURE/.swt-planning/.execution-state.json"
 cat > "$STATE_PHASE/01-01-SUMMARY.md" <<'SUMMARY'
 ---
 phase: 1
@@ -504,7 +504,7 @@ status: pending
 Not terminal.
 SUMMARY
 printf '{"tool_input":{"file_path":"%s"}}\n' "$STATE_PHASE/01-01-SUMMARY.md" | (cd "$STATE_FIXTURE" && "$STATE_UPDATER")
-state_status=$(jq -r '.plans[] | select(.id == "01-01") | .status' "$STATE_FIXTURE/.vbw-planning/.execution-state.json")
+state_status=$(jq -r '.plans[] | select(.id == "01-01") | .status' "$STATE_FIXTURE/.swt-planning/.execution-state.json")
 assert_eq "$state_status" "pending" "state-updater leaves nonterminal SUMMARY status unchanged"
 cat > "$STATE_PHASE/01-01-SUMMARY.md" <<'SUMMARY'
 ---
@@ -515,7 +515,7 @@ status: partial
 Partial but terminal.
 SUMMARY
 printf '{"tool_input":{"file_path":"%s"}}\n' "$STATE_PHASE/01-01-SUMMARY.md" | (cd "$STATE_FIXTURE" && "$STATE_UPDATER")
-state_status=$(jq -r '.plans[] | select(.id == "01-01") | .status' "$STATE_FIXTURE/.vbw-planning/.execution-state.json")
+state_status=$(jq -r '.plans[] | select(.id == "01-01") | .status' "$STATE_FIXTURE/.swt-planning/.execution-state.json")
 assert_eq "$state_status" "partial" "state-updater writes verified terminal partial status"
 
 # Protocol text invariants
@@ -642,7 +642,7 @@ fi
 if grep -Fq 'spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.md`' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'subagent_type: "swt:swt-lead"' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'resolve-agent-settings.sh" lead' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
-  && grep -Fq '.vbw-planning/config.json' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
+  && grep -Fq '.swt-planning/config.json' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'config/model-profiles.json' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'LEAD_MODEL="$RESOLVED_MODEL"' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'LEAD_MAX_TURNS="$RESOLVED_MAX_TURNS"' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
@@ -651,7 +651,7 @@ if grep -Fq 'spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.m
   && grep -Fq 'omit `maxTurns` because the resolved profile is unlimited' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`)' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq '`name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
-  && grep -Fq 'Read the remediation plan template at /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/templates/REMEDIATION-PLAN.md' <<< "$QA_REMEDIATION_PLAN_BLOCK"; then
+  && grep -Fq 'Read the remediation plan template at /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/templates/REMEDIATION-PLAN.md' <<< "$QA_REMEDIATION_PLAN_BLOCK"; then
   pass "execute-protocol QA remediation plan stage resolves Lead settings and spawns with safe shape"
 else
   fail "execute-protocol QA remediation plan stage missing Lead settings resolution or safe spawn contract"

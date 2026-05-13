@@ -53,7 +53,7 @@ README="$ROOT/README.md"
 [ -f "$RTK_CMD" ] && pass "commands/rtk.md exists" || fail "commands/rtk.md missing"
 [ -x "$RTK_MANAGER" ] && pass "scripts/rtk-manager.sh exists and is executable" || fail "scripts/rtk-manager.sh missing or not executable"
 
-if contains "$RTK_CMD" 'name: vbw:rtk' \
+if contains "$RTK_CMD" 'name: swt:rtk' \
   && contains "$RTK_CMD" 'argument-hint: [status|install|init|verify|update|uninstall]' \
   && contains "$RTK_CMD" 'allowed-tools: Read, Bash, AskUserQuestion'; then
   pass "rtk command frontmatter exposes explicit management subcommands"
@@ -69,7 +69,7 @@ for subcommand in 'status --json' 'install --dry-run' 'install --yes' 'init --dr
   fi
 done
 
-if contains "$RTK_CMD" '/vbw:rtk install` and no-args install/repair selections are explicit consent for complete setup' \
+if contains "$RTK_CMD" '/swt:rtk install` and no-args install/repair selections are explicit consent for complete setup' \
   && contains "$RTK_CMD" 'do not ask a second install question' \
   && contains "$RTK_CMD" 'Managed setup must not use `sudo`, edit shell profiles, or pipe downloaded scripts into `sh`'; then
   pass "rtk command documents complete setup consent and no curl-to-shell piping"
@@ -86,7 +86,7 @@ else
   fail "rtk command missing unavailable-state/setup-first menu contract"
 fi
 
-if contains "$RTK_CMD" '/vbw:rtk init` is explicit consent for setup/repair of Claude Code RTK integration' \
+if contains "$RTK_CMD" '/swt:rtk init` is explicit consent for setup/repair of Claude Code RTK integration' \
   && contains "$RTK_CMD" 'does not install or update the binary' \
   && ! contains "$RTK_CMD" 'hook-only setup/repair for an RTK binary that is already on PATH'; then
   pass "rtk command init wording matches validation/config-bootstrap behavior"
@@ -367,7 +367,7 @@ else
 fi
 
 if contains "$RTK_MANAGER" 'Install/update/init/uninstall require --yes' \
-  && contains "$RTK_MANAGER" 'Smoke helpers are explicit runtime verification internals used by /vbw:rtk verify; they write only local VBW RTK pending/proof/failure JSON'; then
+  && contains "$RTK_MANAGER" 'Smoke helpers are explicit runtime verification internals used by /swt:rtk verify; they write only local VBW RTK pending/proof/failure JSON'; then
   pass "rtk-manager usage scopes confirmation requirements away from local smoke proof writes"
 else
   fail "rtk-manager usage misrepresents smoke helper local proof writes as --yes-gated mutations"
@@ -399,7 +399,7 @@ if contains "$RTK_MANAGER" 'rtk_history_evidence()' \
   && contains "$RTK_MANAGER" 'history_command_evidence' \
   && contains "$RTK_MANAGER" 'missing fresh RTK history evidence after smoke-start' \
   && contains "$RTK_MANAGER" 'history totals unavailable and evidence tail hash unchanged' \
-  && contains "$RTK_MANAGER" 'fresh smoke evidence requires a new /vbw:rtk verify attempt' \
+  && contains "$RTK_MANAGER" 'fresh smoke evidence requires a new /swt:rtk verify attempt' \
   && ! contains "$RTK_MANAGER" 'pending history tail was not found in the after-history snapshot' \
   && contains "$ROOT/tests/rtk-manager.bats" 'smoke-finish accepts parseable total tail mismatch with fresh command counts' \
   && contains "$ROOT/tests/rtk-manager.bats" 'smoke-finish rejects parseable total tail mismatch with stale command counts' \
@@ -592,7 +592,7 @@ if contains "$STATUS_CMD" 'RTK external metrics' \
   && contains "$STATUS_CMD" 'status --json --stats' \
   && contains "$STATUS_CMD" 'RTK external: verified by runtime smoke proof' \
   && contains "$STATUS_CMD" 'Use compatibility-unverified wording only for `risk` or `hook_active_unverified` states without proof' \
-  && contains "$STATUS_CMD" 'Default `/vbw:status` avoids RTK history, stats, network, and smoke work'; then
+  && contains "$STATUS_CMD" 'Default `/swt:status` avoids RTK history, stats, network, and smoke work'; then
   pass "status command limits RTK to explicit external metrics"
 else
   fail "status command missing explicit-only RTK metrics boundary"
@@ -611,13 +611,13 @@ else
   fail "rtk command missing separate scoped Bash-tool smoke verification contract"
 fi
 
-if contains "$README" '/vbw:rtk' \
-  && contains "$README" '`/vbw:rtk install` is complete setup' \
+if contains "$README" '/swt:rtk' \
+  && contains "$README" '`/swt:rtk install` is complete setup' \
   && contains "$README" 'prefers `brew install rtk`' \
   && contains "$README" 'checksums.txt' \
   && contains "$README" 'config.toml' \
   && contains "$README" 'rtk init -g --auto-patch' \
-  && contains "$README" '/vbw:rtk verify` can run a scoped Claude Code Bash-tool smoke' \
+  && contains "$README" '/swt:rtk verify` can run a scoped Claude Code Bash-tool smoke' \
   && contains "$README" 'current Claude session transcript proves the RTK hook returned exact post-smoke `updatedInput` rewrites' \
   && contains "$README" '`ls` produced RTK-style output' \
   && contains "$README" 'normal status and doctor warnings quiet for this local setup' \
@@ -648,7 +648,7 @@ fi
 
 implicit_targets=(
   "$ROOT/commands/init.md"
-  "$ROOT/commands/vibe.md"
+  "$ROOT/commands/cook.md"
   "$ROOT/commands/status.md"
   "$ROOT/commands/doctor.md"
   "$SESSION_START"

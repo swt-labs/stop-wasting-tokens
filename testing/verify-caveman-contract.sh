@@ -43,7 +43,7 @@ COMPRESS_FILE="$REPO_ROOT/commands/compress.md"
 if [ -f "$COMPRESS_FILE" ]; then
   compress_head_5="$(head -5 "$COMPRESS_FILE")"
   compress_head_10="$(head -10 "$COMPRESS_FILE")"
-  grep -q "name: vbw:compress" <<<"$compress_head_5" || fail "compress.md missing name: vbw:compress frontmatter"
+  grep -q "name: swt:compress" <<<"$compress_head_5" || fail "compress.md missing name: swt:compress frontmatter"
   grep -q "description:" <<<"$compress_head_10" || fail "compress.md missing description frontmatter"
 fi
 

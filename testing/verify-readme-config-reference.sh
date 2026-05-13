@@ -259,7 +259,7 @@ else
   fail "discussion_mode prose missing assumptions fallback semantics"
 fi
 
-if grep -Fq '`auto` picks `assumptions` when `.vbw-planning/codebase/META.md` exists and otherwise uses `questions`.' <<< "$skills_section"; then
+if grep -Fq '`auto` picks `assumptions` when `.swt-planning/codebase/META.md` exists and otherwise uses `questions`.' <<< "$skills_section"; then
   pass "discussion_mode prose documents auto mode semantics"
 else
   fail "discussion_mode prose missing auto mode semantics"

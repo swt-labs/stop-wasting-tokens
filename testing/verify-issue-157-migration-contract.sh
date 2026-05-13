@@ -74,7 +74,7 @@ done
 
 if contains "$CONFIG_FILE" 'bash "{plugin-root}/scripts/migrate-config.sh"' \
   && contains "$CONFIG_FILE" 'bash "{plugin-root}/scripts/resolve-agent-model.sh"' \
-  && contains "$CONFIG_FILE" 'PG_SCRIPT="/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/planning-git.sh"'; then
+  && contains "$CONFIG_FILE" 'PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"'; then
   pass "config: uses safe {plugin-root} lookups plus deterministic planning-git path"
 else
   fail "config: missing migrated {plugin-root} / planning-git callsites"
@@ -84,14 +84,14 @@ if contains "$DEBUG_FILE" 'bash "{plugin-root}/scripts/debug-start-selected-todo
   && contains "$DEBUG_FILE" 'bash "{plugin-root}/scripts/debug-session-state.sh"' \
   && contains "$DEBUG_FILE" 'bash "{plugin-root}/scripts/write-debug-session.sh"' \
   && contains "$DEBUG_FILE" '{plugin-root}/references/handoff-schemas.md' \
-  && contains "$DEBUG_FILE" 'PG_SCRIPT="/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/planning-git.sh"'; then
+  && contains "$DEBUG_FILE" 'PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"'; then
   pass "debug: uses safe {plugin-root} selected-start/session/handoff references plus deterministic planning-git path"
 else
   fail "debug: missing migrated {plugin-root} selected-start/session/handoff/planning-git references"
 fi
 
 if contains "$FIX_FILE" 'bash "{plugin-root}/scripts/todo-details.sh" get <hash>' \
-  && contains "$FIX_FILE" 'bash "{plugin-root}/scripts/resolve-agent-settings.sh" dev .vbw-planning/config.json "{plugin-root}/config/model-profiles.json" turbo' \
+  && contains "$FIX_FILE" 'bash "{plugin-root}/scripts/resolve-agent-settings.sh" dev .swt-planning/config.json "{plugin-root}/config/model-profiles.json" turbo' \
   && contains "$FIX_FILE" 'bash "{plugin-root}/scripts/suggest-next.sh" fix'; then
   pass "fix: uses safe {plugin-root} helper callsites"
 else
@@ -100,7 +100,7 @@ fi
 
 if contains "$INIT_FILE" 'bash "{plugin-root}/scripts/generate-gsd-index.sh"' \
   && contains "$INIT_FILE" 'bash "{plugin-root}/scripts/bootstrap/bootstrap-project.sh"' \
-  && contains "$INIT_FILE" 'PG_SCRIPT="/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/planning-git.sh"'; then
+  && contains "$INIT_FILE" 'PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"'; then
   pass "init: uses safe {plugin-root} bootstrap helpers plus deterministic planning-git path"
 else
   fail "init: missing migrated bootstrap/planning-git callsites"
@@ -116,7 +116,7 @@ fi
 
 if contains "$QA_FILE" 'bash "{plugin-root}/scripts/qa-result-gate.sh"' \
   && contains "$QA_FILE" 'bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos' \
-  && contains "$QA_FILE" 'bash "{plugin-root}/scripts/resolve-agent-settings.sh" qa .vbw-planning/config.json "{plugin-root}/config/model-profiles.json" "$QA_EFFORT_PROFILE"'; then
+  && contains "$QA_FILE" 'bash "{plugin-root}/scripts/resolve-agent-settings.sh" qa .swt-planning/config.json "{plugin-root}/config/model-profiles.json" "$QA_EFFORT_PROFILE"'; then
   pass "qa: uses safe {plugin-root} gate, known-issues, and agent-settings callsites"
 else
   fail "qa: missing migrated {plugin-root} gate/known-issues/agent-settings callsites"
@@ -124,7 +124,7 @@ fi
 
 if contains "$VERIFY_FILE" 'bash "{plugin-root}/scripts/compile-verify-context-for-uat.sh"' \
   && contains "$VERIFY_FILE" 'bash "{plugin-root}/scripts/finalize-uat-status.sh"' \
-  && contains "$VERIFY_FILE" 'PG_SCRIPT="/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/planning-git.sh"'; then
+  && contains "$VERIFY_FILE" 'PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"'; then
   pass "verify: uses safe {plugin-root} UAT helpers plus deterministic planning-git path"
 else
   fail "verify: missing migrated UAT/planning-git callsites"
@@ -176,8 +176,8 @@ else
 fi
 
 if contains "$RESEARCH_FILE" 'bash "{plugin-root}/scripts/todo-details.sh" get <hash>' \
-  && contains "$RESEARCH_FILE" 'bash "{plugin-root}/scripts/resolve-agent-settings.sh" scout .vbw-planning/config.json "{plugin-root}/config/model-profiles.json"' \
-  && contains "$RESEARCH_FILE" 'bash "{plugin-root}/scripts/research-session-state.sh" start .vbw-planning "$RESEARCH_SLUG"'; then
+  && contains "$RESEARCH_FILE" 'bash "{plugin-root}/scripts/resolve-agent-settings.sh" scout .swt-planning/config.json "{plugin-root}/config/model-profiles.json"' \
+  && contains "$RESEARCH_FILE" 'bash "{plugin-root}/scripts/research-session-state.sh" start .swt-planning "$RESEARCH_SLUG"'; then
   pass "research: uses safe {plugin-root} script callsites"
 else
   fail "research: missing migrated {plugin-root} script callsites"

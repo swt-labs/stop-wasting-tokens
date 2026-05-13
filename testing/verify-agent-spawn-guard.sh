@@ -3,7 +3,7 @@ set -euo pipefail
 
 # verify-agent-spawn-guard.sh — Phase 2 (plan 02-05 T2) stub-shape migration.
 #
-# Migrated from VBW-era behavior tests (which wrote .vbw-planning/.execution-
+# Migrated from VBW-era behavior tests (which wrote .swt-planning/.execution-
 # state.json + .delegated-workflow.json markers and asserted blocking exit-2
 # semantics) to the Decision 2 STUB shape from plan 02-02.
 #

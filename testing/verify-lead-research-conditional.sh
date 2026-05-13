@@ -21,11 +21,11 @@ fail() {
 echo "=== Lead Agent Research-Conditional Stage 1 Verification ==="
 
 LEAD="$ROOT/agents/swt-lead.md"
-VIBE="$ROOT/commands/vibe.md"
+VIBE="$ROOT/commands/cook.md"
 COMPILE="$ROOT/scripts/compile-context.sh"
 CACHE="$ROOT/scripts/cache-context.sh"
 
-# --- vbw-lead.md: Research-conditional scanning ---
+# --- swt-lead.md: Research-conditional scanning ---
 
 if grep -q "If RESEARCH.md exists" "$LEAD"; then
   pass "lead: research-available fast path present"
@@ -79,7 +79,7 @@ else
   fail "vibe: brownfield fallback does not exclude higher-numbered per-plan research for any digit width"
 fi
 
-# --- vbw-lead.md: unconditional "Scan codebase via Glob/Grep" must be gone ---
+# --- swt-lead.md: unconditional "Scan codebase via Glob/Grep" must be gone ---
 
 if grep -q "^Read:.*Scan codebase via Glob/Grep" "$LEAD"; then
   fail "lead: old unconditional 'Scan codebase via Glob/Grep' still present"
@@ -128,25 +128,25 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 # Scaffold minimal VBW structure
-mkdir -p "$TMP/.vbw-planning/phases/02-build"
-mkdir -p "$TMP/.vbw-planning/.cache/context"
-cat > "$TMP/.vbw-planning/config.json" <<'CONF'
+mkdir -p "$TMP/.swt-planning/phases/02-build"
+mkdir -p "$TMP/.swt-planning/.cache/context"
+cat > "$TMP/.swt-planning/config.json" <<'CONF'
 {"project_name": "test"}
 CONF
-cat > "$TMP/.vbw-planning/ROADMAP.md" <<'ROAD'
+cat > "$TMP/.swt-planning/ROADMAP.md" <<'ROAD'
 ## Phase 2: Build
 **Goal:** Build things
 **Success Criteria:** It works
 **Requirements:** REQ-01
 ROAD
-cat > "$TMP/.vbw-planning/REQUIREMENTS.md" <<'REQ'
+cat > "$TMP/.swt-planning/REQUIREMENTS.md" <<'REQ'
 - [ ] REQ-01: Build something
 REQ
 
 # Test 1: Compile without research — should include codebase mapping hint
-(cd "$TMP" && bash "$ROOT/scripts/compile-context.sh" 02 lead .vbw-planning/phases > /dev/null 2>&1) || true
-if [ -f "$TMP/.vbw-planning/phases/02-build/.context-lead.md" ]; then
-  CTX1="$TMP/.vbw-planning/phases/02-build/.context-lead.md"
+(cd "$TMP" && bash "$ROOT/scripts/compile-context.sh" 02 lead .swt-planning/phases > /dev/null 2>&1) || true
+if [ -f "$TMP/.swt-planning/phases/02-build/.context-lead.md" ]; then
+  CTX1="$TMP/.swt-planning/phases/02-build/.context-lead.md"
   if grep -q "Research Findings" "$CTX1"; then
     fail "behavioral: no-research compile should not have Research Findings"
   else
@@ -157,16 +157,16 @@ else
 fi
 
 # Test 2: Get cache hash without research
-HASH1=$(cd "$TMP" && bash "$ROOT/scripts/cache-context.sh" 02 lead .vbw-planning/config.json 2>/dev/null | awk '{print $2}') || HASH1="error1"
+HASH1=$(cd "$TMP" && bash "$ROOT/scripts/cache-context.sh" 02 lead .swt-planning/config.json 2>/dev/null | awk '{print $2}') || HASH1="error1"
 
 # Test 3: Add research file, recompile — should include Research Findings
-cat > "$TMP/.vbw-planning/phases/02-build/02-RESEARCH.md" <<'RES'
+cat > "$TMP/.swt-planning/phases/02-build/02-RESEARCH.md" <<'RES'
 ## Research
 Scout found things.
 RES
 
-(cd "$TMP" && bash "$ROOT/scripts/compile-context.sh" 02 lead .vbw-planning/phases > /dev/null 2>&1) || true
-CTX2="$TMP/.vbw-planning/phases/02-build/.context-lead.md"
+(cd "$TMP" && bash "$ROOT/scripts/compile-context.sh" 02 lead .swt-planning/phases > /dev/null 2>&1) || true
+CTX2="$TMP/.swt-planning/phases/02-build/.context-lead.md"
 if [ -f "$CTX2" ] && grep -q "Research Findings" "$CTX2"; then
   pass "behavioral: research-present compile includes Research Findings"
 else
@@ -181,7 +181,7 @@ else
 fi
 
 # Test 5: Cache hash should differ after research added
-HASH2=$(cd "$TMP" && bash "$ROOT/scripts/cache-context.sh" 02 lead .vbw-planning/config.json 2>/dev/null | awk '{print $2}') || HASH2="error2"
+HASH2=$(cd "$TMP" && bash "$ROOT/scripts/cache-context.sh" 02 lead .swt-planning/config.json 2>/dev/null | awk '{print $2}') || HASH2="error2"
 if [ "$HASH1" != "$HASH2" ] && [ "$HASH1" != "error1" ] && [ "$HASH2" != "error2" ]; then
   pass "behavioral: cache hash changes when research appears"
 else

@@ -9,16 +9,16 @@ set -euo pipefail
 #
 # Fix: Each command file resolves the plugin root ONCE at load time, creates a
 # per-session symlink at a deterministic path:
-#   /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}
+#   /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}
 # Resolution order for the symlink steps is:
 #   1. exact current-session symlink path (SESSION_LINK)
-#   2. generic symlink discovery via `find -H /tmp -maxdepth 1 -name '.vbw-plugin-root-link-*'`
+#   2. generic symlink discovery via `find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'`
 # Subsequent load-time references construct the same deterministic session path
 # independently via echo — no shared mutable temp file is involved.
 #
 # Safe contexts (all refs must be in one of these):
-#   - echo /tmp/.vbw-plugin-root-link-... (deterministic path construction — standard reader)
-#   - LINK="/tmp/.vbw-plugin-root-link-*" (canonical no-space symlink in preamble)
+#   - echo /tmp/.swt-install-root-link-... (deterministic path construction — standard reader)
+#   - LINK="/tmp/.swt-install-root-link-*" (canonical no-space symlink in preamble)
 #   - !`...${CLAUDE_PLUGIN_ROOT:-...}...` (resolve line with fallback)
 #   - @${CLAUDE_PLUGIN_ROOT}/...         (file inclusion at load time)
 #   - Plugin root: ...                   (preamble resolve+write line)
@@ -236,7 +236,7 @@ else
 fi
 
 # Check 4: Canonical no-space link path exists in resolver preambles
-canonical_count=$(grep -c 'LINK="/tmp/.vbw-plugin-root-link-' "${TRACKED_COMMAND_REFERENCE_FILES[@]}" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
+canonical_count=$(grep -c 'LINK="/tmp/.swt-install-root-link-' "${TRACKED_COMMAND_REFERENCE_FILES[@]}" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
 if [ "$canonical_count" -ge 1 ]; then
   pass "resolver preambles emit canonical no-space link path"
 else
@@ -248,9 +248,9 @@ for file in "$COMMANDS_DIR"/*.md; do
   [ -f "$file" ] || continue
   is_tracked_repo_file "$file" || continue
   base="$(basename "$file" .md)"
-  reader_count=$(grep -c 'echo /tmp/.vbw-plugin-root-link-' "$file" 2>/dev/null || true)
+  reader_count=$(grep -c 'echo /tmp/.swt-install-root-link-' "$file" 2>/dev/null || true)
   if [ "$reader_count" -gt 0 ]; then
-    if grep -q 'LINK="/tmp/.vbw-plugin-root-link-' "$file"; then
+    if grep -q 'LINK="/tmp/.swt-install-root-link-' "$file"; then
       pass "$base: has preamble for $reader_count reader callsites"
     else
       fail "$base: $reader_count reader callsites but NO preamble"
@@ -258,12 +258,12 @@ for file in "$COMMANDS_DIR"/*.md; do
   fi
 done
 
-# Check 6: Deterministic reader pattern uses CLAUDE_SESSION_ID
-reader_without_session=$(grep -n 'echo /tmp/.vbw-plugin-root-link-' "${TRACKED_COMMAND_FILES[@]}" 2>/dev/null | grep -v 'CLAUDE_SESSION_ID' || true)
+# Check 6: Deterministic reader pattern uses SWT_SESSION_ID
+reader_without_session=$(grep -n 'echo /tmp/.swt-install-root-link-' "${TRACKED_COMMAND_FILES[@]}" 2>/dev/null | grep -v 'SWT_SESSION_ID' || true)
 if [ -z "$reader_without_session" ]; then
-  pass "all readers use CLAUDE_SESSION_ID for session isolation"
+  pass "all readers use SWT_SESSION_ID for session isolation"
 else
-  fail "readers missing CLAUDE_SESSION_ID"
+  fail "readers missing SWT_SESSION_ID"
   echo "$reader_without_session" | while IFS= read -r line; do echo "      $line"; done
 fi
 
@@ -290,7 +290,7 @@ for file in "$COMMANDS_DIR"/*.md; do
   [ -f "$file" ] || continue
   is_tracked_repo_file "$file" || continue
   base="$(basename "$file" .md)"
-  if grep -q 'LINK="/tmp/.vbw-plugin-root-link-' "$file"; then
+  if grep -q 'LINK="/tmp/.swt-install-root-link-' "$file"; then
     if grep -q 'cd "$R" 2>/dev/null && pwd -P' "$file"; then
       pass "$base: uses canonical pwd -P resolution"
     else
@@ -304,7 +304,7 @@ for file in "$COMMANDS_DIR"/*.md; do
   [ -f "$file" ] || continue
   is_tracked_repo_file "$file" || continue
   base="$(basename "$file" .md)"
-  if grep -q 'LINK="/tmp/.vbw-plugin-root-link-' "$file"; then
+  if grep -q 'LINK="/tmp/.swt-install-root-link-' "$file"; then
     if grep -q 'ensure-plugin-root-link.sh" "$LINK" "$REAL_R"' "$file"; then
       pass "$base: uses ensure-plugin-root-link helper with REAL_R"
     else
@@ -329,7 +329,7 @@ else
   fail "execute-protocol missing safe fallback for canonicalization failure"
 fi
 
-# Check 11: targeted command preambles use CLAUDE_SESSION_ID:-default session key
+# Check 11: targeted command preambles use SWT_SESSION_ID:-default session key
 # todo.md and list-todos.md intentionally have no shell preamble (fix for #201) — skip from preamble checks
 TARGET_COMMANDS=(
   config.md debug.md discuss.md doctor.md fix.md help.md init.md map.md qa.md
@@ -340,10 +340,10 @@ for rel in "${TARGET_COMMANDS[@]}"; do
   [ -f "$file" ] || continue
   is_tracked_repo_file "$file" || continue
   base="$(basename "$rel" .md)"
-  if grep -q 'SESSION_KEY="${CLAUDE_SESSION_ID:-default}"' "$file"; then
-    pass "$base: preamble uses CLAUDE_SESSION_ID:-default session key"
+  if grep -q 'SESSION_KEY="${SWT_SESSION_ID:-default}"' "$file"; then
+    pass "$base: preamble uses SWT_SESSION_ID:-default session key"
   else
-    fail "$base: missing CLAUDE_SESSION_ID:-default session key in preamble"
+    fail "$base: missing SWT_SESSION_ID:-default session key in preamble"
   fi
 done
 
@@ -374,7 +374,7 @@ for rel in "${TARGET_COMMANDS[@]}"; do
   [ -f "$file" ] || continue
   is_tracked_repo_file "$file" || continue
   base="$(basename "$rel" .md)"
-  if grep -qF "command find -H /tmp -maxdepth 1 -name '.vbw-plugin-root-link-*'" "$file"; then
+  if grep -qF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$file"; then
     pass "$base: preamble includes find-based symlink fallback"
   else
     fail "$base: preamble missing find-based symlink fallback"
@@ -388,7 +388,7 @@ else
   fail "execute-protocol: missing exact current-session symlink fallback"
 fi
 
-if grep -qF "command find -H /tmp -maxdepth 1 -name '.vbw-plugin-root-link-*'" "$EXECUTE_PROTOCOL"; then
+if grep -qF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$EXECUTE_PROTOCOL"; then
   pass "execute-protocol: includes find-based symlink fallback"
 else
   fail "execute-protocol: missing find-based symlink fallback"
@@ -486,7 +486,7 @@ else
   fail "todo.md missing canonical helper add command shape via PLUGIN_ROOT"
 fi
 
-if grep -Fq 'bash "${PLUGIN_ROOT}/scripts/planning-git.sh" commit-boundary "add todo item" .vbw-planning/config.json' "$TODO_CMD"; then
+if grep -Fq 'bash "${PLUGIN_ROOT}/scripts/planning-git.sh" commit-boundary "add todo item" .swt-planning/config.json' "$TODO_CMD"; then
   pass "todo.md uses canonical planning-git command shape via PLUGIN_ROOT"
 else
   fail "todo.md missing canonical planning-git command shape via PLUGIN_ROOT"
@@ -500,7 +500,7 @@ fi
 
 resolver_line=$(grep -nF 'Store the resolved path as `PLUGIN_ROOT`' "$TODO_CMD" | head -1 | cut -d: -f1 || true)
 add_line=$(grep -nF 'bash "${PLUGIN_ROOT}/scripts/todo-details.sh" add HASH -' "$TODO_CMD" | head -1 | cut -d: -f1 || true)
-planning_line=$(grep -nF 'bash "${PLUGIN_ROOT}/scripts/planning-git.sh" commit-boundary "add todo item" .vbw-planning/config.json' "$TODO_CMD" | head -1 | cut -d: -f1 || true)
+planning_line=$(grep -nF 'bash "${PLUGIN_ROOT}/scripts/planning-git.sh" commit-boundary "add todo item" .swt-planning/config.json' "$TODO_CMD" | head -1 | cut -d: -f1 || true)
 if [ -n "$resolver_line" ] && [ -n "$add_line" ]; then
   if [ "$resolver_line" -lt "$add_line" ]; then
     pass "todo.md places the PLUGIN_ROOT resolver before helper add usage"
@@ -525,7 +525,7 @@ for needle in \
   'The `local/` subdirectory under the plugin cache root' \
   'The numerically highest versioned directory under the plugin cache root' \
   'Any other (non-versioned) subdirectory under the plugin cache root' \
-  'The session symlink `/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}`' \
+  'The session symlink `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}`' \
   'Extract `--plugin-dir <path>` from the process tree (`ps axww`)'
 do
   if grep -Fq "$needle" "$TODO_CMD"; then
@@ -535,13 +535,13 @@ do
   fi
 done
 
-if grep -Fq '/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/todo-details.sh' "$TODO_CMD"; then
+if grep -Fq '/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/todo-details.sh' "$TODO_CMD"; then
   fail "todo.md still hard-codes the session symlink helper path"
 else
   pass "todo.md no longer hard-codes the session symlink helper path"
 fi
 
-if grep -Fq '/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/planning-git.sh' "$TODO_CMD"; then
+if grep -Fq '/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh' "$TODO_CMD"; then
   fail "todo.md still hard-codes the session symlink planning-git path"
 else
   pass "todo.md no longer hard-codes the session symlink planning-git path"
@@ -585,7 +585,7 @@ BTEST_DIR=$(mktemp -d)
 BTEST_CLEANUP_LIST+=("$BTEST_DIR")
 mkdir -p "$BTEST_DIR/scripts"
 echo "#!/bin/bash" > "$BTEST_DIR/scripts/hook-wrapper.sh"
-BTEST_LINK="/tmp/.vbw-plugin-root-link-test-behavioral-$$"
+BTEST_LINK="/tmp/.swt-install-root-link-test-behavioral-$$"
 ln -s "$BTEST_DIR" "$BTEST_LINK"
 BTEST_CLEANUP_LIST+=("$BTEST_LINK")
 resolved=""
@@ -603,7 +603,7 @@ fi
 BTEST_FIND_ROOT=$(mktemp -d)
 BTEST_CLEANUP_LIST+=("$BTEST_FIND_ROOT")
 resolved=""
-resolved=$(command find "$BTEST_FIND_ROOT" -maxdepth 1 -type l -name '.vbw-plugin-root-link-*' -print 2>/dev/null | LC_ALL=C sort | head -1 || true)
+resolved=$(command find "$BTEST_FIND_ROOT" -maxdepth 1 -type l -name '.swt-install-root-link-*' -print 2>/dev/null | LC_ALL=C sort | head -1 || true)
 rm -rf "$BTEST_FIND_ROOT"
 if [ -z "$resolved" ]; then
   pass "find-based fallback returns empty when no symlinks exist"
@@ -614,18 +614,18 @@ fi
 # Check 15c: find-based fallback skips stale symlinks and discovers a later valid symlink
 BTEST_FIND_ROOT=$(mktemp -d)
 BTEST_CLEANUP_LIST+=("$BTEST_FIND_ROOT")
-BTEST_STALE_MIX="$BTEST_FIND_ROOT/.vbw-plugin-root-link-test-stale-$$"
+BTEST_STALE_MIX="$BTEST_FIND_ROOT/.swt-install-root-link-test-stale-$$"
 BTEST_CLEANUP_LIST+=("$BTEST_STALE_MIX")
 ln -s "/nonexistent/path/$$" "$BTEST_STALE_MIX"
 BTEST_VALID_DIR=$(mktemp -d)
 BTEST_CLEANUP_LIST+=("$BTEST_VALID_DIR")
 mkdir -p "$BTEST_VALID_DIR/scripts"
 echo "#!/bin/bash" > "$BTEST_VALID_DIR/scripts/hook-wrapper.sh"
-BTEST_VALID_MIX="$BTEST_FIND_ROOT/.vbw-plugin-root-link-test-valid-$$"
+BTEST_VALID_MIX="$BTEST_FIND_ROOT/.swt-install-root-link-test-valid-$$"
 ln -s "$BTEST_VALID_DIR" "$BTEST_VALID_MIX"
 BTEST_CLEANUP_LIST+=("$BTEST_VALID_MIX")
 resolved=""
-resolved=$(command find "$BTEST_FIND_ROOT" -maxdepth 1 -type l -name '.vbw-plugin-root-link-*' -print 2>/dev/null | LC_ALL=C sort | while IFS= read -r link; do
+resolved=$(command find "$BTEST_FIND_ROOT" -maxdepth 1 -type l -name '.swt-install-root-link-*' -print 2>/dev/null | LC_ALL=C sort | while IFS= read -r link; do
   if [ -f "$link/scripts/hook-wrapper.sh" ]; then
     printf '%s\n' "$link"
     break
@@ -658,7 +658,7 @@ else
 fi
 
 # Check 17: no command preamble or execute doc retains the old shell-expanded symlink glob fallback
-old_glob_uses=$(grep -n '/tmp/.vbw-plugin-root-link-\*/scripts/hook-wrapper.sh' "${TRACKED_COMMAND_EXECUTE_PROTOCOL_FILES[@]}" 2>/dev/null || true)
+old_glob_uses=$(grep -n '/tmp/.swt-install-root-link-\*/scripts/hook-wrapper.sh' "${TRACKED_COMMAND_EXECUTE_PROTOCOL_FILES[@]}" 2>/dev/null || true)
 if [ -z "$old_glob_uses" ]; then
   pass "command preambles and execute-protocol no longer use shell-expanded symlink globs"
 else
@@ -747,7 +747,7 @@ for rel in "${PHASE_DETECT_COMMANDS[@]}"; do
   base="$(basename "$rel" .md)"
   if [ "$rel" = "vibe.md" ]; then
     if grep -qF '[ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" ]' "$file" \
-      && grep -qF "command find -H /tmp -maxdepth 1 -name '.vbw-plugin-root-link-*'" "$file"; then
+      && grep -qF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$file"; then
       pass "$base: preamble includes exact-session and find-based fallback"
     else
       fail "$base: missing exact-session or find-based fallback in preamble"
@@ -756,7 +756,7 @@ for rel in "${PHASE_DETECT_COMMANDS[@]}"; do
   fi
   func_count=$(grep -c '_refresh_phase_detect()' "$file" || true)
   session_link_count=$(grep -cF '[ -f "$SESSION_LINK/scripts/hook-wrapper.sh" ]' "$file" || true)
-  find_fallback_count=$(grep -cF "command find -H /tmp -maxdepth 1 -name '.vbw-plugin-root-link-*'" "$file" || true)
+  find_fallback_count=$(grep -cF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$file" || true)
   if [ "$session_link_count" -ge "$func_count" ] && [ "$find_fallback_count" -ge "$func_count" ]; then
     pass "$base: _refresh_phase_detect() includes exact-session and find-based fallback"
   else

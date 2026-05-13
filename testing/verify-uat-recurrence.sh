@@ -89,64 +89,64 @@ fi
 # =========================================================================
 
 # Test 10: vibe.md UAT Remediation references FAILED_IN_ROUNDS
-if grep -q 'FAILED_IN_ROUNDS' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'FAILED_IN_ROUNDS' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md UAT Remediation references FAILED_IN_ROUNDS"
 else
   fail "vibe.md UAT Remediation missing FAILED_IN_ROUNDS reference"
 fi
 
 # Test 11: vibe.md has phase-level escalation (current round >= 3)
-if grep -q 'RR >= 3\|round >= 3\|uat_round >= 3' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'RR >= 3\|round >= 3\|uat_round >= 3' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md has phase-level escalation at round >= 3"
 else
   fail "vibe.md missing phase-level escalation threshold"
 fi
 
 # Test 12: vibe.md has per-test priority ranking by failure_count
-if grep -q 'failure_count descending' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'failure_count descending' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md has per-test priority ranking by failure_count descending"
 else
   fail "vibe.md missing per-test priority ranking"
 fi
 
 # Test 12b: vibe.md distinguishes active UAT round from remediation round
-if grep -q 'active_uat_round' "$SCRIPT_DIR/commands/vibe.md" && grep -q 'less than `RR`' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'active_uat_round' "$SCRIPT_DIR/commands/cook.md" && grep -q 'less than `RR`' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md distinguishes active UAT round from remediation round"
 else
   fail "vibe.md should distinguish active UAT round from remediation round"
 fi
 
 # Test 12c: recurrence scanning excludes the active step-2 artifact and never defaults to RR
-if grep -q 'exclude the active step-2 UAT artifact itself from the scan' "$SCRIPT_DIR/commands/vibe.md" \
-  && grep -q 'never.*default to `RR`' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'exclude the active step-2 UAT artifact itself from the scan' "$SCRIPT_DIR/commands/cook.md" \
+  && grep -q 'never.*default to `RR`' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md excludes the active UAT artifact from recurrence scan"
 else
   fail "vibe.md should exclude the active UAT artifact from recurrence scan"
 fi
 
 # Test 13: vibe.md has RECURRING annotation for failure_count >= 2
-if grep -q 'RECURRING' "$SCRIPT_DIR/commands/vibe.md" && grep -q 'failure_count >= 2' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'RECURRING' "$SCRIPT_DIR/commands/cook.md" && grep -q 'failure_count >= 2' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md has RECURRING annotation for failure_count >= 2"
 else
   fail "vibe.md missing RECURRING annotation logic"
 fi
 
 # Test 14: vibe.md Scout prompt includes prior-fix investigation directive
-if grep -q 'Investigate WHY previous fixes failed' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'Investigate WHY previous fixes failed' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md Scout prompt includes prior-fix investigation directive"
 else
   fail "vibe.md Scout prompt missing prior-fix investigation directive"
 fi
 
 # Test 15: vibe.md Lead prompt includes prioritization directive
-if grep -q 'Prioritize recurring failures' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'Prioritize recurring failures' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md Lead prompt includes prioritization directive for recurring issues"
 else
   fail "vibe.md Lead prompt missing prioritization directive"
 fi
 
 # Test 16: vibe.md remediation summary includes per-test recurrence
-if grep -q 'per-test recurrence' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'per-test recurrence' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md remediation summary includes per-test recurrence"
 else
   fail "vibe.md remediation summary missing per-test recurrence"
@@ -157,28 +157,28 @@ fi
 # =========================================================================
 
 # Test 17: vibe.md Start fresh re-routes via phase-detect.sh after marking
-if grep -q 'FRESH_PD.*phase-detect\.sh' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'FRESH_PD.*phase-detect\.sh' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md Start fresh re-runs phase-detect.sh after marking"
 else
   fail "vibe.md Start fresh missing phase-detect.sh re-run after marking"
 fi
 
 # Test 18: vibe.md Start fresh has error guard for phase-detect failure
-if grep -q 'phase_detect_error=true.*STOP\|STOP.*phase_detect_error\|empty.*phase_detect_error' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'phase_detect_error=true.*STOP\|STOP.*phase_detect_error\|empty.*phase_detect_error' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md Start fresh has error guard for phase-detect failure"
 else
   fail "vibe.md Start fresh missing error guard for phase-detect failure"
 fi
 
 # Test 19: vibe.md Start fresh has re-trigger guard for milestone_uat loop
-if grep -q 'milestone_uat_issues=true.*STOP\|Re-trigger guard' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'milestone_uat_issues=true.*STOP\|Re-trigger guard' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md Start fresh has re-trigger guard for milestone_uat loop"
 else
   fail "vibe.md Start fresh missing re-trigger guard"
 fi
 
 # Test 20: vibe.md Start fresh references full priority table
-if grep -q 'full priority table' "$SCRIPT_DIR/commands/vibe.md"; then
+if grep -q 'full priority table' "$SCRIPT_DIR/commands/cook.md"; then
   pass "vibe.md Start fresh references full priority table for re-routing"
 else
   fail "vibe.md Start fresh missing full priority table reference"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# verify-report-template-contract.sh — Verify /vbw:report template alignment,
+# verify-report-template-contract.sh — Verify /swt:report template alignment,
 # classification criteria, and label routing.
 #
 # Guards against structural drift between commands/report.md and the GitHub

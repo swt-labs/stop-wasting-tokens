@@ -366,9 +366,9 @@ fi
 
 if grep -Fq 'If `RESOLUTION_OBSERVATION=needs_change`: spawn ONE fresh post-synthesis implementation owner via TaskCreate with `subagent_type: "swt:swt-debugger"` and `model: "${DEBUGGER_MODEL}"`.' <<< "$DEBUG_PATH_A_BLOCK" \
   && grep -Fq 'This is a new debugger instance, not one of the earlier hypothesis investigators.' <<< "$DEBUG_PATH_A_BLOCK"; then
-  pass "debug.md Path A uses a fresh vbw-debugger as the sole post-synthesis implementation owner"
+  pass "debug.md Path A uses a fresh swt-debugger as the sole post-synthesis implementation owner"
 else
-  fail "debug.md Path A missing fresh vbw-debugger implementation-owner contract"
+  fail "debug.md Path A missing fresh swt-debugger implementation-owner contract"
 fi
 
 patha_teardown_line=$(first_matching_line_number "$DEBUG_PATH_A_BLOCK" '**Teardown phase — HARD GATE before any implementation:**')
@@ -390,7 +390,7 @@ else
   fail "debug.md Step 5 missing fixed_now/already_fixed/no_fix_yet mapping"
 fi
 
-if grep -qF 'set-status .vbw-planning complete' "$DEBUG_CMD" 2>/dev/null; then
+if grep -qF 'set-status .swt-planning complete' "$DEBUG_CMD" 2>/dev/null; then
   pass "debug.md already_fixed path reuses completed-state workflow via set-status complete"
 else
   fail "debug.md already_fixed path missing set-status complete workflow"
@@ -409,22 +409,22 @@ fi
 DEBUG_USAGE_LINES="$(grep -F 'Usage:' "$DEBUG_CMD" 2>/dev/null || true)"
 DEBUG_USAGE_COUNT=$(printf '%s\n' "$DEBUG_USAGE_LINES" | grep -c 'Usage:' || true)
 if [ "$DEBUG_USAGE_COUNT" -ge 2 ] \
-  && contains_literal "$DEBUG_USAGE_LINES" '/vbw:debug <todo-number>' \
-  && contains_literal "$DEBUG_USAGE_LINES" '/vbw:debug --resume' \
-  && contains_literal "$DEBUG_USAGE_LINES" '/vbw:debug --session <id>' \
+  && contains_literal "$DEBUG_USAGE_LINES" '/swt:debug <todo-number>' \
+  && contains_literal "$DEBUG_USAGE_LINES" '/swt:debug --resume' \
+  && contains_literal "$DEBUG_USAGE_LINES" '/swt:debug --session <id>' \
   && contains_literal "$DEBUG_USAGE_LINES" '[--competing|--parallel|--serial]'; then
   pass "debug.md keeps both expanded Usage strings with resume/session and ambiguity flags"
 else
   fail "debug.md missing expanded Usage strings with resume/session and ambiguity flags"
 fi
 
-if grep -Fq 'No active debug session to resume. Use `/vbw:debug --session <id>` to open a specific session' "$DEBUG_CMD" 2>/dev/null; then
+if grep -Fq 'No active debug session to resume. Use `/swt:debug --session <id>` to open a specific session' "$DEBUG_CMD" 2>/dev/null; then
   pass "debug.md resume stop message advertises session override and new-session entry points"
 else
   fail "debug.md resume stop message still uses freeform-only guidance"
 fi
 
-if grep -Fq 'This debug session is already complete. Use `/vbw:debug --session <id>` to inspect another session' "$DEBUG_CMD" 2>/dev/null; then
+if grep -Fq 'This debug session is already complete. Use `/swt:debug --session <id>` to inspect another session' "$DEBUG_CMD" 2>/dev/null; then
   pass "debug.md complete-session stop message advertises session override and new-session entry points"
 else
   fail "debug.md complete-session stop message still uses freeform-only guidance"
@@ -446,9 +446,9 @@ else
   fail "debug.md lifecycle routing not fully aligned to session_status contract"
 fi
 
-debug_complete_matches=$(grep -nF 'bash "{plugin-root}/scripts/debug-session-state.sh" set-status .vbw-planning complete' "$DEBUG_CMD" 2>/dev/null || true)
-debug_pg_matches=$(grep -nF 'PG_SCRIPT="/tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/planning-git.sh"' "$DEBUG_CMD" 2>/dev/null || true)
-debug_commit_matches=$(grep -nF 'bash "$PG_SCRIPT" commit-boundary "complete debug session" .vbw-planning/config.json' "$DEBUG_CMD" 2>/dev/null || true)
+debug_complete_matches=$(grep -nF 'bash "{plugin-root}/scripts/debug-session-state.sh" set-status .swt-planning complete' "$DEBUG_CMD" 2>/dev/null || true)
+debug_pg_matches=$(grep -nF 'PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"' "$DEBUG_CMD" 2>/dev/null || true)
+debug_commit_matches=$(grep -nF 'bash "$PG_SCRIPT" commit-boundary "complete debug session" .swt-planning/config.json' "$DEBUG_CMD" 2>/dev/null || true)
 debug_warning_matches=$(grep -nF 'VBW: planning-git.sh unavailable; skipping planning git boundary commit' "$DEBUG_CMD" 2>/dev/null || true)
 
 debug_complete_first=$(printf '%s\n' "$debug_complete_matches" | sed -n '1s/:.*//p')
@@ -533,9 +533,9 @@ fi
 
 DEBUGGER_AGENT="$ROOT/agents/swt-debugger.md"
 if grep -q "Standalone Debug Session" "$DEBUGGER_AGENT" 2>/dev/null; then
-  pass "vbw-debugger.md has standalone debug session section"
+  pass "swt-debugger.md has standalone debug session section"
 else
-  fail "vbw-debugger.md missing standalone debug session section"
+  fail "swt-debugger.md missing standalone debug session section"
 fi
 
 DEBUGGER_PROTOCOL_BLOCK="$(sed -n '/## Investigation Protocol/,/^## /p' "$DEBUGGER_AGENT" 2>/dev/null || true)"
@@ -544,43 +544,43 @@ DEBUGGER_TEAMMATE_BLOCK="$(sed -n '/## Teammate Mode/,/^## /p' "$DEBUGGER_AGENT"
 if contains_literal "$DEBUGGER_PROTOCOL_BLOCK" 'Historical accepted process-exception or backlog/UAT-deviation metadata is not an `already_fixed` signal.' \
   && contains_literal "$DEBUGGER_PROTOCOL_BLOCK" 'Use `already_fixed` only with fresh current evidence.' \
   && contains_literal "$DEBUGGER_PROTOCOL_BLOCK" 'Report an explicit blocker instead of claiming completion when remediation is impossible.'; then
-  pass "vbw-debugger.md Investigation Protocol rejects historical accepted metadata as already_fixed evidence"
+  pass "swt-debugger.md Investigation Protocol rejects historical accepted metadata as already_fixed evidence"
 else
-  fail "vbw-debugger.md Investigation Protocol missing accepted-exception already_fixed invariant"
+  fail "swt-debugger.md Investigation Protocol missing accepted-exception already_fixed invariant"
 fi
 
-if grep -Fq 'When `/vbw:debug` Path A spawns you as a hypothesis investigator' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
+if grep -Fq 'When `/swt:debug` Path A spawns you as a hypothesis investigator' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
   && grep -Fq 'overrides any conflicting implementation language' <<< "$DEBUGGER_TEAMMATE_BLOCK"; then
-  pass "vbw-debugger.md teammate mode explicitly defers to /vbw:debug orchestration"
+  pass "swt-debugger.md teammate mode explicitly defers to /swt:debug orchestration"
 else
-  fail "vbw-debugger.md teammate mode missing /vbw:debug orchestration override"
+  fail "swt-debugger.md teammate mode missing /swt:debug orchestration override"
 fi
 
 if grep -Fq 'Teammate mode ends at diagnosis plus `debugger_report`.' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
   && grep -Fq '`resolution_observation` does NOT grant fix authority.' <<< "$DEBUGGER_TEAMMATE_BLOCK"; then
-  pass "vbw-debugger.md teammate mode ends at diagnosis and keeps resolution observations analysis-only"
+  pass "swt-debugger.md teammate mode ends at diagnosis and keeps resolution observations analysis-only"
 else
-  fail "vbw-debugger.md teammate mode missing diagnosis-only boundary or analysis-only resolution language"
+  fail "swt-debugger.md teammate mode missing diagnosis-only boundary or analysis-only resolution language"
 fi
 
 if grep -Fq 'Historical `accepted-process-exception` or backlog/UAT-deviation metadata alone is not fresh evidence for `already_fixed`.' <<< "$DEBUGGER_TEAMMATE_BLOCK"; then
-  pass "vbw-debugger.md teammate mode rejects accepted metadata alone as already_fixed evidence"
+  pass "swt-debugger.md teammate mode rejects accepted metadata alone as already_fixed evidence"
 else
-  fail "vbw-debugger.md teammate mode missing accepted-metadata already_fixed guard"
+  fail "swt-debugger.md teammate mode missing accepted-metadata already_fixed guard"
 fi
 
-if grep -Fq '`/vbw:debug` owns synthesis, session status, teardown, and any later implementation handoff.' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
+if grep -Fq '`/swt:debug` owns synthesis, session status, teardown, and any later implementation handoff.' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
   && grep -Fq 'That implementation owner is not this teammate.' <<< "$DEBUGGER_TEAMMATE_BLOCK"; then
-  pass "vbw-debugger.md teammate mode reserves implementation ownership for a fresh post-synthesis owner"
+  pass "swt-debugger.md teammate mode reserves implementation ownership for a fresh post-synthesis owner"
 else
-  fail "vbw-debugger.md teammate mode missing fresh post-synthesis ownership boundary"
+  fail "swt-debugger.md teammate mode missing fresh post-synthesis ownership boundary"
 fi
 
 QA_AGENT="$ROOT/agents/swt-qa.md"
 if grep -q "Debug Session QA" "$QA_AGENT" 2>/dev/null; then
-  pass "vbw-qa.md has debug session QA section"
+  pass "swt-qa.md has debug session QA section"
 else
-  fail "vbw-qa.md missing debug session QA section"
+  fail "swt-qa.md missing debug session QA section"
 fi
 
 # — Guard ordering checks (R2-01, R2-02) —
@@ -608,9 +608,9 @@ fi
 # — Agent status alignment (R2-04) —
 
 if grep -q 'qa_pending' "$DEBUGGER_AGENT" 2>/dev/null && ! grep -q 'fix_applied' "$DEBUGGER_AGENT" 2>/dev/null; then
-  pass "vbw-debugger.md uses qa_pending (not fix_applied) for post-fix status"
+  pass "swt-debugger.md uses qa_pending (not fix_applied) for post-fix status"
 else
-  fail "vbw-debugger.md should use qa_pending for post-fix status, not fix_applied"
+  fail "swt-debugger.md should use qa_pending for post-fix status, not fix_applied"
 fi
 
 # — Template remediation history section (CM1-02) —
@@ -699,12 +699,12 @@ else
   fail "verify.md guard missing --session flag"
 fi
 
-# — suggest-next.sh routes debug sessions to /vbw:debug --resume (CM3-01) —
+# — suggest-next.sh routes debug sessions to /swt:debug --resume (CM3-01) —
 
-if grep -q 'vbw:debug --resume' "$ROOT/scripts/suggest-next.sh" 2>/dev/null; then
-  pass "suggest-next.sh routes debug sessions to /vbw:debug --resume"
+if grep -q 'swt:debug --resume' "$ROOT/scripts/suggest-next.sh" 2>/dev/null; then
+  pass "suggest-next.sh routes debug sessions to /swt:debug --resume"
 else
-  fail "suggest-next.sh missing /vbw:debug --resume routing for debug sessions"
+  fail "suggest-next.sh missing /swt:debug --resume routing for debug sessions"
 fi
 
 # — suggest-next.sh qa/verify debug handlers guard on phase_count=0 (CM7-01) —
@@ -846,16 +846,16 @@ fi
 # — QA agent persistence contract separates phase-scoped from debug-session (CM5-01) —
 
 if grep -q 'Phase-Scoped QA' "$ROOT/agents/swt-qa.md" 2>/dev/null; then
-  pass "vbw-qa.md persistence section scoped to phase QA"
+  pass "swt-qa.md persistence section scoped to phase QA"
 else
-  fail "vbw-qa.md persistence section not scoped to phase QA"
+  fail "swt-qa.md persistence section not scoped to phase QA"
 fi
 
 if grep -q 'Debug-session QA exception' "$ROOT/agents/swt-qa.md" 2>/dev/null || \
    grep -q 'debug-session QA.*do NOT use.*write-verification' "$ROOT/agents/swt-qa.md" 2>/dev/null; then
-  pass "vbw-qa.md explicitly exempts debug-session QA from write-verification.sh"
+  pass "swt-qa.md explicitly exempts debug-session QA from write-verification.sh"
 else
-  fail "vbw-qa.md missing debug-session QA exception from write-verification.sh"
+  fail "swt-qa.md missing debug-session QA exception from write-verification.sh"
 fi
 
 # — Resume-context handoff injects FAILURE_CONTEXT into debugger prompt (CM6-01) —

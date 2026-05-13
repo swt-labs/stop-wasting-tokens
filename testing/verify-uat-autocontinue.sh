@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 PASS=0
 FAIL=0
-VIBE_VERIFY_STEP4_BLOCK=$(sed -n '/4\. \*\*UAT Remediation Auto-Continuation:/,/### Mode: Add Phase/p' "$ROOT/commands/vibe.md")
+VIBE_VERIFY_STEP4_BLOCK=$(sed -n '/4\. \*\*UAT Remediation Auto-Continuation:/,/### Mode: Add Phase/p' "$ROOT/commands/cook.md")
 
 pass() {
   echo "PASS  $1"
@@ -37,14 +37,14 @@ else
 fi
 
 # 3. vibe.md contains cap-reached banner
-if grep -q 'Reached maximum UAT remediation rounds' "$ROOT/commands/vibe.md"; then
+if grep -q 'Reached maximum UAT remediation rounds' "$ROOT/commands/cook.md"; then
   pass "vibe.md contains cap-reached banner"
 else
   fail "vibe.md missing cap-reached banner"
 fi
 
 # 4. vibe.md contains transition banner with issue count
-if grep -q 'Re-verification found {N} issue' "$ROOT/commands/vibe.md"; then
+if grep -q 'Re-verification found {N} issue' "$ROOT/commands/cook.md"; then
   pass "vibe.md contains transition banner with issue count"
 else
   fail "vibe.md missing transition banner with issue count"
@@ -107,8 +107,8 @@ else
 fi
 
 # 12. vibe.md documents the real prepare-reverification archived/skipped contract
-if grep -q 'archived=kept|in-round-dir|<original-uat-basename>' "$ROOT/commands/vibe.md" \
-  && grep -q 'skipped=already_archived|ready_for_verify|cap_reached' "$ROOT/commands/vibe.md"; then
+if grep -q 'archived=kept|in-round-dir|<original-uat-basename>' "$ROOT/commands/cook.md" \
+  && grep -q 'skipped=already_archived|ready_for_verify|cap_reached' "$ROOT/commands/cook.md"; then
   pass "vibe.md documents the real prepare-reverification archived/skipped contract"
 else
   fail "vibe.md missing the real prepare-reverification archived/skipped contract"

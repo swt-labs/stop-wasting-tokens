@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # Checks each commands/*.md file for:
 # - YAML frontmatter
-# - name matches file basename (plugin auto-prefixes vbw:)
+# - name matches file basename (plugin auto-prefixes swt:)
 # - single-line non-empty description
 # - allowed-tools field present
 # - `${CLAUDE_PLUGIN_ROOT}/...` references resolve to real files/dirs
@@ -332,8 +332,8 @@ for file in "${TRACKED_COMMAND_MARKDOWN_FILES[@]}"; do
   fi
 
   NAME_VALUE="$(frontmatter_first_scalar "$FRONTMATTER" "name")"
-  # Strip vbw: prefix if present — plugin auto-prefixes the namespace
-  NAME_STEM="${NAME_VALUE#vbw:}"
+  # Strip swt: prefix if present — plugin auto-prefixes the namespace
+  NAME_STEM="${NAME_VALUE#swt:}"
 
   if [ -z "$NAME_VALUE" ]; then
     fail "$base: missing name field"
@@ -407,7 +407,7 @@ debug_path_a_block="$(awk '
 ' "$DEBUG_COMMAND_FILE")"
 
 debug_path_a_investigator_block="$(awk '
-  /Spawn 3 vbw-debugger teammates/ { in_block = 1 }
+  /Spawn 3 swt-debugger teammates/ { in_block = 1 }
   in_block && /\*\*Investigation phase:\*\*/ { exit }
   in_block { print }
 ' "$DEBUG_COMMAND_FILE")"
@@ -424,7 +424,7 @@ debug_path_b_block="$(awk '
   in_block { print }
 ' "$DEBUG_COMMAND_FILE")"
 
-debug_inline_qa_spawn_line="$(grep -F 'Spawn vbw-qa as subagent via Task tool for debug-session verification' "$DEBUG_COMMAND_FILE" || true)"
+debug_inline_qa_spawn_line="$(grep -F 'Spawn swt-qa as subagent via Task tool for debug-session verification' "$DEBUG_COMMAND_FILE" || true)"
 
 if contains_literal "$debug_path_a_block" 'Create team via TeamCreate' \
   && contains_literal "$debug_path_a_investigator_block" 'True-team spawn shape' \
@@ -713,9 +713,9 @@ for file in "${TRACKED_COMMAND_MARKDOWN_FILES[@]}"; do
   body_no_context="$(printf '%s\n' "$body" | awk '/^## Context$/{skip=1; next} /^## /{skip=0} !skip')"
 
   # ACTIVE-file milestone indirection was removed (architecture simplification).
-  # Commands should NOT reference .vbw-planning/ACTIVE anymore.
-  if grep -qi '\.vbw-planning/ACTIVE' <<< "$body_no_context"; then
-    fail "$base: references .vbw-planning/ACTIVE — milestone indirection was removed"
+  # Commands should NOT reference .swt-planning/ACTIVE anymore.
+  if grep -qi '\.swt-planning/ACTIVE' <<< "$body_no_context"; then
+    fail "$base: references .swt-planning/ACTIVE — milestone indirection was removed"
   else
     pass "$base: no stale ACTIVE file references"
   fi
@@ -724,7 +724,7 @@ done
 echo ""
 echo "=== Stale ACTIVE Reference Verification (scripts + references) ==="
 
-# Scan scripts and references for any runtime usage of .vbw-planning/ACTIVE
+# Scan scripts and references for any runtime usage of .swt-planning/ACTIVE
 # (session-start.sh is allowed — it only deletes the stale file)
 for scan_file in "${TRACKED_ACTIVE_SCAN_FILES[@]}"; do
   rel_scan_file="${scan_file#$ROOT/}"
@@ -737,8 +737,8 @@ for scan_file in "${TRACKED_ACTIVE_SCAN_FILES[@]}"; do
     continue
   fi
 
-  if grep -qi '\.vbw-planning/ACTIVE' "$scan_file" 2>/dev/null; then
-    fail "$dir_label/$scan_base: references .vbw-planning/ACTIVE — milestone indirection was removed"
+  if grep -qi '\.swt-planning/ACTIVE' "$scan_file" 2>/dev/null; then
+    fail "$dir_label/$scan_base: references .swt-planning/ACTIVE — milestone indirection was removed"
   else
     pass "$dir_label/$scan_base: no stale ACTIVE file references"
   fi
@@ -751,7 +751,7 @@ echo "=== Phase-Detect Usage Verification ==="
 # detection rather than having the LLM glob and compute state independently.
 # Without this, the LLM may read from archived milestone directories and present
 # stale data. Commands that read STATE.md/ROADMAP.md should also scope reads to
-# top-level .vbw-planning/ only (not milestones/).
+# top-level .swt-planning/ only (not milestones/).
 PHASE_DETECT_REQUIRED_COMMANDS="resume cook discuss qa verify"
 for pd_cmd in $PHASE_DETECT_REQUIRED_COMMANDS; do
   pd_file="$COMMANDS_DIR/${pd_cmd}.md"
@@ -1090,7 +1090,7 @@ echo "=== Mode Block Helper Regression Verification ==="
 
 _mode_helper_tmp_dir="$(mktemp -d)"
 _mode_helper_fixture="$_mode_helper_tmp_dir/mode-block-fixture.md"
-printf '%s' $'### Mode: Archive   \r\n9b. Post-archive hook (non-blocking): after successful archive completion, run:\r\n  MILESTONE_SLUG=$(bash /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/derive-milestone-slug.sh\r\n    .vbw-planning)\r\n### Mode: Next\r\nignored\r\n' > "$_mode_helper_fixture"
+printf '%s' $'### Mode: Archive   \r\n9b. Post-archive hook (non-blocking): after successful archive completion, run:\r\n  MILESTONE_SLUG=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/derive-milestone-slug.sh\r\n    .swt-planning)\r\n### Mode: Next\r\nignored\r\n' > "$_mode_helper_fixture"
 _mode_helper_block="$(extract_heading_block "$_mode_helper_fixture" "### Mode: Archive" '^### Mode: ' || true)"
 
 if [ -n "$_mode_helper_block" ]; then
@@ -1099,7 +1099,7 @@ else
   fail "mode-block helper failed to extract mode block with trailing-space/CRLF heading"
 fi
 
-if block_contains_normalized "$_mode_helper_block" 'MILESTONE_SLUG=$(bash /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/derive-milestone-slug.sh .vbw-planning)'; then
+if block_contains_normalized "$_mode_helper_block" 'MILESTONE_SLUG=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/derive-milestone-slug.sh .swt-planning)'; then
   pass "mode-block helper matches wrapped milestone slug command after whitespace normalization"
 else
   fail "mode-block helper missed wrapped milestone slug command after whitespace normalization"
@@ -1111,7 +1111,7 @@ else
   pass "mode-block helper stops at the next mode heading"
 fi
 
-if block_contains_normalized "$_mode_helper_block" 'MILESTONE_SLUG=$(bash /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/not-the-helper.sh .vbw-planning)'; then
+if block_contains_normalized "$_mode_helper_block" 'MILESTONE_SLUG=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/not-the-helper.sh .swt-planning)'; then
   fail "mode-block helper normalization produced a false positive for the wrong helper path"
 else
   pass "mode-block helper normalization rejects wrong helper paths"
@@ -1123,7 +1123,7 @@ for mode in "### Mode: Add Phase" "### Mode: Insert Phase" "### Mode: Remove Pha
   block=$(mode_block "$mode")
   label=${mode#"### Mode: "}
 
-  if grep -q 'If `\.vbw-planning/CONTEXT\.md` exists, rewrite it to reflect the updated milestone decomposition' <<< "$block"; then
+  if grep -q 'If `\.swt-planning/CONTEXT\.md` exists, rewrite it to reflect the updated milestone decomposition' <<< "$block"; then
     pass "vibe: $label refreshes milestone CONTEXT.md"
   else
     fail "vibe: $label missing milestone CONTEXT refresh instruction"
@@ -1141,7 +1141,7 @@ echo "=== Add Phase Numbering Verification ==="
 
 add_phase_block=$(mode_block "### Mode: Add Phase")
 if contains_literal "$add_phase_block" '6. Update ROADMAP.md:' \
-  && contains_literal "$add_phase_block" '7. If `.vbw-planning/CONTEXT.md` exists, rewrite it to reflect the updated milestone decomposition' \
+  && contains_literal "$add_phase_block" '7. If `.swt-planning/CONTEXT.md` exists, rewrite it to reflect the updated milestone decomposition' \
   && contains_literal "$add_phase_block" '8. Update STATE.md phase total:' \
   && contains_literal "$add_phase_block" '9. **Phase mutation commit boundary (conditional):**' \
   && contains_literal "$add_phase_block" '10. Present:' \
@@ -1162,7 +1162,7 @@ else
   fail "vibe: Archive mode missing explicit post-archive hook step"
 fi
 
-if block_contains_normalized "$archive_block" 'MILESTONE_SLUG=$(bash /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/derive-milestone-slug.sh .vbw-planning)'; then
+if block_contains_normalized "$archive_block" 'MILESTONE_SLUG=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/derive-milestone-slug.sh .swt-planning)'; then
   pass "vibe: Archive mode derives milestone slug via derive-milestone-slug.sh"
 else
   fail "vibe: Archive mode missing deterministic milestone slug derivation"
@@ -1180,7 +1180,7 @@ else
   pass "vibe: Archive mode keeps milestone slug separate from custom --tag"
 fi
 
-if block_contains_normalized "$archive_block" 'bash /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/scripts/post-archive-hook.sh "{SLUG}" ".vbw-planning/milestones/{SLUG}" "{tag}" .vbw-planning/config.json'; then
+if block_contains_normalized "$archive_block" 'bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/post-archive-hook.sh "{SLUG}" ".swt-planning/milestones/{SLUG}" "{tag}" .swt-planning/config.json'; then
   pass "vibe: Archive mode wires post-archive hook with slug/archive/tag/config arguments"
 else
   fail "vibe: Archive mode missing post-archive hook argument contract"
@@ -1392,7 +1392,7 @@ fi
 if grep -Fq 'spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.md`' <<< "$qa_remediation_plan_block" \
   && grep -Fq 'subagent_type: "swt:swt-lead"' <<< "$qa_remediation_plan_block" \
   && grep -Fq 'resolve-agent-settings.sh lead' <<< "$qa_remediation_plan_block" \
-  && grep -Fq '.vbw-planning/config.json' <<< "$qa_remediation_plan_block" \
+  && grep -Fq '.swt-planning/config.json' <<< "$qa_remediation_plan_block" \
   && grep -Fq 'config/model-profiles.json' <<< "$qa_remediation_plan_block" \
   && grep -Fq 'LEAD_MODEL="$RESOLVED_MODEL"' <<< "$qa_remediation_plan_block" \
   && grep -Fq 'LEAD_MAX_TURNS="$RESOLVED_MAX_TURNS"' <<< "$qa_remediation_plan_block" \
@@ -1401,7 +1401,7 @@ if grep -Fq 'spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.m
   && grep -Fq 'omit `maxTurns` because the resolved profile is unlimited' <<< "$qa_remediation_plan_block" \
   && grep -Fq 'Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`)' <<< "$qa_remediation_plan_block" \
   && grep -Fq '`name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics' <<< "$qa_remediation_plan_block" \
-  && grep -Fq 'Read the remediation plan template at /tmp/.vbw-plugin-root-link-${CLAUDE_SESSION_ID:-default}/templates/REMEDIATION-PLAN.md' <<< "$qa_remediation_plan_block"; then
+  && grep -Fq 'Read the remediation plan template at /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/templates/REMEDIATION-PLAN.md' <<< "$qa_remediation_plan_block"; then
   pass "vibe: QA remediation plan stage resolves Lead settings and spawns with safe shape"
 else
   fail "vibe: QA remediation plan stage missing Lead settings resolution or safe spawn contract"

@@ -87,18 +87,18 @@ compare_tool_lists() {
 echo "=== Agent permissionMode Contract Verification ==="
 
 # Define expected permission modes (bash 3.2 compatible — no associative arrays)
-AGENTS="vbw-scout vbw-qa vbw-dev vbw-lead vbw-architect vbw-debugger vbw-docs"
+AGENTS="swt-scout swt-qa swt-dev swt-lead swt-architect swt-debugger swt-docs"
 
 get_expected_mode() {
   case "$1" in
-    vbw-scout|vbw-qa) echo "plan" ;;
+    swt-scout|swt-qa) echo "plan" ;;
     *) echo "acceptEdits" ;;
   esac
 }
 
 for agent in $AGENTS; do
   AGENT_FILE="$ROOT/agents/${agent}.md"
-  SHORT_NAME="${agent#vbw-}"
+  SHORT_NAME="${agent#swt-}"
   EXPECTED="$(get_expected_mode "$agent")"
 
   if [[ ! -f "$AGENT_FILE" ]]; then
@@ -138,9 +138,9 @@ else
 fi
 
 if [ -n "$DEV_DISALLOWED_FRONTMATTER" ]; then
-  pass "vbw-dev.md: frontmatter declares disallowedTools denylist"
+  pass "swt-dev.md: frontmatter declares disallowedTools denylist"
 else
-  fail "vbw-dev.md: frontmatter must declare disallowedTools denylist"
+  fail "swt-dev.md: frontmatter must declare disallowedTools denylist"
 fi
 
 if [[ -n "$README_SCOUT_ROW" ]]; then
@@ -150,33 +150,33 @@ else
 fi
 
 if [ -n "$SCOUT_DISALLOWED_FRONTMATTER" ]; then
-  pass "vbw-scout.md: frontmatter declares disallowedTools denylist"
+  pass "swt-scout.md: frontmatter declares disallowedTools denylist"
 else
-  fail "vbw-scout.md: frontmatter must declare disallowedTools denylist"
+  fail "swt-scout.md: frontmatter must declare disallowedTools denylist"
 fi
 
-check_not_contains "vbw-dev.md: description no longer says explicit allowlist" "$DEV_DESCRIPTION" "explicit implementation tool allowlist"
-check_contains "vbw-dev.md: description mentions denylist-controlled tool access" "$DEV_DESCRIPTION" "denylist-controlled"
+check_not_contains "swt-dev.md: description no longer says explicit allowlist" "$DEV_DESCRIPTION" "explicit implementation tool allowlist"
+check_contains "swt-dev.md: description mentions denylist-controlled tool access" "$DEV_DESCRIPTION" "denylist-controlled"
 
 if head -15 "$ROOT/agents/swt-dev.md" | grep -q '^tools:'; then
-  fail "vbw-dev.md: frontmatter must not use a tools allowlist (use disallowedTools denylist for forward compatibility)"
+  fail "swt-dev.md: frontmatter must not use a tools allowlist (use disallowedTools denylist for forward compatibility)"
 else
-  pass "vbw-dev.md: frontmatter does not use a tools allowlist"
+  pass "swt-dev.md: frontmatter does not use a tools allowlist"
 fi
 
 for required_denied in Task TaskCreate Agent TeamCreate TeamDelete AskUserQuestion; do
   if printf '%s\n' "$DEV_DENIED_NORMALIZED" | grep -Fxq "$required_denied"; then
-    pass "vbw-dev.md: disallowedTools bans $required_denied"
+    pass "swt-dev.md: disallowedTools bans $required_denied"
   else
-    fail "vbw-dev.md: disallowedTools must ban $required_denied"
+    fail "swt-dev.md: disallowedTools must ban $required_denied"
   fi
 done
 
 for must_not_deny in Bash Read Edit Write Glob Grep LSP Skill WebFetch WebSearch SendMessage TaskGet; do
   if printf '%s\n' "$DEV_DENIED_NORMALIZED" | grep -Fxq "$must_not_deny"; then
-    fail "vbw-dev.md: disallowedTools must not ban $must_not_deny (Dev relies on it)"
+    fail "swt-dev.md: disallowedTools must not ban $must_not_deny (Dev relies on it)"
   else
-    pass "vbw-dev.md: disallowedTools does not ban $must_not_deny"
+    pass "swt-dev.md: disallowedTools does not ban $must_not_deny"
   fi
 done
 
@@ -187,17 +187,17 @@ compare_tool_lists "README: Dev denied tokens exactly match disallowedTools fron
 
 for required_denied in Edit NotebookEdit Task TaskCreate Agent TeamCreate TeamDelete; do
   if printf '%s\n' "$SCOUT_DENIED_NORMALIZED" | grep -Fxq "$required_denied"; then
-    pass "vbw-scout.md: disallowedTools bans $required_denied"
+    pass "swt-scout.md: disallowedTools bans $required_denied"
   else
-    fail "vbw-scout.md: disallowedTools must ban $required_denied"
+    fail "swt-scout.md: disallowedTools must ban $required_denied"
   fi
 done
 
 for must_not_deny in Bash Read Write Glob Grep LSP Skill WebFetch WebSearch; do
   if printf '%s\n' "$SCOUT_DENIED_NORMALIZED" | grep -Fxq "$must_not_deny"; then
-    fail "vbw-scout.md: disallowedTools must not ban $must_not_deny (Scout relies on it)"
+    fail "swt-scout.md: disallowedTools must not ban $must_not_deny (Scout relies on it)"
   else
-    pass "vbw-scout.md: disallowedTools does not ban $must_not_deny"
+    pass "swt-scout.md: disallowedTools does not ban $must_not_deny"
   fi
 done
 
