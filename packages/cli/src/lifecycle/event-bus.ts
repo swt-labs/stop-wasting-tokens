@@ -1,7 +1,7 @@
 import { mkdirSync, createWriteStream, existsSync, type WriteStream } from 'node:fs';
 import path from 'node:path';
 
-import { resolveSessionId } from '@swt-labs/runtime';
+import { resolveSessionId, type HookEventBus, type HookEventBusEntry } from '@swt-labs/runtime';
 
 /** Subset of {@link CliEvent} fields shared by every emitted event. */
 interface BaseEvent {
@@ -163,5 +163,30 @@ export function createCliEventBus(options: CliEventBusOptions): CliEventBus {
     close,
     path: filePath,
     sessionId,
+  };
+}
+
+/**
+ * Plan 01-03 — adapt a `CliEventBus` into the runtime's `HookEventBus`
+ * shape. Each `HookEventBusEntry` is serialised as a `log.append` row
+ * (channel = 'stdout' since hook lines are structured-not-error by
+ * default; the entry's own `phase` field carries error semantics).
+ * Research §1.4: `CliEventBus` already supports the `log.append`
+ * channel, so no schema change is required.
+ *
+ * Usage at spawnAgent's call site:
+ *   const cliBus = createCliEventBus({ projectRoot });
+ *   await spawnAgent({ …, hookEventBus: hookBusFromCli(cliBus) });
+ */
+export function hookBusFromCli(cliBus: CliEventBus): HookEventBus {
+  return {
+    emit(entry: HookEventBusEntry): void {
+      cliBus.emit({
+        ts: entry.ts,
+        type: 'log.append',
+        channel: 'stdout',
+        line: JSON.stringify(entry),
+      });
+    },
   };
 }

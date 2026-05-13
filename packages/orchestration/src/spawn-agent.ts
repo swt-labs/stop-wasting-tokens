@@ -90,14 +90,20 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
   buildJournalExtension,
   buildResultProtocolExtension,
+  createHookDispatcher,
   createSession,
   FileJournalSink,
+  loadHookRegistrationsFromConfig,
   resolveThinkingLevelForRole,
+  type HookDispatcher,
+  type HookEventBus,
+  type HookRegistration,
   type JournalSink,
   type PiExtensionAPI,
   type SDLCRole,
@@ -273,6 +279,25 @@ export interface SpawnAgentOptions {
    * `defaultSpawnSessionFactory` which delegates to runtime's `createSession`.
    */
   readonly sessionFactory?: SpawnAgentSessionFactory;
+  /**
+   * Plan 01-03 — explicit hook registrations override. When omitted,
+   * spawnAgent looks for `<installRoot>/config/hooks.json` and loads from
+   * disk; if THAT is also absent, the dispatcher runs with an empty
+   * registration list (SubagentStart / SubagentStop events still fire but
+   * have no handlers, which is the same shape as Phase 0). Tests inject
+   * an empty array (or a tailored list) so the file system doesn't
+   * matter for unit-level assertions.
+   */
+  readonly hookRegistrations?: ReadonlyArray<HookRegistration>;
+  /**
+   * Plan 01-03 — explicit hook event bus. Defaults to a silent no-op bus
+   * — production callers pass `CliEventBus.emit` adapted into the
+   * `HookEventBus` shape so hook log lines flow into
+   * `.swt-planning/.events/{sessionId}.jsonl` alongside `agent.spawn` /
+   * `agent.complete` (research §1.4: CliEventBus already supports
+   * `log.append` entries).
+   */
+  readonly hookEventBus?: HookEventBus;
 }
 
 /**
@@ -364,14 +389,34 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
   const config = resolveSpawnAgentConfig(opts);
   const factory = opts.sessionFactory ?? defaultSpawnSessionFactory;
 
+  // Plan 01-03 — construct the HookDispatcher per spawn. Registrations
+  // come from (in order): explicit opts, `<installRoot>/config/hooks.json`
+  // on disk, or an empty list (no-op dispatcher; SubagentStart/Stop still
+  // fire to the event bus, just match no handlers).
+  const hookRegistrations = resolveHookRegistrations(opts);
+  const hookDispatcher: HookDispatcher = createHookDispatcher({
+    registrations: hookRegistrations,
+    installRoot: opts.installRoot,
+    sessionId: opts.sessionId,
+    cwd: opts.cwd,
+    ...(opts.hookEventBus !== undefined ? { eventBus: opts.hookEventBus } : {}),
+    role: opts.role,
+  });
+
   // The dispatcher's SessionFactory accepts SwtSessionOptions. spawnAgent's
   // SpawnAgentSessionConfig extends SwtSessionOptions, so the closure below
   // is a structural specialisation: it ignores the per-task opts the
   // dispatcher would otherwise pass (cwd, taskId, etc.) and uses the
   // pre-resolved spawn config instead. Per-task meter context is still
   // honoured (the dispatcher overrides task_id on meterContext).
+  //
+  // Plan 01-03 — the factory also calls `hookDispatcher.subscribeToSession`
+  // on the freshly-created session and wraps `dispose()` so the
+  // unsubscribe runs before the underlying dispose. This guarantees no
+  // dispatcher leak when a session is disposed (whether normally or by
+  // exception).
   const sessionFactory: SessionFactory = async (dispatcherOpts) => {
-    return factory({
+    const session = await factory({
       ...config,
       // Honour the dispatcher's per-task meter context override (it
       // injects task_id matching the brief's taskId).
@@ -380,6 +425,20 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
         ? { meterContext: dispatcherOpts.meterContext }
         : {}),
     });
+    const unsubscribe = hookDispatcher.subscribeToSession(session);
+    const originalDispose = session.dispose.bind(session);
+    return {
+      sessionId: session.sessionId,
+      prompt: session.prompt.bind(session),
+      subscribe: session.subscribe.bind(session),
+      dispose: () => {
+        try {
+          unsubscribe();
+        } finally {
+          originalDispose();
+        }
+      },
+    };
   };
 
   const dispatcher = createDispatcher({ sessionFactory });
@@ -398,5 +457,59 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
     },
   };
 
-  return dispatcher.dispatch(brief);
+  // Plan 01-03 — fire SubagentStart BEFORE dispatch. The event is
+  // informational; even if no handler is registered the bus records a
+  // 'noop' marker. Always-await: a SubagentStart hook that takes 4s is
+  // intentional — it's a synchronization point.
+  await hookDispatcher.dispatchSessionEvent('SubagentStart', {
+    role: opts.role,
+    toolName: undefined,
+  });
+
+  // The dispatcher.dispatch() call below creates the Pi session via our
+  // wrapped factory; the wrapper subscribes the HookDispatcher to the
+  // session for the duration. SubagentStop fires after dispatch returns
+  // (whether success OR failure) so the lifecycle pairs cleanly.
+  let result: TaskResult;
+  try {
+    result = await dispatcher.dispatch(brief);
+  } finally {
+    await hookDispatcher.dispatchSessionEvent('SubagentStop', {
+      role: opts.role,
+      toolName: undefined,
+    });
+  }
+  return result;
+}
+
+/**
+ * Resolve the hook registrations for a single spawnAgent call. Explicit
+ * opts win; failing that, look for `<installRoot>/config/hooks.json`;
+ * failing that, return an empty list.
+ *
+ * Catching the readFileSync error keeps the spawn path resilient: a
+ * hooks.json typo MUST NOT crash the entire orchestrator. The bash
+ * scripts themselves are still discovered + dispatched at runtime; a
+ * broken hooks.json simply means SubagentStart/Stop become no-ops.
+ */
+function resolveHookRegistrations(
+  opts: SpawnAgentOptions,
+): ReadonlyArray<HookRegistration> {
+  if (opts.hookRegistrations !== undefined) return opts.hookRegistrations;
+  const configPath = resolve(opts.installRoot, 'config', 'hooks.json');
+  if (!existsSync(configPath)) return [];
+  try {
+    return loadHookRegistrationsFromConfig(configPath);
+  } catch (err) {
+    // Surface the parse error on stderr (deterministic; tests can match)
+    // but do NOT throw — the hook-wrapper invariant extends to config
+    // resolution. A malformed config disables hooks; it does not crash
+    // the spawn.
+    process.stderr.write(
+      `spawnAgent: failed to load ${configPath}: ${
+        err instanceof Error ? err.message : String(err)
+      }\n`,
+    );
+    return [];
+  }
 }
