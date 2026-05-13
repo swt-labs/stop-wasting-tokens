@@ -28,7 +28,7 @@ swt                  # bare `swt` enters the Pi-backed agent orchestrator (alias
 
 > **Prefer a visual surface?** Run `swt dashboard` to launch the read-only web companion (Hono + Solid + SSE) at `http://127.0.0.1:43911`. It's a passive observer of the same `.swt-planning/` state — point it at an in-flight `swt vibe` session and watch agents, phases, costs, and token spend in real time.
 
-Plain `stop-wasting-tokens` (no `@next`) still resolves to legacy v2.3.5 until v3 cuts to `latest`. Detailed install paths, source builds, and v2 migration: [Install](#install).
+v3 ships on npm under dist-tag `next` during prerelease. Detailed install + tutorial: [Install](#install).
 
 ---
 
@@ -49,43 +49,82 @@ Plain `stop-wasting-tokens` (no `@next`) still resolves to legacy v2.3.5 until v
 
 ## Install
 
-> v3 prereleases are on npm under dist-tag `next`. Plain `npm install -g stop-wasting-tokens` still resolves to legacy v2.3.5 (`latest`) until the v3 stable cut.
-
-### Global install (recommended)
+v3 is published on npm under dist-tag `next` while prereleases stabilize. Pick whichever package manager you already use:
 
 ```bash
 npm install -g stop-wasting-tokens@next
 # or: pnpm add -g stop-wasting-tokens@next
 # or: bun  add -g stop-wasting-tokens@next
+```
 
+Verify the install:
+
+```bash
 swt --version        # 3.0.0-alpha.3
-swt doctor
+swt doctor           # checks Node ≥ 20.18, runtime, .swt-planning/ presence
 ```
 
-### Install from source (`main` HEAD)
+### Set a provider key
+
+SWT routes through whatever provider you have credentials for. Export one of these in your shell rc before the first run:
 
 ```bash
-git clone https://github.com/swt-labs/stop-wasting-tokens.git
-cd stop-wasting-tokens
-pnpm install
-pnpm typecheck && pnpm test     # ~1150 passing at HEAD
-pnpm build                       # produces dist/cli.mjs
-node dist/cli.mjs --version
+export ANTHROPIC_API_KEY="sk-ant-..."          # Anthropic (recommended for cache-discipline gains)
+# or:
+export OPENAI_API_KEY="sk-..."                  # OpenAI
+export OPENROUTER_API_KEY="sk-or-..."           # OpenRouter (25+ providers, one key)
+# or run a local model:
+export OLLAMA_HOST="http://127.0.0.1:11434"    # Ollama
 ```
 
-Then alias the built CLI so `swt` works from anywhere:
+`swt doctor` will tell you which keys it sees and which providers are reachable.
+
+### First run — a 60-second tour
+
+In a fresh directory, scaffold a project and enter the agent loop:
 
 ```bash
-alias swt="node $(pwd)/dist/cli.mjs"
-swt --version
-swt doctor                       # verifies Node, Pi peer-dep, .swt-planning/ presence
+mkdir my-thing && cd my-thing
+swt init my-thing --description "What you're building, in one sentence"
+swt vibe
 ```
 
-Real Pi-backed `swt vibe` sessions need a configured Anthropic / OpenAI / OpenRouter API key. The cassette infrastructure (M1 PR-06) lets the test suite replay recorded sessions deterministically without burning tokens.
+`swt vibe` is the orchestrator. On a fresh project it walks you through:
 
-### Legacy v2.x
+- **Three to five things this project _must_ do** — the discussion engine captures these as `REQUIREMENTS.md` and gates every later phase against them.
+- **Your defaults** — `effort` (`thorough` / `balanced` / `fast` / `turbo`), `autonomy` (`cautious` / `standard` / `confident` / `pure-vibe`), `verification_tier` (`quick` / `standard` / `deep`). Persisted to `.swt-planning/config.json` — change later with `swt config set <key> <value>`.
+- **Greenfield vs brownfield** — if you ran in an existing repo, Scout maps the codebase into `.swt-planning/codebase/{STACK,ARCHITECTURE,PATTERNS,CONCERNS}.md` once so subsequent agents don't re-grep on every turn.
 
-The v2.3.5 tarball remains on npm for projects that haven't migrated. **v2.x is unsupported post-v3.0** — pin to a specific patch if you cannot migrate immediately. The supported migration path is `swt migrate --to=v3`.
+Once the spec settles, `vibe` automatically routes through the six SDLC roles:
+
+| #   | Role          | What it does                                                                             | Tools     | Thinking      |
+| --- | ------------- | ---------------------------------------------------------------------------------------- | --------- | ------------- |
+| 1   | **Scout**     | Read-only research over the codebase + ecosystem                                         | read-only | `off` (cheap) |
+| 2   | **Architect** | Design + scope decisions; produces `ROADMAP.md` + per-phase plan                         | read-only | `medium`      |
+| 3   | **Lead**      | Break the phase into atomic tasks with claims + deps                                     | coding    | `low`         |
+| 4   | **Dev**       | Implement each task. One commit per task.                                                | coding    | `low`         |
+| 5   | **QA**        | Static-check ladder (typecheck → lint → format → tests) then LLM must-haves verification | qa-bash   | `low`         |
+| 6   | **Debugger**  | Escalation for anything Dev can't resolve                                                | coding    | `xhigh`       |
+
+In another terminal, watch the run live:
+
+```bash
+swt dashboard            # http://127.0.0.1:43911 — Hono + Solid + SSE
+# or:
+swt watch                # Ink TUI dashboard in the terminal
+```
+
+When the phase passes QA, `vibe` either asks for UAT confirmation or auto-routes to the next phase (depending on your `autonomy` setting). When a milestone is complete:
+
+```bash
+swt vibe --archive       # 7-point audit + .swt-planning/milestones/<NN>/ + SHIPPED.md
+```
+
+### Troubleshooting the first run
+
+- **`swt doctor` says "no provider keys detected"** — export at least one of the env vars above and reopen your shell.
+- **`swt vibe` exits with "No SWT project here"** — you skipped `swt init`. Run it (or `cd` into a directory that already has `.swt-planning/`).
+- **You'd rather the dashboard be your primary surface** — run `swt dashboard`; it can drive most of the same routes from the browser.
 
 ---
 
@@ -157,7 +196,7 @@ Tier ↔ model mapping is per-provider (declared in `runtime/src/providers/defau
 
 ## Project status
 
-Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main). **v3.0.0-alpha.1 is STRUCTURALLY COMPLETE** as of 2026-05-12 — all 6 milestones have shipped on `main`. Release cut to npm awaits user-driven public benchmark recording (PR-50).
+Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/tree/main). **v3.0.0-alpha.3 is live on npm under dist-tag `next`** — all 6 milestones structurally complete; prereleases iterate while the cassette-recorded TPAC baseline and public benchmark are captured ahead of the stable cut.
 
 ### Milestone progress
 
@@ -168,7 +207,7 @@ Active development on [`main`](https://github.com/swt-labs/stop-wasting-tokens/t
 | M3 Worktree dispatcher | **CLOSED** 2026-05-12 — 4 plans, 9 PRs (Plan 03-01..03-04 + session-wiring + runMilestone follow-ups). `WorktreeManager` FSM, `ClaimRegistry`, `resolveDag`, PID-liveness locks, `swt_report_result` wire-up, real Pi `createSession`, `runVibe` programmatic entry, dashboard Worktrees panel, `swt cleanup` verb, chaos suite, Windows path discipline + ADR-009 Accepted.                                   |
 | M4 Token meter + cache | **STRUCTURALLY COMPLETE** 2026-05-12 — 7 of 8 PRs (PR-31..35 + 37 + 38; PR-36 hard-deferred on M2 baseline). Deterministic `buildPrompt`, Anthropic `cache_control` wiring, cache-hit measurement + dashboard CacheHitPanel, OpenAI auto-cache observation, Budget Gate live + BudgetPanel, dashboard TPAC panel, ADR-006 + ADR-007 Accepted. 2 of 3 M4 EXIT GATE criteria PASS; TPAC −40% awaits M2 baseline. |
 | M5 Multi-provider      | **STRUCTURALLY COMPLETE** 2026-05-12 — 6 PRs (PR-39..PR-44). OpenRouter shim validation, Gemini ToS warnings, four router strategies (pinned/round-robin/tier-routed/cost-optimized), fallback chain + retry budget, per-provider cost panel, failover simulation, ADR-011 Accepted. 1 of 3 M5 EXIT GATE criteria PASS (failover sim); 2 DEFERRED on user-driven cassette recording.                           |
-| M6 Decommission + ship | **STRUCTURALLY COMPLETE** 2026-05-12 — Plan 06-01 closed (PR-45..PR-53). Release operations (public benchmark, npm publish, homepage update) are user-driven. ADR-012 (six-month LTS) was promoted Accepted at PR-53 and retracted same-day; v2.3.x is unsupported post-v3.0.                                                                                                                                  |
+| M6 Ship                | **STRUCTURALLY COMPLETE** 2026-05-12 — Plan 06-01 closed (PR-45..PR-53). Release operations (public benchmark, homepage update) remain user-driven; npm publish is live (`@next` dist-tag) via the OIDC trusted-publisher flow.                                                                                                                                                                                |
 
 ### Test posture at HEAD
 
@@ -382,7 +421,6 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 | `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs.                                                                                                                                                                                                                                                                                   |
 | `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Companion observability surface for an in-flight `swt vibe` run. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`.                                                                                                                                     |
 | `swt cleanup`      | Reap stale per-task git worktrees and PID-liveness lock files left behind by crashed agents. Safe to run any time; idempotent.                                                                                                                                                                                                                                                        |
-| `swt migrate`      | Migrate a v2.x project to v3. Use `--to=v3` (currently the only supported target). Reads the legacy `.planning/` layout and rewrites it to `.swt-planning/` schemas.                                                                                                                                                                                                                  |
 | `swt rpc`          | Delegate to Pi's JSON-RPC mode (stdout reserved for the protocol stream). Per TDD2 §3.2 + §5.                                                                                                                                                                                                                                                                                         |
 | `swt bench`        | Replay the TPAC reference scenario and emit a validated `TpacReport` JSON. Per TDD2 §3.2 + §14.9. Live activation gated on user-driven cassette recording.                                                                                                                                                                                                                            |
 | `swt help`         | Print usage, list all registered commands. Also `swt --help` and `swt {verb} --help`.                                                                                                                                                                                                                                                                                                 |
@@ -392,7 +430,6 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 
 - **Fresh project** → `swt vibe` (routes to bootstrap)
 - **Existing project, daily work** → `swt vibe` (auto-routes; bare `swt` is an alias for this), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
-- **Coming from v2.x** → `swt migrate --to=v3`
 - **After a crash** → `swt cleanup` to reap stale worktrees + locks, then `swt vibe` to resume
 - **Something feels broken** → `swt doctor` first
 - **Configuration tweaks** → `swt config show` / `swt config set <key> <value>`
@@ -418,4 +455,4 @@ Top-level flags: `--version` (print version), `--help` (top-level usage).
 - Security disclosures: [SECURITY.md](SECURITY.md).
 - License: MIT, see [LICENSE](LICENSE).
 
-Active development happens on `main`. The legacy v2.3.x line is unsupported post-v3.0; pin to a specific v2.3.x tarball on npm if you cannot migrate immediately, and run `swt migrate --to=v3` when ready.
+Active development happens on `main`. Prereleases publish to npm under dist-tag `next` via OIDC trusted publishing; the stable cut promotes to `latest`.
