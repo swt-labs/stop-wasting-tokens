@@ -44,7 +44,22 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       // a manual ceiling bump via /api/budget/bump.
       'cook.budget_exceeded',
       'cook.budget_resume',
+      // Plan 06-03 T1 (R6) — one-time worktree-isolation warning emitted
+      // at runMode start when `worktree_isolation: 'off'` AND the active
+      // phase carries 2+ parallel plans (Phase 4 Wave 2 staging-race
+      // mitigation signal).
+      'cook.worktree_isolation_warning',
     ]);
+  });
+
+  it('cook.worktree_isolation_warning parses with parallel_plans count', () => {
+    const ok = SnapshotEventSchema.safeParse({
+      type: 'cook.worktree_isolation_warning',
+      ts: TS,
+      session_id: SID,
+      parallel_plans: 3,
+    });
+    expect(ok.success).toBe(true);
   });
 
   it('cook.priority_decision parses with required + optional fields', () => {

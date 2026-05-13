@@ -29,6 +29,7 @@ export const ConfigSchema = z.object({
   model_profile: z.enum(['quality', 'balanced', 'cost']).default('quality'),
   backend: z.enum(['pi']).default('pi'),
   prefer_teams: z.enum(['auto', 'always', 'never']).default('auto'),
+  worktree_isolation: z.enum(['off', 'on', 'auto']).default('off'),
   agent_max_turns: AgentMaxTurnsSchema.default({
     scout: 15,
     qa: 25,

@@ -46,7 +46,7 @@
  */
 
 import { execSync as nodeExecSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve as resolvePath, join as joinPath } from 'node:path';
 
 import {
@@ -504,6 +504,18 @@ export interface CookConfig {
   readonly qa_gate_overrides?: QaGateOverrides;
   readonly providers: CookProvidersConfig;
   readonly budget: BudgetConfigSchemaT;
+  /**
+   * Plan 06-03 T1 (R6) — git-worktree isolation for parallel teammate
+   * spawns. `'off'` (default for v3.0) preserves today's shared-working-
+   * tree behavior with the Phase 4 Wave 2 git-staging race risk. `'on'`
+   * forces a per-task `.swt-planning/parallel/wt-<taskId>/` worktree
+   * via `WorktreeManager`. `'auto'` is the same as `'on'` when the
+   * active phase carries 2+ same-wave plans, `'off'` otherwise.
+   *
+   * v3.0 keeps `'off'`; flip to `'on'` is gated on 30-day stability
+   * evidence per R6.
+   */
+  readonly worktree_isolation: 'off' | 'on' | 'auto';
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1127,6 +1139,7 @@ export function loadCookConfig(
       auto_uat: false,
       providers: DEFAULT_PROVIDERS_CONFIG,
       budget: DEFAULT_BUDGET_CONFIG,
+      worktree_isolation: 'off',
     };
   }
   try {
@@ -1144,10 +1157,12 @@ export function loadCookConfig(
         : undefined;
     const providers = parseProvidersConfig(parsed['providers']);
     const budget = parseBudgetConfig(parsed['budget']);
+    const worktreeIsolation = parseWorktreeIsolation(parsed['worktree_isolation']);
     return {
       auto_uat: autoUat,
       providers,
       budget,
+      worktree_isolation: worktreeIsolation,
       ...(overrides !== undefined ? { qa_gate_overrides: overrides } : {}),
       ...(typeof maxTurns === 'number' && Number.isFinite(maxTurns)
         ? { agent_max_turns_orchestrator: maxTurns }
@@ -1158,8 +1173,19 @@ export function loadCookConfig(
       auto_uat: false,
       providers: DEFAULT_PROVIDERS_CONFIG,
       budget: DEFAULT_BUDGET_CONFIG,
+      worktree_isolation: 'off',
     };
   }
+}
+
+/**
+ * Plan 06-03 T1 — parse `worktree_isolation` from `.swt-planning/config.json`.
+ * Returns `'off'` (the v3.0 default per R6) for missing / malformed input;
+ * misconfigured values never crash the cook handler.
+ */
+function parseWorktreeIsolation(raw: unknown): 'off' | 'on' | 'auto' {
+  if (raw === 'on' || raw === 'auto' || raw === 'off') return raw;
+  return 'off';
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1662,6 +1688,47 @@ function tryReadHeadCommit(
 }
 
 /**
+ * Plan 06-03 T1 (R6) — count how many plan files live under the active
+ * phase directory. Used to decide whether to emit the
+ * `cook.worktree_isolation_warning` event at runMode start.
+ *
+ * Matches the canonical plan filename pattern
+ * `NN-PP-PLAN.md` (e.g., `06-03-PLAN.md`) under
+ * `.swt-planning/phases/<slug>/`. Returns 0 when the phase dir can't be
+ * resolved or read — the warning is silently skipped (best-effort).
+ *
+ * `phaseTarget` here is the same value as `RoutingDecision.phaseTarget`
+ * — usually the zero-padded phase number (`"06"`), but may carry the
+ * slug suffix `"06-hardening"` when detectPhase surfaces a fuller label.
+ */
+export function countParallelPlans(cwd: string, phaseTarget: string | undefined): number {
+  if (phaseTarget === undefined || phaseTarget.length === 0) return 0;
+  const phasesRoot = resolvePath(cwd, '.swt-planning', 'phases');
+  let phaseDir: string | undefined;
+  try {
+    const entries = readdirSync(phasesRoot, { withFileTypes: true });
+    // Accept either an exact match (e.g., `"06"`) or a prefix match against
+    // the phase-slug form (e.g., target=`"06"` matching dir `"06-hardening"`).
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name === phaseTarget || entry.name.startsWith(`${phaseTarget}-`)) {
+        phaseDir = resolvePath(phasesRoot, entry.name);
+        break;
+      }
+    }
+  } catch {
+    return 0;
+  }
+  if (phaseDir === undefined) return 0;
+  try {
+    const files = readdirSync(phaseDir);
+    return files.filter((f) => /^\d{2}-\d{2}-PLAN\.md$/.test(f)).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Plan 06-01 T2 — write a fresh in_progress execution-state for this
  * runMode invocation. Best-effort: a filesystem error here must NOT
  * break the cook turn (the resume probe will simply not detect the
@@ -1897,6 +1964,31 @@ async function runMode(
     plan: planLabel,
     task_id: taskId,
   });
+
+  // Plan 06-03 T1 (R6) — one-time warning when `worktree_isolation: 'off'`
+  // AND the active phase carries 2+ parallel plans. v3.0 keeps the default
+  // `'off'` to avoid unknown downstream-caller risk; the warning gives
+  // operators a clear opt-in signal. The Phase 4 Wave 2 commits
+  // 7431a02 / 05ebd94 had misleading commit subjects because parallel
+  // teammates `git add`'d each other's files — flipping isolation to `'on'`
+  // ringfences each teammate to its own worktree index.
+  if (config.worktree_isolation === 'off') {
+    const parallelPlanCount = countParallelPlans(io.cwd, routing.phaseTarget);
+    if (parallelPlanCount >= 2) {
+      io.stderr.write(
+        `swt cook: [worktree-isolation] WARNING: this phase has ${parallelPlanCount} parallel plans ` +
+          `but worktree_isolation is 'off' — git staging-area race possible ` +
+          `(see docs/operations/worktree-isolation.md). Recommend setting ` +
+          `worktree_isolation: 'on' in .swt-planning/config.json.\n`,
+      );
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.worktree_isolation_warning',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        parallel_plans: parallelPlanCount,
+      });
+    }
+  }
 
   // Plan 06-02 T4 (REQ-16) — BudgetGate task-loop integration. Construct
   // the gate before the spawn so:

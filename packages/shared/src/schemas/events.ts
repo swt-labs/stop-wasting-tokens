@@ -316,6 +316,17 @@ const CookBudgetResumeEvent = z.object({
   ceiling_usd: z.number().nonnegative(),
 });
 
+// Plan 06-03 T1 (R6) — one-time warning at cook start when the active phase
+// carries 2+ same-wave plans AND `worktree_isolation` is `'off'`. The
+// dashboard surfaces this on the Worktrees panel so operators see the
+// staging-area race risk before any spawn happens.
+const CookWorktreeIsolationWarningEvent = z.object({
+  type: z.literal('cook.worktree_isolation_warning'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  parallel_plans: z.number().int().nonnegative(),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -343,6 +354,7 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookResumeEvent,
   CookBudgetExceededEvent,
   CookBudgetResumeEvent,
+  CookWorktreeIsolationWarningEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -387,6 +399,7 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.resume',
   'cook.budget_exceeded',
   'cook.budget_resume',
+  'cook.worktree_isolation_warning',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
