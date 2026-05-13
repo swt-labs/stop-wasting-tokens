@@ -1,6 +1,8 @@
 import { mkdirSync, createWriteStream, existsSync, type WriteStream } from 'node:fs';
 import path from 'node:path';
 
+import { resolveSessionId } from '@swt-labs/runtime';
+
 /** Subset of {@link CliEvent} fields shared by every emitted event. */
 interface BaseEvent {
   ts: string;
@@ -46,7 +48,14 @@ export type CliEvent =
 export interface CliEventBusOptions {
   /** Directory containing `.swt-planning/`. */
   projectRoot: string;
-  /** Session ID — used as JSONL filename. Defaults to crypto.randomUUID(). */
+  /**
+   * Session ID — used as the JSONL filename. When omitted, defaults to the
+   * shared `swt:sessionId()` resolved by `@swt-labs/runtime`, which is the
+   * same UUID populated on `process.env.SWT_SESSION_ID` at CLI bootstrap
+   * via `applyEnvToProcess()`. This guarantees that
+   * `.swt-planning/.events/{sessionId}.jsonl` shares its session ID with
+   * every Pi session and bash script spawned by the same CLI invocation.
+   */
   sessionId?: string;
   /** Batched flush window in ms. Default 50. Set 0 for synchronous flush per emit. */
   bufferMs?: number;
@@ -79,7 +88,11 @@ export function createCliEventBus(options: CliEventBusOptions): CliEventBus {
   // ADR-009: emit POSIX-separator paths so consumers can match on `/`-style
   // suffixes regardless of host OS.
   const projectRoot = path.resolve(options.projectRoot).replace(/\\/g, '/');
-  const sessionId = options.sessionId ?? globalThis.crypto.randomUUID();
+  // Plan 01-02: default to the shared swt:sessionId() so the events JSONL
+  // basename matches every Pi session + bash hook spawned by the same CLI
+  // run. Callers may still pass an explicit `sessionId` for tests or
+  // multi-bus fan-out within a single process.
+  const sessionId = options.sessionId ?? resolveSessionId();
   const bufferMs = options.bufferMs ?? DEFAULT_BUFFER_MS;
 
   const eventsDir = path.posix.join(projectRoot, PLANNING_DIR, EVENTS_DIR);
