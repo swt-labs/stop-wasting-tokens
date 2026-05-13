@@ -37,42 +37,42 @@ echo ""
 echo "--- Structural: QA indicator checks UAT status ---"
 
 # Test 1: statusline resolves the canonical current UAT (not just VERIFICATION.md check)
-if grep -q 'current_uat' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'current_uat' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline resolves canonical current UAT via shared helper"
 else
   fail "statusline resolves canonical current UAT via shared helper"
 fi
 
 # Test 2: statusline relies on uat-utils exclusion/precedence rules instead of ad-hoc globs
-if grep -q 'latest_non_source_uat\|current_uat' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'latest_non_source_uat\|current_uat' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline delegates SOURCE-UAT and round-dir precedence to uat-utils"
 else
   fail "statusline delegates SOURCE-UAT and round-dir precedence to uat-utils"
 fi
 
 # Test 3: statusline reads UAT status from frontmatter
-if grep -q '_uat_status' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '_uat_status' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline reads UAT status from frontmatter"
 else
   fail "statusline reads UAT status from frontmatter"
 fi
 
 # Test 4: statusline checks remediation stage when UAT has issues
-if grep -q 'uat-remediation-stage' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'uat-remediation-stage' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline checks remediation stage file"
 else
   fail "statusline checks remediation stage file"
 fi
 
 # Test 5: statusline distinguishes UAT pass from QA pass
-if grep -q 'UAT:' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'UAT:' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline uses 'UAT:' label for UAT states"
 else
   fail "statusline uses 'UAT:' label for UAT states"
 fi
 
 # Test 6: statusline has color-coded UAT states (not just green/dim)
-if grep -qE 'QA_COLOR.*\$R|QA_COLOR.*\$Y' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -qE 'QA_COLOR.*\$R|QA_COLOR.*\$Y' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline uses red/yellow colors for UAT failure/remediation states"
 else
   fail "statusline uses red/yellow colors for UAT failure/remediation states"
@@ -81,14 +81,14 @@ fi
 # Test 7: VERIFICATION.md check is fallback only (after UAT / QA-remediation checks)
 # Accept either the original elif/else structure or the newer normalized
 # `_qa_rem_stage=none` fallback guard.
-if grep -qE 'elif.*VERIFICATION.md|else.*VERIFICATION|_qa_rem_stage:-none.*VERIFICATION.md|resolve-verification-path\.sh" phase' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -qE 'elif.*VERIFICATION.md|else.*VERIFICATION|_qa_rem_stage:-none.*VERIFICATION.md|resolve-verification-path\.sh" phase' "$ROOT/scripts/swt-statusline.sh"; then
   pass "VERIFICATION.md check is fallback (only when no UAT file exists)"
 else
   fail "VERIFICATION.md check is fallback (only when no UAT file exists)"
 fi
 
 # Test 8: rendering uses QA_COLOR variable instead of hardcoded colors
-if grep -q 'QA_COLOR' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'QA_COLOR' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline renders QA with dynamic QA_COLOR variable"
 else
   fail "statusline renders QA with dynamic QA_COLOR variable"
@@ -103,13 +103,13 @@ TMPDIR_BASE=$(mktemp -d)
 # Helper: create minimal VBW project structure
 setup_project() {
   local dir="$1"
-  mkdir -p "$dir/.vbw-planning/phases/01-test"
-  echo '{}' > "$dir/.vbw-planning/config.json"
-  printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$dir/.vbw-planning/STATE.md"
-  printf '# Test Project\nReal content\n' > "$dir/.vbw-planning/PROJECT.md"
+  mkdir -p "$dir/.swt-planning/phases/01-test"
+  echo '{}' > "$dir/.swt-planning/config.json"
+  printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$dir/.swt-planning/STATE.md"
+  printf '# Test Project\nReal content\n' > "$dir/.swt-planning/PROJECT.md"
   # Create a plan and summary so the phase is "built"
-  printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$dir/.vbw-planning/phases/01-test/01-01-PLAN.md"
-  printf '%s\n' '---' 'status: complete' '---' 'Done' > "$dir/.vbw-planning/phases/01-test/01-01-SUMMARY.md"
+  printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$dir/.swt-planning/phases/01-test/01-01-PLAN.md"
+  printf '%s\n' '---' 'status: complete' '---' 'Done' > "$dir/.swt-planning/phases/01-test/01-01-SUMMARY.md"
 }
 
 setup_statusline_repo() {
@@ -123,11 +123,17 @@ setup_statusline_repo() {
 statusline_cache_prefix() {
   local root="$1" uid version root_real
   uid=$(id -u)
-  version=$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null || echo 0)
+  if [ -f "$ROOT/VERSION" ]; then
+    version=$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null || echo 0)
+  elif [ -f "$ROOT/package.json" ]; then
+    version=$(grep -m1 '"version"' "$ROOT/package.json" 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+  else
+    version=0
+  fi
   root_real=$(cd "$root" 2>/dev/null && pwd -P 2>/dev/null || printf '%s' "$root")
   # shellcheck source=/dev/null
-  . "$ROOT/scripts/lib/vbw-cache-key.sh"
-  vbw_cache_prefix "$version" "$uid" "$root_real"
+  . "$ROOT/scripts/lib/swt-cache-key.sh"
+  swt_cache_prefix "$version" "$uid" "$root_real"
 }
 
 cleanup_statusline_cache() {
@@ -137,19 +143,24 @@ cleanup_statusline_cache() {
 }
 
 run_statusline_l1() {
+  # TDD3 §16.2 4-line layout: QA/UAT moved from L1 to L2. The helper now
+  # returns the first two output lines joined so the existing test assertions
+  # (which look for "UAT: ..." / "QA: ..." substrings) still match regardless
+  # of which line carries the label.
   local dir="$1"
-  local raw_output sanitized_output first_line
+  local raw_output sanitized_output
 
   # Avoid an early-closing reader (for example `head -1`) under `pipefail`.
   # As documented in verify-plan-filename-convention.sh, that pattern can
   # SIGPIPE the upstream writer and fail the contract even when assertions pass.
-  if ! raw_output=$(cd "$dir" && CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 bash "$ROOT/scripts/vbw-statusline.sh" <<< '{}'); then
+  if ! raw_output=$(cd "$dir" && CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 bash "$ROOT/scripts/swt-statusline.sh" <<< '{}'); then
     raw_output=""
   fi
 
   sanitized_output=$(printf '%s\n' "$raw_output" | perl -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;.*?\a//g; s/\e\]8;;\a//g')
-  first_line=${sanitized_output%%$'\n'*}
-  printf '%s\n' "$first_line"
+  # Return L1 + L2 joined with a literal space — both lines now carry
+  # project/state data that the assertions match against.
+  printf '%s\n' "$sanitized_output" | awk 'NR<=2 {printf "%s ", $0} END {print ""}'
 }
 
 # Test 9: No VERIFICATION.md, no UAT → QA: --
@@ -161,7 +172,7 @@ _FAST_QA=$(cd "$T9" && {
   # Source summary-utils for count_complete_summaries
   . "$ROOT/scripts/summary-utils.sh"
   QA="--"
-  PH="1"; PDIR=".vbw-planning/phases/01-test"
+  PH="1"; PDIR=".swt-planning/phases/01-test"
   # Replicating the statusline QA detection logic:
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
@@ -180,11 +191,11 @@ fi
 # Test 10: VERIFICATION.md exists, no UAT → QA: pass
 T10="$TMPDIR_BASE/t10"
 setup_project "$T10"
-printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T10/.vbw-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T10/.swt-planning/phases/01-test/01-VERIFICATION.md"
 _FAST_QA=$(cd "$T10" && {
   . "$ROOT/scripts/summary-utils.sh"
   QA="--"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
     QA="has_uat"
@@ -202,12 +213,12 @@ fi
 # Test 11: UAT exists with status: complete → should detect UAT (not fall through to VERIFICATION)
 T11="$TMPDIR_BASE/t11"
 setup_project "$T11"
-printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T11/.vbw-planning/phases/01-test/01-VERIFICATION.md"
-printf '%s\n' '---' 'phase: 01' 'status: complete' '---' 'All passed.' > "$T11/.vbw-planning/phases/01-test/01-UAT.md"
+printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T11/.swt-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'status: complete' '---' 'All passed.' > "$T11/.swt-planning/phases/01-test/01-UAT.md"
 _FAST_QA=$(cd "$T11" && {
   . "$ROOT/scripts/summary-utils.sh"
   QA="--"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
     QA="has_uat"
@@ -225,12 +236,12 @@ fi
 # Test 12: UAT with issues_found + no remediation stage → should NOT show QA: pass
 T12="$TMPDIR_BASE/t12"
 setup_project "$T12"
-printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T12/.vbw-planning/phases/01-test/01-VERIFICATION.md"
-printf '%s\n' '---' 'phase: 01' 'status: issues_found' '---' '- Severity: major' > "$T12/.vbw-planning/phases/01-test/01-UAT.md"
+printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T12/.swt-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'status: issues_found' '---' '- Severity: major' > "$T12/.swt-planning/phases/01-test/01-UAT.md"
 _FAST_QA=$(cd "$T12" && {
   . "$ROOT/scripts/summary-utils.sh"
   QA="--"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
     QA="has_uat_not_pass"
@@ -248,13 +259,13 @@ fi
 # Test 13: SOURCE-UAT.md is excluded from UAT detection
 T13="$TMPDIR_BASE/t13"
 setup_project "$T13"
-printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T13/.vbw-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T13/.swt-planning/phases/01-test/01-VERIFICATION.md"
 # Only a SOURCE-UAT (copy from milestone), no canonical UAT
-printf '%s\n' '---' 'status: issues_found' '---' 'Source copy.' > "$T13/.vbw-planning/phases/01-test/01-SOURCE-UAT.md"
+printf '%s\n' '---' 'status: issues_found' '---' 'Source copy.' > "$T13/.swt-planning/phases/01-test/01-SOURCE-UAT.md"
 _FAST_QA=$(cd "$T13" && {
   . "$ROOT/scripts/summary-utils.sh"
   QA="--"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
     QA="has_uat"
@@ -272,13 +283,13 @@ fi
 # Test 14: UAT-round files excluded from detection
 T14="$TMPDIR_BASE/t14"
 setup_project "$T14"
-printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T14/.vbw-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'result: pass' '---' 'Checks passed.' > "$T14/.swt-planning/phases/01-test/01-VERIFICATION.md"
 # Only archived rounds, no current UAT
-printf '%s\n' '---' 'status: issues_found' '---' 'Old UAT.' > "$T14/.vbw-planning/phases/01-test/01-UAT-round-01.md"
+printf '%s\n' '---' 'status: issues_found' '---' 'Old UAT.' > "$T14/.swt-planning/phases/01-test/01-UAT-round-01.md"
 _FAST_QA=$(cd "$T14" && {
   . "$ROOT/scripts/summary-utils.sh"
   QA="--"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
     QA="has_uat"
@@ -298,37 +309,37 @@ echo ""
 echo "--- Structural: remediation-aware plan counting ---"
 
 # Test 15: PD counting includes remediation round summaries
-if grep -q 'remediation/uat/round-\*/' "$ROOT/scripts/vbw-statusline.sh" && \
-   grep -q 'count_complete_summaries.*_sl_rdir\|count_complete_summaries.*_rem_rdir' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'remediation/uat/round-\*/' "$ROOT/scripts/swt-statusline.sh" && \
+   grep -q 'count_complete_summaries.*_sl_rdir\|count_complete_summaries.*_rem_rdir' "$ROOT/scripts/swt-statusline.sh"; then
   pass "PD counting iterates remediation/uat/round-*/ for summaries"
 else
   fail "PD counting iterates remediation/uat/round-*/ for summaries"
 fi
 
 # Test 16: statusline has PP_LABEL variable for dynamic parenthetical label
-if grep -q 'PP_LABEL' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'PP_LABEL' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline uses PP_LABEL for dynamic parenthetical label"
 else
   fail "statusline uses PP_LABEL for dynamic parenthetical label"
 fi
 
 # Test 17: statusline has REM_ACTIVE flag for remediation display control
-if grep -q 'REM_ACTIVE' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'REM_ACTIVE' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline uses REM_ACTIVE for remediation display control"
 else
   fail "statusline uses REM_ACTIVE for remediation display control"
 fi
 
 # Test 18: parenthetical shows during active remediation even when PD==PT
-if grep -qE 'REM_ACTIVE.*true' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -qE 'REM_ACTIVE.*true' "$ROOT/scripts/swt-statusline.sh"; then
   pass "parenthetical shows during active remediation (REM_ACTIVE check)"
 else
   fail "parenthetical shows during active remediation (REM_ACTIVE check)"
 fi
 
 # Test 19: PP_LABEL defaults to 'this phase' and switches to 'this remediation'
-if grep -q 'PP_LABEL="this phase"' "$ROOT/scripts/vbw-statusline.sh" && \
-   grep -q 'PP_LABEL="this remediation"' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'PP_LABEL="this phase"' "$ROOT/scripts/swt-statusline.sh" && \
+   grep -q 'PP_LABEL="this remediation"' "$ROOT/scripts/swt-statusline.sh"; then
   pass "PP_LABEL defaults to 'this phase', switches to 'this remediation'"
 else
   fail "PP_LABEL defaults to 'this phase', switches to 'this remediation'"
@@ -340,20 +351,20 @@ echo "--- Functional: remediation plan counting ---"
 
 # Test 20: PD includes remediation round summaries
 T20="$TMPDIR_BASE/t20"
-mkdir -p "$T20/.vbw-planning/phases/01-test/remediation/uat/round-01"
-echo '{}' > "$T20/.vbw-planning/config.json"
-printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$T20/.vbw-planning/STATE.md"
-printf '# Test\nContent\n' > "$T20/.vbw-planning/PROJECT.md"
+mkdir -p "$T20/.swt-planning/phases/01-test/remediation/uat/round-01"
+echo '{}' > "$T20/.swt-planning/config.json"
+printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$T20/.swt-planning/STATE.md"
+printf '# Test\nContent\n' > "$T20/.swt-planning/PROJECT.md"
 # Phase-root plan + summary (complete)
-printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$T20/.vbw-planning/phases/01-test/01-01-PLAN.md"
-printf '%s\n' '---' 'status: complete' '---' 'Done' > "$T20/.vbw-planning/phases/01-test/01-01-SUMMARY.md"
+printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$T20/.swt-planning/phases/01-test/01-01-PLAN.md"
+printf '%s\n' '---' 'status: complete' '---' 'Done' > "$T20/.swt-planning/phases/01-test/01-01-SUMMARY.md"
 # Remediation round plan + summary (complete)
-printf '%s\n' '---' 'phase: 01' 'round: 01' 'title: Fix issues' '---' > "$T20/.vbw-planning/phases/01-test/remediation/uat/round-01/R01-PLAN.md"
-printf '%s\n' '---' 'status: complete' '---' 'Fixed' > "$T20/.vbw-planning/phases/01-test/remediation/uat/round-01/R01-SUMMARY.md"
+printf '%s\n' '---' 'phase: 01' 'round: 01' 'title: Fix issues' '---' > "$T20/.swt-planning/phases/01-test/remediation/uat/round-01/R01-PLAN.md"
+printf '%s\n' '---' 'status: complete' '---' 'Fixed' > "$T20/.swt-planning/phases/01-test/remediation/uat/round-01/R01-SUMMARY.md"
 _PD_COUNT=$(cd "$T20" && {
   . "$ROOT/scripts/summary-utils.sh"
   PD=0
-  for _sl_pdir in .vbw-planning/phases/*/; do
+  for _sl_pdir in .swt-planning/phases/*/; do
     [ -d "$_sl_pdir" ] || continue
     PD=$((PD + $(count_complete_summaries "$_sl_pdir")))
     for _sl_rdir in "$_sl_pdir"remediation/uat/round-*/; do
@@ -371,24 +382,24 @@ fi
 
 # Test 21: PPT/PPD override during active remediation
 T21="$TMPDIR_BASE/t21"
-mkdir -p "$T21/.vbw-planning/phases/01-test/remediation/uat/round-01"
-mkdir -p "$T21/.vbw-planning/phases/01-test/remediation/uat/round-02"
-echo '{}' > "$T21/.vbw-planning/config.json"
-printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$T21/.vbw-planning/STATE.md"
-printf '# Test\nContent\n' > "$T21/.vbw-planning/PROJECT.md"
+mkdir -p "$T21/.swt-planning/phases/01-test/remediation/uat/round-01"
+mkdir -p "$T21/.swt-planning/phases/01-test/remediation/uat/round-02"
+echo '{}' > "$T21/.swt-planning/config.json"
+printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$T21/.swt-planning/STATE.md"
+printf '# Test\nContent\n' > "$T21/.swt-planning/PROJECT.md"
 # Phase-root plan (complete)
-printf '%s\n' '---' 'title: Test' '---' > "$T21/.vbw-planning/phases/01-test/01-01-PLAN.md"
-printf '%s\n' '---' 'status: complete' '---' 'Done' > "$T21/.vbw-planning/phases/01-test/01-01-SUMMARY.md"
+printf '%s\n' '---' 'title: Test' '---' > "$T21/.swt-planning/phases/01-test/01-01-PLAN.md"
+printf '%s\n' '---' 'status: complete' '---' 'Done' > "$T21/.swt-planning/phases/01-test/01-01-SUMMARY.md"
 # Remediation state file (active)
-printf 'stage=research\nround=02\nlayout=round-dir\n' > "$T21/.vbw-planning/phases/01-test/remediation/uat/.uat-remediation-stage"
+printf 'stage=research\nround=02\nlayout=round-dir\n' > "$T21/.swt-planning/phases/01-test/remediation/uat/.uat-remediation-stage"
 # Round 01: plan + complete summary
-printf '%s\n' '---' 'title: R01 fix' '---' > "$T21/.vbw-planning/phases/01-test/remediation/uat/round-01/R01-PLAN.md"
-printf '%s\n' '---' 'status: complete' '---' 'Fixed' > "$T21/.vbw-planning/phases/01-test/remediation/uat/round-01/R01-SUMMARY.md"
+printf '%s\n' '---' 'title: R01 fix' '---' > "$T21/.swt-planning/phases/01-test/remediation/uat/round-01/R01-PLAN.md"
+printf '%s\n' '---' 'status: complete' '---' 'Fixed' > "$T21/.swt-planning/phases/01-test/remediation/uat/round-01/R01-SUMMARY.md"
 # Round 02: plan only (no summary yet)
-printf '%s\n' '---' 'title: R02 fix' '---' > "$T21/.vbw-planning/phases/01-test/remediation/uat/round-02/R02-PLAN.md"
+printf '%s\n' '---' 'title: R02 fix' '---' > "$T21/.swt-planning/phases/01-test/remediation/uat/round-02/R02-PLAN.md"
 _REM_COUNTS=$(cd "$T21" && {
   . "$ROOT/scripts/summary-utils.sh"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   REM_ACTIVE="false"; PP_LABEL="this phase"
   PPT=0; PPD=0
   if [ -f "$PDIR/remediation/uat/.uat-remediation-stage" ]; then
@@ -421,36 +432,36 @@ echo ""
 echo "--- Structural: granular UAT remediation stage mapping ---"
 
 # Test 22: statusline maps stage=none to UAT: Issues
-if grep -q '"UAT: Issues"' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '"UAT: Issues"' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline maps stage=none to 'UAT: Issues'"
 else
   fail "statusline maps stage=none to 'UAT: Issues'"
 fi
 
 # Test 23: statusline maps stage=research to UAT: Researching
-if grep -q '"UAT: Researching"' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '"UAT: Researching"' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline maps stage=research to 'UAT: Researching'"
 else
   fail "statusline maps stage=research to 'UAT: Researching'"
 fi
 
 # Test 24: statusline maps stage=plan to UAT: Planning
-if grep -q '"UAT: Planning"' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '"UAT: Planning"' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline maps stage=plan to 'UAT: Planning'"
 else
   fail "statusline maps stage=plan to 'UAT: Planning'"
 fi
 
 # Test 25: statusline maps stage=execute|fix to UAT: Fixing
-if grep -q 'execute|fix)' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'execute|fix)' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline maps stage=execute|fix to 'UAT: Fixing'"
 else
   fail "statusline maps stage=execute|fix to 'UAT: Fixing'"
 fi
 
 # Test 26: statusline maps stage=done|verify|verified to UAT: Verification
-if grep -q 'done|verify|verified)' "$ROOT/scripts/vbw-statusline.sh" && \
-   grep -q '"UAT: Verification"' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'done|verify|verified)' "$ROOT/scripts/swt-statusline.sh" && \
+   grep -q '"UAT: Verification"' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline maps stage=done|verify|verified to 'UAT: Verification'"
 else
   fail "statusline maps stage=done|verify|verified to 'UAT: Verification'"
@@ -463,15 +474,15 @@ echo "--- Functional: remediation stage → QA indicator ---"
 # Helper: create project with UAT issues_found + remediation stage
 setup_uat_remediation() {
   local dir="$1" stage="$2"
-  mkdir -p "$dir/.vbw-planning/phases/01-test/remediation/uat"
-  echo '{}' > "$dir/.vbw-planning/config.json"
-  printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$dir/.vbw-planning/STATE.md"
-  printf '# Test\nContent\n' > "$dir/.vbw-planning/PROJECT.md"
-  printf '%s\n' '---' 'title: Test' '---' > "$dir/.vbw-planning/phases/01-test/01-01-PLAN.md"
-  printf '%s\n' '---' 'status: complete' '---' 'Done' > "$dir/.vbw-planning/phases/01-test/01-01-SUMMARY.md"
-  printf '%s\n' '---' 'phase: 01' 'status: issues_found' '---' 'Issues.' > "$dir/.vbw-planning/phases/01-test/01-UAT.md"
+  mkdir -p "$dir/.swt-planning/phases/01-test/remediation/uat"
+  echo '{}' > "$dir/.swt-planning/config.json"
+  printf 'Phase: 1 of 1 (test)\nStatus: active\n' > "$dir/.swt-planning/STATE.md"
+  printf '# Test\nContent\n' > "$dir/.swt-planning/PROJECT.md"
+  printf '%s\n' '---' 'title: Test' '---' > "$dir/.swt-planning/phases/01-test/01-01-PLAN.md"
+  printf '%s\n' '---' 'status: complete' '---' 'Done' > "$dir/.swt-planning/phases/01-test/01-01-SUMMARY.md"
+  printf '%s\n' '---' 'phase: 01' 'status: issues_found' '---' 'Issues.' > "$dir/.swt-planning/phases/01-test/01-UAT.md"
   if [ "$stage" != "__none__" ]; then
-    printf 'stage=%s\nround=01\nlayout=round-dir\n' "$stage" > "$dir/.vbw-planning/phases/01-test/remediation/uat/.uat-remediation-stage"
+    printf 'stage=%s\nround=01\nlayout=round-dir\n' "$stage" > "$dir/.swt-planning/phases/01-test/remediation/uat/.uat-remediation-stage"
   fi
 }
 
@@ -481,7 +492,7 @@ extract_qa() {
   cd "$dir" && {
     . "$ROOT/scripts/summary-utils.sh"
     . "$ROOT/scripts/uat-utils.sh"
-    PDIR=".vbw-planning/phases/01-test"
+    PDIR=".swt-planning/phases/01-test"
     _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
     if [ -n "$_uat_file" ]; then
       _uat_status=$(awk 'NR==1 && /^---/{f=1;next} f && /^---/{exit} f && /^status:/{gsub(/^status:[[:space:]]*/,""); print; exit}' "$_uat_file" 2>/dev/null | tr '[:upper:]' '[:lower:]')
@@ -590,12 +601,12 @@ fi
 # Test 35: UAT with status: all_pass → should be treated as complete (normalization)
 T35="$TMPDIR_BASE/t35"
 setup_project "$T35"
-printf '%s\n' '---' 'phase: 01' 'status: all_pass' 'total_tests: 3' 'passed: 3' 'issues: 0' '---' 'All tests passed.' > "$T35/.vbw-planning/phases/01-test/01-UAT.md"
+printf '%s\n' '---' 'phase: 01' 'status: all_pass' 'total_tests: 3' 'passed: 3' 'issues: 0' '---' 'All tests passed.' > "$T35/.swt-planning/phases/01-test/01-UAT.md"
 _FAST_QA=$(cd "$T35" && {
   . "$ROOT/scripts/summary-utils.sh"
   . "$ROOT/scripts/uat-utils.sh"
   QA="--"
-  PDIR=".vbw-planning/phases/01-test"
+  PDIR=".swt-planning/phases/01-test"
   _uat_file=$(find "$PDIR" -maxdepth 1 -name '*-UAT.md' ! -name '*-SOURCE-UAT.md' ! -name '*-UAT-round-*' 2>/dev/null | head -1)
   if [ -n "$_uat_file" ]; then
     _uat_status=$(awk 'NR==1 && /^---/{f=1;next} f && /^---/{exit} f && /^status:/{gsub(/^status:[[:space:]]*/,""); print; exit}' "$_uat_file" 2>/dev/null | tr '[:upper:]' '[:lower:]')
@@ -619,8 +630,8 @@ fi
 # Test 36: direct statusline run shows UAT in progress instead of falling back to QA label
 T36="$TMPDIR_BASE/t36"
 setup_statusline_repo "$T36"
-printf '%s\n' '---' 'phase: 01' 'result: PASS' 'verified_at_commit: '"$(cd "$T36" && git rev-parse HEAD)" '---' > "$T36/.vbw-planning/phases/01-test/01-VERIFICATION.md"
-printf '%s\n' '---' 'phase: 01' 'status: in_progress' '---' 'Still testing.' > "$T36/.vbw-planning/phases/01-test/01-UAT.md"
+printf '%s\n' '---' 'phase: 01' 'result: PASS' 'verified_at_commit: '"$(cd "$T36" && git rev-parse HEAD)" '---' > "$T36/.swt-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'status: in_progress' '---' 'Still testing.' > "$T36/.swt-planning/phases/01-test/01-UAT.md"
 cleanup_statusline_cache "$T36"
 _L1=$(run_statusline_l1 "$T36")
 if [[ "$_L1" == *"UAT: in progress"* ]]; then
@@ -633,10 +644,10 @@ fi
 T37="$TMPDIR_BASE/t37"
 setup_statusline_repo "$T37"
 _base_commit=$(cd "$T37" && git rev-parse HEAD)
-printf '%s\n' '---' 'phase: 01' 'result: PASS' "verified_at_commit: ${_base_commit}" '---' > "$T37/.vbw-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'result: PASS' "verified_at_commit: ${_base_commit}" '---' > "$T37/.swt-planning/phases/01-test/01-VERIFICATION.md"
 printf 'struct App { let version = 2 }\n' > "$T37/App.swift"
 (cd "$T37" && git add App.swift >/dev/null 2>&1 && git commit -q -m "stale verification")
-printf '%s\n' '---' 'phase: 01' 'status: complete' 'passed: 1' 'skipped: 0' 'issues: 0' 'total_tests: 1' '---' 'All passed.' > "$T37/.vbw-planning/phases/01-test/01-UAT.md"
+printf '%s\n' '---' 'phase: 01' 'status: complete' 'passed: 1' 'skipped: 0' 'issues: 0' 'total_tests: 1' '---' 'All passed.' > "$T37/.swt-planning/phases/01-test/01-UAT.md"
 cleanup_statusline_cache "$T37"
 _L1=$(run_statusline_l1 "$T37")
 if [[ "$_L1" == *"UAT: pass"* ]]; then
@@ -649,7 +660,7 @@ fi
 T38="$TMPDIR_BASE/t38"
 setup_statusline_repo "$T38"
 _fresh_commit=$(cd "$T38" && git rev-parse HEAD)
-printf '%s\n' '---' 'phase: 01' 'result: PASS' "verified_at_commit: ${_fresh_commit}" '---' > "$T38/.vbw-planning/phases/01-test/01-VERIFICATION.md"
+printf '%s\n' '---' 'phase: 01' 'result: PASS' "verified_at_commit: ${_fresh_commit}" '---' > "$T38/.swt-planning/phases/01-test/01-VERIFICATION.md"
 cleanup_statusline_cache "$T38"
 _L1=$(run_statusline_l1 "$T38")
 if [[ "$_L1" != *"QA: pass"* ]]; then
@@ -657,8 +668,8 @@ if [[ "$_L1" != *"QA: pass"* ]]; then
 else
   pass "cache baseline for UAT refresh test starts at QA: pass"
 fi
-printf '%s\n' '---' 'phase: 01' 'status: issues_found' 'passed: 0' 'skipped: 0' 'issues: 1' 'total_tests: 1' '---' 'Issue found.' > "$T38/.vbw-planning/phases/01-test/01-UAT.md"
-touch -t 203001010101 "$T38/.vbw-planning/phases/01-test/01-UAT.md"
+printf '%s\n' '---' 'phase: 01' 'status: issues_found' 'passed: 0' 'skipped: 0' 'issues: 1' 'total_tests: 1' '---' 'Issue found.' > "$T38/.swt-planning/phases/01-test/01-UAT.md"
+touch -t 203001010101 "$T38/.swt-planning/phases/01-test/01-UAT.md"
 _L1=$(run_statusline_l1 "$T38")
 if [[ "$_L1" == *"UAT: Issues"* ]]; then
   pass "fast cache refreshes when canonical UAT appears"
@@ -674,35 +685,35 @@ echo ""
 echo "--- QA Remediation Statusline Contract ---"
 
 # Verify statusline handles QA remediation stages
-if grep -q 'remediation/qa/.qa-remediation-stage' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'remediation/qa/.qa-remediation-stage' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline references QA remediation stage file"
 else
   fail "statusline must reference remediation/qa/.qa-remediation-stage"
 fi
 
 # Verify statusline parses VERIFICATION.md result field
-if grep -q 'in_fm && /^result:/' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'in_fm && /^result:/' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline parses VERIFICATION.md result field"
 else
   fail "statusline must parse VERIFICATION.md result: field (not just check existence)"
 fi
 
 # Verify statusline uses the shared verification resolver instead of ad-hoc find order
-if grep -q 'resolve-verification-path.sh' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'resolve-verification-path.sh' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline uses shared verification resolver"
 else
   fail "statusline must use shared verification resolver for QA artifact precedence"
 fi
 
 # Verify statusline checks verification freshness before showing green states
-if grep -q 'qa_verification_stale' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'qa_verification_stale' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline checks verification freshness before showing green QA/UAT states"
 else
   fail "statusline must check verification freshness before showing green QA/UAT states"
 fi
 
 # Verify QA FAIL status is displayed
-if grep -q 'QA: FAIL' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'QA: FAIL' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline displays QA: FAIL for failed verification"
 else
   fail "statusline must display QA: FAIL for failed verification results"
@@ -710,7 +721,7 @@ fi
 
 # Verify QA remediation stages are shown
 for stage_label in "QA: Planning fix" "QA: Fixing" "QA: Re-verifying"; do
-  if grep -q "$stage_label" "$ROOT/scripts/vbw-statusline.sh"; then
+  if grep -q "$stage_label" "$ROOT/scripts/swt-statusline.sh"; then
     pass "statusline displays '$stage_label' for QA remediation"
   else
     fail "statusline must display '$stage_label' for QA remediation stage"
@@ -718,7 +729,7 @@ for stage_label in "QA: Planning fix" "QA: Fixing" "QA: Re-verifying"; do
 done
 
 # Verify invalid QA remediation stages normalize to none instead of showing a ghost remediation state
-if grep -q 'QA: Remediating' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'QA: Remediating' "$ROOT/scripts/swt-statusline.sh"; then
   fail "statusline must not display a generic QA: Remediating fallback for invalid stage values"
 else
   pass "statusline does not display a generic QA: Remediating fallback for invalid stage values"

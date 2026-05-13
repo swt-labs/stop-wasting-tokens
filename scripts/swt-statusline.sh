@@ -44,6 +44,11 @@ _OS=$(uname)
 # script-relative resolution fails gracefully and find_swt_root falls back to CWD.
 _SL_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 _VER=$(cat "$_SL_SCRIPT_DIR/../VERSION" 2>/dev/null | tr -d '[:space:]')
+# Phase 4: fall back to package.json `version` when no VERSION file is present
+# (SWT v3 ships the version via package.json; the VERSION file is a legacy VBW artifact).
+if [ -z "${_VER:-}" ] && [ -f "$_SL_SCRIPT_DIR/../package.json" ]; then
+  _VER=$(grep -m1 '"version"' "$_SL_SCRIPT_DIR/../package.json" 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+fi
 # Resolve the SWT workspace root before deriving the temp cache key.
 # Cache isolation must follow the resolved .swt-planning boundary, not just the git
 # top-level root, so nested SWT workspaces inside one monorepo do not share caches.
@@ -1037,6 +1042,71 @@ fi
 FL=$((PCT * 10 / 100)); EM=$((10 - FL))
 CTX_BAR=""; [ "$FL" -gt 0 ] && CTX_BAR=$(printf "%${FL}s" | sed 's/ /▓/g')
 [ "$EM" -gt 0 ] && CTX_BAR="${CTX_BAR}$(printf "%${EM}s" | sed 's/ /░/g')"
+
+# --- TDD3 §16.2 metrics wiring (reads .swt-planning/.metrics/ from plan 04-01) ---
+# Graceful degradation: missing files / missing jq -> $0.00, no crash. The
+# statusline is a hot path that must never block.
+SESSION_COST=0
+PHASE_COST=0
+BUDGET_PCT=0
+_SL_METRICS_DIR="$SWT_PLANNING_DIR/.metrics"
+if [ -d "$_SL_METRICS_DIR" ]; then
+  # Active session = most-recently-updated session-*.json (plan 04-01 schema).
+  _SL_LATEST_SESSION=""
+  if command -v find >/dev/null 2>&1; then
+    _SL_LATEST_SESSION=$(ls -t "$_SL_METRICS_DIR"/session-*.json 2>/dev/null | head -1)
+  fi
+  if [ -n "$_SL_LATEST_SESSION" ] && [ -f "$_SL_LATEST_SESSION" ]; then
+    if command -v jq >/dev/null 2>&1; then
+      SESSION_COST=$(jq -r '.cost_usd // 0' "$_SL_LATEST_SESSION" 2>/dev/null || echo 0)
+      _SL_CACHE_RAW=$(jq -r '.cache_hit_ratio // 0' "$_SL_LATEST_SESSION" 2>/dev/null || echo 0)
+      CACHE_HIT_PCT=$(awk -v r="$_SL_CACHE_RAW" 'BEGIN { printf "%.0f", r * 100 }' 2>/dev/null || echo 0)
+    else
+      # jq-less fallback (rough): grep + cut. Statusline never hard-fails.
+      SESSION_COST=$(grep -oE '"cost_usd":[[:space:]]*[0-9.]+' "$_SL_LATEST_SESSION" 2>/dev/null | head -1 | cut -d: -f2 | tr -d ' ')
+      SESSION_COST="${SESSION_COST:-0}"
+    fi
+  fi
+  # Phase cost — match phase-{slug}.json by deriving slug from PDIR if available.
+  _SL_PHASE_FILE=""
+  if [ -n "${PDIR:-}" ]; then
+    _SL_PHASE_SLUG=$(basename "$PDIR")
+    [ -f "$_SL_METRICS_DIR/phase-${_SL_PHASE_SLUG}.json" ] && _SL_PHASE_FILE="$_SL_METRICS_DIR/phase-${_SL_PHASE_SLUG}.json"
+  fi
+  if [ -n "$_SL_PHASE_FILE" ] && command -v jq >/dev/null 2>&1; then
+    PHASE_COST=$(jq -r '.cost_usd // 0' "$_SL_PHASE_FILE" 2>/dev/null || echo 0)
+  fi
+fi
+# Budget computation deferred to Phase 5 (REQ-16 budget gate); statusline emits 0% until then.
+
+# --- Active agents line from .swt-planning/.sessions/*.json (Phase 2 agent-pid-tracker.sh) ---
+ACTIVE_AGENTS_LINE=""
+_SL_SESSIONS_DIR="$SWT_PLANNING_DIR/.sessions"
+if [ -d "$_SL_SESSIONS_DIR" ]; then
+  _SL_AGENTS=""
+  for _sf in "$_SL_SESSIONS_DIR"/*.json; do
+    [ -e "$_sf" ] || continue
+    # Skip orchestrator session file — it's not an agent in the L4 sense
+    case "$(basename "$_sf")" in orchestrator-*) continue ;; esac
+    if command -v jq >/dev/null 2>&1; then
+      _SL_ROLE=$(jq -r '.role // "?"' "$_sf" 2>/dev/null || echo "?")
+      _SL_AGENT_STATUS=$(jq -r '.status // "idle"' "$_sf" 2>/dev/null || echo "idle")
+    else
+      _SL_ROLE=$(grep -oE '"role":[[:space:]]*"[^"]+"' "$_sf" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+      _SL_AGENT_STATUS=$(grep -oE '"status":[[:space:]]*"[^"]+"' "$_sf" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+      _SL_ROLE="${_SL_ROLE:-?}"
+      _SL_AGENT_STATUS="${_SL_AGENT_STATUS:-idle}"
+    fi
+    case "$_SL_AGENT_STATUS" in
+      running|spawning|active) _SL_ICON='◆' ;;
+      completed|complete|done) _SL_ICON='✓' ;;
+      failed|error)            _SL_ICON='✗' ;;
+      *)                       _SL_ICON='○' ;;
+    esac
+    _SL_AGENTS="${_SL_AGENTS}${_SL_ROLE}${_SL_ICON} "
+  done
+  ACTIVE_AGENTS_LINE="${_SL_AGENTS% }"
+fi
 
 _HIDE_EXEC_TMUX=false
 if [ "$HIDE_AGENT_TMUX" = "true" ] && [ -n "${TMUX:-}" ] && [ "$EXEC_STATUS" = "running" ]; then

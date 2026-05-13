@@ -35,35 +35,35 @@ echo ""
 echo "--- Statusline EXEC_DONE reconciliation ---"
 
 # Test 1: statusline has count_complete_summaries available for reconciliation
-if grep -q 'count_complete_summaries' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'count_complete_summaries' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline sources count_complete_summaries helper"
 else
   fail "statusline sources count_complete_summaries helper"
 fi
 
 # Test 2: statusline reconciles EXEC_DONE after reading from JSON
-if grep -q '_actual_done.*count_done_summaries' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '_actual_done.*count_done_summaries' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline computes actual SUMMARY count for reconciliation"
 else
   fail "statusline computes actual SUMMARY count for reconciliation"
 fi
 
 # Test 3: statusline caps EXEC_DONE when actual count is lower
-if grep -q '_actual_done.*-lt.*EXEC_DONE' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '_actual_done.*-lt.*EXEC_DONE' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline caps EXEC_DONE when filesystem has fewer completions"
 else
   fail "statusline caps EXEC_DONE when filesystem has fewer completions"
 fi
 
 # Test 4: statusline only reconciles when execution is "running" (active build)
-if grep -q 'EXEC_STATUS.*=.*running.*EXEC_DONE.*-gt.*0' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'EXEC_STATUS.*=.*running.*EXEC_DONE.*-gt.*0' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline reconciliation gated on running status"
 else
   fail "statusline reconciliation gated on running status"
 fi
 
 # Test 5: statusline reads phase from execution-state.json for reconciliation
-if grep -q '_exec_phase.*jq.*\.phase' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q '_exec_phase.*jq.*\.phase' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline reads phase from execution-state for SUMMARY lookup"
 else
   fail "statusline reads phase from execution-state for SUMMARY lookup"
@@ -113,7 +113,7 @@ echo ""
 echo "--- Functional: stale execution-state detection ---"
 
 TMPDIR_BASE=$(mktemp -d)
-FAKE_PROJECT="$TMPDIR_BASE/project/.vbw-planning"
+FAKE_PROJECT="$TMPDIR_BASE/project/.swt-planning"
 FAKE_PHASE="$FAKE_PROJECT/phases/06-build-core"
 mkdir -p "$FAKE_PHASE"
 
@@ -222,7 +222,7 @@ fi
 echo ""
 echo "--- Functional: partial SUMMARY accepted by reconciliation ---"
 
-PARTIAL_PROJECT="$TMPDIR_BASE/partial-project/.vbw-planning"
+PARTIAL_PROJECT="$TMPDIR_BASE/partial-project/.swt-planning"
 PARTIAL_PHASE="$PARTIAL_PROJECT/phases/03-build"
 mkdir -p "$PARTIAL_PHASE"
 
@@ -309,7 +309,7 @@ if [ -f "$ROOT/scripts/summary-utils.sh" ]; then
   . "$ROOT/scripts/summary-utils.sh"
 fi
 
-SL_PROJECT="$TMPDIR_BASE/sl-project/.vbw-planning"
+SL_PROJECT="$TMPDIR_BASE/sl-project/.swt-planning"
 SL_PHASE="$SL_PROJECT/phases/02-core"
 mkdir -p "$SL_PHASE"
 
@@ -371,7 +371,7 @@ fi
 echo ""
 echo "--- Structural: JQ queries count partial as done ---"
 
-if grep -q 'select(.status == "complete" or .status == "partial")' "$ROOT/scripts/vbw-statusline.sh"; then
+if grep -q 'select(.status == "complete" or .status == "partial")' "$ROOT/scripts/swt-statusline.sh"; then
   pass "statusline JQ counts partial plans as done"
 else
   fail "statusline JQ counts partial plans as done"
@@ -408,7 +408,7 @@ fi
 echo ""
 echo "--- Functional: literal partial JSON plan counted as done ---"
 
-LP_PROJECT="$TMPDIR_BASE/lp-project/.vbw-planning"
+LP_PROJECT="$TMPDIR_BASE/lp-project/.swt-planning"
 LP_PHASE="$LP_PROJECT/phases/04-test"
 mkdir -p "$LP_PHASE"
 
@@ -619,10 +619,10 @@ fi
 # when all plans have complete SUMMARY.md files (session crash recovery)
 # ───────────────────────────────────────────────────────────────────────
 _srd=$(mktemp -d)
-mkdir -p "$_srd/.vbw-planning/phases/01-test"
-echo '{}' > "$_srd/.vbw-planning/config.json"
+mkdir -p "$_srd/.swt-planning/phases/01-test"
+echo '{}' > "$_srd/.swt-planning/config.json"
 # Create a UAT file with issues_found status
-cat > "$_srd/.vbw-planning/phases/01-test/01-UAT.md" <<'SEOF'
+cat > "$_srd/.swt-planning/phases/01-test/01-UAT.md" <<'SEOF'
 ---
 status: issues_found
 ---
@@ -630,14 +630,14 @@ status: issues_found
 P01-T1|major|test issue
 SEOF
 # Create a plan + complete summary
-printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$_srd/.vbw-planning/phases/01-test/01-01-PLAN.md"
-printf '%s\n' '---' 'status: complete' '---' 'Done' > "$_srd/.vbw-planning/phases/01-test/01-01-SUMMARY.md"
+printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$_srd/.swt-planning/phases/01-test/01-01-PLAN.md"
+printf '%s\n' '---' 'status: complete' '---' 'Done' > "$_srd/.swt-planning/phases/01-test/01-01-SUMMARY.md"
 # Set remediation stage to "execute" (simulating crash before advance)
-echo "execute" > "$_srd/.vbw-planning/phases/01-test/.uat-remediation-stage"
+echo "execute" > "$_srd/.swt-planning/phases/01-test/.uat-remediation-stage"
 # Run phase-detect
 _srd_out=$(cd "$_srd" && bash "$ROOT/scripts/phase-detect.sh" 2>/dev/null)
 _srd_state=$(echo "$_srd_out" | grep '^next_phase_state=' | head -1 | cut -d= -f2)
-_srd_stage=$(cat "$_srd/.vbw-planning/phases/01-test/.uat-remediation-stage" 2>/dev/null | tr -d '[:space:]')
+_srd_stage=$(cat "$_srd/.swt-planning/phases/01-test/.uat-remediation-stage" 2>/dev/null | tr -d '[:space:]')
 if [ "$_srd_state" = "needs_reverification" ] && [ "$_srd_stage" = "done" ]; then
   pass "phase-detect: stale 'execute' stage auto-advanced to 'done' when all plans complete"
 else
@@ -647,23 +647,23 @@ rm -rf "$_srd"
 
 # Test: stage stays "execute" when plans are NOT all complete
 _srd2=$(mktemp -d)
-mkdir -p "$_srd2/.vbw-planning/phases/01-test"
-echo '{}' > "$_srd2/.vbw-planning/config.json"
-cat > "$_srd2/.vbw-planning/phases/01-test/01-UAT.md" <<'SEOF'
+mkdir -p "$_srd2/.swt-planning/phases/01-test"
+echo '{}' > "$_srd2/.swt-planning/config.json"
+cat > "$_srd2/.swt-planning/phases/01-test/01-UAT.md" <<'SEOF'
 ---
 status: issues_found
 ---
 # UAT
 P01-T1|major|test issue
 SEOF
-printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$_srd2/.vbw-planning/phases/01-test/01-01-PLAN.md"
-printf '%s\n' '---' 'phase: "01"' 'plan: "02"' 'title: Test2' 'wave: 1' '---' > "$_srd2/.vbw-planning/phases/01-test/01-02-PLAN.md"
+printf '%s\n' '---' 'phase: "01"' 'plan: "01"' 'title: Test' 'wave: 1' '---' > "$_srd2/.swt-planning/phases/01-test/01-01-PLAN.md"
+printf '%s\n' '---' 'phase: "01"' 'plan: "02"' 'title: Test2' 'wave: 1' '---' > "$_srd2/.swt-planning/phases/01-test/01-02-PLAN.md"
 # Only one summary (plan 02 still pending)
-printf '%s\n' '---' 'status: complete' '---' 'Done' > "$_srd2/.vbw-planning/phases/01-test/01-01-SUMMARY.md"
-echo "execute" > "$_srd2/.vbw-planning/phases/01-test/.uat-remediation-stage"
+printf '%s\n' '---' 'status: complete' '---' 'Done' > "$_srd2/.swt-planning/phases/01-test/01-01-SUMMARY.md"
+echo "execute" > "$_srd2/.swt-planning/phases/01-test/.uat-remediation-stage"
 _srd2_out=$(cd "$_srd2" && bash "$ROOT/scripts/phase-detect.sh" 2>/dev/null)
 _srd2_state=$(echo "$_srd2_out" | grep '^next_phase_state=' | head -1 | cut -d= -f2)
-_srd2_stage=$(cat "$_srd2/.vbw-planning/phases/01-test/.uat-remediation-stage" 2>/dev/null | tr -d '[:space:]')
+_srd2_stage=$(cat "$_srd2/.swt-planning/phases/01-test/.uat-remediation-stage" 2>/dev/null | tr -d '[:space:]')
 if [ "$_srd2_state" = "needs_uat_remediation" ] || [ "$_srd2_state" = "needs_execute" ]; then
   # When plans are incomplete, phase-detect may route to needs_execute (skipping
   # mid-execution UAT) or needs_uat_remediation. Either way, stage must stay "execute".

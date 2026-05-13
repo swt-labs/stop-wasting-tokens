@@ -5,7 +5,7 @@ set -euo pipefail
 # Verifies: 429 → ratelimited status, failure backoff (300s), DISABLE_NONESSENTIAL_TRAFFIC
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SL="$ROOT/scripts/vbw-statusline.sh"
+SL="$ROOT/scripts/swt-statusline.sh"
 
 PASS=0
 FAIL=0
@@ -94,7 +94,7 @@ fi
 # --- Test 11: auth classification happens before notraffic short-circuit ---
 # We now preserve API-key vs OAuth classification even when traffic is skipped.
 # That means token lookup must happen BEFORE the if [ "$FETCH_OK" = "notraffic" ] gate.
-_TOKEN_P1_LINE=$(grep -n 'VBW_OAUTH_TOKEN' "$SL" | head -1 | cut -d: -f1 || true)
+_TOKEN_P1_LINE=$(grep -n 'SWT_OAUTH_TOKEN' "$SL" | head -1 | cut -d: -f1 || true)
 _NOTRAFFIC_SET_LINE=$(grep -n 'FETCH_OK="notraffic"' "$SL" | tail -1 | cut -d: -f1 || true)
 if [ -n "$_TOKEN_P1_LINE" ] && [ -n "$_NOTRAFFIC_SET_LINE" ] \
    && [ "$_TOKEN_P1_LINE" -lt "$_NOTRAFFIC_SET_LINE" ] 2>/dev/null; then
