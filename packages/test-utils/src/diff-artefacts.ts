@@ -134,18 +134,60 @@ export function compareFile(
 // classification
 // ───────────────────────────────────────────────────────────────
 
-const DEFAULT_CLASSIFIERS: ReadonlyArray<{
+// Per-role classifier calibration (research §5.5, REQ-22 R2).
+//
+// Order matters — classify() walks first-match-wins. The more-specific
+// SUMMARY / PLAN / VERIFICATION patterns must come BEFORE the generic
+// architect-bucket patterns so a path like phases/01/01-01-PLAN.md lands
+// on plan-md rather than the architect's semantic-fingerprint bucket.
+//
+// Calibration:
+//   - STATE.md                                 → state-md (Levenshtein ≤100)
+//   - phases/NN-*/NN-MM-SUMMARY.md             → byte-exact (Dev's strict gate)
+//   - phases/NN-*/...PLAN.md                   → plan-md   (Lead, task-ID-stripped)
+//   - phases/NN-*/...(VERIFICATION|QA).md      → verification-counts (QA)
+//   - phases/NN-*/...RESEARCH.md               → semantic-fingerprint (Scout)
+//   - phases/NN-*/(CONTEXT|CONCERNS|PATTERNS).md → semantic-fingerprint (Architect)
+//   - scout-briefs/* / debug-reports/*         → semantic-fingerprint
+//   - README.md / CHANGELOG.md / docs/**       → byte-exact (Docs role)
+//   - everything else                          → byte-exact (default)
+export const DEFAULT_CLASSIFIERS: ReadonlyArray<{
   readonly match: RegExp;
   readonly category: ArtefactCategory;
 }> = [
   // STATE.md anywhere (root or archived milestone)
   { match: /(^|\/)STATE\.md$/i, category: 'state-md' },
+  // Dev's SUMMARY.md (NN-MM-SUMMARY.md inside a phase) — byte-exact. Must
+  // come BEFORE the generic semantic-fingerprint patterns so the SUMMARY
+  // bucket wins for the `NN-MM-SUMMARY.md` shape.
+  {
+    match: /(^|\/)phases\/\d+-[^/]+\/\d+-\d+-SUMMARY\.md$/i,
+    category: 'byte-exact',
+  },
   // PLAN files inside phases — both the v2 `NN-PLAN.md` and v3 `NN-MM-PLAN.md` layouts
   { match: /(^|\/)phases\/[^/]+\/.*PLAN\.md$/i, category: 'plan-md' },
   // VERIFICATION + QA files — count-sensitive
   { match: /(^|\/)phases\/[^/]+\/.*(VERIFICATION|QA)\.md$/i, category: 'verification-counts' },
+  // Scout's RESEARCH inside a phase folder
+  {
+    match: /(^|\/)phases\/\d+-[^/]+\/(\d+-)?RESEARCH\.md$/i,
+    category: 'semantic-fingerprint',
+  },
+  // Architect's descriptive context docs inside a phase folder
+  {
+    match: /(^|\/)phases\/\d+-[^/]+\/(CONTEXT|CONCERNS|PATTERNS)\.md$/i,
+    category: 'semantic-fingerprint',
+  },
   // Scout briefs / debug reports — semantic fingerprint
   { match: /(^|\/)(scout-briefs|debug-reports)\//i, category: 'semantic-fingerprint' },
+  // Docs role's rendered artefacts — README/CHANGELOG/docs/**
+  // (byte-exact is the default fall-through; the explicit entries below
+  // exist so the per-role classifier test can assert the role calibration
+  // surfaces in DEFAULT_CLASSIFIERS rather than silently relying on
+  // fall-through.)
+  { match: /^README\.md$/i, category: 'byte-exact' },
+  { match: /^CHANGELOG\.md$/i, category: 'byte-exact' },
+  { match: /^docs\//i, category: 'byte-exact' },
 ];
 
 export function classify(
