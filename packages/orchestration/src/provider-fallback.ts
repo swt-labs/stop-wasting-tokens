@@ -42,6 +42,22 @@ export interface FallbackChainOptions {
    */
   readonly retryBudget: number;
   /**
+   * Plan 06-02 T2 (R4) — optional wall-clock budget. When set, the chain
+   * exhausts on EITHER request-count OR elapsed wall-clock time. Either
+   * exhaustion path throws `FallbackChainExhaustedError` with a `path`
+   * discriminator identifying which check fired. Default behavior when
+   * unset preserves the original request-count-only semantics.
+   *
+   * The library stays unopinionated: callers (cook.ts) supply the default
+   * (30000ms at the cook callsite per REQ-15 MTTR target).
+   */
+  readonly timeBudgetMs?: number;
+  /**
+   * Plan 06-02 T2 — optional clock for deterministic tests. Default
+   * `() => Date.now()`. Returns ms since epoch.
+   */
+  readonly clock?: () => number;
+  /**
    * Optional event publisher for `provider.fallback_fired` telemetry.
    * Signature mirrors the dashboard's `EventBus.publish` shape but the
    * chain only invokes it on transitions.
@@ -69,14 +85,28 @@ export interface FallbackSelection {
   readonly isLast: boolean;
 }
 
+/**
+ * Plan 06-02 T2 (R4) — dual exhaustion discriminator. `'request_count'`
+ * preserves the original semantics; `'time_budget'` indicates the wall-clock
+ * `timeBudgetMs` cap fired first.
+ */
+export type FallbackExhaustionPath = 'request_count' | 'time_budget';
+
 export class FallbackChainExhaustedError extends Error {
   constructor(
     public readonly taskId: string,
     public readonly attempts: number,
     public readonly retryBudget: number,
+    public readonly path: FallbackExhaustionPath = 'request_count',
+    public readonly elapsedMs: number = 0,
+    public readonly timeBudgetMs?: number,
   ) {
     super(
-      `Fallback chain exhausted for task ${taskId}: ${attempts} attempts made (budget=${retryBudget}).`,
+      path === 'time_budget'
+        ? `Fallback chain exhausted for task ${taskId}: time budget exceeded (` +
+            `elapsedMs=${elapsedMs}, timeBudgetMs=${timeBudgetMs ?? 'unset'}, ` +
+            `attempts=${attempts}, retryBudget=${retryBudget}).`
+        : `Fallback chain exhausted for task ${taskId}: ${attempts} attempts made (budget=${retryBudget}).`,
     );
     this.name = 'FallbackChainExhaustedError';
   }
@@ -111,13 +141,42 @@ export function createFallbackChain(opts: FallbackChainOptions): FallbackChain {
   const sequence: readonly string[] = [opts.primary, ...opts.fallbacks];
   const publish = opts.publish;
   const maxAttempts = Math.min(sequence.length, opts.retryBudget);
+  // Plan 06-02 T2 (R4) — wall-clock support.
+  const clock = opts.clock ?? ((): number => Date.now());
+  const timeBudgetMs = opts.timeBudgetMs;
+  const startedAt = clock();
 
   let cursor = 0;
 
+  const elapsedMs = (): number => clock() - startedAt;
+
+  const throwIfTimeBudgetExceeded = (task: TaskBrief): void => {
+    if (timeBudgetMs === undefined) return;
+    const elapsed = elapsedMs();
+    if (elapsed > timeBudgetMs) {
+      throw new FallbackChainExhaustedError(
+        task.taskId,
+        cursor,
+        opts.retryBudget,
+        'time_budget',
+        elapsed,
+        timeBudgetMs,
+      );
+    }
+  };
+
   return {
     select(task: TaskBrief): FallbackSelection {
+      throwIfTimeBudgetExceeded(task);
       if (cursor >= maxAttempts) {
-        throw new FallbackChainExhaustedError(task.taskId, cursor, opts.retryBudget);
+        throw new FallbackChainExhaustedError(
+          task.taskId,
+          cursor,
+          opts.retryBudget,
+          'request_count',
+          elapsedMs(),
+          timeBudgetMs,
+        );
       }
       const provider = sequence[cursor] as string;
       return {
@@ -133,6 +192,10 @@ export function createFallbackChain(opts: FallbackChainOptions): FallbackChain {
       // advance to maintain forward progress.
       const fromProvider = sequence[cursor];
       cursor += 1;
+      // Plan 06-02 T2 (R4) — dual exhaustion: time_budget fires BEFORE
+      // request_count check if both are over the limit. The order is
+      // documented so the error's `path` field is deterministic.
+      throwIfTimeBudgetExceeded(task);
       const hasNext = cursor < maxAttempts;
       if (hasNext && publish !== undefined) {
         const next = sequence[cursor] as string;
