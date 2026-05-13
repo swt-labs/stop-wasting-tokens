@@ -469,7 +469,7 @@ echo ""
 echo "=== AskUserQuestion Contract Verification ==="
 
 ASK_USER_QUESTION_REF="$ROOT/references/ask-user-question.md"
-VIBE_COMMAND_FILE="$COMMANDS_DIR/vibe.md"
+VIBE_COMMAND_FILE="$COMMANDS_DIR/cook.md"
 VIBE_CONFIRMATION_BLOCK="$(extract_heading_block "$VIBE_COMMAND_FILE" "### Confirmation Gate" '^## ' || true)"
 
 if [ -f "$ASK_USER_QUESTION_REF" ]; then
@@ -752,7 +752,7 @@ echo "=== Phase-Detect Usage Verification ==="
 # Without this, the LLM may read from archived milestone directories and present
 # stale data. Commands that read STATE.md/ROADMAP.md should also scope reads to
 # top-level .vbw-planning/ only (not milestones/).
-PHASE_DETECT_REQUIRED_COMMANDS="resume vibe discuss qa verify"
+PHASE_DETECT_REQUIRED_COMMANDS="resume cook discuss qa verify"
 for pd_cmd in $PHASE_DETECT_REQUIRED_COMMANDS; do
   pd_file="$COMMANDS_DIR/${pd_cmd}.md"
   if [ ! -f "$pd_file" ]; then
@@ -769,7 +769,7 @@ done
 echo ""
 echo "=== Phase-Detect Refresh Safety Verification ==="
 
-for pd_safe_cmd in vibe verify resume status discuss qa; do
+for pd_safe_cmd in cook verify resume status discuss qa; do
   pd_safe_file="$COMMANDS_DIR/${pd_safe_cmd}.md"
   if [ ! -f "$pd_safe_file" ]; then
     fail "$pd_safe_cmd: command file not found"
@@ -792,7 +792,7 @@ done
 echo ""
 echo "=== Verify Guardrail Verification ==="
 
-VIBE_FILE="$COMMANDS_DIR/vibe.md"
+VIBE_FILE="$COMMANDS_DIR/cook.md"
 QA_FILE="$COMMANDS_DIR/qa.md"
 VERIFY_FILE="$COMMANDS_DIR/verify.md"
 
@@ -1542,8 +1542,8 @@ else
   fail "vibe: missing execute invariant for real-team vs explicit fallback"
 fi
 
-# vibe.md must reference qa-result-gate.sh at both gate call sites (primary + remediation verify)
-_vibe_gate_count=$(grep -c 'qa-result-gate\.sh' "$COMMANDS_DIR/vibe.md" 2>/dev/null || echo 0)
+# cook.md must reference qa-result-gate.sh at both gate call sites (primary + remediation verify)
+_vibe_gate_count=$(grep -c 'qa-result-gate\.sh' "$COMMANDS_DIR/cook.md" 2>/dev/null || echo 0)
 if [ "$_vibe_gate_count" -ge 2 ]; then
   pass "vibe: references qa-result-gate.sh at $_vibe_gate_count call sites"
 else
@@ -1559,7 +1559,7 @@ else
 fi
 
 # Both must include the anti-rationalization instruction at all gate call sites
-for f in "$COMMANDS_DIR/vibe.md" "$ROOT/references/execute-protocol.md"; do
+for f in "$COMMANDS_DIR/cook.md" "$ROOT/references/execute-protocol.md"; do
   base=$(basename "$f")
   _ar_count=$(grep -c 'no exceptions, no judgment, no rationalization' "$f" 2>/dev/null || echo 0)
   if [ "$_ar_count" -ge 2 ]; then
@@ -1603,7 +1603,7 @@ done
 # Regression guards for prompt-text tool references that previously slipped
 # through the generic matcher. Keep these explicit until the generic helper is
 # proven to catch them in all command bodies.
-for skill_cmd in debug fix map qa research vibe; do
+for skill_cmd in debug fix map qa research cook; do
   skill_file="$COMMANDS_DIR/${skill_cmd}.md"
   [ -f "$skill_file" ] || continue
 
@@ -1666,7 +1666,7 @@ uat_section="$(
     /^### Mode: UAT Remediation$/ { in_section=1; next }
     in_section && /^### Mode:/ { exit }
     in_section { print }
-  ' "$COMMANDS_DIR/vibe.md"
+  ' "$COMMANDS_DIR/cook.md"
 )"
 if grep -q '\*\*TodoWrite progress list (NON-NEGOTIABLE' <<< "$uat_section"; then
   pass "UAT Remediation step 4 explicitly references TodoWrite"
