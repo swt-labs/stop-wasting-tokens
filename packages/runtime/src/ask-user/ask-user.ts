@@ -28,7 +28,7 @@
  *
  *   This module exposes the *raw* askUser function; the Pi custom-tool
  *   bridge that exposes it as `swt_ask_user` on the orchestrator session
- *   lives in a Phase 3 wiring follow-up (NOT here).
+ *   lives in `./swt-ask-user-tool.ts` (Phase 3 plan 03-02 T1, R2).
  *
  * ─────────────────────────────────────────────────────────────────────────
  *

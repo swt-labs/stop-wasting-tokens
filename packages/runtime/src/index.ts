@@ -194,3 +194,19 @@ export {
   type AskUserQuestion,
   type AskUserResponse,
 } from './ask-user/index.js';
+
+// Plan 03-02 (Phase 3, R2): `swt_ask_user` Pi custom-tool bridge. Wires the
+// orchestrator's confirmation gates + UAT checkpoint prompts onto a Pi
+// session via a single registerTool() call. The bridge delegates to
+// `askUser()` — it does not reimplement the dashboard SSE / readline /
+// auto-accept fallbacks. The orchestrator-only invariant (only the
+// orchestrator session registers this tool) is enforced in
+// `@swt-labs/orchestration`'s `spawnOrchestratorSession` and mechanically
+// asserted in `packages/runtime/test/ask-user/ask-user.test.ts` (A.6).
+export {
+  buildSwtAskUserExtension,
+  SWT_ASK_USER_TOOL_NAME,
+  type BuildSwtAskUserExtensionOptions,
+  type SwtAskUserToolParams,
+  type SwtAskUserToolResult,
+} from './ask-user/swt-ask-user-tool.js';
