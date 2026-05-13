@@ -36,7 +36,6 @@ import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { registerUpdateRoute } from './routes/update.js';
-import { registerVibeRoutes } from './routes/vibe.js';
 import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
 
@@ -257,12 +256,12 @@ export function createApp(
   // (signal-file via writePendingSignal).
   registerCookStartRoute(app, { projectRoot: cwd });
   registerCookControlRoute(app, { projectRoot: cwd });
-  // Plan 04-05 T1 (R7): the v2 vibe/ subtree (`MethodologyAgent` factory +
-  // SessionRegistry) was gutted; what remains is a thin shim on /api/vibe
-  // that re-dispatches to /api/cook/start. The shim ships for one release
-  // cycle (v3.0.0-alpha.x) and is removed in v3.1.0 per the Phase 6 hand-off
-  // in .vbw-planning/phases/04-dashboard-statusline/PARITY-REPORT.md.
-  registerVibeRoutes(app, { projectRoot: projectRoot ?? cwd });
+  // Phase 6 plan 06-06 T3: the /api/vibe + /api/vibe/:session_id/reply
+  // shim layer (Phase 4 R7 carry-forward through plan 06-03 carve-out) was
+  // removed. `swt cook` via POST /api/cook/start is the canonical v3 entry;
+  // askUser responses flow through POST /api/prompts/:id/respond. Any
+  // request hitting /api/vibe* now returns 404 from the Hono catch-all.
+  // Regression test: packages/dashboard/test/vibe-shim-removed.test.ts.
   registerSpaRoutes(app);
   return { app, bus, snapshotter, projectRoot, budgetWiring };
 }
