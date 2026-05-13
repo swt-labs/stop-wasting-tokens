@@ -39,6 +39,13 @@ export function toolsForRole(role: SDLCRole, cwd: string): AgentToolList {
       // exactly read-only + bash (no edit). For M2's single-agent path,
       // the prompt-level constraint is sufficient.
       return createCodingTools(cwd);
+    case 'docs':
+      // Docs agent frontmatter (`agents/swt-docs.md`) allows
+      // Read/Grep/Glob/Bash/Write/Edit/LSP/Skill — that's the coding set
+      // minus the non-overlapping tools we don't expose. Phase 1 reuses
+      // the coding bundle and relies on the prompt to keep edits scoped
+      // to documentation files; finer per-tool granularity is Phase F.
+      return createCodingTools(cwd);
   }
 }
 
@@ -53,4 +60,5 @@ export const ROLE_TOOL_SUBSETS: Readonly<Record<SDLCRole, 'readonly' | 'qa-bash'
   dev: 'coding',
   qa: 'qa-bash',
   debugger: 'coding',
+  docs: 'coding',
 };

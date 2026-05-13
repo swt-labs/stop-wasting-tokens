@@ -37,11 +37,16 @@ export function isTier(value: unknown): value is Tier {
 }
 
 /**
- * The 6 SDLC roles that perform actual model calls. `orchestrator` (in
+ * The 7 SDLC roles that perform actual model calls. `orchestrator` (in
  * `AgentRole` from `@swt-labs/shared`) is intentionally excluded — the
  * orchestrator dispatches; it doesn't prompt models itself.
+ *
+ * Plan 01-01 T02 adds `'docs'` so the role-resolver maps (DEFAULT_ROLE_TIERS,
+ * DEFAULT_ROLE_THINKING_LEVELS) and the orchestration role-router cover the
+ * docs agent that exists at `agents/swt-docs.md`. See
+ * `.vbw-planning/phases/01-pi-substrate-primitives/01-01-PLAN.md` task T02.
  */
-export type SDLCRole = 'scout' | 'architect' | 'lead' | 'dev' | 'qa' | 'debugger';
+export type SDLCRole = 'scout' | 'architect' | 'lead' | 'dev' | 'qa' | 'debugger' | 'docs';
 
 export const SDLC_ROLES: readonly SDLCRole[] = [
   'scout',
@@ -50,6 +55,7 @@ export const SDLC_ROLES: readonly SDLCRole[] = [
   'dev',
   'qa',
   'debugger',
+  'docs',
 ] as const;
 
 export function isSDLCRole(value: unknown): value is SDLCRole {

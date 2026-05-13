@@ -39,6 +39,10 @@ export const DEFAULT_ROLE_TIERS: Required<RoleTierMap> = {
   dev: 'balanced',
   qa: 'balanced',
   debugger: 'reasoning',
+  // Plan 01-01 T02: docs agent maps to the same balanced tier as dev/lead.
+  // Documentation tasks are mostly readable code + prose writing; no extended
+  // thinking required.
+  docs: 'balanced',
 };
 
 /**
@@ -57,6 +61,8 @@ export const DEFAULT_ROLE_THINKING_LEVELS: Record<SDLCRole, ThinkingLevel> = {
   dev: 'low', // bulk implementation; TaskBrief overrides for hard work
   qa: 'low', // static-check ladder first; LLM is `balanced` tier, thinking `low`
   debugger: 'xhigh', // root-cause diving; this is THE reasoning role
+  // Plan 01-01 T02: docs writes prose + reads code; no extended thinking.
+  docs: 'low',
 };
 
 // The JSON import via `with { type: 'json' }` returns an unknown-shaped object;
