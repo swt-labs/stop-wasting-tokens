@@ -245,6 +245,54 @@ const CookCompletionEvent = z.object({
   total_cost_usd: z.number().nonnegative().optional(),
 });
 
+// Plan 06-01 (Phase 6) T2 — REQ-11 crash-recovery task lifecycle events.
+// Appended to the same .swt-planning/.events/cook-*.jsonl channel that
+// Phase 4 ships; the resume probe (cookHandler entry) consults the journal
+// for the last task.commit at recovery time. PIPE_BUF-safe (each line
+// stays ≤500 bytes; the `reason` field on task.fail is capped at 200).
+const CookTaskStartEvent = z.object({
+  type: z.literal('cook.task_start'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  plan: z.string().min(1),
+  task_id: z.string().min(1),
+});
+
+const CookTaskCommitEvent = z.object({
+  type: z.literal('cook.task_commit'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  plan: z.string().min(1),
+  task_id: z.string().min(1),
+  commit_hash: z.string().min(1),
+});
+
+const CookTaskCompleteEvent = z.object({
+  type: z.literal('cook.task_complete'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  plan: z.string().min(1),
+  task_id: z.string().min(1),
+});
+
+const CookTaskFailEvent = z.object({
+  type: z.literal('cook.task_fail'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  plan: z.string().min(1),
+  task_id: z.string().min(1),
+  reason: z.string().max(200),
+});
+
+const CookResumeEvent = z.object({
+  type: z.literal('cook.resume'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  from_task: z.string().min(1),
+  last_commit_hash: z.string().optional(),
+  reason: z.string().max(200).optional(),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -265,6 +313,11 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookCommitEvent,
   CookErrorEvent,
   CookCompletionEvent,
+  CookTaskStartEvent,
+  CookTaskCommitEvent,
+  CookTaskCompleteEvent,
+  CookTaskFailEvent,
+  CookResumeEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -302,6 +355,11 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.commit',
   'cook.error',
   'cook.completion',
+  'cook.task_start',
+  'cook.task_commit',
+  'cook.task_complete',
+  'cook.task_fail',
+  'cook.resume',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
@@ -324,4 +382,9 @@ export {
   CookCommitEvent as CookCommitEventSchema,
   CookErrorEvent as CookErrorEventSchema,
   CookCompletionEvent as CookCompletionEventSchema,
+  CookTaskStartEvent as CookTaskStartEventSchema,
+  CookTaskCommitEvent as CookTaskCommitEventSchema,
+  CookTaskCompleteEvent as CookTaskCompleteEventSchema,
+  CookTaskFailEvent as CookTaskFailEventSchema,
+  CookResumeEvent as CookResumeEventSchema,
 };

@@ -41,7 +41,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
@@ -70,8 +70,8 @@ export const migrateHandler: CommandHandler = (parsed, io: CommandIO): ExitCode 
     );
     return EXIT.USAGE_ERROR;
   }
-  const absInput = join(io.cwd, opts.input);
-  const absOutput = join(io.cwd, opts.output);
+  const absInput = isAbsolute(opts.input) ? opts.input : resolve(io.cwd, opts.input);
+  const absOutput = isAbsolute(opts.output) ? opts.output : resolve(io.cwd, opts.output);
   if (!existsSync(absInput) || !statSync(absInput).isDirectory()) {
     io.stderr.write(`swt migrate: input directory does not exist: ${opts.input}\n`);
     return EXIT.NOT_IMPLEMENTED;

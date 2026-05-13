@@ -19,7 +19,7 @@ const SID = 'cook-test-session';
 const SUB = 'sub-test-session';
 
 describe('@swt-labs/shared — CookEvent variants', () => {
-  it('SNAPSHOT_EVENT_TYPES enumerates the nine cook.* variants', () => {
+  it('SNAPSHOT_EVENT_TYPES enumerates the cook.* variants', () => {
     const cookTypes = SNAPSHOT_EVENT_TYPES.filter((t) => t.startsWith('cook.'));
     expect(cookTypes).toEqual([
       'cook.priority_decision',
@@ -31,6 +31,13 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       'cook.commit',
       'cook.error',
       'cook.completion',
+      // Plan 06-01 (Phase 6) — task lifecycle + resume variants on the
+      // same cook events JSONL channel.
+      'cook.task_start',
+      'cook.task_commit',
+      'cook.task_complete',
+      'cook.task_fail',
+      'cook.resume',
     ]);
   });
 

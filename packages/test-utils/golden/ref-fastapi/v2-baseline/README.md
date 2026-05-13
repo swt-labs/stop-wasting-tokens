@@ -5,15 +5,27 @@ This directory contains the **FROZEN** v2.3.5 reference run against
 parity diff (`test/regression/ref-fastapi-milestone.test.ts`) and the
 Phase G public-benchmark anchor.
 
-## Status (Phase 5 plan 05-04 T3)
+## Status (Phase 6 plan 06-04 T1)
 
-**DEVN-03 — recording deferred.** The `.swt-planning/STATE.md`
-sentinel in this directory is a placeholder; the full v2.3.5 binary
-output is NOT yet captured. Per plan 05-04 T3 fallback (b)
-(`docs/operations/cassette-recording.md:128-144` recipe + plan
-05-04 fallback policy): the regression test gates behind
-`!existsSync(BASELINE)` and SKIPs cleanly until the recording lands.
-Plan 05-05's PARITY-REPORT.md surfaces this as Phase G work.
+**Synthesised fixture — option (b) per research §5.4.** The
+`.swt-planning/` tree below is a deterministic, hand-shaped v2.3.5
+minimum: `config.json` carries the three legacy fields
+(`backend: 'codex'`, `agent_backend: 'codex'`, `reasoning_effort: 'medium'`)
+that the v3 migration handler rewrites, and `STATE.md` /
+`phases/01-foundation/01-RESEARCH.md` carry `reasoning_effort:`
+frontmatter to exercise the markdown-frontmatter rewrite path at
+`packages/cli/src/commands/migrate.ts:219`.
+
+This fixture is the input for
+`test/regression/migration-boot-clean.test.ts` (REQ-19 — `swt migrate
+--to=v3` boot-clean assertion). It is intentionally NOT the recorded
+v2.3.5 full-milestone tree (option a from research §5.4); that
+recording is Phase G public-benchmark work and is documented below
+under "How to record".
+
+The full v2.3.5 binary recording is still pending — when it lands it
+will replace this synthesised tree and unblock the full-milestone
+parity diff at `test/regression/ref-fastapi-milestone.test.ts`.
 
 ## Provenance (target — fill in when recording lands)
 

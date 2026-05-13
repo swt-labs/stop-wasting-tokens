@@ -1,0 +1,9 @@
+{
+  "$schema": "https://swt-labs.example.com/schema/v2/config.json",
+  "version": "2.3.5",
+  "backend": "codex",
+  "agent_backend": "codex",
+  "reasoning_effort": "medium",
+  "auto_push": "never",
+  "max_parallel_agents": 3
+}

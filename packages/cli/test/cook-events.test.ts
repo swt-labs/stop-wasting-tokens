@@ -247,10 +247,18 @@ describe('@swt-labs/cli — cook events integration (Plan 04-01 T5)', () => {
     const file = await findCookEventsFile(repoRoot);
     const events = await readJsonl(file);
     const types = events.map((e) => (e as { type: string }).type);
+    // Plan 06-01 T2 — runMode now wraps the spawn with task lifecycle
+    // events (task_start before the spawn; task_commit + task_complete
+    // after a successful spawn). task_commit is best-effort and only
+    // emitted when `git log -1` resolves a HEAD commit; in this test
+    // sandbox the cwd is a tmp dir with no git repo, so task_commit is
+    // absent from the sequence.
     expect(types).toEqual([
       'cook.priority_decision',
+      'cook.task_start',
       'cook.agent_spawn',
       'cook.agent_result',
+      'cook.task_complete',
       'cook.completion',
     ]);
   });

@@ -72,6 +72,10 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       remove: { type: 'string' },
       verify: { type: 'boolean', default: false },
       archive: { type: 'boolean', default: false },
+      // swt migrate --to=v3 --input <v2-dir> --output <v3-dir>: v2→v3
+      // planning-tree migration. Plan 06-04 T1 (REQ-19).
+      to: { type: 'string' },
+      input: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,

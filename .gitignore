@@ -61,6 +61,11 @@ pnpm-debug.log*
 # dev-test detritus and should never enter git. When SWT-on-SWT dogfooding
 # lands, this entry needs revisiting.
 .swt-planning/
+# Exception: test-utils fixtures (v2-baseline for the migration boot-clean
+# test + future v3-baseline parity recordings) are intentional, committed
+# golden artefacts. Plan 06-04 T1 (REQ-19).
+!packages/test-utils/golden/**/.swt-planning/
+!packages/test-utils/golden/**/.swt-planning/**
 
 # Changesets internals
 .changeset/.changes-*/

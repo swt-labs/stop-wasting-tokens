@@ -55,6 +55,10 @@ import {
   readPendingSignal,
   waitForResumeOrCancel,
   CookCancelledError,
+  markCompleted,
+  markCrashed,
+  writeExecutionState,
+  type ExecutionStateRecord,
   type PhaseDetectResult,
 } from '@swt-labs/methodology';
 import { spawnOrchestratorSession } from '@swt-labs/orchestration';
@@ -1120,6 +1124,68 @@ async function checkBoundarySignal(
   // 'resume' with no active pause is a no-op — the signal is consumed.
 }
 
+/**
+ * Plan 06-01 (Phase 6) T2 — derive a stable taskId for the per-spawn
+ * task lifecycle events. One cook turn = one Pi orchestrator spawn = one
+ * "task" from the resume probe's view (the cook.md mode body is what
+ * actually executes the plan's tasks; the orchestrator is opaque from TS).
+ * `${routing.mode}-${phaseTarget|'-'}` is the human-readable label that
+ * the dashboard surfaces and the resume probe reads back.
+ */
+function deriveTaskId(routing: RoutingDecision): string {
+  const target = routing.phaseTarget ?? '-';
+  return `${routing.mode}-${target}`;
+}
+
+/**
+ * Plan 06-01 T2 — best-effort current HEAD commit hash. Used to populate
+ * `cook.task_commit.commit_hash` after a successful Pi spawn. Returns
+ * undefined if `git log` fails (e.g. detached HEAD with no commits yet)
+ * so emission falls back gracefully — the resume probe treats absence
+ * the same as "task ran but no commit observed".
+ */
+function tryReadHeadCommit(
+  cwd: string,
+  execSyncFn: typeof nodeExecSync,
+): string | undefined {
+  try {
+    return execSyncFn('git log -1 --format=%H', { cwd, encoding: 'utf8' }).toString().trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Plan 06-01 T2 — write a fresh in_progress execution-state for this
+ * runMode invocation. Best-effort: a filesystem error here must NOT
+ * break the cook turn (the resume probe will simply not detect the
+ * crash and the next invocation will start fresh).
+ */
+function recordRunModeStart(io: CommandIO, ctx: RunModeContext, routing: RoutingDecision): void {
+  try {
+    const phaseTarget = routing.phaseTarget;
+    const planEntry = phaseTarget !== undefined
+      ? [{ plan: phaseTarget, status: 'in_progress' as const }]
+      : [];
+    const state: ExecutionStateRecord = {
+      phase: phaseTarget !== undefined ? Number.parseInt(phaseTarget, 10) || 0 : 0,
+      phase_name: routing.mode,
+      status: 'in_progress',
+      wave: 0,
+      total_waves: 0,
+      plans: planEntry,
+      correlation_id: ctx.sessionId,
+      session_id: ctx.sessionId,
+      pid: process.pid,
+      started_at: ctx.startTs,
+      last_event_ts: new Date().toISOString(),
+    };
+    writeExecutionState(io.cwd, state);
+  } catch {
+    // best-effort — see comment above.
+  }
+}
+
 async function runMode(
   routing: RoutingDecision,
   opts: ModeOptions,
@@ -1147,6 +1213,21 @@ async function runMode(
     }
     throw err;
   }
+
+  // Plan 06-01 (Phase 6) T2 — write fresh in_progress execution-state and
+  // emit cook.task_start before the orchestrator spawn. The outer try/finally
+  // flips status to crashed on uncaught errors so the next cookHandler
+  // invocation's resume probe can detect the crash.
+  recordRunModeStart(io, ctx, routing);
+  const taskId = deriveTaskId(routing);
+  const planLabel = routing.phaseTarget ?? routing.mode;
+  emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+    type: 'cook.task_start',
+    ts: new Date().toISOString(),
+    session_id: ctx.sessionId,
+    plan: planLabel,
+    task_id: taskId,
+  });
 
   // Load the cook.md mode section + substitute placeholders.
   const prompt = loadCookModeSection(
@@ -1222,23 +1303,65 @@ async function runMode(
     }
 
     if (result.status === 'failed' || result.status === 'blocked') {
+      // Plan 06-01 T2 — task_fail then completion.
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.task_fail',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        plan: planLabel,
+        task_id: taskId,
+        reason: `spawn_${result.status}`.slice(0, 200),
+      });
       emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
         type: 'cook.completion',
         ts: new Date().toISOString(),
         session_id: ctx.sessionId,
         status: 'failed',
       });
+      // Flip execution-state to crashed so the next cook invocation's
+      // resume probe sees the failure as a stale in_progress + dead pid.
+      try {
+        markCrashed(io.cwd);
+      } catch {
+        // best-effort
+      }
       io.stderr.write(
         `swt cook: orchestrator session returned status="${result.status}".\n`,
       );
       return EXIT.RUNTIME_ERROR;
     }
+
+    // Plan 06-01 T2 — happy path emits task_commit (if a fresh commit is
+    // observable on HEAD) and task_complete before cook.completion.
+    const commitHash = tryReadHeadCommit(io.cwd, deps.execSyncFn);
+    if (commitHash !== undefined && commitHash.length > 0) {
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.task_commit',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        plan: planLabel,
+        task_id: taskId,
+        commit_hash: commitHash,
+      });
+    }
+    emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+      type: 'cook.task_complete',
+      ts: new Date().toISOString(),
+      session_id: ctx.sessionId,
+      plan: planLabel,
+      task_id: taskId,
+    });
     emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
       type: 'cook.completion',
       ts: new Date().toISOString(),
       session_id: ctx.sessionId,
       status: 'success',
     });
+    try {
+      markCompleted(io.cwd);
+    } catch {
+      // best-effort — see recordRunModeStart for rationale.
+    }
     return EXIT.SUCCESS;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -1250,12 +1373,26 @@ async function runMode(
       message,
       mode: routing.mode,
     });
+    // Plan 06-01 T2 — fail variant carries a truncated reason string.
+    emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+      type: 'cook.task_fail',
+      ts: new Date().toISOString(),
+      session_id: ctx.sessionId,
+      plan: planLabel,
+      task_id: taskId,
+      reason: message.slice(0, 200),
+    });
     emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
       type: 'cook.completion',
       ts: new Date().toISOString(),
       session_id: ctx.sessionId,
       status: 'failed',
     });
+    try {
+      markCrashed(io.cwd);
+    } catch {
+      // best-effort
+    }
     io.stderr.write(`swt cook: orchestrator spawn failed: ${message}\n`);
     return EXIT.RUNTIME_ERROR;
   }

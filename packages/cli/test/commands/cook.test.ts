@@ -387,9 +387,13 @@ describe('@swt-labs/cli — cookHandler routing priorities (Plan 03-02 T5 / D.1)
       askResponses: [{ selectedOption: 'Yes', freeform: null }],
     });
     await h.run([]);
-    expect(h.execSyncImpl).toHaveBeenCalledTimes(1);
-    const cmd = h.execSyncImpl.mock.calls[0]?.[0];
-    expect(String(cmd)).toContain('prepare-reverification.sh');
+    // Plan 06-01 T2 — runMode now also invokes `git log` (best-effort) to
+    // emit cook.task_commit. Filter on the prepare-reverification call so
+    // this test stays narrow to its routing assertion.
+    const prepareCalls = h.execSyncImpl.mock.calls.filter((c) =>
+      String(c[0]).includes('prepare-reverification.sh'),
+    );
+    expect(prepareCalls.length).toBe(1);
     expect(h.spawnImpl).toHaveBeenCalledTimes(1);
     expect(h.spawnImpl.mock.calls[0]?.[0]?.prompt).toContain('### Mode: Verify');
   });
