@@ -24,6 +24,7 @@ import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
 import { registerProviderCostRoute } from './routes/provider-cost.js';
+import { registerPromptsRoute } from './routes/prompts.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
@@ -204,6 +205,12 @@ export function createApp(
   // with cache-hits + budget routes — registers with a `() => null`
   // placeholder until the methodology layer wires a live meter.
   registerProviderCostRoute(app, () => null);
+  // Plan 01-05 (Phase 1): swt:askUser dashboard-mediated prompt routes.
+  // POST /api/prompts/publish (orchestrator → dashboard),
+  // POST /api/prompts/:id/respond (dashboard → orchestrator response),
+  // GET /api/prompts/pending (replay for reconnects). All in-memory; no
+  // file IO. Mirrors registerUatCheckpointRoute's mount pattern.
+  registerPromptsRoute(app, bus);
   registerInitRoute(
     app,
     cwd,
