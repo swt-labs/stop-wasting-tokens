@@ -1,31 +1,89 @@
-# stop-wasting-tokens
+<h1 align="center">STOP WASTING TOKENS</h1>
 
-[![npm](https://img.shields.io/npm/v/stop-wasting-tokens.svg)](https://www.npmjs.com/package/stop-wasting-tokens)
-[![CI](https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml/badge.svg)](https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://www.npmjs.com/package/stop-wasting-tokens"><img src="https://img.shields.io/npm/v/stop-wasting-tokens.svg" alt="npm"></a>
+  <a href="https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml"><img src="https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+</p>
 
-> A spec-driven, Pi-native coding harness built around a single obsession: **stop wasting tokens**.
+---
 
-`swt` is a Node/TypeScript CLI you install once. It wraps every coding-agent session in a six-agent software development lifecycle, persistent planning artefacts, and goal-backward verification — so the model never re-discovers what you already specified, never improvises past a documented plan, and never burns turns on work the spec doesn't ask for.
+**AI coding without the waste.** SWT is a spec-driven workflow built around one stubborn obsession: ship quality code while burning the fewest tokens possible. Whether you're vibe-coding a weekend prototype or shipping production systems, the harness keeps your agent honest — no improvising past a documented plan, no goal-drift mid-session, no re-reading your codebase three times in one turn. Same discipline for first-timers and senior engineers; same harness, same outcome.
 
-If you've ever watched a model re-read your codebase three times in one session, hallucinate an architecture you already rejected, or chase a fix in circles because the goal drifted mid-stream — that's the waste this tool is engineered to eliminate.
+---
+
+## Quick install
+
+```bash
+npm install -g stop-wasting-tokens@next       # v3 prerelease (recommended)
+# or: pnpm add -g stop-wasting-tokens@next
+# or: bun  add -g stop-wasting-tokens@next
+```
+
+```bash
+swt --version        # 3.0.0-alpha.1
+swt doctor           # checks Node ≥ 20.18, Pi peer-dep, .swt-planning/ presence
+swt vibe             # start here
+```
+
+Plain `stop-wasting-tokens` (no `@next`) still resolves to legacy v2.3.5 until v3 cuts to `latest`. Detailed install paths, source builds, and v2 migration: [Install](#install).
 
 ---
 
 ## Table of contents
 
+- [Install](#install)
 - [What "saving tokens" actually means](#what-saving-tokens-actually-means)
 - [How SWT works](#how-swt-works)
 - [Project status](#project-status)
 - [Prerequisites](#prerequisites)
-- [Install](#install)
 - [Quick start: a real session](#quick-start-a-real-session)
 - [The methodology](#the-methodology)
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
-- [Design + decisions](#design--decisions)
-- [Troubleshooting](#troubleshooting)
 - [Contributing, security, license](#contributing-security-license)
+
+---
+
+## Install
+
+> v3 prereleases are on npm under dist-tag `next`. Plain `npm install -g stop-wasting-tokens` still resolves to legacy v2.3.5 (`latest`) until the v3 stable cut.
+
+### Global install (recommended)
+
+```bash
+npm install -g stop-wasting-tokens@next
+# or: pnpm add -g stop-wasting-tokens@next
+# or: bun  add -g stop-wasting-tokens@next
+
+swt --version        # 3.0.0-alpha.1
+swt doctor
+```
+
+### Install from source (`main` HEAD)
+
+```bash
+git clone https://github.com/swt-labs/stop-wasting-tokens.git
+cd stop-wasting-tokens
+pnpm install
+pnpm typecheck && pnpm test     # ~1150 passing at HEAD
+pnpm build                       # produces dist/cli.mjs
+node dist/cli.mjs --version
+```
+
+Then alias the built CLI so `swt` works from anywhere:
+
+```bash
+alias swt="node $(pwd)/dist/cli.mjs"
+swt --version
+swt doctor                       # verifies Node, Pi peer-dep, .swt-planning/ presence
+```
+
+Real Pi-backed `swt vibe` sessions need a configured Anthropic / OpenAI / OpenRouter API key. The cassette infrastructure (M1 PR-06) lets the test suite replay recorded sessions deterministically without burning tokens.
+
+### Legacy v2.x
+
+The v2.3.5 tarball remains on npm for projects that haven't migrated. **v2.x is unsupported post-v3.0** — pin to a specific patch if you cannot migrate immediately. The supported migration path is `swt migrate --to=v3`.
 
 ---
 
@@ -147,34 +205,6 @@ Output includes the Pi peer-dep version, Node version, and `.swt-planning/` pres
 
 ---
 
-## Install
-
-> SWT v3 ships from source today. The published npm package (`stop-wasting-tokens`) catches up to `main` at the M6 release gate.
-
-### Source install from `main`
-
-```bash
-git clone https://github.com/swt-labs/stop-wasting-tokens.git
-cd stop-wasting-tokens
-pnpm install
-pnpm typecheck && pnpm test     # 994 passing at HEAD
-pnpm build                       # produces packages/cli/dist/cli.mjs
-node packages/cli/dist/cli.mjs --version
-```
-
-Real Pi-backed `swt vibe` sessions require a configured Anthropic / OpenAI / OpenRouter API key. The cassette infrastructure (M1 PR-06) lets the test suite replay recorded sessions deterministically without burning tokens.
-
-To run the binary from anywhere, alias the built CLI:
-
-```bash
-alias swt="node $(pwd)/packages/cli/dist/cli.mjs"
-swt --version
-```
-
-The legacy `v2.3.5` tarball remains on npm for projects that haven't migrated yet. v2.x is unsupported post-v3.0 — pin to a specific patch if you cannot migrate immediately. The supported path is `swt migrate --to=v3`.
-
----
-
 ## Quick start: a real session
 
 This is what a typical first hour with SWT looks like.
@@ -222,11 +252,12 @@ You can short-circuit to a specific stage with `swt vibe --plan=NN`, `swt vibe -
 ### 4. Inspect progress at any time
 
 ```bash
+swt                      # bare `swt` opens the web dashboard daemon (SWT_NO_DASHBOARD=1 to opt out)
 swt status               # current phase, milestone, % complete
 swt detect-phase --json  # machine-readable state (used by the statusline / IDE plugins)
 swt doctor               # Node + Pi peer-dep + .swt-planning/ presence
-swt watch                # interactive TUI dashboard scoped to the active milestone
-swt dashboard            # localhost web dashboard daemon
+swt watch                # interactive Ink TUI dashboard scoped to the active milestone
+swt dashboard            # localhost web dashboard daemon (explicit form)
 ```
 
 ### 5. Archive a completed milestone
@@ -296,7 +327,7 @@ Artefacts are read at the **start** of each agent call as part of the cache-stab
 
 ### Parallel dispatch (M3 primitives shipping)
 
-When M3 wires the deferred session-wiring follow-up + Plan 03-02 lands, parallel Dev tasks within a phase will fan out across per-task git worktrees:
+Parallel Dev tasks within a phase fan out across per-task git worktrees:
 
 - **`WorktreeManager`** owns the 8-state lifecycle FSM (created → claimed → dispatched → agent_running → agent_complete → harvested → removed; `failed` reachable from any non-terminal state) per TDD2 §9.1.
 - **`ClaimRegistry`** rejects parallel tasks that overlap on declared `claims[]` (SHA-1-of-normalized-lowercase-path identifier — case-insensitive-FS safe).
@@ -304,7 +335,7 @@ When M3 wires the deferred session-wiring follow-up + Plan 03-02 lands, parallel
 - **PID-liveness lock files** at `.swt-planning/locks/task-<taskId>.lock` give crash recovery a deterministic signal (`process.kill(pid, 0)`).
 - **`swt_report_result` Pi Extension** persists the per-task result envelope before each agent exits (ADR-002).
 
-These primitives ship today as Plan 03-01. The live parallel dispatch path activates once the runtime layer wires real `session.prompt()` — single-file follow-up tracked separately.
+These primitives shipped in Plan 03-01..03-04 plus the session-wiring follow-up; `runMilestone` activates the live parallel dispatch path. `swt cleanup` reaps stale worktrees and lockfiles after crashes.
 
 ---
 
@@ -333,29 +364,34 @@ Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks
 
 ## Command reference
 
-`swt vibe` is the orchestrator that calls every other surface internally; the explicit verbs below are escape hatches for power users + IDE integrations.
+`swt vibe` is the orchestrator that calls every other surface internally; the explicit verbs below are escape hatches for power users + IDE integrations. Bare `swt` (no verb, no flags) opens the web dashboard daemon — set `SWT_NO_DASHBOARD=1` to restore the legacy "print help" behavior.
 
 ### Working today (`main` HEAD)
 
 | Command            | Use case                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `swt vibe`         | The methodology entrypoint. Auto-detects project state and routes to discuss / plan / execute / verify / archive. Accepts `--plan N`, `--execute N`, `--discuss N`, `--assumptions N`, `--scope`, `--verify [N]`, `--archive`, `--add "name"`, `--insert N "name"`, `--remove N`, plus modifiers `--effort {thorough\|balanced\|fast\|turbo}`, `--skip-qa`, `--skip-audit`, `--yolo`. |
+| `swt init`         | Scaffold `.swt-planning/` in the current directory without running the full discussion engine. Useful when you want to seed `PROJECT.md` / `REQUIREMENTS.md` by hand.                                                                                                                                                                                                                 |
 | `swt status`       | Show current phase, milestone, plan velocity, todos, blockers, codebase profile.                                                                                                                                                                                                                                                                                                      |
 | `swt doctor`       | Verify SWT prerequisites: Node ≥ 20.18, Pi peer-dep, `.swt-planning/` presence. Use this first when something feels off. Surfaces `report.pi` populated from `SpawnerEnvironment.probe()`.                                                                                                                                                                                            |
 | `swt detect-phase` | Print the computed phase-detection state (`--bash-format` for shell consumption, JSON by default). Helper used by `swt vibe` routing.                                                                                                                                                                                                                                                 |
 | `swt config`       | Read or update SWT configuration: `swt config show \| get <key> \| set <key> <value>`.                                                                                                                                                                                                                                                                                                |
 | `swt update`       | Check npm registry for a newer published SWT version. `--json` for scripting; `--strict` fails offline; `--registry=<url>`, `--no-cache`.                                                                                                                                                                                                                                             |
 | `swt watch`        | Open the Ink TUI dashboard scoped to the active milestone. Real-time view of phases, agents, costs.                                                                                                                                                                                                                                                                                   |
-| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`.                                                                                                                                                                                                      |
-| `swt rpc`          | Delegate to Pi's JSON-RPC mode (stdout reserved for the protocol stream). Per TDD2 §3.2 + §5. **Structurally complete; live activation gated on the session-wiring follow-up.**                                                                                                                                                                                                       |
-| `swt bench`        | Replay the TPAC reference scenario and emit a validated `TpacReport` JSON. Per TDD2 §3.2 + §14.9. **Structurally complete; live activation gated on cassette recording + session-wiring follow-up.**                                                                                                                                                                                  |
+| `swt dashboard`    | Boot the localhost web dashboard daemon and open it in the default browser. Hono + Solid + SSE + chokidar v4. `--port N`, `--host H`, `--unsafe-public`, `--no-open`, `--debug`. Bare `swt` (no verb) is an alias for this.                                                                                                                                                           |
+| `swt cleanup`      | Reap stale per-task git worktrees and PID-liveness lock files left behind by crashed agents. Safe to run any time; idempotent.                                                                                                                                                                                                                                                        |
+| `swt migrate`      | Migrate a v2.x project to v3. Use `--to=v3` (currently the only supported target). Reads the legacy `.planning/` layout and rewrites it to `.swt-planning/` schemas.                                                                                                                                                                                                                  |
+| `swt rpc`          | Delegate to Pi's JSON-RPC mode (stdout reserved for the protocol stream). Per TDD2 §3.2 + §5.                                                                                                                                                                                                                                                                                         |
+| `swt bench`        | Replay the TPAC reference scenario and emit a validated `TpacReport` JSON. Per TDD2 §3.2 + §14.9. Live activation gated on user-driven cassette recording.                                                                                                                                                                                                                            |
 | `swt help`         | Print usage, list all registered commands. Also `swt --help` and `swt {verb} --help`.                                                                                                                                                                                                                                                                                                 |
 | `swt version`      | Print SWT version. Also `swt --version`.                                                                                                                                                                                                                                                                                                                                              |
 
 ### Use case quick-pick
 
 - **Fresh project** → `swt vibe` (routes to bootstrap)
-- **Existing project, daily work** → `swt vibe` (auto-routes), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view)
+- **Existing project, daily work** → `swt vibe` (auto-routes), `swt status` (peek), `swt watch` or `swt dashboard` (ambient view), bare `swt` opens the dashboard
+- **Coming from v2.x** → `swt migrate --to=v3`
+- **After a crash** → `swt cleanup` to reap stale worktrees + locks, then `swt vibe` to resume
 - **Something feels broken** → `swt doctor` first
 - **Configuration tweaks** → `swt config show` / `swt config set <key> <value>`
 - **Discoverability** → `swt help` lists every registered command
@@ -371,42 +407,6 @@ swt config --help
 ```
 
 Top-level flags: `--version` (print version), `--help` (top-level usage).
-
----
-
-## Design + decisions
-
-The authoritative design document is [`TDD2.md`](./TDD2.md) at the repo root. Read [`docs/design/README.md`](./docs/design/README.md) for the suggested reading order.
-
-13 Architecture Decision Records anchor the design, indexed at [`docs/decisions/README.md`](./docs/decisions/README.md):
-
-- **Accepted (11)**: ADR-001 (Pi adoption), ADR-002 (Extension result protocol), ADR-003 (provider quirks JSON), ADR-004 (cache_control at provider-shim), ADR-005 (delete drivers wholesale), ADR-006 (cache breakpoint placement), ADR-007 (Budget Gate semantics), ADR-008 (worktree-per-task), ADR-009 (Windows worktree paths), ADR-010 (reproducible builds), ADR-011 (cassette-only provider matrix).
-- **Deferred (1)**: ADR-013 (no hosted docs site at v3.0).
-- **Superseded (1)**: ADR-012 (six-month LTS) — promoted Accepted at M6 PR-53 and retracted same-day; v2.3.x is unsupported post-v3.0.
-
-Live planning state lives in [`.vbw-planning/`](./.vbw-planning/) — `ROADMAP.md` is the entry point. Per-milestone PR ledger: [`.vbw-planning/v3-tracking.md`](./.vbw-planning/v3-tracking.md).
-
----
-
-## Troubleshooting
-
-**`swt: command not found` after install**
-The source-install pattern aliases `node packages/cli/dist/cli.mjs` to `swt`; ensure your alias is in the right shell rc. Once the M6 release publishes to npm, the global bin convention takes over.
-
-**`swt --version` reports `0.0.0` after a manual rebuild**
-You're running a locally-built bundle from before the `CURRENT_VERSION` constant was wired up. Rebuild with `pnpm build` after pulling latest.
-
-**`swt vibe` keeps asking the same confirmation**
-Your `autonomy` is set to `cautious` or `standard` (the default). Switch with `swt config set autonomy confident` to auto-chain phases, or `pure-vibe` to auto-loop until a hard error.
-
-**Phase detection is in a weird state**
-Run `swt detect-phase` for a JSON dump of what SWT thinks the state is. The `phase_detect_error=true` line points at root cause.
-
-**`swt doctor` reports `Pi runtime not available`**
-Pi is declared as a peer-dep (`^0.74.0`); ensure `@earendil-works/pi-coding-agent` is installed in your project or globally. Source installs from `main` include it via `pnpm install`.
-
-**`swt rpc` / `swt bench` exits with `EXIT.NOT_IMPLEMENTED` (2)**
-Expected today. Both verbs are structurally complete (CLI surface + flag parsing + delegation chain) but the live runtime activation is gated on a single-file `session.prompt()` follow-up PR. The stderr message points at the activation gate.
 
 ---
 
