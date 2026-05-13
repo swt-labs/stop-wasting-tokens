@@ -190,6 +190,7 @@ export {
   FallbackChainExhaustedError,
   type FallbackChain,
   type FallbackChainOptions,
+  type FallbackExhaustionPath,
   type FallbackFailureReason,
   type FallbackSelection,
   type ProviderFallbackEvent,

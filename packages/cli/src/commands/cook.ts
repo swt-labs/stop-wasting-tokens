@@ -65,8 +65,16 @@ import {
 import {
   spawnOrchestratorSession,
   defaultPidChecker,
+  createProviderRouter,
+  createFallbackChain,
+  FallbackChainExhaustedError,
   type PidChecker,
+  type ProviderFallbackEvent,
+  type FallbackFailureReason,
+  type RouterStrategy,
+  type RouterTier,
 } from '@swt-labs/orchestration';
+import type { TaskBrief } from '@swt-labs/shared';
 import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
@@ -416,6 +424,47 @@ export interface QaGateOverrides {
 }
 
 /**
+ * Plan 06-02 T4 (REQ-15) — provider router/fallback config block.
+ *
+ * Loaded from `.swt-planning/config.json#providers`. Defaults preserve
+ * today's single-provider behavior: `{strategy: {kind:'pinned', provider:
+ * 'anthropic'}, fallbacks: [], retryBudget: 3, timeBudgetMs: 30000}` —
+ * the empty fallbacks list makes the chain degenerate (no fallback hops).
+ *
+ * The `strategy` block mirrors `RouterStrategy` from
+ * `@swt-labs/orchestration/provider-router`. Kept type-narrow here so the
+ * cook callsite can read it without pulling the orchestration package's
+ * full type surface into the public CLI config.
+ */
+export type CookProviderStrategy =
+  | { readonly kind: 'pinned'; readonly provider: string }
+  | { readonly kind: 'round-robin'; readonly providers: readonly string[] }
+  | {
+      readonly kind: 'tier-routed';
+      readonly map: Readonly<Record<string, string>>;
+      readonly fallback: string;
+    }
+  | {
+      readonly kind: 'cost-optimized';
+      readonly providers: readonly string[];
+      readonly priceTable: Readonly<Record<string, number>>;
+    };
+
+export interface CookProvidersConfig {
+  readonly strategy: CookProviderStrategy;
+  readonly fallbacks: readonly string[];
+  readonly retryBudget: number;
+  readonly timeBudgetMs: number;
+}
+
+export const DEFAULT_PROVIDERS_CONFIG: CookProvidersConfig = {
+  strategy: { kind: 'pinned', provider: 'anthropic' },
+  fallbacks: [],
+  retryBudget: 3,
+  timeBudgetMs: 30_000,
+};
+
+/**
  * Cook configuration (subset of `.swt-planning/config.json` the cook handler
  * reads). Tests inject the shape; production reads from disk via
  * `loadCookConfig`.
@@ -424,6 +473,7 @@ export interface CookConfig {
   readonly auto_uat: boolean;
   readonly agent_max_turns_orchestrator?: number;
   readonly qa_gate_overrides?: QaGateOverrides;
+  readonly providers: CookProvidersConfig;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -929,6 +979,72 @@ export function loadCookModeSection(
 // Config loader
 // ────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Plan 06-02 T4 — parse the optional `providers` block from
+ * `.swt-planning/config.json`. Returns DEFAULT_PROVIDERS_CONFIG when the
+ * block is missing or malformed (best-effort; misconfigured values never
+ * crash the cook handler — they fall back to defaults).
+ */
+function parseProvidersConfig(raw: unknown): CookProvidersConfig {
+  if (typeof raw !== 'object' || raw === null) return DEFAULT_PROVIDERS_CONFIG;
+  const block = raw as Record<string, unknown>;
+  const strategy = parseStrategy(block['strategy']);
+  const fallbacks = Array.isArray(block['fallbacks'])
+    ? (block['fallbacks'] as unknown[]).filter((s): s is string => typeof s === 'string')
+    : DEFAULT_PROVIDERS_CONFIG.fallbacks;
+  const retryBudget =
+    typeof block['retryBudget'] === 'number' && Number.isFinite(block['retryBudget']) && (block['retryBudget'] as number) >= 1
+      ? (block['retryBudget'] as number)
+      : DEFAULT_PROVIDERS_CONFIG.retryBudget;
+  const timeBudgetMs =
+    typeof block['timeBudgetMs'] === 'number' && Number.isFinite(block['timeBudgetMs']) && (block['timeBudgetMs'] as number) > 0
+      ? (block['timeBudgetMs'] as number)
+      : DEFAULT_PROVIDERS_CONFIG.timeBudgetMs;
+  return { strategy, fallbacks, retryBudget, timeBudgetMs };
+}
+
+function parseStrategy(raw: unknown): CookProviderStrategy {
+  if (typeof raw !== 'object' || raw === null) return DEFAULT_PROVIDERS_CONFIG.strategy;
+  const obj = raw as Record<string, unknown>;
+  switch (obj['kind']) {
+    case 'pinned':
+      return typeof obj['provider'] === 'string'
+        ? { kind: 'pinned', provider: obj['provider'] }
+        : DEFAULT_PROVIDERS_CONFIG.strategy;
+    case 'round-robin':
+      return Array.isArray(obj['providers'])
+        ? {
+            kind: 'round-robin',
+            providers: (obj['providers'] as unknown[]).filter(
+              (s): s is string => typeof s === 'string',
+            ),
+          }
+        : DEFAULT_PROVIDERS_CONFIG.strategy;
+    case 'tier-routed':
+      return typeof obj['map'] === 'object' && obj['map'] !== null && typeof obj['fallback'] === 'string'
+        ? {
+            kind: 'tier-routed',
+            map: obj['map'] as Record<string, string>,
+            fallback: obj['fallback'],
+          }
+        : DEFAULT_PROVIDERS_CONFIG.strategy;
+    case 'cost-optimized':
+      return Array.isArray(obj['providers']) &&
+        typeof obj['priceTable'] === 'object' &&
+        obj['priceTable'] !== null
+        ? {
+            kind: 'cost-optimized',
+            providers: (obj['providers'] as unknown[]).filter(
+              (s): s is string => typeof s === 'string',
+            ),
+            priceTable: obj['priceTable'] as Record<string, number>,
+          }
+        : DEFAULT_PROVIDERS_CONFIG.strategy;
+    default:
+      return DEFAULT_PROVIDERS_CONFIG.strategy;
+  }
+}
+
 export function loadCookConfig(
   cwd: string,
   fsImpl: { readFileSync: typeof readFileSync; existsSync: typeof existsSync } = {
@@ -938,7 +1054,7 @@ export function loadCookConfig(
 ): CookConfig {
   const configPath = resolvePath(cwd, '.swt-planning', 'config.json');
   if (!fsImpl.existsSync(configPath)) {
-    return { auto_uat: false };
+    return { auto_uat: false, providers: DEFAULT_PROVIDERS_CONFIG };
   }
   try {
     const raw = fsImpl.readFileSync(configPath, 'utf8');
@@ -953,15 +1069,17 @@ export function loadCookConfig(
       typeof parsed['agent_max_turns'] === 'object' && parsed['agent_max_turns'] !== null
         ? (parsed['agent_max_turns'] as Record<string, unknown>)['orchestrator']
         : undefined;
+    const providers = parseProvidersConfig(parsed['providers']);
     return {
       auto_uat: autoUat,
+      providers,
       ...(overrides !== undefined ? { qa_gate_overrides: overrides } : {}),
       ...(typeof maxTurns === 'number' && Number.isFinite(maxTurns)
         ? { agent_max_turns_orchestrator: maxTurns }
         : {}),
     };
   } catch {
-    return { auto_uat: false };
+    return { auto_uat: false, providers: DEFAULT_PROVIDERS_CONFIG };
   }
 }
 
@@ -1427,6 +1545,169 @@ function recordRunModeStart(io: CommandIO, ctx: RunModeContext, routing: Routing
   }
 }
 
+/**
+ * Plan 06-02 T4 — classify a thrown error from `spawnOrchestratorSession`
+ * into a `FallbackFailureReason`. Recognizes Pi 0.74's `auto_retry_503` /
+ * `auto_retry_429` / `auto_retry_500` markers (see `provider-fallback.ts`
+ * head comment) and HTTP status codes embedded in error messages. Returns
+ * `'other'` for anything we don't recognize, which the cook callsite
+ * treats as NON-retryable (no fallback hop consumed; the error re-throws
+ * immediately).
+ */
+export function classifyError(err: unknown): FallbackFailureReason {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/auto_retry_503\b|\b503\b/.test(message)) return '503';
+  if (/auto_retry_429\b|\b429\b/.test(message)) return '429';
+  if (/auto_retry_500\b|\b500\b/.test(message)) return '500';
+  return 'other';
+}
+
+/**
+ * Plan 06-02 T4 — map `CookProviderStrategy` (config-shape) to
+ * `RouterStrategy` (orchestration-shape). The only meaningful difference
+ * is the `tier-routed` map key type — config accepts `Record<string,...>`
+ * while the router uses `Partial<Record<Tier,...>>`. Filtering down to
+ * known tier names keeps the router contract clean.
+ */
+function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy {
+  switch (strategy.kind) {
+    case 'pinned':
+      return { kind: 'pinned', provider: strategy.provider };
+    case 'round-robin':
+      return { kind: 'round-robin', providers: strategy.providers };
+    case 'tier-routed': {
+      const validTiers: ReadonlyArray<RouterTier> = [
+        'cheap-fast',
+        'balanced',
+        'quality',
+        'reasoning',
+      ];
+      const map: Partial<Record<RouterTier, string>> = {};
+      for (const tier of validTiers) {
+        const v = strategy.map[tier];
+        if (typeof v === 'string') map[tier] = v;
+      }
+      return { kind: 'tier-routed', map, fallback: strategy.fallback };
+    }
+    case 'cost-optimized':
+      return {
+        kind: 'cost-optimized',
+        providers: strategy.providers,
+        priceTable: strategy.priceTable,
+      };
+  }
+}
+
+/**
+ * Plan 06-02 T3 (REQ-15) — provider router + fallback chain wired into
+ * the cook spawn callsite. Constructs a per-spawn `ProviderRouter` +
+ * `FallbackChain` from `config.providers`, picks the primary, then loops
+ * `deps.spawnFn` until success OR chain exhaustion. On each failure:
+ *
+ *   1. `classifyError` maps the thrown error to a `FallbackFailureReason`
+ *      (recognized HTTP/Pi markers → '503'|'429'|'500'; else 'other').
+ *   2. `'other'` short-circuits the chain — the error re-throws to the
+ *      existing outer error path without consuming a fallback hop.
+ *   3. Recognised retryable reasons advance the chain. The chain's own
+ *      `publish` hook emits `provider.fallback_fired` for each transition
+ *      (forwarded to the test seam `providerEventSinkFn` when wired).
+ *   4. `FallbackChainExhaustedError` (either `'request_count'` or
+ *      `'time_budget'`) re-throws as-is; the outer try/catch in `runMode`
+ *      surfaces it on the cook events JSONL via `cook.error`.
+ *
+ * The function returns the provider id that ultimately succeeded so the
+ * caller can record cost-attribution into the existing TPAC pipeline once
+ * Phase 5 token plumbing lands.
+ *
+ * Returns: `{result, providerUsed, attempts}` on success.
+ *
+ * Throws: the underlying spawn error (`'other'` classification) OR
+ * `FallbackChainExhaustedError` when the chain runs out of options.
+ */
+export interface RunSpawnWithFallbackResult {
+  readonly result: Awaited<ReturnType<typeof spawnOrchestratorSession>>;
+  readonly providerUsed: string;
+  readonly attempts: number;
+}
+
+export interface RunSpawnWithFallbackOptions {
+  readonly providers: CookProvidersConfig;
+  readonly spawnArgs: Parameters<typeof spawnOrchestratorSession>[0];
+  readonly spawnFn: typeof spawnOrchestratorSession;
+  readonly taskBrief: TaskBrief;
+  readonly tier?: RouterTier;
+  /**
+   * Optional sink for `provider.fallback_fired` events. Production wires
+   * this to a stderr-or-journal emitter; tests inject a capture array.
+   */
+  readonly onProviderEvent?: (event: ProviderFallbackEvent) => void;
+  /** Test seam — override the per-chain clock for deterministic time-budget assertions. */
+  readonly clock?: () => number;
+  /** Test seam — override classifyError so tests can inject reason classifications. */
+  readonly classifyErrorFn?: (err: unknown) => FallbackFailureReason;
+}
+
+export async function runSpawnWithFallback(
+  opts: RunSpawnWithFallbackOptions,
+): Promise<RunSpawnWithFallbackResult> {
+  const classify = opts.classifyErrorFn ?? classifyError;
+  const tier: RouterTier = opts.tier ?? 'balanced';
+  const router = createProviderRouter(toRouterStrategy(opts.providers.strategy));
+  const primary = router.select({ task: opts.taskBrief, tier });
+  // The chain's `primary` is what the router picked; fallbacks come straight
+  // from config. The empty-fallbacks list yields a degenerate chain (one
+  // provider, one attempt) — preserves today's single-provider behavior
+  // when the user hasn't opted into multi-provider routing.
+  const chainOpts: Parameters<typeof createFallbackChain>[0] = {
+    primary,
+    fallbacks: opts.providers.fallbacks,
+    retryBudget: opts.providers.retryBudget,
+    timeBudgetMs: opts.providers.timeBudgetMs,
+    ...(opts.onProviderEvent !== undefined ? { publish: opts.onProviderEvent } : {}),
+    ...(opts.clock !== undefined ? { clock: opts.clock } : {}),
+  };
+  const chain = createFallbackChain(chainOpts);
+
+  // Loop guard: the chain's `select` throws on exhaustion, so the loop
+  // terminates either via successful spawn (break) or thrown error
+  // (FallbackChainExhaustedError or `'other'`-classified re-throw).
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const selection = chain.select(opts.taskBrief);
+    try {
+      const result = await opts.spawnFn(opts.spawnArgs);
+      return {
+        result,
+        providerUsed: selection.provider,
+        attempts: selection.attempt,
+      };
+    } catch (err) {
+      if (err instanceof FallbackChainExhaustedError) throw err;
+      const reason = classify(err);
+      if (reason === 'other') {
+        // Non-retryable — don't consume a fallback hop; re-throw to outer.
+        throw err;
+      }
+      // recordFailure may throw FallbackChainExhaustedError if budget /
+      // time runs out as a side-effect; let it propagate.
+      const hasNext = chain.recordFailure(selection.provider, reason, opts.taskBrief);
+      if (!hasNext) {
+        // No further providers — synthesize the exhaustion error so the
+        // caller sees a uniform throw shape. recordFailure already emits
+        // no event when there's no next provider (publish is conditional
+        // on hasNext); this throw is the chain's terminal signal.
+        throw new FallbackChainExhaustedError(
+          opts.taskBrief.taskId,
+          chain.attemptsTaken(),
+          opts.providers.retryBudget,
+          'request_count',
+        );
+      }
+      // hasNext === true → loop continues; chain.select() returns the next provider.
+    }
+  }
+}
+
 async function runMode(
   routing: RoutingDecision,
   opts: ModeOptions,
@@ -1497,13 +1778,39 @@ async function runMode(
   });
 
   try {
-    const result = await deps.spawnFn({
-      prompt: promptWithOpts,
+    // Plan 06-02 T3 (REQ-15) — provider router + fallback chain. The
+    // chain is per-spawn; an empty fallback list (the default) yields a
+    // degenerate one-attempt chain that preserves today's single-provider
+    // behavior. Multi-provider deployments opt in via `.swt-planning/
+    // config.json#providers`.
+    const fallbackTaskBrief: TaskBrief = {
+      taskId: taskId,
+      role: 'orchestrator',
       cwd: io.cwd,
-      sessionId: ctx.sessionId,
-      installRoot: ctx.installRoot,
-      maxTurns,
+    };
+    const fallbackResult = await runSpawnWithFallback({
+      providers: config.providers,
+      spawnArgs: {
+        prompt: promptWithOpts,
+        cwd: io.cwd,
+        sessionId: ctx.sessionId,
+        installRoot: ctx.installRoot,
+        maxTurns,
+      },
+      spawnFn: deps.spawnFn,
+      taskBrief: fallbackTaskBrief,
+      // Production hook: forward fallback events to stderr so operators
+      // see the transition. The cook events JSONL channel doesn't have a
+      // dedicated schema entry for provider transitions (today); a future
+      // plan adds `cook.provider_fallback` if dashboards need it.
+      onProviderEvent: (ev) => {
+        io.stderr.write(
+          `swt cook: provider fallback fired (from=${ev.from} to=${ev.to} ` +
+            `reason=${ev.reason} attempt=${ev.attempt}).\n`,
+        );
+      },
     });
+    const result = fallbackResult.result;
 
     // TaskResult (TDD2 §9.4 swt_report_result envelope) does not carry a
     // `usage` payload today — Pi's per-turn token deltas are plumbed in
