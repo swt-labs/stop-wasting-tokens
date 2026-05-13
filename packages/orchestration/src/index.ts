@@ -52,6 +52,20 @@ export {
   type PromptBlock,
 } from './prompt-builder.js';
 
+// Plan 01-01 T03 (Phase 1): `swt:spawnAgent` — TDD3 §14 primitive 1.
+// Wraps createDispatcher with role-aware system prompt + Pi tool subset +
+// Result Protocol + Journal extension. Orchestrator-only askUser invariant
+// enforced in the resolution path (no swt_ask_user in any spawned role's
+// tool list). See TDD3 §20.3 / §24.
+export {
+  spawnAgent,
+  resolveSpawnAgentConfig,
+  type SpawnAgentOptions,
+  type SpawnAgentSessionConfig,
+  type SpawnAgentSessionFactory,
+  type SpawnAgentExtension,
+} from './spawn-agent.js';
+
 // PR-19 (M2): TPAC aggregator. Per TDD2 §8.1. Reduces a MeterSnapshot
 // into a milestone-scoped TpacReport for `swt bench` (PR-21) emit + the
 // dashboard Milestones panel + the M4 PR-32 −40% target check.
