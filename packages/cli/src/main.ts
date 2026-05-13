@@ -1,5 +1,6 @@
 import type { SpawnerEnvironment } from '@swt-labs/core';
 import { PiSpawnerEnvironment } from '@swt-labs/orchestration';
+import { applyEnvToProcess } from '@swt-labs/runtime';
 
 import { parseSwtArgv } from './argv.js';
 import { benchHandler } from './commands/bench.js';
@@ -132,6 +133,15 @@ export async function main(
   argv: readonly string[] = process.argv.slice(2),
   deps: MainDeps = {},
 ): Promise<ExitCode> {
+  // Plan 01-02: populate SWT_INSTALL_ROOT + SWT_SESSION_ID on process.env
+  // BEFORE any registry build, argv parse, or child-process spawn. The
+  // dashboard command (commands/dashboard.ts) spawns the dashboard-server
+  // bundle via child_process.spawn — that child inherits process.env by
+  // default (its explicit `env: { ...process.env, ... }` merge does NOT
+  // drop these vars), so this single call wires both env vars through
+  // every downstream subprocess. Idempotent; safe to call again.
+  applyEnvToProcess();
+
   const io: CommandIO = {
     cwd: deps.cwd ?? process.cwd(),
     stdout: deps.stdout ?? process.stdout,
