@@ -7,7 +7,7 @@
  * (headings + URL list).
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -19,7 +19,18 @@ const REPO_ROOT = join(__dirname, '..', '..', '..');
 const FIXTURE_ROOT = join(REPO_ROOT, 'packages/test-utils/golden/ref-fastapi');
 const CASSETTE = join(FIXTURE_ROOT, 'cassettes/architect.jsonl');
 const BASELINE = join(FIXTURE_ROOT, 'v2-baseline/.swt-planning');
-const HAS_BASELINE = existsSync(BASELINE);
+const BASELINE_STATE = join(BASELINE, 'STATE.md');
+function isPlaceholderBaseline(): boolean {
+  // Plan 05-04 T3 ships a DEVN-03 sentinel STATE.md. Until a real
+  // v2.3.5 recording replaces it, the regression test SKIPs.
+  if (!existsSync(BASELINE_STATE)) return true;
+  try {
+    return readFileSync(BASELINE_STATE, 'utf-8').includes('DEVN-03 placeholder');
+  } catch {
+    return true;
+  }
+}
+const HAS_BASELINE = existsSync(BASELINE) && !isPlaceholderBaseline();
 
 describe.skipIf(!HAS_BASELINE)('agent-parity: architect vs ref-fastapi v2.3.5 baseline', () => {
   it('produces CONTEXT/CONCERNS/PATTERNS matching the baseline by semantic-fingerprint', async () => {
