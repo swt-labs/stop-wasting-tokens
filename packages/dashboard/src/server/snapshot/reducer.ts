@@ -186,7 +186,7 @@ export function buildSnapshot(projectRoot: string): Snapshot {
       phase_index: extractCurrentPhaseIndex(raw.state_md),
     },
     phases,
-    active_agent: null,
+    active_agents: [],
     recent_events: [],
     cost_summary: {
       total_usd: 0,

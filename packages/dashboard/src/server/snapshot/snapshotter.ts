@@ -14,7 +14,7 @@ import { buildSnapshot } from './reducer.js';
  * instead of the v1.6.0–v1.6.7 hardcoded `['phase', 'artifacts']`. Maps
  * snapshot fields to the SnapshotEvent.changed enum:
  *   phases       → 'phase' + 'artifacts' (phases contain artifacts)
- *   active_agent + recent_events → 'agents'
+ *   active_agents + recent_events → 'agents'
  *   cost_summary → 'cost'
  * Falls back to ['phase'] if nothing structurally changed (snapshotsEqual
  * returned false on a non-trivial diff that doesn't hit any of the buckets
@@ -31,7 +31,7 @@ function diffChangedKeys(
     changed.add('artifacts');
   }
   if (
-    JSON.stringify(prev.active_agent) !== JSON.stringify(next.active_agent) ||
+    JSON.stringify(prev.active_agents) !== JSON.stringify(next.active_agents) ||
     JSON.stringify(prev.recent_events) !== JSON.stringify(next.recent_events)
   ) {
     changed.add('agents');

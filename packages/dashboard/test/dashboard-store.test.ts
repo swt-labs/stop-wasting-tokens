@@ -56,7 +56,7 @@ function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     project: null,
     milestone: null,
     phases: [],
-    active_agent: null,
+    active_agents: [],
     recent_events: [],
     cost_summary: null,
     is_initialized: true,

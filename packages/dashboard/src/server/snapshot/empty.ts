@@ -19,7 +19,7 @@ export function emptySnapshot(brownfield = false): Snapshot {
     project: null,
     milestone: null,
     phases: [],
-    active_agent: null,
+    active_agents: [],
     recent_events: [],
     cost_summary: null,
     is_initialized: false,
