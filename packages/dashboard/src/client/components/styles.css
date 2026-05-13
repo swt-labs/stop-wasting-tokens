@@ -2070,3 +2070,283 @@
 .ext-banner-source-label {
   color: rgba(255, 200, 80, 0.85);
 }
+
+/* Plan 04-03 — Pane 1 project state */
+.project-state-panel .project-state-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin: 4px 0;
+}
+.project-state-panel .project-state-description {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  margin: 4px 0 6px;
+}
+.project-state-panel .project-state-codebase {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  font-size: 11px;
+}
+.project-state-panel .project-state-codebase li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 0;
+}
+.project-state-panel .project-state-codebase .label {
+  color: rgba(255, 255, 255, 0.55);
+}
+.project-state-panel .project-state-milestone {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.project-state-panel .milestone-name {
+  font-weight: 600;
+  font-size: 12px;
+}
+.project-state-panel .milestone-progress {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.project-state-panel .milestone-percent {
+  font-weight: 600;
+}
+.project-state-panel details {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.project-state-panel details ul {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+}
+.project-state-panel .todo-phase {
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: 6px;
+  font-size: 10px;
+}
+.project-state-panel .project-state-blockers summary {
+  color: rgba(255, 160, 120, 0.95);
+}
+
+/* Plan 04-03 — Pane 2 PhaseStepper per-plan rows */
+.phase-stepper-plans {
+  list-style: none;
+  padding: 0 0 0 12px;
+  margin: 2px 0 6px;
+}
+.phase-stepper-plan {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  padding: 1px 4px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.phase-stepper-plan .plan-id {
+  color: rgba(255, 255, 255, 0.45);
+  min-width: 48px;
+}
+.phase-stepper-plan .plan-title {
+  flex: 1;
+}
+.phase-stepper-plan .plan-status {
+  min-width: 14px;
+  text-align: right;
+}
+.phase-stepper-plan.plan-complete .plan-status {
+  color: rgba(140, 220, 140, 0.95);
+}
+.phase-stepper-plan.plan-in_progress .plan-status {
+  color: rgba(140, 200, 255, 0.95);
+}
+.phase-stepper-plan.plan-failed .plan-status {
+  color: rgba(255, 140, 140, 0.95);
+}
+
+/* Plan 04-03 — Pane 3 Active agents */
+.active-agents-pane {
+  padding: 6px 8px;
+}
+.active-agents-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.active-agents-idle {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+.active-agents-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.active-agents-session code {
+  color: rgba(180, 220, 255, 0.95);
+}
+.active-agents-controls button {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+.active-agents-controls .danger {
+  border-color: rgba(255, 100, 80, 0.55);
+  color: rgba(255, 180, 160, 0.95);
+}
+.active-agents-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.active-agents-empty {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  margin: 6px 0;
+}
+.active-agents-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-top: 6px;
+}
+.active-agents-table th,
+.active-agents-table td {
+  padding: 2px 6px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.active-agents-table th {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+  font-size: 10px;
+}
+.active-agents-table tr.status-running {
+  color: rgba(180, 220, 255, 0.95);
+}
+.active-agents-table tr.status-completed {
+  color: rgba(140, 220, 140, 0.85);
+}
+.active-agents-table tr.status-failed {
+  color: rgba(255, 140, 140, 0.95);
+}
+.active-agents-role-icon {
+  margin-right: 4px;
+}
+.active-agents-dash {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Plan 04-03 — Pane 4 CostPanel extensions */
+.cost-panel-cache {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+}
+.cost-panel-cache-label {
+  color: rgba(255, 255, 255, 0.55);
+}
+.cost-panel-tokens {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.cost-panel-tokens summary {
+  cursor: pointer;
+}
+.cost-panel-tokens table {
+  width: 100%;
+  margin-top: 4px;
+}
+.cost-panel-tokens th {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}
+.cost-panel-tokens td {
+  text-align: right;
+}
+.cost-panel-budget {
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.cost-panel-budget-label {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Plan 04-03 — Pane 5 ArtifactPreview tabs + history */
+.preview-panel-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.preview-panel-tab {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  border-radius: 2px;
+}
+.preview-panel-tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.95);
+}
+.preview-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  font-size: 11px;
+}
+.preview-history-item {
+  padding: 0;
+}
+.preview-history-item.selected .preview-history-button {
+  background: rgba(255, 255, 255, 0.06);
+}
+.preview-history-button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 2px;
+}
+.preview-history-button:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.preview-history-sha {
+  color: rgba(180, 220, 255, 0.95);
+  min-width: 56px;
+}
+.preview-history-msg {
+  flex: 1;
+}
+.preview-history-meta {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+}
+.preview-history-diff {
+  margin-top: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+  white-space: pre;
+  overflow: auto;
+  max-height: 320px;
+}

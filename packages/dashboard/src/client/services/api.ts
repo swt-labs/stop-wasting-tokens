@@ -179,6 +179,61 @@ export async function fetchArtifactRendered(
   return { html: r.html, frontmatter: r.frontmatter ?? {} };
 }
 
+/**
+ * Plan 04-03 T4 — Pane 5 History tab. Lists the most recent commits that
+ * touched an artifact under `.swt-planning/`. Bound to plan 04-02's
+ * `GET /api/artifact-history` route.
+ */
+export interface ArtifactHistoryCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
+export async function fetchArtifactHistory(
+  phase: string,
+  name: string,
+  limit = 10,
+): Promise<ArtifactHistoryCommit[]> {
+  const path = `.swt-planning/phases/${phase}/${name}`;
+  const url = `/api/artifact-history?path=${encodeURIComponent(path)}&limit=${limit}`;
+  const raw = await jsonRequest<unknown>(url);
+  if (
+    typeof raw !== 'object' ||
+    raw === null ||
+    !Array.isArray((raw as { commits?: unknown }).commits)
+  ) {
+    throw new ApiError('artifact-history response missing commits array', 500);
+  }
+  // Trust the server-side shape; we don't have a zod schema here yet (the
+  // shape is locked in plan 04-02's route test).
+  return (raw as { commits: ArtifactHistoryCommit[] }).commits;
+}
+
+/**
+ * Plan 04-03 T4 — Pane 5 diff sub-pane. Unified diff between `base` (a
+ * commit SHA) and the working-tree copy of the artifact. Bound to plan
+ * 04-02's `GET /api/artifact-diff` route.
+ */
+export async function fetchArtifactDiff(
+  phase: string,
+  name: string,
+  base: string,
+): Promise<string> {
+  const path = `.swt-planning/phases/${phase}/${name}`;
+  const url = `/api/artifact-diff?path=${encodeURIComponent(path)}&base=${encodeURIComponent(base)}`;
+  const raw = await jsonRequest<unknown>(url);
+  if (
+    typeof raw !== 'object' ||
+    raw === null ||
+    typeof (raw as { diff?: unknown }).diff !== 'string'
+  ) {
+    throw new ApiError('artifact-diff response missing diff field', 500);
+  }
+  return (raw as { diff: string }).diff;
+}
+
 export async function postUatCheckpoint(
   phase: string,
   body: UatCheckpointBody,
