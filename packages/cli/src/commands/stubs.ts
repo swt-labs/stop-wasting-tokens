@@ -39,7 +39,8 @@ export const STUB_SPECS: readonly StubSpec[] = [
   { name: 'pause', description: 'Pause and stash session state', roadmap_phase: 'Phase 7' },
   { name: 'audit', description: 'Run the pre-archive audit matrix', roadmap_phase: 'Phase 7' },
   { name: 'assumptions', description: 'Capture phase assumptions', roadmap_phase: 'Phase 7' },
-  { name: 'research', description: 'Run a Scout-only research pass', roadmap_phase: 'Phase 7' },
+  // `research` graduated from stub to real command in Plan 03-03 T3; see
+  // packages/cli/src/commands/research.ts and main.ts buildRegistry().
   { name: 'discuss', description: 'Run the discussion engine', roadmap_phase: 'Phase 7' },
   { name: 'phase', description: 'Add / insert / remove phases', roadmap_phase: 'Phase 7' },
   { name: 'todo', description: 'Manage the STATE.md todo list', roadmap_phase: 'Phase 7' },

@@ -13,6 +13,7 @@ import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
 import { migrateHandler } from './commands/migrate.js';
 import { qaHandler } from './commands/qa.js';
+import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { stubCommand, STUB_SPECS } from './commands/stubs.js';
@@ -114,6 +115,14 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '[phase-number]',
     description: 'Run the UAT checkpoint loop on a phase (inline; no Pi spawn)',
     handler: verifyHandler,
+  });
+  // Plan 03-03 T3 (Phase 3): `swt research` — spawns a Scout agent loading
+  // commands/research.md. Replaces the v3.0.0-alpha.3 stub (REQ-25).
+  registry.register({
+    name: 'research',
+    usage: '<topic>',
+    description: 'Run a Scout-only research pass',
+    handler: researchHandler,
   });
   registry.register({
     name: 'update',
