@@ -1,9 +1,12 @@
-import { resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import type { SwtSession } from '@swt-labs/runtime';
 import { describe, expect, it } from 'vitest';
 
 import {
+  readProviderOverlay,
   resolveSpawnAgentConfig,
   spawnAgent,
   type SpawnAgentOptions,
@@ -258,6 +261,124 @@ describe('@swt-labs/orchestration — swt:spawnAgent (Plan 01-01 T04)', () => {
       expect(captured?.role).toBe('dev');
       expect(captured?.cwd).toBe('/tmp/swt-spawn-agent-test');
       expect(captured?.extensions.map((e) => e.name).sort()).toEqual(['journal', 'resultProtocol']);
+    });
+  });
+
+  /**
+   * Plan 01-01 T2 — per-provider overlay append (G-R1).
+   *
+   * Two assertions:
+   *   (i)  overlay-on appends body — when `provider` is supplied AND a
+   *        matching overlay fixture exists in the test installRoot, the
+   *        resolved config's `systemPrompt` ends with
+   *        `\n\n---\n\n<overlay-body>` and the prefix is the role prompt
+   *        verbatim.
+   *   (ii) overlay-off byte-identical — when `provider` is undefined OR
+   *        no overlay file exists, `systemPrompt` is STRICT-EQUAL to the
+   *        `readRolePrompt()` output (the vendor-neutrality invariant
+   *        from R4 — Anthropic/Google/OpenRouter spawns are unchanged).
+   *
+   * Both assertions use a per-test tmp installRoot with a synthetic
+   * `agents/swt-dev.md` so we control the baseline. Test does NOT depend
+   * on any on-disk `provider_overlays/` files in the real repo.
+   */
+  describe('per-provider overlay append (Plan 01-01 T2 / G-R1)', () => {
+    function makeTmpInstallRoot(rolePrompt: string): string {
+      const root = mkdtempSync(join(tmpdir(), 'swt-spawn-agent-overlay-'));
+      const agentsDir = resolve(root, 'agents');
+      mkdirSync(agentsDir, { recursive: true });
+      writeFileSync(resolve(agentsDir, 'swt-dev.md'), rolePrompt, 'utf8');
+      return root;
+    }
+
+    function writeOverlay(root: string, role: string, provider: string, body: string): void {
+      const overlaysDir = resolve(root, 'provider_overlays');
+      mkdirSync(overlaysDir, { recursive: true });
+      writeFileSync(resolve(overlaysDir, `${role}-${provider}.md`), body, 'utf8');
+    }
+
+    it('(i) overlay-on appends `\\n\\n---\\n\\n<body>` after the role prompt verbatim', () => {
+      const ROLE_PROMPT = '# Role: dev\n\nBe the dev agent.\n';
+      const OVERLAY_BODY = '## OPENAI DEV OVERLAY\nbody-marker-12345';
+      const root = makeTmpInstallRoot(ROLE_PROMPT);
+      writeOverlay(root, 'dev', 'openai', OVERLAY_BODY);
+
+      const config = resolveSpawnAgentConfig({
+        ...baseOpts('dev'),
+        installRoot: root,
+        provider: 'openai',
+      });
+
+      // Resolver `.trim()`s the body — the trailing newline-less form is
+      // what gets appended. Verify byte-exact suffix.
+      const expectedSuffix = `\n\n---\n\n${OVERLAY_BODY.trim()}`;
+      expect(config.systemPrompt.endsWith(expectedSuffix)).toBe(true);
+      // The prefix is the role prompt verbatim — same `readRolePrompt()`
+      // output as today's baseline.
+      expect(config.systemPrompt.startsWith(ROLE_PROMPT)).toBe(true);
+      // Sanity — the full string equals the deterministic composition.
+      expect(config.systemPrompt).toBe(`${ROLE_PROMPT}${expectedSuffix}`);
+    });
+
+    it('(i-b) overlay-on with YAML frontmatter — only the body is appended', () => {
+      const ROLE_PROMPT = '# Role: dev\n\nBe the dev agent.\n';
+      const OVERLAY_RAW = '---\noverlay_for: dev\nprovider: openai\n---\nclean-body-only';
+      const root = makeTmpInstallRoot(ROLE_PROMPT);
+      writeOverlay(root, 'dev', 'openai', OVERLAY_RAW);
+
+      const config = resolveSpawnAgentConfig({
+        ...baseOpts('dev'),
+        installRoot: root,
+        provider: 'openai',
+      });
+
+      // Frontmatter stripped by readProviderOverlay; only `clean-body-only`
+      // is appended.
+      expect(config.systemPrompt).toBe(`${ROLE_PROMPT}\n\n---\n\nclean-body-only`);
+      expect(config.systemPrompt).not.toContain('overlay_for');
+    });
+
+    it('(ii) overlay-off byte-identical to baseline — provider undefined', () => {
+      const ROLE_PROMPT = '# Role: dev\n\nBe the dev agent.\n';
+      const root = makeTmpInstallRoot(ROLE_PROMPT);
+      // NO overlay file written.
+
+      const configNoProvider = resolveSpawnAgentConfig({
+        ...baseOpts('dev'),
+        installRoot: root,
+        // provider: undefined (omitted)
+      });
+      const configWithProvider = resolveSpawnAgentConfig({
+        ...baseOpts('dev'),
+        installRoot: root,
+        provider: 'openai',
+      });
+
+      // Both must be byte-identical to readRolePrompt's verbatim output
+      // (the baseline before Phase 1 wired the overlay in).
+      expect(configNoProvider.systemPrompt).toBe(ROLE_PROMPT);
+      expect(configWithProvider.systemPrompt).toBe(ROLE_PROMPT);
+      expect(configNoProvider.systemPrompt).toBe(configWithProvider.systemPrompt);
+
+      // Belt-and-suspenders — confirm the resolver agrees the overlay is
+      // absent (i.e., the no-op path was hit, not a silent bug).
+      expect(readProviderOverlay(root, 'dev', 'openai')).toBeUndefined();
+    });
+
+    it('(ii-b) overlay-off byte-identical when an UNRELATED overlay file exists', () => {
+      // Vendor-neutrality: only the `<role>-<provider>.md` filename
+      // triggers the append. A file for a different (role, provider) pair
+      // must NOT leak into another role's spawn.
+      const ROLE_PROMPT = '# Role: dev\n\nBe the dev agent.\n';
+      const root = makeTmpInstallRoot(ROLE_PROMPT);
+      writeOverlay(root, 'qa', 'openai', 'qa-only-body');
+
+      const config = resolveSpawnAgentConfig({
+        ...baseOpts('dev'),
+        installRoot: root,
+        provider: 'openai',
+      });
+      expect(config.systemPrompt).toBe(ROLE_PROMPT);
     });
   });
 });

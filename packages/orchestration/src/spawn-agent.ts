@@ -115,6 +115,7 @@ import type { AgentRole, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
 import { readRolePrompt } from './prompt-builder.js';
+import { readProviderOverlay } from './provider-overlay.js';
 import { toolsForRole, type AgentToolList } from './role-router.js';
 
 /**
@@ -252,6 +253,20 @@ export interface SpawnAgentOptions {
   readonly prompt: string;
   /** Override the role's default model id. Optional (Phase 1 ignores it — see Open Question 5). */
   readonly model?: string;
+  /**
+   * Optional provider id (e.g., `'openai'`, `'anthropic'`,
+   * `'openrouter/anthropic/claude-...'`). When supplied AND
+   * `<installRoot>/provider_overlays/<role>-<provider>.md` exists, the
+   * file body is appended to the resolved system prompt with `\n\n---\n\n`
+   * separator (per Phase G / Phase 1 R1 decision — methodology contract
+   * first, overlay is execution-style refinement). When `undefined` or
+   * when no overlay file exists, behavior is byte-identical to pre-
+   * Phase-1 (vendor-neutrality preservation per R4 — every non-OpenAI
+   * spawn hits this no-op path). Resolved by the caller (R2: cook's
+   * `runSpawnWithFallback` threads the router-selected provider here);
+   * spawn paths do not re-instantiate the router. G-R1 / G-M1.
+   */
+  readonly provider?: string;
   /** Override the role's default max-turns. Optional (defaults to `agent_max_turns[role]`). */
   readonly maxTurns?: number;
   /** Working directory the spawned session is rooted at. */
@@ -323,6 +338,17 @@ export function resolveSpawnAgentConfig(
     `swt-${opts.role}.md`,
   );
 
+  // Phase G / Phase 1 / G-R1 — append the per-provider overlay if one
+  // exists at `<installRoot>/provider_overlays/<role>-<provider>.md`.
+  // No-op when `opts.provider` is undefined OR the overlay file is
+  // absent (vendor-neutrality preservation per R4 — Anthropic/Google/
+  // OpenRouter runs see no behavioral change). Separator is EXACTLY
+  // `\n\n---\n\n` per R1 decision; the visible boundary preserves the
+  // cache prefix invariance described in `prompt-builder.ts:88-91`.
+  const overlay = readProviderOverlay(opts.installRoot, opts.role, opts.provider);
+  const finalSystemPrompt =
+    overlay !== undefined ? `${systemPrompt}\n\n---\n\n${overlay}` : systemPrompt;
+
   const tools = toolsForRole(sdlcRole, opts.cwd);
 
   // CRITICAL — orchestrator-only askUser invariant.
@@ -367,7 +393,7 @@ export function resolveSpawnAgentConfig(
     ephemeral: true,
     enableResultProtocol: true,
     taskId,
-    systemPrompt,
+    systemPrompt: finalSystemPrompt,
     tools,
     extensions,
     transcriptPath,
