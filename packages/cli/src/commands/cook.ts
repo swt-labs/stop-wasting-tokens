@@ -46,15 +46,55 @@
  */
 
 import { execSync as nodeExecSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve as resolvePath } from 'node:path';
+import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { resolve as resolvePath, join as joinPath } from 'node:path';
 
 import { detectPhase, type PhaseDetectResult } from '@swt-labs/methodology';
 import { spawnOrchestratorSession } from '@swt-labs/orchestration';
 import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
+import type { CookEvent } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Plan 04-01 — Cook IPC event emitter (R1 file-tail decision).
+//
+// We write JSONL to .swt-planning/.events/cook-{sessionId}-{startTs}.jsonl;
+// the dashboard's events-tailer.ts already consumes this glob. Synchronous
+// appendFileSync because a crash mid-emission must still flush — cook
+// events are infrequent (one per priority decision / spawn / result) so the
+// sync cost is negligible against Pi turn latency.
+// ────────────────────────────────────────────────────────────────────────────
+
+function sanitizeStartTs(ts: string): string {
+  return ts.replace(/[:.]/g, '-');
+}
+
+function eventsFilePath(cwd: string, sessionId: string, startTs: string): string {
+  return joinPath(
+    cwd,
+    '.swt-planning',
+    '.events',
+    `cook-${sessionId}-${sanitizeStartTs(startTs)}.jsonl`,
+  );
+}
+
+export function emitCookEvent(
+  cwd: string,
+  sessionId: string,
+  startTs: string,
+  event: CookEvent,
+): void {
+  try {
+    const dir = joinPath(cwd, '.swt-planning', '.events');
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(eventsFilePath(cwd, sessionId, startTs), JSON.stringify(event) + '\n');
+  } catch {
+    // Event emission must never break the cook turn. Swallow filesystem
+    // errors — the dashboard pane will simply miss this event.
+  }
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Mode + RoutingDecision types
@@ -729,6 +769,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
     // 1. Compose the raw arguments string from positionals.
     const rawArgs = parsed.positionals.join(' ');
+    const startTs = new Date().toISOString();
 
     // 2. Pre-parse: ref tag extraction then todo / phase number resolution.
     const { args: argsAfterRef, refHash } = extractRefTag(rawArgs);
@@ -747,6 +788,16 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         ...fromFlags.opts,
         ...(phaseTarget !== undefined ? { phaseTarget } : {}),
       };
+      const flagSessionId = resolveSessionId();
+      // Path 1 — flag detection short-circuits the priority routing so the
+      // priority_decision event records mode + priority=0 (flag-forced).
+      emitCookEvent(io.cwd, flagSessionId, startTs, {
+        type: 'cook.priority_decision',
+        ts: new Date().toISOString(),
+        session_id: flagSessionId,
+        priority: 0,
+        mode: fromFlags.mode,
+      });
       return runMode(
         {
           mode: fromFlags.mode,
@@ -758,9 +809,10 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         config,
         {
           installRoot: resolveInstallRoot(),
-          sessionId: resolveSessionId(),
+          sessionId: flagSessionId,
           phaseDetectOutput: '',
           refHash,
+          startTs,
         },
         { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
       );
@@ -783,6 +835,14 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         if (!isAcceptResponse(response)) {
           return EXIT.SUCCESS;
         }
+        const nlSessionId = resolveSessionId();
+        emitCookEvent(io.cwd, nlSessionId, startTs, {
+          type: 'cook.priority_decision',
+          ts: new Date().toISOString(),
+          session_id: nlSessionId,
+          priority: 0,
+          mode: nlMode,
+        });
         return runMode(
           {
             mode: nlMode,
@@ -798,9 +858,10 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           config,
           {
             installRoot: resolveInstallRoot(),
-            sessionId: resolveSessionId(),
+            sessionId: nlSessionId,
             phaseDetectOutput: '',
             refHash,
+            startTs,
           },
           { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
         );
@@ -817,6 +878,20 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       return EXIT.SUCCESS;
     }
     const routing = decision as RoutingDecision;
+    const stateSessionId = resolveSessionId();
+
+    // Emit cook.priority_decision immediately after routing resolves. This
+    // is the first of the 6 hook points in research §2.4. The event runs
+    // BEFORE the confirmation gate so the dashboard can show "awaiting
+    // confirmation" even when the user declines.
+    emitCookEvent(io.cwd, stateSessionId, startTs, {
+      type: 'cook.priority_decision',
+      ts: new Date().toISOString(),
+      session_id: stateSessionId,
+      priority: routing.priority,
+      mode: routing.mode,
+      ...(routing.phaseTarget !== undefined ? { phase_target: routing.phaseTarget } : {}),
+    });
 
     // Confirmation gate (priorities 2/3/3.5/4/6/8/9/10/11 when applicable).
     if (routing.requiresConfirmation && routing.confirmationQuestion !== undefined) {
@@ -867,9 +942,10 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           config,
           {
             installRoot: resolveInstallRoot(),
-            sessionId: resolveSessionId(),
+            sessionId: stateSessionId,
             phaseDetectOutput: '',
             refHash,
+            startTs,
           },
           { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
         );
@@ -892,9 +968,10 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       config,
       {
         installRoot: resolveInstallRoot(),
-        sessionId: resolveSessionId(),
+        sessionId: stateSessionId,
         phaseDetectOutput: stringifyPhaseDetect(state),
         refHash,
+        startTs,
       },
       { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
     );
@@ -906,6 +983,9 @@ interface RunModeContext {
   readonly sessionId: string;
   readonly phaseDetectOutput: string;
   readonly refHash: string | undefined;
+  /** ISO timestamp captured when cookHandler starts — feeds the events
+   *  JSONL filename so concurrent cook invocations don't collide. */
+  readonly startTs: string;
 }
 
 interface RunModeDeps {
@@ -934,6 +1014,21 @@ async function runMode(
   const promptWithOpts = appendModeOptions(prompt, opts, routing, ctx.refHash);
 
   const maxTurns = config.agent_max_turns_orchestrator ?? 100;
+  // The sub-session-id is the orchestrator session id — we don't have a
+  // separate Pi sub-session here (the orchestrator IS the spawned Pi
+  // session). Plan 04-01 T5's hook script publishes per-tool events under
+  // the orchestrator's session id, which doubles as the sub-session id for
+  // the dashboard's active-agent pane.
+  const subSessionId = ctx.sessionId;
+
+  emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+    type: 'cook.agent_spawn',
+    ts: new Date().toISOString(),
+    session_id: ctx.sessionId,
+    role: 'orchestrator',
+    sub_session_id: subSessionId,
+  });
+
   try {
     const result = await deps.spawnFn({
       prompt: promptWithOpts,
@@ -942,17 +1037,64 @@ async function runMode(
       installRoot: ctx.installRoot,
       maxTurns,
     });
+
+    // TaskResult (TDD2 §9.4 swt_report_result envelope) does not carry a
+    // `usage` payload today — Pi's per-turn token deltas are plumbed in
+    // Phase 5 parity testing (research §Recommendation 5). Emit zero-token
+    // sentinels here; plan 04-04 / Phase 5 will replace this with the
+    // real Pi usage payload once it's exposed through the harvest channel.
+    // TODO(Phase 5 parity): plumb usage from Pi session handle.
+    const resultStatus: 'completed' | 'failed' | 'blocked' =
+      result.status === 'success' || result.status === 'partial'
+        ? 'completed'
+        : result.status === 'blocked'
+          ? 'blocked'
+          : 'failed';
+    emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+      type: 'cook.agent_result',
+      ts: new Date().toISOString(),
+      session_id: ctx.sessionId,
+      sub_session_id: subSessionId,
+      status: resultStatus,
+      usage: { input_tokens: 0, output_tokens: 0 },
+    });
+
     if (result.status === 'failed' || result.status === 'blocked') {
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.completion',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        status: 'failed',
+      });
       io.stderr.write(
         `swt cook: orchestrator session returned status="${result.status}".\n`,
       );
       return EXIT.RUNTIME_ERROR;
     }
+    emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+      type: 'cook.completion',
+      ts: new Date().toISOString(),
+      session_id: ctx.sessionId,
+      status: 'success',
+    });
     return EXIT.SUCCESS;
   } catch (err) {
-    io.stderr.write(
-      `swt cook: orchestrator spawn failed: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
+    const message = err instanceof Error ? err.message : String(err);
+    emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+      type: 'cook.error',
+      ts: new Date().toISOString(),
+      session_id: ctx.sessionId,
+      code: 'ORCHESTRATOR_SPAWN_FAILED',
+      message,
+      mode: routing.mode,
+    });
+    emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+      type: 'cook.completion',
+      ts: new Date().toISOString(),
+      session_id: ctx.sessionId,
+      status: 'failed',
+    });
+    io.stderr.write(`swt cook: orchestrator spawn failed: ${message}\n`);
     return EXIT.RUNTIME_ERROR;
   }
 }
