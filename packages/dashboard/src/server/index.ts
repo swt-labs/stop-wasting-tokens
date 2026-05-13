@@ -11,6 +11,8 @@ import { createEventBus, type EventBus } from './event-bus.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
 import { findProjectRoot } from './lib/find-project-root.js';
+import { registerArtifactDiffRoute } from './routes/artifact-diff.js';
+import { registerArtifactHistoryRoute } from './routes/artifact-history.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerBudgetRoute } from './routes/budget.js';
 import { registerCacheHitsRoute } from './routes/cache-hits.js';
@@ -181,6 +183,8 @@ export function createApp(
   registerCommandsRoute(app);
   if (projectRoot) {
     registerArtifactRoute(app, projectRoot);
+    registerArtifactHistoryRoute(app, projectRoot);
+    registerArtifactDiffRoute(app, projectRoot);
     registerUatCheckpointRoute(app, projectRoot);
   }
   // Plan 03-04 PR-27: Worktrees panel SSE route. Registers unconditionally
