@@ -30,7 +30,8 @@ export const STUB_SPECS: readonly StubSpec[] = [
   { name: 'execute', description: 'Execute a planned phase', roadmap_phase: 'Phase 7' },
   // `qa` graduated from stub to real command in Plan 03-03 T1; see
   // packages/cli/src/commands/qa.ts and main.ts buildRegistry().
-  { name: 'map', description: 'Map an existing codebase', roadmap_phase: 'Phase 7' },
+  // `map` graduated from stub to real command in Plan 03-03 T4; see
+  // packages/cli/src/commands/map.ts and main.ts buildRegistry().
   { name: 'debug', description: 'Hypothesis-driven debugging', roadmap_phase: 'Phase 8' },
   { name: 'fix', description: 'Quick-fix path for small UAT issues', roadmap_phase: 'Phase 8' },
   { name: 'archive', description: 'Archive a milestone', roadmap_phase: 'Phase 7' },

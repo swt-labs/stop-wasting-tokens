@@ -12,6 +12,7 @@ import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
 import { migrateHandler } from './commands/migrate.js';
+import { mapHandler } from './commands/map.js';
 import { qaHandler } from './commands/qa.js';
 import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
@@ -123,6 +124,15 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '<topic>',
     description: 'Run a Scout-only research pass',
     handler: researchHandler,
+  });
+  // Plan 03-03 T4 (Phase 3): `swt map` — 4-way parallel Scout fan-out per
+  // TDD3 §4 + REQ-04 (DAG-based parallel execution). Spawns 4 Scouts via
+  // Promise.all([spawnAgent('scout',...) × 4]); each writes a slice of
+  // .swt-planning/codebase/ directly.
+  registry.register({
+    name: 'map',
+    description: 'Map an existing codebase (4 parallel Scouts)',
+    handler: mapHandler,
   });
   registry.register({
     name: 'update',
