@@ -2,8 +2,9 @@
 set -u
 # clean-stale-teams.sh — Phase 2 §6.3 rewrite (plan 02-03).
 #
-# Scans .swt-planning/.teams/{teamId}.json (NOT ~/.claude/teams/) and applies
-# the Decision 5 lifecycle:
+# Scans .swt-planning/.teams/{teamId}.json (the SWT-owned namespace; the
+# legacy CC-era team directory under the user home is no longer consulted)
+# and applies the Decision 5 lifecycle:
 #
 #   active                          -- normal running team
 #     |  (lastHeartbeat older than SWT_TEAM_STALE_AFTER, default 1hr)
@@ -18,9 +19,9 @@ set -u
 #     members[{sessionId, role}], lastHeartbeat }
 #
 # Drops everything VBW-specific that was tied to Claude Code:
-#   - No ~/.claude/teams/ scan; .swt-planning/.teams/ is namespaced.
+#   - No legacy CC-home team directory scan; .swt-planning/.teams/ is namespaced.
 #   - No vbw-* / swt-* slug filter — the directory is owned by SWT.
-#   - No ~/.claude/tasks/ cleanup — SWT has no equivalent.
+#   - No legacy CC-home tasks pairing — SWT has no equivalent.
 #   - No pass-1 "configless team" heuristic — Decision 5 requires structured
 #     JSON, so malformed files are logged + skipped (not auto-removed).
 #
