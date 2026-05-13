@@ -54,7 +54,7 @@ echo ""
 echo "--- Agent LSP-first guidance checks ---"
 
 # Agents with LSP in their tools list
-LSP_AGENTS=("vbw-scout" "vbw-architect" "vbw-lead" "vbw-dev" "vbw-qa" "vbw-debugger" "vbw-docs")
+LSP_AGENTS=("swt-scout" "swt-architect" "swt-lead" "swt-dev" "swt-qa" "swt-debugger" "swt-docs")
 
 for agent in "${LSP_AGENTS[@]}"; do
   AGENT_FILE="$ROOT/agents/${agent}.md"
@@ -75,7 +75,7 @@ for agent in "${LSP_AGENTS[@]}"; do
     else
       pass "${SHORT_NAME}: LSP inherited via disallowedTools pattern (not denied)"
     fi
-  elif [[ "$agent" == "vbw-dev" ]] && grep -Eiq 'Prefer.*LSP|prefer.*LSP' "$AGENT_FILE"; then
+  elif [[ "$agent" == "swt-dev" ]] && grep -Eiq 'Prefer.*LSP|prefer.*LSP' "$AGENT_FILE"; then
     pass "${SHORT_NAME}: LSP inherited (tools via context), LSP guidance present"
   else
     fail "${SHORT_NAME}: LSP missing from tools list"
@@ -115,7 +115,7 @@ done
 echo ""
 echo "--- Lead research-present path LSP checks ---"
 
-LEAD="$ROOT/agents/vbw-lead.md"
+LEAD="$ROOT/agents/swt-lead.md"
 
 if grep -q "If RESEARCH.md exists" "$LEAD"; then
   pass "lead: research-available fast path present"

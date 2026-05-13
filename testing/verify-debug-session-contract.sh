@@ -531,7 +531,7 @@ fi
 
 # — Agent integration checks —
 
-DEBUGGER_AGENT="$ROOT/agents/vbw-debugger.md"
+DEBUGGER_AGENT="$ROOT/agents/swt-debugger.md"
 if grep -q "Standalone Debug Session" "$DEBUGGER_AGENT" 2>/dev/null; then
   pass "vbw-debugger.md has standalone debug session section"
 else
@@ -576,7 +576,7 @@ else
   fail "vbw-debugger.md teammate mode missing fresh post-synthesis ownership boundary"
 fi
 
-QA_AGENT="$ROOT/agents/vbw-qa.md"
+QA_AGENT="$ROOT/agents/swt-qa.md"
 if grep -q "Debug Session QA" "$QA_AGENT" 2>/dev/null; then
   pass "vbw-qa.md has debug session QA section"
 else
@@ -845,14 +845,14 @@ fi
 
 # — QA agent persistence contract separates phase-scoped from debug-session (CM5-01) —
 
-if grep -q 'Phase-Scoped QA' "$ROOT/agents/vbw-qa.md" 2>/dev/null; then
+if grep -q 'Phase-Scoped QA' "$ROOT/agents/swt-qa.md" 2>/dev/null; then
   pass "vbw-qa.md persistence section scoped to phase QA"
 else
   fail "vbw-qa.md persistence section not scoped to phase QA"
 fi
 
-if grep -q 'Debug-session QA exception' "$ROOT/agents/vbw-qa.md" 2>/dev/null || \
-   grep -q 'debug-session QA.*do NOT use.*write-verification' "$ROOT/agents/vbw-qa.md" 2>/dev/null; then
+if grep -q 'Debug-session QA exception' "$ROOT/agents/swt-qa.md" 2>/dev/null || \
+   grep -q 'debug-session QA.*do NOT use.*write-verification' "$ROOT/agents/swt-qa.md" 2>/dev/null; then
   pass "vbw-qa.md explicitly exempts debug-session QA from write-verification.sh"
 else
   fail "vbw-qa.md missing debug-session QA exception from write-verification.sh"

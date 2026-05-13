@@ -12,7 +12,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EXEC_PROTO="$ROOT/references/execute-protocol.md"
-SCOUT_FILE="$ROOT/agents/vbw-scout.md"
+SCOUT_FILE="$ROOT/agents/swt-scout.md"
 VIBE_FILE="$ROOT/commands/vibe.md"
 RESEARCH_FILE="$ROOT/commands/research.md"
 

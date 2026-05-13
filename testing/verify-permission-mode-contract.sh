@@ -120,9 +120,9 @@ done
 README_DEV_ROW=$(grep -F '| **Dev** |' "$README_FILE" || true)
 README_SCOUT_ROW=$(grep -F '| **Scout** |' "$README_FILE" || true)
 README_PERMISSION_LEGEND=$(grep -F '**Denied / Omitted**' "$README_FILE" || true)
-DEV_DESCRIPTION=$(head -15 "$ROOT/agents/vbw-dev.md" | grep '^description:' || true)
-DEV_DISALLOWED_FRONTMATTER=$(head -15 "$ROOT/agents/vbw-dev.md" | awk '/^disallowedTools:/ { sub(/^disallowedTools:[[:space:]]*/, ""); print }')
-SCOUT_DISALLOWED_FRONTMATTER=$(head -15 "$ROOT/agents/vbw-scout.md" | awk '/^disallowedTools:/ { sub(/^disallowedTools:[[:space:]]*/, ""); print }')
+DEV_DESCRIPTION=$(head -15 "$ROOT/agents/swt-dev.md" | grep '^description:' || true)
+DEV_DISALLOWED_FRONTMATTER=$(head -15 "$ROOT/agents/swt-dev.md" | awk '/^disallowedTools:/ { sub(/^disallowedTools:[[:space:]]*/, ""); print }')
+SCOUT_DISALLOWED_FRONTMATTER=$(head -15 "$ROOT/agents/swt-scout.md" | awk '/^disallowedTools:/ { sub(/^disallowedTools:[[:space:]]*/, ""); print }')
 README_DEV_DENIED_CELL=$(markdown_table_cell "$README_DEV_ROW" 5)
 README_SCOUT_TOOLS_CELL=$(markdown_table_cell "$README_SCOUT_ROW" 4)
 README_SCOUT_DENIED_CELL=$(markdown_table_cell "$README_SCOUT_ROW" 5)
@@ -158,7 +158,7 @@ fi
 check_not_contains "vbw-dev.md: description no longer says explicit allowlist" "$DEV_DESCRIPTION" "explicit implementation tool allowlist"
 check_contains "vbw-dev.md: description mentions denylist-controlled tool access" "$DEV_DESCRIPTION" "denylist-controlled"
 
-if head -15 "$ROOT/agents/vbw-dev.md" | grep -q '^tools:'; then
+if head -15 "$ROOT/agents/swt-dev.md" | grep -q '^tools:'; then
   fail "vbw-dev.md: frontmatter must not use a tools allowlist (use disallowedTools denylist for forward compatibility)"
 else
   pass "vbw-dev.md: frontmatter does not use a tools allowlist"

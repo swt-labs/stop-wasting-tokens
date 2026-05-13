@@ -9,7 +9,7 @@ set -euo pipefail
 # - Reread/no-progress loop detection
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEV_FILE="$ROOT/agents/vbw-dev.md"
+DEV_FILE="$ROOT/agents/swt-dev.md"
 
 PASS=0
 FAIL=0

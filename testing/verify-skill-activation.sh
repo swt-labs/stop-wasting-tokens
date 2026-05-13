@@ -40,13 +40,13 @@ COMMAND_SKILL_CONTRACT_FILES=(
 )
 
 AGENT_SKILL_CONTRACT_FILES=(
-  "$ROOT/agents/vbw-lead.md"
-  "$ROOT/agents/vbw-dev.md"
-  "$ROOT/agents/vbw-qa.md"
-  "$ROOT/agents/vbw-scout.md"
-  "$ROOT/agents/vbw-debugger.md"
-  "$ROOT/agents/vbw-architect.md"
-  "$ROOT/agents/vbw-docs.md"
+  "$ROOT/agents/swt-lead.md"
+  "$ROOT/agents/swt-dev.md"
+  "$ROOT/agents/swt-qa.md"
+  "$ROOT/agents/swt-scout.md"
+  "$ROOT/agents/swt-debugger.md"
+  "$ROOT/agents/swt-architect.md"
+  "$ROOT/agents/swt-docs.md"
 )
 
 SKILL_FOLLOW_UP_SENTENCE=$(cat <<'EOF'
@@ -516,7 +516,7 @@ echo "=== Skill Activation Pipeline Verification (plan-driven model) ==="
 
 # --- vbw-dev.md checks ---
 
-DEV_AGENT="$ROOT/agents/vbw-dev.md"
+DEV_AGENT="$ROOT/agents/swt-dev.md"
 FIX_COMMAND="$ROOT/commands/fix.md"
 VIBE_COMMAND="$ROOT/commands/vibe.md"
 EXECUTE_PROTOCOL="$ROOT/references/execute-protocol.md"
@@ -695,7 +695,7 @@ fi
 
 # --- vbw-lead.md checks ---
 
-LEAD_AGENT="$ROOT/agents/vbw-lead.md"
+LEAD_AGENT="$ROOT/agents/swt-lead.md"
 LEAD_TOOLS=$(sed -n '/^---$/,/^---$/p' "$LEAD_AGENT" | grep '^tools:' || true)
 
 if grep -q 'Skill' <<< "$LEAD_TOOLS"; then
@@ -835,7 +835,7 @@ fi
 
 # --- Agent activation instruction checks ---
 
-QA_AGENT="$ROOT/agents/vbw-qa.md"
+QA_AGENT="$ROOT/agents/swt-qa.md"
 
 if grep -q 'skills_used' "$QA_AGENT"; then
   pass "vbw-qa.md: references skills_used for plan-driven activation"
@@ -861,7 +861,7 @@ else
   fail "vbw-qa.md: missing available_skills reference for ad-hoc fallback"
 fi
 
-SCOUT_AGENT="$ROOT/agents/vbw-scout.md"
+SCOUT_AGENT="$ROOT/agents/swt-scout.md"
 
 if grep -q 'skills_used' "$SCOUT_AGENT"; then
   pass "vbw-scout.md: references skills_used for plan-driven path"
@@ -893,7 +893,7 @@ else
   fail "vbw-scout.md: missing mandatory skills_used preservation on no-activation path"
 fi
 
-DEBUGGER_AGENT="$ROOT/agents/vbw-debugger.md"
+DEBUGGER_AGENT="$ROOT/agents/swt-debugger.md"
 
 if grep -q 'available_skills' "$DEBUGGER_AGENT"; then
   pass "vbw-debugger.md: references available_skills for ad-hoc activation"
@@ -919,7 +919,7 @@ else
   fail "vbw-debugger.md: missing starting-set additive wording"
 fi
 
-ARCHITECT_AGENT="$ROOT/agents/vbw-architect.md"
+ARCHITECT_AGENT="$ROOT/agents/swt-architect.md"
 
 if grep -q 'available_skills' "$ARCHITECT_AGENT"; then
   pass "vbw-architect.md: references available_skills for ad-hoc activation"
@@ -945,7 +945,7 @@ else
   fail "vbw-architect.md: missing starting-set additive wording"
 fi
 
-DOCS_AGENT="$ROOT/agents/vbw-docs.md"
+DOCS_AGENT="$ROOT/agents/swt-docs.md"
 
 if grep -q 'skills_used' "$DOCS_AGENT"; then
   pass "vbw-docs.md: references skills_used for plan-driven activation"

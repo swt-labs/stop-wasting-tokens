@@ -28,7 +28,7 @@ fail() {
 }
 
 # ── QA agent checks ─────────────────────────────────────────────────
-QA_AGENT="$ROOT/agents/vbw-qa.md"
+QA_AGENT="$ROOT/agents/swt-qa.md"
 
 # 1. No heredoc escape hatch
 if grep -qi 'heredoc' "$QA_AGENT"; then
