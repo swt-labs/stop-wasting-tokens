@@ -18,20 +18,21 @@ export interface RunVibeResult {
 }
 
 /**
- * Deferred until TDD3 Phase A wires the new orchestrator. The prior alpha's
- * Execute-mode driver (vibe/handlers/execute.ts) was deleted per TDD3 §23.6.
- * The replacement is the script-driven orchestrator (commands/cook.md +
- * scripts/phase-detect.sh + scripts/suggest-next.sh) loaded from the SWT
- * install root.
+ * Deferred stub. The prior alpha's Execute-mode driver
+ * (vibe/handlers/execute.ts) was deleted per TDD3 §23.6 and replaced by the
+ * `swt cook` orchestrator (TypeScript handler at
+ * packages/cli/src/commands/cook.ts, CLI verb registered in
+ * packages/cli/src/main.ts).
  *
- * Consumers (test-utils' runMilestone, swt bench) compile against this stub
- * and throw at runtime until Phase A lands.
+ * Consumers (test-utils' runMilestone, swt bench) currently compile against
+ * this stub and throw at runtime. The intended migration path is to invoke
+ * the cook handler directly via the CommandRegistry rather than calling
+ * runVibe(); the deeper caller migration is deferred (see plan 03-04 T3).
  */
 export function runVibe(_opts: RunVibeOptions): Promise<RunVibeResult> {
   return Promise.reject(
     new Error(
-      'runVibe is deferred until TDD3 Phase A wires the script-driven orchestrator. ' +
-        'See commands/cook.md and TDD3 §18 Phase A for the replacement plan.',
+      'runVibe() is a deferred stub. Use `swt cook` (CLI verb registered in packages/cli/src/main.ts → packages/cli/src/commands/cook.ts) for the orchestrator entry point. `swt bench` and runMilestone test utils should invoke the cook handler directly via the CommandRegistry rather than calling runVibe().',
     ),
   );
 }
