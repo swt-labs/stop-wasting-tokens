@@ -250,6 +250,13 @@ async function runHandler(
         cwd,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
+        // `detached: true` puts the child + any of its own children into
+        // a new process group rooted at `child.pid`. We kill the whole
+        // group on timeout (negative pid) so a `sleep` subprocess gets
+        // SIGTERM too, not just the bash parent. Without this, killing
+        // bash leaves `sleep` running until it completes — the parent's
+        // `close` event fires only after the child reaps.
+        detached: true,
       });
     } catch (err) {
       const note = `spawn-failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -265,14 +272,33 @@ async function runHandler(
       return;
     }
 
+    const childPid = child.pid;
+
+    const killGroup = (signal: NodeJS.Signals): void => {
+      // Best-effort: kill the whole process group (negative PID) so any
+      // `sleep`/`exec` subprocesses spawned by the bash script also die.
+      // Falls back to plain `child.kill` if `process.kill(-pid, signal)`
+      // throws (e.g., the group is already gone).
+      if (typeof childPid !== 'number') return;
+      try {
+        process.kill(-childPid, signal);
+      } catch {
+        try {
+          child.kill(signal);
+        } catch {
+          // best-effort; the close event below will eventually settle.
+        }
+      }
+    };
+
     const timer = setTimeout(() => {
       timedOut = true;
-      // SIGTERM first; if the child is hung the OS will SIGKILL it.
-      try {
-        child.kill('SIGTERM');
-      } catch {
-        // best-effort; we'll fall through to `close` below.
-      }
+      killGroup('SIGTERM');
+      // Escalate to SIGKILL after a short grace window. Some signal-handling
+      // bash scripts ignore SIGTERM; the SIGKILL guarantees `close` fires.
+      setTimeout(() => {
+        if (!settled) killGroup('SIGKILL');
+      }, 200);
     }, timeoutMs);
 
     if (child.stderr !== null) {
