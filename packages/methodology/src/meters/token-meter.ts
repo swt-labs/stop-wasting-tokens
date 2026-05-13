@@ -23,6 +23,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { atomicWriteJSON } from '../state/execution-state.js';
+
 export interface UsageRecord {
   readonly input_tokens: number;
   readonly output_tokens: number;
@@ -130,7 +132,9 @@ export function recordUsage(opts: RecordUsageOptions): SessionMetrics {
   const sessionFile = path.join(metricsDir, `session-${opts.sessionId}.json`);
   const sessionPrev = loadMetrics(sessionFile, opts.sessionId, opts.phaseSlug);
   const sessionNext = fold(sessionPrev, opts.usage);
-  fs.writeFileSync(sessionFile, JSON.stringify(sessionNext, null, 2));
+  // Plan 06-01 (REQ-11): temp+rename via atomicWriteJSON so a SIGKILL
+  // between truncate-and-write can't strand the metrics file at 0 bytes.
+  atomicWriteJSON(sessionFile, sessionNext);
 
   if (opts.phaseSlug !== undefined) {
     const phaseFile = path.join(metricsDir, `phase-${opts.phaseSlug}.json`);
@@ -139,7 +143,7 @@ export function recordUsage(opts: RecordUsageOptions): SessionMetrics {
     // session_id field is a label, not a primary key.
     const phasePrev = loadMetrics(phaseFile, opts.phaseSlug, opts.phaseSlug);
     const phaseNext = fold(phasePrev, opts.usage);
-    fs.writeFileSync(phaseFile, JSON.stringify(phaseNext, null, 2));
+    atomicWriteJSON(phaseFile, phaseNext);
   }
 
   return sessionNext;

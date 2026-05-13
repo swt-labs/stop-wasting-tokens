@@ -13,3 +13,4 @@ export * from './phase-detect.js';
 export * from './encode.js';
 export * from './load-config.js';
 export * from './cook-controls.js';
+export * from './execution-state.js';
