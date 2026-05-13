@@ -15,11 +15,12 @@
  * `provider_overlays/` files are required for the test to pass.
  */
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 
 import { readProviderOverlay } from '../src/index.js';
 
@@ -121,5 +122,55 @@ describe('@swt-labs/orchestration — readProviderOverlay (Plan 01-01 T1)', () =
     const root = makeTmpRoot();
     writeOverlay(root, 'dev', 'openai', '---\nno-closer-here\nbody');
     expect(readProviderOverlay(root, 'dev', 'openai')).toBe('---\nno-closer-here\nbody');
+  });
+});
+
+/**
+ * Phase 1 / Plan 01-03 T4 — end-to-end resolution of the 3 actual on-disk overlays.
+ *
+ * Reads `provider_overlays/{dev,debugger,qa}-openai.md` from the real repo
+ * (NOT a tmpdir fixture) and asserts the resolver contract holds end-to-end:
+ *   - non-empty body returned
+ *   - YAML frontmatter stripped (body does NOT begin with `---`)
+ *   - intent-mirror header comment is present (authoring discipline landed)
+ *   - body references SWT-native tools (no vendor-tool leaks)
+ *   - frontmatter on disk has the required schema fields
+ *
+ * This is the only Phase 1 verification of the wiring against real overlay
+ * files. Future quality-measurement plans extend this further.
+ */
+const __filename = fileURLToPath(import.meta.url);
+const __dirnameLocal = dirname(__filename);
+// Test file lives at packages/orchestration/test/; repo root is 3 levels up.
+const repoRoot = resolve(__dirnameLocal, '..', '..', '..');
+
+describe('Phase 1 OpenAI overlays — actual on-disk files (Plan 01-03 T4)', () => {
+  test.each([
+    ['dev', 'dev-openai.md'],
+    ['debugger', 'debugger-openai.md'],
+    ['qa', 'qa-openai.md'],
+  ])('%s overlay resolves end-to-end', (role, _filename) => {
+    const body = readProviderOverlay(repoRoot, role, 'openai');
+    expect(body).toBeDefined();
+    expect(body).not.toBe('');
+    // Frontmatter must be stripped — body should NOT start with `---`.
+    expect(body!.startsWith('---')).toBe(false);
+    // Intent-mirror header comment is present.
+    expect(body).toMatch(/Intent-mirror of OpenAI Codex CLI/);
+    expect(body).toMatch(/DO NOT copy verbatim/);
+    // Body references SWT-native tools (sanity check the discipline rule).
+    expect(body).toMatch(/Edit|Bash|Read|Grep|LSP/);
+  });
+
+  test('all three overlays have valid frontmatter on disk', () => {
+    const roles = ['dev', 'debugger', 'qa'];
+    for (const role of roles) {
+      const filePath = resolve(repoRoot, 'provider_overlays', `${role}-openai.md`);
+      const raw = readFileSync(filePath, 'utf8');
+      expect(raw.startsWith('---\n')).toBe(true);
+      expect(raw).toMatch(new RegExp(`overlay_for:\\s*${role}`));
+      expect(raw).toMatch(/provider:\s*openai/);
+      expect(raw).toMatch(/schema_version:\s*1/);
+    }
   });
 });
