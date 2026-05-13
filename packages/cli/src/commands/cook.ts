@@ -57,11 +57,16 @@ import {
   CookCancelledError,
   markCompleted,
   markCrashed,
+  readExecutionState,
   writeExecutionState,
   type ExecutionStateRecord,
   type PhaseDetectResult,
 } from '@swt-labs/methodology';
-import { spawnOrchestratorSession } from '@swt-labs/orchestration';
+import {
+  spawnOrchestratorSession,
+  defaultPidChecker,
+  type PidChecker,
+} from '@swt-labs/orchestration';
 import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
@@ -105,6 +110,192 @@ export function emitCookEvent(
     // Event emission must never break the cook turn. Swallow filesystem
     // errors — the dashboard pane will simply miss this event.
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Plan 06-01 (Phase 6) T3 — Resume probe.
+//
+// At cookHandler entry we read .execution-state.json + tail the cook events
+// JSONL channel to detect a prior crashed session. Three AND conditions
+// constitute a "crash":
+//
+//   (a) status === 'in_progress' in execution-state.json
+//   (b) PidChecker.isAlive(state.pid) === false (recorded pid is dead)
+//   (c) no cook.completion event exists for the recorded session_id
+//
+// If all three hold → action='resume'. The probe consults the journal for
+// the last cook.task_commit{commit_hash} and returns from_task = the next
+// task id (best-effort — the orchestrator's runMode is the source of truth
+// for task sequencing; we surface the journal high-water mark to the
+// dashboard via cook.resume).
+//
+// A live recorded pid → action='abort_another_cook_running' (refuse to
+// race two cooks against the same execution-state). Missing journal →
+// action='fresh_run' (best-effort). cook.completion already present →
+// action='fresh_run' AND markCompleted to clear the stale in_progress
+// flag so the next probe doesn't re-fire.
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ResumeDecision =
+  | { kind: 'no_state' }
+  | { kind: 'fresh_run'; reason: string }
+  | { kind: 'paused_resume' }
+  | { kind: 'resume'; fromTask: string; lastCommitHash: string | undefined }
+  | { kind: 'abort_another_cook_running'; pid: number };
+
+export interface ProbeForResumeDeps {
+  readonly pidChecker?: PidChecker;
+}
+
+interface JournalEntry {
+  readonly type: string;
+  readonly task_id?: string;
+  readonly commit_hash?: string;
+  readonly session_id?: string;
+}
+
+function findEventsFileForSession(
+  cwd: string,
+  sessionId: string,
+  existsSyncFn: typeof existsSync,
+  readdirSyncImpl?: (dir: string) => string[],
+): string | undefined {
+  const dir = joinPath(cwd, '.swt-planning', '.events');
+  if (!existsSyncFn(dir)) return undefined;
+  // Lazy import readdirSync to avoid widening the module top-level imports
+  // (cook.ts already does file IO via fs/promises in places; sync is fine
+  // here — the probe runs once at cookHandler entry).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const readdir = readdirSyncImpl ?? ((d: string): string[] => require('node:fs').readdirSync(d));
+  let names: string[];
+  try {
+    names = readdir(dir);
+  } catch {
+    return undefined;
+  }
+  const prefix = `cook-${sessionId}-`;
+  const match = names.find((n) => n.startsWith(prefix) && n.endsWith('.jsonl'));
+  if (match === undefined) return undefined;
+  return joinPath(dir, match);
+}
+
+function readJournalEntries(
+  file: string,
+  readFileSyncFn: typeof readFileSync,
+): readonly JournalEntry[] {
+  let raw: string;
+  try {
+    raw = readFileSyncFn(file, 'utf8');
+  } catch {
+    return [];
+  }
+  const out: JournalEntry[] = [];
+  for (const line of raw.split('\n')) {
+    if (line.length === 0) continue;
+    try {
+      out.push(JSON.parse(line) as JournalEntry);
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return out;
+}
+
+/**
+ * Pure decision function — given the recorded execution-state on disk +
+ * the journal + a PidChecker, decide whether a resume is warranted. Has
+ * NO side effects; the caller (cookHandler) materializes the decision
+ * (emit cook.resume, flip stale completed flag, abort, etc.).
+ *
+ * Test seam — `packages/cli/test/commands/cook-resume.test.ts` exercises
+ * the four-condition truth table against synthetic journal fixtures.
+ */
+export function probeForResume(
+  rootDir: string,
+  deps: ProbeForResumeDeps & {
+    readonly existsSyncFn?: typeof existsSync;
+    readonly readFileSyncFn?: typeof readFileSync;
+    readonly readdirSyncImpl?: (dir: string) => string[];
+  } = {},
+): ResumeDecision {
+  const pidChecker = deps.pidChecker ?? defaultPidChecker;
+  const existsSyncFn = deps.existsSyncFn ?? existsSync;
+  const readFileSyncFn = deps.readFileSyncFn ?? readFileSync;
+
+  let state: ExecutionStateRecord | null;
+  try {
+    state = readExecutionState(rootDir);
+  } catch {
+    // Corrupted state file — fail safe by treating it as no_state. The
+    // operator's recourse is to delete the file (documented in
+    // docs/operations/crash-recovery.md).
+    return { kind: 'no_state' };
+  }
+  if (state === null) return { kind: 'no_state' };
+  if (state.status === 'paused') return { kind: 'paused_resume' };
+  if (state.status !== 'in_progress') {
+    return { kind: 'fresh_run', reason: `prior_status_${state.status}` };
+  }
+
+  if (state.pid !== undefined) {
+    const liveness = pidChecker(state.pid);
+    if (liveness === 'alive' || liveness === 'unknown') {
+      return { kind: 'abort_another_cook_running', pid: state.pid };
+    }
+  }
+
+  const sessionId = state.session_id;
+  if (sessionId === undefined) {
+    return { kind: 'fresh_run', reason: 'no_session_id' };
+  }
+
+  const journalPath = findEventsFileForSession(
+    rootDir,
+    sessionId,
+    existsSyncFn,
+    deps.readdirSyncImpl,
+  );
+  if (journalPath === undefined) {
+    return { kind: 'fresh_run', reason: 'no_journal' };
+  }
+
+  const entries = readJournalEntries(journalPath, readFileSyncFn);
+  const completion = entries.find((e) => e.type === 'cook.completion');
+  if (completion !== undefined) {
+    return { kind: 'fresh_run', reason: 'prior_completed' };
+  }
+
+  // Find the last task_commit (high-water mark) and the last task_start
+  // (in-flight task). If the last task_start has no matching task_commit
+  // or task_complete, that's the task the crash interrupted — resume
+  // points at THAT task (re-run from scratch), not the next one.
+  let lastCommit: JournalEntry | undefined;
+  let lastStart: JournalEntry | undefined;
+  let lastComplete: JournalEntry | undefined;
+  for (const e of entries) {
+    if (e.type === 'cook.task_commit') lastCommit = e;
+    if (e.type === 'cook.task_start') lastStart = e;
+    if (e.type === 'cook.task_complete') lastComplete = e;
+  }
+
+  // If the last started task never reached complete/commit, resume points
+  // at that task (re-run it). Otherwise resume points at the next task
+  // (which the orchestrator's runMode will resolve — TS-side just surfaces
+  // the high-water mark for observability).
+  const fromTask =
+    lastStart !== undefined &&
+    (lastComplete === undefined || lastStart.task_id !== lastComplete.task_id) &&
+    (lastCommit === undefined || lastStart.task_id !== lastCommit.task_id)
+      ? lastStart.task_id ?? 'unknown'
+      : lastCommit !== undefined && lastCommit.task_id !== undefined
+        ? `${lastCommit.task_id}_next`
+        : lastStart?.task_id ?? 'unknown';
+
+  return {
+    kind: 'resume',
+    fromTask,
+    lastCommitHash: lastCommit?.commit_hash,
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -808,6 +999,56 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
     // 1. Compose the raw arguments string from positionals.
     const rawArgs = parsed.positionals.join(' ');
     const startTs = new Date().toISOString();
+
+    // Plan 06-01 (Phase 6) T3 — resume probe at cookHandler entry. Runs
+    // BEFORE the path-1 flag detection so a stale in_progress + dead pid
+    // is surfaced before any spawn decision. The probe is a pure decision
+    // function; we materialize the outcome here.
+    const resumeDecision = probeForResume(io.cwd);
+    if (resumeDecision.kind === 'abort_another_cook_running') {
+      io.stderr.write(
+        `swt cook: another cook session (pid ${resumeDecision.pid}) appears to be running ` +
+          `against this project. Refusing to start a second cook. ` +
+          `If the prior process is actually dead, delete .vbw-planning/.execution-state.json (or .swt-planning/.execution-state.json) and retry.\n`,
+      );
+      return EXIT.RUNTIME_ERROR;
+    }
+    if (resumeDecision.kind === 'resume') {
+      // Surface the resume on the events channel for the dashboard. The
+      // sessionId we use here is whatever was recorded — we resolve it
+      // again below, but for the cook.resume row we keep the recorded
+      // session_id so the resume event lands in the same JSONL as the
+      // crashed session's task_start row.
+      const priorState = readExecutionState(io.cwd);
+      if (priorState?.session_id !== undefined && priorState.started_at !== undefined) {
+        emitCookEvent(io.cwd, priorState.session_id, priorState.started_at, {
+          type: 'cook.resume',
+          ts: new Date().toISOString(),
+          session_id: priorState.session_id,
+          from_task: resumeDecision.fromTask,
+          ...(resumeDecision.lastCommitHash !== undefined
+            ? { last_commit_hash: resumeDecision.lastCommitHash }
+            : {}),
+        });
+      }
+      // Flip the stale in_progress flag so the next probe (after THIS
+      // invocation completes or crashes) starts from a clean slate. The
+      // runMode below will overwrite this with its own fresh in_progress
+      // record carrying the new pid + session_id.
+      try {
+        markCrashed(io.cwd);
+      } catch {
+        // best-effort
+      }
+    } else if (resumeDecision.kind === 'fresh_run' && resumeDecision.reason === 'prior_completed') {
+      // Clean stale state — the prior session completed but never flipped
+      // the flag (the markCompleted call swallows filesystem errors).
+      try {
+        markCompleted(io.cwd);
+      } catch {
+        // best-effort
+      }
+    }
 
     // 2. Pre-parse: ref tag extraction then todo / phase number resolution.
     const { args: argsAfterRef, refHash } = extractRefTag(rawArgs);
