@@ -140,6 +140,9 @@ scripts/lib/*
 !scripts/lib/swt-target-root.sh
 # Phase 04 plan 04-04: SWT-side rewrite (4-line layout + SWT naming + metrics wiring).
 !scripts/swt-statusline.sh
+# Phase 04 plan 04-01 T5: cook PreToolUse/PostToolUse hook publisher.
+!scripts/hooks/
+!scripts/hooks/cook-event-publisher.sh
 
 # Phase 02 closure manifest — tracks status of §6.3 rewrites for the porter.
 !scripts/.port-rewrites.json
