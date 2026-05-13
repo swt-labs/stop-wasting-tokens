@@ -91,3 +91,6 @@ non_production_files/
 # numbering (PR-NN) which stays meaningful; the plan files themselves
 # stay on the local machine of whoever's driving the session.
 .vbw-planning/
+
+# TDD3 working doc (transposition spec — never committed)
+TDD3.md
