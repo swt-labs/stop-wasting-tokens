@@ -4,6 +4,33 @@
 
 _All 6 milestones (M1..M6) shipped on `main`. Plan 06-01 closing PRs land at this section. Release notes: [RELEASE-NOTES-v3.0.md](./RELEASE-NOTES-v3.0.md). The npm publish + GitHub release are user-driven operations gated on cassette recording + the public benchmark run._
 
+### Phase 6 — TDD3/VBW Methodology Port Hardening close (2026-05-13)
+
+The TDD3 milestone (VBW methodology port to SWT v3) closed in 6 phases, ~30 plans, ~100 atomic commits on `main`. Phase 6 — Hardening — landed in 4 waves across 6 plans (06-01..06-06) and 22+ source commits (`ecc314e..a5dd558` plus the 06-06 closeout commits). The notable Phase 6 deliverables (each bullet cites its plan):
+
+- **Crash recovery — REQ-11 (plan 06-01).** Event-sourced `.execution-state.json` with atomic temp+rename writes; `task.start | task.commit | task.complete | task.fail` events appended to `.swt-planning/.events/cook-<sid>-<ts>.jsonl`; resume probe at `cookHandler` entry using the three-condition AND (status=in_progress + pid dead + no cook.completion event) detects crashes + rewinds to the next task after the last committed. Chaos test at `test/regression/crash-recovery.test.ts`. Granularity + lost-work window documented at `docs/operations/crash-recovery.md`. R2 acceptance: per-commit, not mid-Pi-turn — Pi 0.74 has no mid-turn pause primitive.
+- **Provider router/fallback + Budget Gate — REQ-15, REQ-16 (plan 06-02).** File-meter → TokenMeter chokidar adapter at `packages/methodology/src/meters/file-meter-adapter.ts`. `FallbackChainOptions.timeBudgetMs` for <30s MTTR on primary-provider outage (R4 resolved). Dashboard `/api/budget/sse` + `/api/budget/bump` wired to the live BudgetGate. Cook's `runMode` consults `provider-router` + `provider-fallback` before each spawn.
+- **Worktree isolation + dashboard auth — R6, Phase 4 R4 (plan 06-03).** `worktree_isolation` flag parsed into typed `CookConfig`; cook dispatches each parallel teammate into an isolated worktree when `on`/`auto`; default kept `'off'` for v3.0 (R6); warning emitted when off + parallel plans present. Dashboard per-boot random token gate at `.swt-planning/.dashboard/token` (0600 perms); `binding-guard.ts` fails closed when any-interface bind requested without auth.
+- **Migration boot-clean + reproducible build + cross-process cassettes — REQ-19, REQ-26, R3 (plan 06-04).** v2-baseline fixture at `packages/test-utils/golden/ref-fastapi/v2-baseline/`. End-to-end migration boot-clean test asserts `backend` / `agent_backend` / `reasoning_effort` → `thinking_level` rewrites + boot under `swt cook`. `.github/workflows/reproducible-build.yml` byte-identical CI gate (Node 22.10.0 pinned, SOURCE_DATE_EPOCH=0, LC_ALL=C, tsup deterministic mode). `SWT_CASSETTE_PATH` env propagation closes DEVN-04 cross-process cassette inheritance (Phase 5 hand-off).
+- **Bats parity recovery + deferred-verbs closure (plan 06-05).** Reproducible bulk-sed `vibe.md` → `cook.md` + `{role}.md` → `swt-{role}.md` across `testing/verify-*.sh` (script at `scripts/bulk-sed-bats-rename.sh`, .gitignore whitelist). Three targeted fixture updates (commands-contract, caveman-contract, prefer-teams-canonicalization). DEVN-05 backtick + heredoc-apostrophe fixes at `testing/verify-skill-activation.sh` (529 assertions now run; was 0 pre-fix). `swt discuss` and `swt debug` graduate to live shims delegating to `cookHandler`; `swt fix` formally deprecated with a migration pointer to `swt cook` / `swt qa`. Bats contract-test pass rate climbed from 35.3% → 51.0% at Phase 6 exit (Phase 3 baseline was 29.4%). The aspirational ≥95% milestone target (ROADMAP.md:150) was **not met** — 25 still-failing tests are semantic fixture drift (per-test targeted updates, not bulk-sed-shaped); closure deferred to Phase G per `.vbw-planning/phases/06-hardening/PARITY-REPORT.md`.
+- **Final docs + REQ-27 reframe + /api/vibe shim closure (plan 06-06).** REQ-27 reframed per research §7.1 from "v2.3 LTS branch maintenance hooks" to "migration-only support documentation" — ADR-012 was retracted same-day per CHANGELOG.md:10, so no LTS branch infrastructure exists to document. `docs/migration/{breaking-changes,from-vbw,step-by-step}.mdx` audited + refreshed for v3-final accuracy (v1.0/v1.5 framing replaced with v3 + Pi runtime + ADR-012 retraction posture); `docs/operations/migrating-from-v2.md` audit found no changes needed. `README.md` first-run tutorial refreshed (`--version` sentinel bumped to 3.0.0-alpha.4, new "Migrating from an older SWT or VBW?" subsection). `/api/vibe` shim (Phase 4 R7 deferral carried through plan 06-03) removed: `packages/dashboard/src/server/routes/vibe.ts` deleted, `registerVibeRoutes` import + call removed from `packages/dashboard/src/server/index.ts`, regression test at `packages/dashboard/test/vibe-shim-removed.test.ts` confirms 404 on both legacy paths.
+
+**Carry-forwards to Phase G** (accumulated from Phase 6 ROADMAP Deviations + prior-phase hand-offs):
+
+- Mid-Pi-turn pause / checkpoint primitive (depends on Pi 0.75+ adding a runtime pause API).
+- Full user-account dashboard auth (current state: per-boot random token only; sufficient for single/multi-user-laptop hardening).
+- Rate-card-based projected-spend preemption for the Budget Gate (current state: warning when single spawn > 25% of remaining; no preemption).
+- Codex CLI parity baseline recording (TDD3 §18 lines 634-636 group this with the public benchmark).
+- Multi-provider cassettes (OpenAI / OpenRouter / Bedrock).
+- Cassette recording UI in dashboard.
+- Real-API re-recording of the 9 Phase 5 synthetic cassettes + the v2.3.5 binary baseline (`golden/ref-fastapi/v2-baseline/`); ~$5-$10 + 2-3 hours developer-local session.
+- Bats contract-test fixture drift (25 remaining failures, per-test semantic updates).
+- `worktree_isolation: 'auto'` default flip in v3.1 gated on (a) 30 days no regression reports, (b) chaos test green in CI, (c) cleanup retention test.
+- Token-prefix caching across Pi sessions; prompt-builder cache breakpoints.
+- Persistent project memory (sqlite skeleton); GitNexus + RTK first-class wiring.
+
+The above is the TDD3 milestone close. The M1..M6 release-track close (different milestone series) is recorded in the Post-M6 housekeeping block below.
+
 ### Post-M6 housekeeping (2026-05-12, same-day)
 
 - **CI Build OOM fix.** Bumped Node heap to 4GB (`NODE_OPTIONS=--max-old-space-size=4096`) on the cross-platform Build step. tsup bundling of `dist/cli.mjs` was hitting V8 heap exhaustion on macOS + Windows runners (Ubuntu had enough headroom to mask it). Every push to `main` since PR-49 was red on those legs; fix lands at commit `ffdfebb`.
