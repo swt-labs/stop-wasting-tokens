@@ -1,6 +1,19 @@
 #!/bin/bash
-# SWT Status Line — 4-line dashboard (L1: project, L2: context, L3: usage+cache, L4: model/cost)
-# Cache: {prefix}-fast (5s), {prefix}-slow (60s), {prefix}-cost (per-render), {prefix}-ok (permanent)
+# SWT Status Line — 4-line layout per TDD3 §16.2
+#   L1: project/phase/progress  — PROJECT • Phase NN: name • Plan M/T • {effort} • {model_profile}
+#   L2: state+QA+UAT            — {icon} {state} • {plan-progress} • QA: {qa} • UAT: {uat}
+#   L3: tokens+cost+budget      — {in}↓ {out}↑ • cache {hit%} • ${session} session • ${phase} phase • budget {used%}
+#   L4: agents OR next-action   — agents: {role-list}  OR  next: {suggest-next.sh output}
+#
+# Cache: {prefix}-fast (5s), {prefix}-slow (60s, 300s on 429/fail), {prefix}-cost, {prefix}-ok
+#
+# Config switches (flat keys preserved for v2-config compat; TDD3 §16.3 dotted
+# forms are aliases. Reason: v2 user .swt-planning/config.json files exist in
+# the wild; rewriting the keys breaks them without warning):
+#   statusline_hide_limits              <->  statusline.limits=false
+#   statusline_hide_limits_for_api_key  <->  statusline.limits_for_api_keys=false
+#   statusline_hide_agent_in_tmux       <->  statusline.agent_progress_in_tmux=false
+#   statusline_collapse_agent_in_tmux   <->  statusline.single_line_in_tmux_worktrees=true
 
 # Read stdin with timeout — CC may not pipe data on the first dsR() invocation
 # (no cost/model info yet), and bare `cat` would block until the 5s dsR timeout
@@ -44,6 +57,33 @@ find_swt_root "$_SL_SCRIPT_DIR"
 _REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
 _CACHE_ROOT="${SWT_CONFIG_ROOT:-$_REPO_ROOT}"
 _CACHE=$(swt_cache_prefix "${_VER:-0}" "$_UID" "$_CACHE_ROOT")
+
+# compute_state_icon — returns one of ◆ (cooking) / ○ (idle) / ⚠ (blocked) / ✓ (complete).
+# Inputs: $SWT_PLANNING_DIR, $QA (already computed in fast-cache section), $EXEC_STATUS.
+compute_state_icon() {
+  local planning_dir="${SWT_PLANNING_DIR:-${PWD}/.swt-planning}"
+  # Cooking: orchestrator session present OR pending cook-control signal OR active execution
+  if [ "${EXEC_STATUS:-}" = "running" ]; then
+    printf '%s' '◆'  # ◆
+    return
+  fi
+  if ls "$planning_dir/.cook-controls/"*.pending >/dev/null 2>&1 \
+     || ls "$planning_dir/.sessions/orchestrator-"*.json >/dev/null 2>&1; then
+    printf '%s' '◆'  # ◆
+    return
+  fi
+  # Blocked: any QA/UAT failed
+  case "${QA:-}" in
+    *FAIL*|*Issues*) printf '%s' '⚠'; return ;;  # ⚠
+  esac
+  # Complete: milestone done in STATE.md
+  if [ -f "$planning_dir/STATE.md" ] && grep -qiE '^(Milestone|Status):.*complete' "$planning_dir/STATE.md"; then
+    printf '%s' '✓'  # ✓
+    return
+  fi
+  # Default: idle
+  printf '%s' '○'  # ○
+}
 
 # Clean stale caches from previous versions on first run
 if ! [ -f "${_CACHE}-ok" ] || ! [ -O "${_CACHE}-ok" ]; then
@@ -1003,78 +1043,137 @@ if [ "$HIDE_AGENT_TMUX" = "true" ] && [ -n "${TMUX:-}" ] && [ "$EXEC_STATUS" = "
   _HIDE_EXEC_TMUX=true
 fi
 
-if [ "$_HIDE_EXEC_TMUX" != "true" ] && [ "$EXEC_STATUS" = "running" ] && [ "${EXEC_TOTAL:-0}" -gt 0 ] 2>/dev/null; then
-  EXEC_PCT=$((EXEC_DONE * 100 / EXEC_TOTAL))
-  L1="${VC}[VBW]${X} Build: $(progress_bar "$EXEC_PCT" 8) ${EXEC_DONE}/${EXEC_TOTAL} plans"
-  [ "${EXEC_TWAVES:-0}" -gt 1 ] 2>/dev/null && L1="$L1 ${D}│${X} Wave ${EXEC_WAVE}/${EXEC_TWAVES}"
-  [ -n "$EXEC_CURRENT" ] && L1="$L1 ${D}│${X} ${C}◆${X} ${EXEC_CURRENT}"
-elif [ "$EXEC_STATUS" = "complete" ]; then
+# --- TDD3 §16.2 4-line layout build ---
+# Reset stale EXEC_STATUS=complete the same way the legacy emit did, so it
+# doesn't bleed into the new state-icon computation on the next render.
+if [ "$EXEC_STATUS" = "complete" ]; then
   rm -f "$SWT_PLANNING_DIR/.execution-state.json" "$FAST_CF" 2>/dev/null
   EXEC_STATUS=""
-  L1="${VC}[VBW]${X}"
-  [ "$TT" -gt 0 ] 2>/dev/null && L1="$L1 Phase ${PH}/${TT}" || L1="$L1 Phase ${PH:-?}"
-  if [ "$PT" -gt 0 ] 2>/dev/null; then
-    L1="$L1 ${D}│${X} Plans: ${PD}/${PT}"
-    if [ "${TT:-0}" -gt 1 ] 2>/dev/null && [ "${PPT:-0}" -gt 0 ] 2>/dev/null; then
-      if [ "$PD" -lt "$PT" ] 2>/dev/null || [ "$REM_ACTIVE" = "true" ]; then
-        L1="$L1 (${PPD}/${PPT} ${PP_LABEL})"
-      fi
-    fi
-  fi
-  L1="$L1 ${D}│${X} Effort: $EF ${D}│${X} Model: $MP"
-  _qc="$D"; case "${QA_COLOR:-D}" in G) _qc="$G";; Y) _qc="$Y";; R) _qc="$R";; esac
-  L1="$L1 ${D}│${X} ${_qc}${QA}${X}"
+fi
+
+# Project name (PROJECT.md "title:" field if present, otherwise repo basename).
+_SL_PROJECT_NAME=""
+if [ -f "$SWT_PLANNING_DIR/PROJECT.md" ]; then
+  _SL_PROJECT_NAME=$(grep -m1 -E '^#\s' "$SWT_PLANNING_DIR/PROJECT.md" 2>/dev/null | sed 's/^#*[[:space:]]*//' | head -c 40)
+fi
+[ -z "$_SL_PROJECT_NAME" ] && _SL_PROJECT_NAME="${REPO_LABEL:-$(basename "$_REPO_ROOT")}"
+
+# Phase name slug from STATE.md "Phase: N of M (slug)".
+_SL_PHASE_NAME="-"
+if [ -f "$SWT_PLANNING_DIR/STATE.md" ]; then
+  _SL_PHASE_NAME=$(grep -m1 "^Phase:" "$SWT_PLANNING_DIR/STATE.md" 2>/dev/null \
+    | sed -n 's/.*([[:space:]]*\([^)]*\))[[:space:]]*$/\1/p' | head -c 30)
+  [ -z "$_SL_PHASE_NAME" ] && _SL_PHASE_NAME="-"
+fi
+
+# Phase-NN string (e.g. "Phase 04: dashboard-statusline") with padding to 2 digits.
+if [ -n "${PH:-}" ] && [ "${PH:-0}" != "0" ]; then
+  _SL_PHASE_LABEL=$(printf 'Phase %02d: %s' "$PH" "$_SL_PHASE_NAME" 2>/dev/null || printf 'Phase %s: %s' "$PH" "$_SL_PHASE_NAME")
+else
+  _SL_PHASE_LABEL="Phase -"
+fi
+
+# Plan M/T (overall plan progress in this phase).
+_SL_PLAN_TOTAL="${PT:-0}"; _SL_PLAN_DONE="${PD:-0}"
+if [ "${PPT:-0}" -gt 0 ] 2>/dev/null && [ "$REM_ACTIVE" = "true" ]; then
+  # When remediation is active, plan progress reflects remediation rounds
+  _SL_PLAN_TOTAL="${PPT:-0}"; _SL_PLAN_DONE="${PPD:-0}"
+fi
+
+# State icon + label.
+_SL_STATE_ICON=$(compute_state_icon)
+case "$_SL_STATE_ICON" in
+  '◆') _SL_STATE_LABEL="cooking" ;;
+  '⚠') _SL_STATE_LABEL="blocked" ;;
+  '✓') _SL_STATE_LABEL="complete" ;;
+  *)   _SL_STATE_LABEL="idle" ;;
+esac
+
+# QA / UAT split: $QA may be "UAT: X" or "QA: X" or "--". Split into two cells
+# so the 4-line layout always has both labels visible.
+_SL_QA="${QA:--}"
+_SL_UAT="-"
+case "$_SL_QA" in
+  "UAT:"*)
+    _SL_UAT="${_SL_QA#UAT: }"
+    _SL_QA="-"
+    ;;
+  "QA:"*)
+    _SL_QA="${_SL_QA#QA: }"
+    ;;
+esac
+
+# QA colour.
+_qc="$D"
+case "${QA_COLOR:-D}" in G) _qc="$G";; Y) _qc="$Y";; R) _qc="$R";; esac
+
+# Update available marker for L1 right edge.
+_SL_VERSION_MARK="${D}SWT ${_VER:-?}${X}"
+if [ -n "${UPDATE_AVAIL:-}" ]; then
+  _SL_VERSION_MARK="${Y}${B}SWT ${_VER:-?} → ${UPDATE_AVAIL}${X} ${Y}swt update${X}"
+fi
+
+# --- L1: project / phase / plan / effort / model ---
+L1="${VC}[SWT]${X} ${_SL_PROJECT_NAME} ${D}•${X} ${_SL_PHASE_LABEL} ${D}•${X} Plan ${_SL_PLAN_DONE}/${_SL_PLAN_TOTAL} ${D}•${X} ${EF:--} ${D}•${X} ${MP:--}"
+# Append repo/branch + git indicators (preserves Phase 2 git context — non-TDD3 but useful).
+if [ -n "${GH_LINK:-}" ]; then
+  L1="$L1 ${D}│${X} ${GH_LINK}"
+elif [ -n "${REPO_LABEL:-}" ] && [ -n "${BR:-}" ]; then
+  L1="$L1 ${D}│${X} ${REPO_LABEL}:${BR}"
+elif [ -n "${BR:-}" ]; then
+  L1="$L1 ${D}│${X} $BR"
+fi
+GIT_IND=""
+[ "${GIT_STAGED:-0}" -gt 0 ] 2>/dev/null && GIT_IND="${G}+${GIT_STAGED}${X}"
+[ "${GIT_MODIFIED:-0}" -gt 0 ] 2>/dev/null && GIT_IND="${GIT_IND}${Y}~${GIT_MODIFIED}${X}"
+[ -n "$GIT_IND" ] && L1="$L1 ${D}Files:${X} $GIT_IND"
+[ "${GIT_AHEAD:-0}" -gt 0 ] 2>/dev/null && L1="$L1 ${D}Commits:${X} ${C}↑${GIT_AHEAD}${X}"
+
+# --- L2: state icon + label / plan progress / QA / UAT ---
+if [ "$_HIDE_EXEC_TMUX" != "true" ] && [ "$EXEC_STATUS" = "running" ] && [ "${EXEC_TOTAL:-0}" -gt 0 ] 2>/dev/null; then
+  # Active build: show wave + current plan inline with the state line
+  EXEC_PCT=$((EXEC_DONE * 100 / EXEC_TOTAL))
+  _SL_BUILD="Build: $(progress_bar "$EXEC_PCT" 8) ${EXEC_DONE}/${EXEC_TOTAL}"
+  [ "${EXEC_TWAVES:-0}" -gt 1 ] 2>/dev/null && _SL_BUILD="$_SL_BUILD Wave ${EXEC_WAVE}/${EXEC_TWAVES}"
+  [ -n "${EXEC_CURRENT:-}" ] && _SL_BUILD="$_SL_BUILD ${C}◆${X} ${EXEC_CURRENT}"
+  L2="${_SL_STATE_ICON} ${_SL_STATE_LABEL} ${D}•${X} ${_SL_BUILD} ${D}•${X} QA: ${_qc}${_SL_QA}${X} ${D}•${X} UAT: ${_qc}${_SL_UAT}${X}"
+else
+  L2="${_SL_STATE_ICON} ${_SL_STATE_LABEL} ${D}•${X} ${_SL_PLAN_DONE}/${_SL_PLAN_TOTAL} ${PP_LABEL:-plans} ${D}•${X} QA: ${_qc}${_SL_QA}${X} ${D}•${X} UAT: ${_qc}${_SL_UAT}${X}"
+fi
+
+# --- L3: tokens + cache + cost + budget ---
+# Cost (session + phase) reads .swt-planning/.metrics/*.json — wired by T4.
+# T3 emits placeholders; T4 binds SESSION_COST / PHASE_COST / BUDGET_PCT.
+L3=$(printf '%b%s↓%b %b%s↑%b %b•%b cache %b%s%%%b hit %b•%b $%.2f session %b•%b $%.2f phase %b•%b budget %s%%' \
+  "$C" "${IN_TOK_FMT:-0}" "$X" \
+  "$C" "${OUT_TOK_FMT:-0}" "$X" \
+  "$D" "$X" \
+  "${CACHE_COLOR:-$D}" "${CACHE_HIT_PCT:-0}" "$X" \
+  "$D" "$X" \
+  "${SESSION_COST:-0}" \
+  "$D" "$X" \
+  "${PHASE_COST:-0}" \
+  "$D" "$X" \
+  "${BUDGET_PCT:-0}")
+# Append usage limits info (Phase 2 Limits/Session/Weekly progress bars) as a
+# trailing segment so HIDE_LIMITS / HIDE_LIMITS_API still suppress it.
+[ -n "${USAGE_LINE:-}" ] && L3="$L3 ${D}│${X} $USAGE_LINE"
+
+# --- L4: agents OR next-action (mutually exclusive) ---
+if [ -n "${ACTIVE_AGENTS_LINE:-}" ]; then
+  L4="agents: $ACTIVE_AGENTS_LINE ${D}│${X} ${D}Time: ${DUR_FMT:-0s} (API: ${API_DUR_FMT:-0s})${X} ${D}│${X} ${_SL_VERSION_MARK} ${D}│${X} ${D}CC ${VER:-?}${X}"
 elif [ -d "$SWT_PLANNING_DIR" ]; then
-  L1="${VC}[VBW]${X}"
-  [ "$TT" -gt 0 ] 2>/dev/null && L1="$L1 Phase ${PH}/${TT}" || L1="$L1 Phase ${PH:-?}"
-  if [ "$PT" -gt 0 ] 2>/dev/null; then
-    L1="$L1 ${D}│${X} Plans: ${PD}/${PT}"
-    if [ "${TT:-0}" -gt 1 ] 2>/dev/null && [ "${PPT:-0}" -gt 0 ] 2>/dev/null; then
-      if [ "$PD" -lt "$PT" ] 2>/dev/null || [ "$REM_ACTIVE" = "true" ]; then
-        L1="$L1 (${PPD}/${PPT} ${PP_LABEL})"
-      fi
-    fi
-  fi
-  L1="$L1 ${D}│${X} Effort: $EF ${D}│${X} Model: $MP"
-  _qc="$D"; case "${QA_COLOR:-D}" in G) _qc="$G";; Y) _qc="$Y";; R) _qc="$R";; esac
-  L1="$L1 ${D}│${X} ${_qc}${QA}${X}"
+  _SL_NEXT=$(bash "$_SL_SCRIPT_DIR/suggest-next.sh" status 2>/dev/null \
+    | grep -m1 -oE 'swt [a-z][a-z-]+( --[a-zA-Z0-9_-]+){0,4}' | head -c 60)
+  [ -z "$_SL_NEXT" ] && _SL_NEXT="-"
+  L4="next: $_SL_NEXT ${D}│${X} ${D}Time: ${DUR_FMT:-0s} (API: ${API_DUR_FMT:-0s})${X} ${D}│${X} ${_SL_VERSION_MARK} ${D}│${X} ${D}CC ${VER:-?}${X}"
 else
-  L1="${VC}[VBW]${X} ${D}no project${X}"
-fi
-if [ -n "$BR" ] || [ -n "$GH_LINK" ] || [ -n "$REPO_LABEL" ]; then
-  if [ -n "$GH_LINK" ]; then
-    L1="$L1 ${D}│${X} ${GH_LINK}"
-  elif [ -n "$REPO_LABEL" ] && [ -n "$BR" ]; then
-    L1="$L1 ${D}│${X} ${REPO_LABEL}:${BR}"
-  elif [ -n "$REPO_LABEL" ]; then
-    L1="$L1 ${D}│${X} ${REPO_LABEL}"
-  elif [ -n "$BR" ]; then
-    L1="$L1 ${D}│${X} $BR"
-  fi
-  GIT_IND=""
-  [ "${GIT_STAGED:-0}" -gt 0 ] 2>/dev/null && GIT_IND="${G}+${GIT_STAGED}${X}"
-  [ "${GIT_MODIFIED:-0}" -gt 0 ] 2>/dev/null && GIT_IND="${GIT_IND}${Y}~${GIT_MODIFIED}${X}"
-  [ -n "$GIT_IND" ] && L1="$L1 ${D}Files:${X} $GIT_IND"
-  [ "${GIT_AHEAD:-0}" -gt 0 ] 2>/dev/null && L1="$L1 ${D}Commits:${X} ${C}↑${GIT_AHEAD}${X}"
-  L1="$L1 ${D}Diff:${X} ${G}+${ADDED}${X} ${R}-${REMOVED}${X}"
-fi
-
-L2="Context: ${BC}${CTX_BAR}${X} ${BC}${PCT}%${X} ${CTX_USED_FMT}/${CTX_SIZE_FMT}"
-L2="$L2 ${D}│${X} Tokens: ${IN_TOK_FMT} in  ${OUT_TOK_FMT} out"
-L2="$L2 ${D}│${X} Prompt Cache: ${CACHE_COLOR}${CACHE_HIT_PCT}% hit${X} ${CACHE_W_FMT} write ${CACHE_R_FMT} read"
-
-L3="$USAGE_LINE"
-L4="Model: ${D}${MODEL}${X} ${D}│${X} Time: ${DUR_FMT} (API: ${API_DUR_FMT})"
-[ -n "$AGENT_LINE" ] && L4="$L4 ${D}│${X} ${AGENT_LINE}"
-if [ -n "$UPDATE_AVAIL" ]; then
-  L4="$L4 ${D}│${X} ${Y}${B}SWT ${_VER:-?} → ${UPDATE_AVAIL}${X} ${Y}swt update${X} ${D}│${X} ${D}CC ${VER}${X}"
-else
-  L4="$L4 ${D}│${X} ${D}SWT ${_VER:-?}${X} ${D}│${X} ${D}CC ${VER}${X}"
+  L4="${D}no project${X} ${D}│${X} ${_SL_VERSION_MARK} ${D}│${X} ${D}CC ${VER:-?}${X}"
 fi
 
 printf '%b\n' "$L1"
 printf '%b\n' "$L2"
-[ -n "$L3" ] && printf '%b\n' "$L3"
+printf '%b\n' "$L3"
 printf '%b\n' "$L4"
 
 exit 0
