@@ -11,10 +11,7 @@ allowed-tools: Read, Bash, Glob
 
 ## Context
 
-Plugin root:
-```
-!`SWT_CACHE_ROOT="${SWT_CONFIG_DIR:-$HOME/.claude}/plugins/cache/swt-marketplace/vbw"; SESSION_KEY="${SWT_SESSION_ID:-default}"; SESSION_LINK="/tmp/.swt-install-root-link-${SESSION_KEY}"; R=""; if [ -n "${SWT_INSTALL_ROOT:-}" ] && [ -f "${SWT_INSTALL_ROOT}/scripts/hook-wrapper.sh" ]; then R="${SWT_INSTALL_ROOT}"; fi; if [ -z "$R" ] && [ -f "${SWT_CACHE_ROOT}/local/scripts/hook-wrapper.sh" ]; then R="${SWT_CACHE_ROOT}/local"; fi; if [ -z "$R" ]; then V=$(find "${SWT_CACHE_ROOT}" -maxdepth 1 -mindepth 1 2>/dev/null | awk -F/ '{print $NF}' | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1); [ -n "$V" ] && [ -f "${SWT_CACHE_ROOT}/${V}/scripts/hook-wrapper.sh" ] && R="${SWT_CACHE_ROOT}/${V}"; fi; if [ -z "$R" ]; then L=$(find "${SWT_CACHE_ROOT}" -maxdepth 1 -mindepth 1 2>/dev/null | awk -F/ '{print $NF}' | sort | tail -1); [ -n "$L" ] && [ -f "${SWT_CACHE_ROOT}/${L}/scripts/hook-wrapper.sh" ] && R="${SWT_CACHE_ROOT}/${L}"; fi; if [ -z "$R" ] && [ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" ]; then R="${SESSION_LINK}"; fi; if [ -z "$R" ]; then ANY_LINK=$(command find -H /tmp -maxdepth 1 -name '.swt-plugin-root-link-*' -print 2>/dev/null | LC_ALL=C sort | while IFS= read -r link; do if [ -f "$link/scripts/hook-wrapper.sh" ]; then printf '%s\n' "$link"; break; fi; done || true); [ -n "$ANY_LINK" ] && R="$ANY_LINK"; fi; if [ -z "$R" ]; then D=$(ps axww -o args= 2>/dev/null | grep -v grep | grep -oE -- "--plugin-dir [^ ]+" | head -1); D="${D#--plugin-dir }"; [ -n "$D" ] && [ -f "$D/scripts/hook-wrapper.sh" ] && R="$D"; fi; if [ -z "$R" ] || [ ! -d "$R" ]; then echo "SWT: plugin root resolution failed" >&2; exit 1; fi; LINK="${SESSION_LINK}"; REAL_R=$(cd "$R" 2>/dev/null && pwd -P) || REAL_R="$R"; bash "$REAL_R/scripts/ensure-plugin-root-link.sh" "$LINK" "$REAL_R" >/dev/null 2>&1 || { echo "SWT: plugin root link failed" >&2; exit 1; }; echo "$LINK"`
-```
+Plugin root: `${SWT_INSTALL_ROOT}`
 
 Store the plugin root path output above as `{plugin-root}` for use in file/script lookups below. Replace `{plugin-root}` with the literal `Plugin root` value from Context whenever a step below references a script or file in the installed plugin.
 

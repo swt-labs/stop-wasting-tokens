@@ -12,7 +12,7 @@ allowed-tools: Read, Edit, Bash
 ## Context
 
 - Working directory: current workspace root.
-- Plugin cache root: `"${SWT_CONFIG_DIR:-$HOME/.claude}/plugins/cache/swt-marketplace/vbw"` (respects non-default `SWT_CONFIG_DIR`; always quote — path may contain spaces).
+- Plugin cache root: ``${SWT_INSTALL_ROOT}`` (respects non-default `SWT_CONFIG_DIR`; always quote — path may contain spaces).
 - Session startup creates a symlink at `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}` pointing to the plugin root. The cache-based tiers are authoritative; symlinks are a fallback. See Step 1 for full resolution order.
 
 ## Guard
