@@ -1,5 +1,0 @@
-# v2.3.5 baseline (recording deferred)
-
-When `stop-wasting-tokens@2.3.5` is run end-to-end against `../spec/`,
-the resulting `.swt-planning/` tree is committed here. See
-`../README.md` for the recording walkthrough.
