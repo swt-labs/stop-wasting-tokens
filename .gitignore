@@ -13,6 +13,9 @@ out/
 .cache/
 *.tsbuildinfo
 
+# npm global install artifact (created by `npm install -g .` when testing locally)
+/bin/
+
 # Test/coverage
 coverage/
 *.lcov
