@@ -37,8 +37,6 @@ import { registerUpdateRoute } from './routes/update.js';
 import { registerVibeRoutes } from './routes/vibe.js';
 import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
-import type { MethodologyAgentFactory } from './vibe/methodology-agent.js';
-import { createSessionRegistry, type SessionRegistry } from './vibe/session.js';
 
 export interface DashboardServer {
   app: Hono;
@@ -46,7 +44,6 @@ export interface DashboardServer {
   bus: EventBus;
   snapshotter: Snapshotter | null;
   projectRoot: string | null;
-  vibeRegistry: SessionRegistry;
   port: number;
   hostname: string;
   close: () => Promise<void>;
@@ -68,13 +65,6 @@ export interface CreateServerOptions {
   projectRoot?: string;
   /** Skip snapshot watcher even if projectRoot is provided. For tests. */
   skipSnapshotter?: boolean;
-  /**
-   * Optional methodology-agent factory. When provided, `POST /api/vibe`
-   * spawns a real agent loop (background async) for each new session.
-   * v2.0 Phase 2 ships with no default — production wires
-   * CodexMethodologyAgent in a follow-up plan; sessions stay idle until then.
-   */
-  agentFactory?: MethodologyAgentFactory;
 }
 
 const DEFAULT_PORT = 54321;
@@ -86,26 +76,12 @@ export function createApp(
     startedAt?: number;
     projectRoot?: string;
     snapshotter?: Snapshotter;
-    /**
-     * Optional methodology-agent factory. When provided, `POST /api/vibe`
-     * spawns a real agent loop (background async) for each new session.
-     * When omitted (default), sessions stay idle — useful for unit tests
-     * that exercise the wire format but don't need agent execution.
-     */
-    agentFactory?: MethodologyAgentFactory;
-    /**
-     * Tag for the agent backend, surfaced in `VibeStartResponse.agent_backend`.
-     * Defaults: 'pi' when the runtime adapter is wired via agentFactory;
-     * 'none' when no factory was wired.
-     */
-    agentBackendTag?: 'none' | 'pi';
   } = {},
 ): {
   app: Hono;
   bus: EventBus;
   snapshotter: Snapshotter | null;
   projectRoot: string | null;
-  vibeRegistry: SessionRegistry;
 } {
   const bus = opts.bus ?? createEventBus();
   const startedAt = opts.startedAt ?? Date.now();
@@ -243,21 +219,14 @@ export function createApp(
   // (signal-file via writePendingSignal).
   registerCookStartRoute(app, { projectRoot: cwd });
   registerCookControlRoute(app, { projectRoot: cwd });
-  // v2.0 Phase 2: vibe session registry + routes. Disk-backed events JSONL
-  // lives under {projectRoot}/.swt-planning/.vibe-sessions/. Falls back to
-  // {cwd}/.swt-planning/ when no projectRoot is resolved (greenfield) so
-  // the registry has a deterministic place to write logs from the moment
-  // the daemon starts.
-  const planningPath = join(projectRoot ?? cwd, '.swt-planning');
-  const vibeRegistry = createSessionRegistry({ bus, planning_path: planningPath });
-  registerVibeRoutes(app, {
-    registry: vibeRegistry,
-    project_root: projectRoot ?? cwd,
-    ...(opts.agentFactory !== undefined ? { agentFactory: opts.agentFactory, bus } : {}),
-    ...(opts.agentBackendTag !== undefined ? { agentBackendTag: opts.agentBackendTag } : {}),
-  });
+  // Plan 04-05 T1 (R7): the v2 vibe/ subtree (`MethodologyAgent` factory +
+  // SessionRegistry) was gutted; what remains is a thin shim on /api/vibe
+  // that re-dispatches to /api/cook/start. The shim ships for one release
+  // cycle (v3.0.0-alpha.x) and is removed in v3.1.0 per the Phase 6 hand-off
+  // in .vbw-planning/phases/04-dashboard-statusline/PARITY-REPORT.md.
+  registerVibeRoutes(app, { projectRoot: projectRoot ?? cwd });
   registerSpaRoutes(app);
-  return { app, bus, snapshotter, projectRoot, vibeRegistry };
+  return { app, bus, snapshotter, projectRoot };
 }
 
 /**
@@ -345,20 +314,12 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     }
   }
 
-  // v3: Pi-only backend per ADR-001. The legacy `CodexMethodologyAgent`
-  // path was removed at M6 PR-45 alongside the three driver packages
-  // (deleted at M1 PR-05). When a caller passes an agentFactory, the
-  // backend tag flips to 'pi'; otherwise the session stays idle with
-  // tag 'none'. The legacy SWT_VIBE_AGENT=codex env shortcut was
-  // retired with the driver deletion.
-  const resolvedAgentFactory: MethodologyAgentFactory | undefined = options.agentFactory;
-  const resolvedBackendTag: 'none' | 'pi' = resolvedAgentFactory !== undefined ? 'pi' : 'none';
-
-  const { app, bus, snapshotter, vibeRegistry } = createApp({
+  // Plan 04-05 T1 (R7): the v2 `agentFactory` plumbing was gutted alongside
+  // the rest of the `packages/dashboard/src/server/vibe/` subtree. The
+  // only supported orchestrator entry is `swt cook` via /api/cook/start.
+  const { app, bus, snapshotter } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
-    ...(resolvedAgentFactory !== undefined ? { agentFactory: resolvedAgentFactory } : {}),
-    agentBackendTag: resolvedBackendTag,
   });
 
   const server = await new Promise<ServerType>((resolve) => {
@@ -374,11 +335,9 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
     bus,
     snapshotter,
     projectRoot: projectRoot ?? null,
-    vibeRegistry,
     port: boundPort,
     hostname,
     close: async () => {
-      vibeRegistry.shutdown();
       if (snapshotter) await snapshotter.close();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
