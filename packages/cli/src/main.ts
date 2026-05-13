@@ -194,6 +194,31 @@ export async function main(
   // every downstream subprocess. Idempotent; safe to call again.
   applyEnvToProcess();
 
+  // Plan 06-04 T3 (R3 / DEVN-04): cross-process cassette bootstrap. If
+  // a parent process called `installReplay(path)` and then spawned this
+  // CLI as a subprocess (e.g. `runVibe()` → `swt cook`), the child
+  // inherits `SWT_CASSETTE_PATH` via the default env merge. Install the
+  // cassette here, BEFORE any HTTP traffic could occur. Dynamic import
+  // keeps `@swt-labs/test-utils` out of the production bundle when no
+  // cassette is configured (env unset = no import, no overhead).
+  // Failures are swallowed by design: a missing cassette must surface
+  // as a `RequestNotInCassetteError` at request time (the cassette
+  // discipline of REQ-22), not as a CLI bootstrap crash.
+  if (
+    process.env['SWT_CASSETTE_PATH'] !== undefined &&
+    process.env['SWT_CASSETTE_PATH'].length > 0
+  ) {
+    try {
+      const { installReplayFromEnv } = await import(
+        '@swt-labs/test-utils/cassettes'
+      );
+      installReplayFromEnv();
+    } catch {
+      // best-effort; cassette replay is a test-utility surface and its
+      // absence should never block real CLI invocations.
+    }
+  }
+
   const io: CommandIO = {
     cwd: deps.cwd ?? process.cwd(),
     stdout: deps.stdout ?? process.stdout,

@@ -18,6 +18,7 @@ export {
 export { record, getProviderHosts, type RecordOptions } from './recorder.js';
 export {
   installReplay,
+  installReplayFromEnv,
   loadCassette,
   CassetteNotFoundError,
   CassetteUnsealedError,

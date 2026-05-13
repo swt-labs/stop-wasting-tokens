@@ -244,6 +244,15 @@ export function installReplay(path: string, opts: InstallReplayOptions = {}): Re
   const cwd = opts.cwd ?? process.cwd();
   const enforceSeq = opts.enforceSeq ?? true;
 
+  // Plan 06-04 T3 (R3 / DEVN-04): publish the active cassette path on
+  // `process.env.SWT_CASSETTE_PATH` so any child process spawned after
+  // this call (e.g. `runVibe()` → `swt cook` subprocess) inherits it
+  // via Node's default env propagation and can re-install the same
+  // cassette through `installReplayFromEnv()` before its first HTTP
+  // request. The handle's `uninstall()` clears the env var.
+  const previousEnvCassette = process.env['SWT_CASSETTE_PATH'];
+  process.env['SWT_CASSETTE_PATH'] = path;
+
   const interactionsByHash = new Map<string, CassetteInteraction>();
   for (const i of interactions) interactionsByHash.set(i.request.body_hash, i);
   const recordedHashes = Array.from(interactionsByHash.keys());
@@ -320,6 +329,36 @@ export function installReplay(path: string, opts: InstallReplayOptions = {}): Re
     interactions: Object.freeze([...interactions]),
     uninstall() {
       setGlobalDispatcher(previous);
+      if (previousEnvCassette === undefined) {
+        delete process.env['SWT_CASSETTE_PATH'];
+      } else {
+        process.env['SWT_CASSETTE_PATH'] = previousEnvCassette;
+      }
     },
   };
+}
+
+/**
+ * Boot-time helper: if `SWT_CASSETTE_PATH` is set in the environment,
+ * install the cassette at that path and return the handle; otherwise
+ * return null. Designed to be called by child processes spawned with
+ * `SWT_CASSETTE_PATH` propagated from a parent that already called
+ * `installReplay(path)`. The child's HTTP layer routes through its own
+ * undici dispatcher; this hook swaps that dispatcher to the cassette
+ * replayer before any HTTP traffic could occur.
+ *
+ * Plan 06-04 T3 (R3 / DEVN-04). Closes the Phase 5 PARITY-REPORT.md:130
+ * cross-process cassette gap by enabling env-driven cassette bootstrap
+ * in `runVibe()`-spawned cook children.
+ *
+ * Safe to call from any process; a no-op when the env var is unset or
+ * empty. Callers MUST call `uninstall()` on the returned handle when
+ * the test ends (typically via the parent harness's `disposeRun`).
+ */
+export function installReplayFromEnv(
+  opts: InstallReplayOptions = {},
+): ReplayHandle | null {
+  const path = process.env['SWT_CASSETTE_PATH'];
+  if (path === undefined || path.length === 0) return null;
+  return installReplay(path, opts);
 }

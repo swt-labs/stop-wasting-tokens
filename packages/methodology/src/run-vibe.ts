@@ -27,14 +27,17 @@
  * map non-zero codes to their own error surface. This keeps `runVibe`
  * pure for tests asserting specific exit codes.
  *
- * **Cassettes do NOT cross-process today.** `installReplay()` patches
- * the in-process undici dispatcher. A spawned child has its own
- * dispatcher; cassette replay in the child requires either (a) loading
- * the cassette at child bootstrap via env var, or (b) running cassettes
- * in-process (which is what `run-agent-parity.ts` does for per-role
- * cassettes). Phase 5 e2e tests gate behind cassette+baseline existence
- * via `describe.skipIf(...)`; the full subprocess cassette wiring is a
- * Phase 6 follow-up.
+ * **Cross-process cassette inheritance (Phase 6 plan 06-04 T3).** When
+ * `installReplay(path)` is called in the parent, the helper writes
+ * `SWT_CASSETTE_PATH=path` onto `process.env`. The child subprocess
+ * spawned below inherits the parent's env (`env: { ...process.env, ... }`),
+ * so the cook child receives `SWT_CASSETTE_PATH` and can call
+ * `installReplayFromEnv()` at startup to swap its own undici dispatcher
+ * to the cassette replayer before any HTTP traffic. The CLI entry at
+ * `packages/cli/src/main.ts` performs this boot hook via a dynamic
+ * import gated on the env var (so the production bundle does not pull
+ * in `@swt-labs/test-utils` when no cassette is configured). Closes
+ * DEVN-04 from Phase 5 PARITY-REPORT.md:130 (R3).
  */
 
 import { spawn } from 'node:child_process';

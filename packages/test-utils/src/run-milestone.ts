@@ -16,15 +16,18 @@
  * to `.swt-planning/.tpac/<milestone>.json` for the dashboard's
  * TpacPanel to consume.
  *
- * **Cassette installation is best-effort.** `installReplay()` patches
- * the in-process undici dispatcher; `runVibe()` spawns a child process
- * that has its own dispatcher. The child will NOT see the in-process
- * cassettes today. Tests that need real HTTP replay in the child are
- * gated behind `describe.skipIf(...)` until Phase 6 wires cross-process
- * cassette inheritance (env-var bootstrap on the child). Until then,
- * `runMilestone` returns the harvested artefacts the spawned cook
- * produces — which, in CI, is whatever cook can do without real LLM
- * calls (usually exit non-zero with empty planning tree).
+ * **Cross-process cassette inheritance (Phase 6 plan 06-04 T3).**
+ * `installReplay()` now publishes `SWT_CASSETTE_PATH` onto
+ * `process.env`; `runVibe()`'s subprocess spawn inherits the parent
+ * env, and the CLI entry's boot hook calls `installReplayFromEnv()`
+ * to install the same cassette in the child's undici dispatcher
+ * before any HTTP traffic. When multiple cassettes are installed
+ * sequentially (as this harness does in the loop below), the LAST
+ * cassette wins for env-driven child inheritance — multi-cassette
+ * milestones with subprocess fan-out remain a known limitation
+ * (Phase G follow-up). Single-cassette milestones (the common case)
+ * now propagate to the child correctly, closing DEVN-04 from Phase 5
+ * PARITY-REPORT.md:130.
  *
  * Two consumers:
  *   - `swt bench` (`packages/cli/src/commands/bench.ts`) — feeds the
