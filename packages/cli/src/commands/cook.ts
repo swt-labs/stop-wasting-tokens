@@ -1,0 +1,1025 @@
+/**
+ * `swt cook` — Plan 03-02 (Phase 3) Task 3 + 4: orchestrator entry handler.
+ *
+ * Implements the TDD3 §7 routing FSM:
+ *
+ *   1. §7.1 Pre-parse passes:
+ *      - todo number resolution (bare integer with snapshot filter=null)
+ *      - ref tag extraction (`(ref:XXXXXXXX)` suffix)
+ *      - todo pickup boundary (claim ONLY after confirmation gate succeeds)
+ *
+ *   2. §7.2 Three input paths in order:
+ *      - Path 1: flag detection (--plan / --execute / ... ) → mode + ModeOptions
+ *      - Path 2: NL keyword routing → mode (with askUser confirmation)
+ *      - Path 3: state detection via detectPhase()
+ *
+ *   3. §7.3 Eleven-priority routing table (verbatim port from commands/cook.md):
+ *      - Priority 1: planning_dir_exists=false → "Run swt init first"
+ *      - Priority 2: project_exists=false → Bootstrap mode (confirmed)
+ *      - Priority 3: needs_uat_remediation → UAT Remediation mode
+ *      - Priority 3.5: needs_qa_remediation → QA Remediation mode
+ *      - Priority 4: needs_reverification → prepare-reverification.sh + Verify
+ *      - Priority 5: milestone_uat_issues → Milestone UAT Recovery
+ *      - Priority 6: phase_count=0 → Scope (confirmed)
+ *      - Priority 7: needs_verification → QA gate + Verify
+ *      - Priority 8: needs_discussion → Discuss (confirmed)
+ *      - Priority 9: needs_plan_and_execute → Plan+Execute (confirmed)
+ *      - Priority 10: needs_execute → Execute (confirmed)
+ *      - Priority 11: all_done → Archive (with QA-attention fallbacks)
+ *
+ *   4. §7.4 Fallback patterns evaluated DURING routing (not in mode bodies).
+ *
+ *   5. §7.5 QA gate (12 reason labels, 6 override flags) — Task 4. Runs
+ *      BEFORE the orchestrator session is spawned in priority 7.
+ *
+ * Architect decisions:
+ *   R1: spawnOrchestratorSession is a separate code path (see
+ *       packages/orchestration/src/spawn-orchestrator-session.ts).
+ *   R2: swt_ask_user Pi custom-tool bridge is registered ONLY on the
+ *       orchestrator session.
+ *   R4: detectPhase() from @swt-labs/methodology is the PRIMARY phase
+ *       detection path; the bash script remains the documented fallback
+ *       for keys the TS version does not surface (currently none — the
+ *       TS detector covers all 11 routing keys).
+ *   R5: The QA gate is pure TypeScript — no LLM. It runs before any Pi
+ *       spawn so the routing decision is deterministic + testable.
+ */
+
+import { execSync as nodeExecSync } from 'node:child_process';
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
+
+import { detectPhase, type PhaseDetectResult } from '@swt-labs/methodology';
+import { spawnOrchestratorSession } from '@swt-labs/orchestration';
+import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
+
+import { EXIT, type ExitCode } from '../exit-codes.js';
+import type { CommandHandler, CommandIO } from '../router.js';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Mode + RoutingDecision types
+// ────────────────────────────────────────────────────────────────────────────
+
+export type CookMode =
+  | 'bootstrap'
+  | 'scope'
+  | 'discuss'
+  | 'assumptions'
+  | 'plan'
+  | 'execute'
+  | 'plan-and-execute'
+  | 'verify'
+  | 'uat-remediation'
+  | 'qa-remediation'
+  | 'milestone-uat-recovery'
+  | 'add-phase'
+  | 'insert-phase'
+  | 'remove-phase'
+  | 'archive';
+
+/** Map of CookMode to the `### Mode: …` heading text inside commands/cook.md. */
+export const MODE_HEADING: Readonly<Record<CookMode, string>> = {
+  bootstrap: '### Mode: Bootstrap',
+  scope: '### Mode: Scope',
+  discuss: '### Mode: Discuss',
+  assumptions: '### Mode: Assumptions',
+  plan: '### Mode: Plan',
+  execute: '### Mode: Execute',
+  'plan-and-execute': '### Mode: Plan', // plan+execute reuses Plan mode body
+  verify: '### Mode: Verify',
+  'uat-remediation': '### Mode: UAT Remediation',
+  'qa-remediation': '### Mode: UAT Remediation', // no QA Remediation heading in cook.md today; rolled into UAT Remediation
+  'milestone-uat-recovery': '### Mode: Milestone UAT Recovery',
+  'add-phase': '### Mode: Add Phase',
+  'insert-phase': '### Mode: Insert Phase',
+  'remove-phase': '### Mode: Remove Phase',
+  archive: '### Mode: Archive',
+};
+
+export interface ModeOptions {
+  readonly effort?: 'thorough' | 'balanced' | 'fast' | 'turbo';
+  readonly skipQa: boolean;
+  readonly skipAudit: boolean;
+  readonly yolo: boolean;
+  readonly planTarget?: string; // --plan=NN
+  readonly phaseTarget?: number; // bare integer N
+}
+
+export interface RoutingDecision {
+  readonly mode: CookMode;
+  readonly priority: number;
+  readonly requiresConfirmation: boolean;
+  readonly confirmationQuestion?: string;
+  readonly phaseTarget?: string; // "01"-padded phase number
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// QA gate types — Task 4 (TDD3 §7.5)
+// ────────────────────────────────────────────────────────────────────────────
+
+export type QaReasonLabel =
+  | 'missing_verification_artifact'
+  | 'verification_result_missing'
+  | 'verification_result_unrecognized'
+  | 'qa_gate_rerun_required'
+  | 'qa_gate_output_missing'
+  | 'working_tree_changed'
+  | 'verified_at_commit_mismatch'
+  | 'git_status_failed'
+  | 'git_log_failed'
+  | 'product_commit_unavailable'
+  | 'product_changed_after_verification'
+  | 'freshness_baseline_unavailable';
+
+export type QaGateDecision =
+  | { readonly kind: 'proceed_to_uat' }
+  | { readonly kind: 'run_qa_inline'; readonly reason: QaReasonLabel | string }
+  | { readonly kind: 'init_qa_remediation' }
+  | { readonly kind: 'qa_rerun_required'; readonly attemptCount: number };
+
+export interface QaGateOverrides {
+  readonly qa_gate_known_issues_override?: boolean;
+  readonly qa_gate_deviation_override?: boolean;
+  readonly qa_gate_metadata_only_override?: boolean;
+  readonly qa_gate_process_exception_evidence_missing?: boolean;
+  readonly qa_gate_round_change_evidence_empty?: boolean;
+  readonly qa_gate_round_change_evidence_unavailable?: boolean;
+}
+
+/**
+ * Cook configuration (subset of `.swt-planning/config.json` the cook handler
+ * reads). Tests inject the shape; production reads from disk via
+ * `loadCookConfig`.
+ */
+export interface CookConfig {
+  readonly auto_uat: boolean;
+  readonly agent_max_turns_orchestrator?: number;
+  readonly qa_gate_overrides?: QaGateOverrides;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Pre-parse: ref tag extraction + todo number resolution placeholder
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract a trailing `(ref:XXXXXXXX)` suffix (8 hex chars) from the args.
+ * Returns the stripped args + the extracted hash. If no ref tag is present,
+ * returns the args unchanged + `undefined` hash.
+ */
+export function extractRefTag(args: string): { args: string; refHash: string | undefined } {
+  const refMatch = args.match(/\s*\(ref:([0-9a-f]{8})\)\s*$/i);
+  if (refMatch === null) {
+    return { args, refHash: undefined };
+  }
+  return {
+    args: args.slice(0, refMatch.index).trimEnd(),
+    refHash: refMatch[1]!.toLowerCase(),
+  };
+}
+
+/**
+ * Resolve a bare integer arg to a todo. Stub for Phase 3 — when the
+ * `.swt-planning/.last-list-todos-snapshot.json` exists with `filter=null`,
+ * call `scripts/resolve-todo-item.sh`; otherwise treat the integer as a
+ * phase number.
+ *
+ * This is INTENTIONALLY a stub — the snapshot lifecycle is a Phase 7 swt
+ * todo concern, not a Phase 3 orchestrator concern. The plan documents
+ * the pickup boundary (claim only after confirmation succeeds), but the
+ * todo-pickup integration ships with Plan 07-* when `swt todo` lands.
+ *
+ * For Phase 3, the cook handler treats a bare integer as a phase target
+ * — which is the dominant code path. Tests for the todo branch can be
+ * added when `swt todo` materializes.
+ */
+export function resolveTodoNumber(
+  args: string,
+  _cwd: string,
+): { args: string; phaseTarget?: number; todoSelected?: false } {
+  const trimmed = args.trim();
+  if (!/^[0-9]+$/.test(trimmed)) {
+    return { args };
+  }
+  const n = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(n) || n <= 0) return { args };
+  return { args, phaseTarget: n, todoSelected: false };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Path 1: flag detection
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Inspect the parsed flags for a mode flag. Returns the mode + ModeOptions
+ * when found, otherwise undefined. Flag-detected modes skip the
+ * confirmation gate (flags express explicit intent — TDD3 §7.2).
+ */
+export function detectModeFromFlags(
+  flags: Readonly<Record<string, string | boolean | undefined>>,
+): { mode: CookMode; opts: ModeOptions } | undefined {
+  const skipQa = flags['skip-qa'] === true;
+  const skipAudit = flags['skip-audit'] === true;
+  const yolo = flags['yolo'] === true;
+  const effort = normaliseEffort(flags['effort']);
+  // --plan can be either a boolean (`--plan`) or a string (`--plan 03`,
+  // `--plan=01`). parseArgs gives us a string when present with a value,
+  // boolean when bare — but the global argv defines it as 'string' only
+  // (legacy). When --plan is unset, flags.plan is undefined. When set
+  // bare it lands as '' (rare); when set with NN it's '01' etc.
+  const planFlag = flags['plan'];
+  const planTarget = typeof planFlag === 'string' && planFlag.length > 0 ? planFlag : undefined;
+  const baseOpts: ModeOptions = {
+    skipQa,
+    skipAudit,
+    yolo,
+    ...(effort !== undefined ? { effort } : {}),
+    ...(planTarget !== undefined ? { planTarget } : {}),
+  };
+
+  // Flag priority matches the order in commands/cook.md "Path 1: Flag
+  // detection" (TDD3 §7.2). First match wins.
+  if (planFlag !== undefined) return { mode: 'plan', opts: baseOpts };
+  if (flags['execute'] === true) return { mode: 'execute', opts: baseOpts };
+  if (flags['discuss'] === true) return { mode: 'discuss', opts: baseOpts };
+  if (flags['assumptions'] === true) return { mode: 'assumptions', opts: baseOpts };
+  if (flags['scope'] === true) return { mode: 'scope', opts: baseOpts };
+  if (typeof flags['add'] === 'string') return { mode: 'add-phase', opts: baseOpts };
+  if (typeof flags['insert'] === 'string') return { mode: 'insert-phase', opts: baseOpts };
+  if (typeof flags['remove'] === 'string') return { mode: 'remove-phase', opts: baseOpts };
+  if (flags['verify'] === true) return { mode: 'verify', opts: baseOpts };
+  if (flags['archive'] === true) return { mode: 'archive', opts: baseOpts };
+  return undefined;
+}
+
+function normaliseEffort(
+  raw: string | boolean | undefined,
+): ModeOptions['effort'] | undefined {
+  if (typeof raw !== 'string') return undefined;
+  switch (raw) {
+    case 'thorough':
+    case 'balanced':
+    case 'fast':
+    case 'turbo':
+      return raw;
+    default:
+      return undefined;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Path 2: natural-language intent routing
+// ────────────────────────────────────────────────────────────────────────────
+
+const NL_KEYWORD_TABLE: ReadonlyArray<{
+  readonly pattern: RegExp;
+  readonly mode: CookMode;
+}> = [
+  { pattern: /\b(talk|discuss|explore|think about|what about)\b/i, mode: 'discuss' },
+  { pattern: /\b(assume|assuming|what if|what are you assuming)\b/i, mode: 'assumptions' },
+  { pattern: /\b(plan|scope|break down|decompose|structure)\b/i, mode: 'plan' },
+  { pattern: /\b(build|execute|run|do it|go|make it|ship it)\b/i, mode: 'execute' },
+  { pattern: /\b(verify|test|uat|check my work|acceptance test|walk through)\b/i, mode: 'verify' },
+  { pattern: /\b(add|insert|remove|skip|drop|new phase)\b/i, mode: 'add-phase' },
+  { pattern: /\b(done|ship|archive|wrap up|finish|complete)\b/i, mode: 'archive' },
+];
+
+export function detectModeFromNaturalLanguage(args: string): CookMode | undefined {
+  for (const entry of NL_KEYWORD_TABLE) {
+    if (entry.pattern.test(args)) return entry.mode;
+  }
+  return undefined;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Path 3: state-driven routing (the 11-priority table)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Apply the 11-priority routing table to a `PhaseDetectResult`. Returns the
+ * resolved routing decision (or `undefined` for priority 1, which short-
+ * circuits to "Run swt init first" — surfaced as a separate code path
+ * because no Pi spawn is required).
+ *
+ * Fallback patterns (TDD3 §7.4) are applied here in TS, NOT inside the
+ * mode prompts.
+ */
+export function routeFromPhaseDetect(
+  state: PhaseDetectResult,
+  config: CookConfig,
+): RoutingDecision | { kind: 'init-required' } {
+  // Priority 1 — planning_dir_exists=false → init redirect
+  if (!state.planning_dir_exists) {
+    return { kind: 'init-required' };
+  }
+
+  // Priority 2 — project_exists=false → Bootstrap (gated)
+  if (!state.project_exists) {
+    return {
+      mode: 'bootstrap',
+      priority: 2,
+      requiresConfirmation: true,
+      confirmationQuestion: 'No project defined. Set one up?',
+    };
+  }
+
+  const nextPhase = state.next_phase ?? '';
+
+  // Priority 3 — needs_uat_remediation (auto_uat gates confirmation)
+  if (state.next_phase_state === 'needs_uat_remediation') {
+    return {
+      mode: 'uat-remediation',
+      priority: 3,
+      requiresConfirmation: !config.auto_uat,
+      confirmationQuestion: `Phase ${nextPhase} has unresolved UAT issues. Continue with remediation now?`,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 3.5 — needs_qa_remediation (auto_uat gates confirmation)
+  if (state.next_phase_state === 'needs_qa_remediation') {
+    return {
+      mode: 'qa-remediation',
+      priority: 3.5,
+      requiresConfirmation: !config.auto_uat,
+      confirmationQuestion: `Phase ${nextPhase} has QA failures. Continue with QA remediation?`,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 4 — needs_reverification (auto_uat gates confirmation)
+  if (state.next_phase_state === 'needs_reverification') {
+    return {
+      mode: 'verify',
+      priority: 4,
+      requiresConfirmation: !config.auto_uat,
+      confirmationQuestion: `Phase ${nextPhase} remediation complete. Run re-verification?`,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 5 — milestone_uat_issues=true (mode handles its own confirmation)
+  if (state.milestone_uat_issues) {
+    return {
+      mode: 'milestone-uat-recovery',
+      priority: 5,
+      requiresConfirmation: false,
+    };
+  }
+
+  // Priority 6 — phase_count=0 → Scope (gated)
+  if (state.phase_count === 0 || state.next_phase_state === 'phase_count_zero') {
+    return {
+      mode: 'scope',
+      priority: 6,
+      requiresConfirmation: true,
+      confirmationQuestion: 'Project defined but no phases. Scope the work?',
+    };
+  }
+
+  // Priority 7 — needs_verification → QA gate runs BEFORE entering verify
+  if (state.next_phase_state === 'needs_verification') {
+    return {
+      mode: 'verify',
+      priority: 7,
+      requiresConfirmation: false,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 8 — needs_discussion (gated)
+  if (state.next_phase_state === 'needs_discussion') {
+    // Fallback (TDD3 §7.4): if first_qa_attention_phase + failed,
+    // re-target into QA Remediation rather than discussing unrelated work.
+    if (
+      state.first_qa_attention_phase !== undefined &&
+      state.qa_attention_status === 'failed'
+    ) {
+      return {
+        mode: 'qa-remediation',
+        priority: 8,
+        requiresConfirmation: !config.auto_uat,
+        confirmationQuestion: `Phase ${state.first_qa_attention_phase} has QA failures. Continue with QA remediation?`,
+        phaseTarget: state.first_qa_attention_phase,
+      };
+    }
+    return {
+      mode: 'discuss',
+      priority: 8,
+      requiresConfirmation: true,
+      confirmationQuestion: `Phase ${nextPhase} needs discussion before planning. Start discussion?`,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 9 — needs_plan_and_execute (gated)
+  if (state.next_phase_state === 'needs_plan_and_execute') {
+    if (
+      state.first_qa_attention_phase !== undefined &&
+      state.qa_attention_status === 'failed'
+    ) {
+      return {
+        mode: 'qa-remediation',
+        priority: 9,
+        requiresConfirmation: !config.auto_uat,
+        confirmationQuestion: `Phase ${state.first_qa_attention_phase} has QA failures. Continue with QA remediation?`,
+        phaseTarget: state.first_qa_attention_phase,
+      };
+    }
+    return {
+      mode: 'plan-and-execute',
+      priority: 9,
+      requiresConfirmation: true,
+      confirmationQuestion: `Phase ${nextPhase} needs planning and execution. Start?`,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 10 — needs_execute (gated)
+  if (state.next_phase_state === 'needs_execute') {
+    if (
+      state.first_qa_attention_phase !== undefined &&
+      state.qa_attention_status === 'failed'
+    ) {
+      return {
+        mode: 'qa-remediation',
+        priority: 10,
+        requiresConfirmation: !config.auto_uat,
+        confirmationQuestion: `Phase ${state.first_qa_attention_phase} has QA failures. Continue with QA remediation?`,
+        phaseTarget: state.first_qa_attention_phase,
+      };
+    }
+    return {
+      mode: 'execute',
+      priority: 10,
+      requiresConfirmation: true,
+      confirmationQuestion: `Phase ${nextPhase} is planned. Execute it?`,
+      ...(nextPhase !== '' ? { phaseTarget: nextPhase } : {}),
+    };
+  }
+
+  // Priority 11 — all_done. Honour QA-attention pending fallback first:
+  // re-target to verify of the qa-attention phase rather than archiving.
+  if (state.next_phase_state === 'all_done') {
+    if (
+      state.first_qa_attention_phase !== undefined &&
+      state.qa_attention_status === 'pending'
+    ) {
+      return {
+        mode: 'verify',
+        priority: 11,
+        requiresConfirmation: false,
+        phaseTarget: state.first_qa_attention_phase,
+      };
+    }
+    return {
+      mode: 'archive',
+      priority: 11,
+      requiresConfirmation: true,
+      confirmationQuestion: 'All phases complete. Run audit and archive?',
+    };
+  }
+
+  // Unreachable per the NextPhaseState union — return a defensive Bootstrap
+  // gate so the orchestrator never silently no-ops.
+  return {
+    mode: 'bootstrap',
+    priority: 2,
+    requiresConfirmation: true,
+    confirmationQuestion: 'Project state is ambiguous. Re-bootstrap?',
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// QA gate — Task 4 (TDD3 §7.5)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Evaluate the QA gate state BEFORE entering Verify mode. Pure TypeScript;
+ * no LLM. The 12 `qa_reason` labels each have a routing rule; the 6
+ * override flags can convert a `run_qa_inline` decision into
+ * `proceed_to_uat` (TDD3 §7.5 + Plan 03-02 R5).
+ *
+ * Override flag effects:
+ *   - qa_gate_known_issues_override: skip QA when the only outstanding
+ *     verification issue is the known-issues backlog (operator-judged
+ *     acceptable risk).
+ *   - qa_gate_deviation_override: skip QA when the verification result
+ *     was 'unrecognized' because the verifier wrote a non-standard label.
+ *   - qa_gate_metadata_only_override: skip QA when the only diff is in
+ *     metadata files (CHANGELOG, etc.) — proves no product change.
+ *   - qa_gate_process_exception_evidence_missing: skip QA when freshness
+ *     evidence is missing AND the operator has documented a process
+ *     exception in the round-change evidence file.
+ *   - qa_gate_round_change_evidence_empty: skip QA when the round-change
+ *     evidence file exists but is empty (audit trail intentionally cleared).
+ *   - qa_gate_round_change_evidence_unavailable: skip QA when the
+ *     round-change evidence file cannot be read (operator-side limitation).
+ */
+export function evaluateQaGate(
+  state: PhaseDetectResult,
+  config: CookConfig,
+  attemptCount = 0,
+): QaGateDecision {
+  // Dormant after UAT cutover OR explicit uat_cutover marker → proceed.
+  const qaReasonLower = (state.qa_reason ?? '').toLowerCase();
+  if (qaReasonLower === 'uat_cutover') {
+    return { kind: 'proceed_to_uat' };
+  }
+
+  switch (state.qa_status) {
+    case 'passed':
+    case 'remediated':
+      return { kind: 'proceed_to_uat' };
+    case 'failed':
+      return { kind: 'init_qa_remediation' };
+    case 'remediating':
+      // Defensive — phase-detect should have routed away from priority 7.
+      // Surface as init_qa_remediation so the loop converges on
+      // remediation rather than spinning.
+      return { kind: 'init_qa_remediation' };
+    case 'pending': {
+      const overrides = config.qa_gate_overrides ?? {};
+      // Each override flag converts the run_qa_inline decision into
+      // proceed_to_uat when the matching qa_reason matches its scope.
+      // See TDD3 §7.5 — override scope is intentionally narrow to keep
+      // operator escape hatches auditable.
+      if (overrides.qa_gate_known_issues_override === true) {
+        return { kind: 'proceed_to_uat' };
+      }
+      if (
+        overrides.qa_gate_deviation_override === true &&
+        qaReasonLower === 'verification_result_unrecognized'
+      ) {
+        return { kind: 'proceed_to_uat' };
+      }
+      if (
+        overrides.qa_gate_metadata_only_override === true &&
+        qaReasonLower === 'product_changed_after_verification'
+      ) {
+        return { kind: 'proceed_to_uat' };
+      }
+      if (
+        overrides.qa_gate_process_exception_evidence_missing === true &&
+        qaReasonLower === 'freshness_baseline_unavailable'
+      ) {
+        return { kind: 'proceed_to_uat' };
+      }
+      if (overrides.qa_gate_round_change_evidence_empty === true) {
+        return { kind: 'proceed_to_uat' };
+      }
+      if (overrides.qa_gate_round_change_evidence_unavailable === true) {
+        return { kind: 'proceed_to_uat' };
+      }
+
+      // Bounded retry — qa_rerun_required cycles back to run_qa_inline up
+      // to 2 retries before surfacing OPERATION_FAILED.
+      if (qaReasonLower === 'qa_gate_rerun_required' && attemptCount > 0) {
+        return { kind: 'qa_rerun_required', attemptCount };
+      }
+      return {
+        kind: 'run_qa_inline',
+        reason: state.qa_reason ?? 'qa_gate_output_missing',
+      };
+    }
+    case 'none':
+    default:
+      // qa_status='none' means no QA evidence exists yet — run inline so
+      // the verify path has fresh evidence.
+      return { kind: 'run_qa_inline', reason: 'qa_gate_output_missing' };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Command-body loading + section extraction
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Strip the YAML frontmatter (leading `---\n...\n---\n`) from a markdown
+ * document. Returns the body. If no frontmatter is present, returns the
+ * input unchanged.
+ */
+export function stripFrontmatter(md: string): string {
+  if (!md.startsWith('---\n')) return md;
+  const closeIdx = md.indexOf('\n---\n', 4);
+  if (closeIdx === -1) return md;
+  return md.slice(closeIdx + 5);
+}
+
+/**
+ * Extract a `### Mode: …` section from `commands/cook.md`. The slice runs
+ * from the matching heading to the NEXT `### Mode:` heading (exclusive) or
+ * EOF, whichever comes first.
+ */
+export function extractModeSection(body: string, modeHeading: string): string {
+  const startIdx = body.indexOf(modeHeading);
+  if (startIdx === -1) {
+    throw new Error(
+      `cook: could not find mode section "${modeHeading}" in commands/cook.md`,
+    );
+  }
+  const afterStart = startIdx + modeHeading.length;
+  const nextIdx = body.indexOf('\n### Mode:', afterStart);
+  return nextIdx === -1 ? body.slice(startIdx) : body.slice(startIdx, nextIdx);
+}
+
+/**
+ * Substitute placeholder strings (`${SWT_INSTALL_ROOT}`,
+ * `${SWT_PHASE_DETECT_OUTPUT}`) in the prompt body. Other placeholders
+ * pass through unmodified for the LLM to interpret.
+ */
+export function substitutePlaceholders(
+  body: string,
+  installRoot: string,
+  phaseDetectOutput: string,
+): string {
+  return body
+    .replace(/\$\{SWT_INSTALL_ROOT\}/g, installRoot)
+    .replace(/\$\{SWT_PHASE_DETECT_OUTPUT\}/g, phaseDetectOutput);
+}
+
+/**
+ * Load the cook.md body, strip frontmatter, extract the right mode
+ * section, and substitute placeholders. Returns the prompt that gets
+ * passed into the orchestrator Pi session via spawnOrchestratorSession.
+ */
+export function loadCookModeSection(
+  installRoot: string,
+  mode: CookMode,
+  phaseDetectOutput: string,
+  fsImpl: { readFileSync: typeof readFileSync } = { readFileSync },
+): string {
+  const cookMdPath = resolvePath(installRoot, 'commands', 'cook.md');
+  const raw = fsImpl.readFileSync(cookMdPath, 'utf8');
+  const body = stripFrontmatter(raw);
+  const heading = MODE_HEADING[mode];
+  const section = extractModeSection(body, heading);
+  return substitutePlaceholders(section, installRoot, phaseDetectOutput);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Config loader
+// ────────────────────────────────────────────────────────────────────────────
+
+export function loadCookConfig(
+  cwd: string,
+  fsImpl: { readFileSync: typeof readFileSync; existsSync: typeof existsSync } = {
+    readFileSync,
+    existsSync,
+  },
+): CookConfig {
+  const configPath = resolvePath(cwd, '.swt-planning', 'config.json');
+  if (!fsImpl.existsSync(configPath)) {
+    return { auto_uat: false };
+  }
+  try {
+    const raw = fsImpl.readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const autoUat =
+      typeof parsed['auto_uat'] === 'boolean' ? (parsed['auto_uat'] as boolean) : false;
+    const overrides =
+      typeof parsed['qa_gate_overrides'] === 'object' && parsed['qa_gate_overrides'] !== null
+        ? (parsed['qa_gate_overrides'] as QaGateOverrides)
+        : undefined;
+    const maxTurns =
+      typeof parsed['agent_max_turns'] === 'object' && parsed['agent_max_turns'] !== null
+        ? (parsed['agent_max_turns'] as Record<string, unknown>)['orchestrator']
+        : undefined;
+    return {
+      auto_uat: autoUat,
+      ...(overrides !== undefined ? { qa_gate_overrides: overrides } : {}),
+      ...(typeof maxTurns === 'number' && Number.isFinite(maxTurns)
+        ? { agent_max_turns_orchestrator: maxTurns }
+        : {}),
+    };
+  } catch {
+    return { auto_uat: false };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Top-level handler
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Dependency injection seam for tests. Production callers omit; tests
+ * inject deterministic fakes.
+ */
+export interface CookHandlerDeps {
+  readonly detectPhaseImpl?: typeof detectPhase;
+  readonly askUserImpl?: typeof defaultAskUser;
+  readonly spawnOrchestratorSessionImpl?: typeof spawnOrchestratorSession;
+  readonly execSyncImpl?: typeof nodeExecSync;
+  readonly readFileSyncImpl?: typeof readFileSync;
+  readonly existsSyncImpl?: typeof existsSync;
+}
+
+/**
+ * Build a CookHandler bound to a specific dependency set. The default
+ * `cookHandler` export is the production-wired version; tests use
+ * `makeCookHandler({ ... })` with injected deps.
+ */
+export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
+  const detectPhaseFn = deps.detectPhaseImpl ?? detectPhase;
+  const askUserFn = deps.askUserImpl ?? defaultAskUser;
+  const spawnFn = deps.spawnOrchestratorSessionImpl ?? spawnOrchestratorSession;
+  const execSyncFn = deps.execSyncImpl ?? nodeExecSync;
+  const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
+  const existsSyncFn = deps.existsSyncImpl ?? existsSync;
+
+  return async (parsed, io: CommandIO): Promise<ExitCode> => {
+    // 1. Compose the raw arguments string from positionals.
+    const rawArgs = parsed.positionals.join(' ');
+
+    // 2. Pre-parse: ref tag extraction then todo / phase number resolution.
+    const { args: argsAfterRef, refHash } = extractRefTag(rawArgs);
+    const { args: argsAfterTodo, phaseTarget } = resolveTodoNumber(argsAfterRef, io.cwd);
+
+    // 3. Load config (auto_uat + QA gate overrides + orchestrator maxTurns).
+    const config = loadCookConfig(io.cwd, {
+      readFileSync: readFileSyncFn,
+      existsSync: existsSyncFn,
+    });
+
+    // 4. Path 1 — flag detection.
+    const fromFlags = detectModeFromFlags(parsed.flags);
+    if (fromFlags !== undefined) {
+      const fromFlagsOpts: ModeOptions = {
+        ...fromFlags.opts,
+        ...(phaseTarget !== undefined ? { phaseTarget } : {}),
+      };
+      return runMode(
+        {
+          mode: fromFlags.mode,
+          priority: 0,
+          requiresConfirmation: false,
+        },
+        fromFlagsOpts,
+        io,
+        config,
+        {
+          installRoot: resolveInstallRoot(),
+          sessionId: resolveSessionId(),
+          phaseDetectOutput: '',
+          refHash,
+        },
+        { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+      );
+    }
+
+    // 5. Path 2 — natural-language intent (when args present).
+    if (argsAfterTodo.length > 0 && phaseTarget === undefined) {
+      const nlMode = detectModeFromNaturalLanguage(argsAfterTodo);
+      if (nlMode !== undefined) {
+        // NL routing ALWAYS confirms via askUser before executing
+        // (TDD3 §7.2). The confirmation gate runs BEFORE we load
+        // the cook.md mode section.
+        const response = await askUserFn({
+          question: `Interpreted as ${MODE_HEADING[nlMode]}. Proceed?`,
+          options: [
+            { label: 'Yes', isRecommended: true },
+            { label: 'No' },
+          ],
+        });
+        if (!isAcceptResponse(response)) {
+          return EXIT.SUCCESS;
+        }
+        return runMode(
+          {
+            mode: nlMode,
+            priority: 0,
+            requiresConfirmation: false,
+          },
+          {
+            skipQa: false,
+            skipAudit: false,
+            yolo: false,
+          },
+          io,
+          config,
+          {
+            installRoot: resolveInstallRoot(),
+            sessionId: resolveSessionId(),
+            phaseDetectOutput: '',
+            refHash,
+          },
+          { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+        );
+      }
+    }
+
+    // 6. Path 3 — state detection via detectPhase().
+    const state = await detectPhaseFn({ cwd: io.cwd });
+    const decision = routeFromPhaseDetect(state, config);
+
+    // Priority 1 short-circuit — no Pi spawn.
+    if ('kind' in decision && decision.kind === 'init-required') {
+      io.stderr.write(`swt cook: Run 'swt init' first.\n`);
+      return EXIT.SUCCESS;
+    }
+    const routing = decision as RoutingDecision;
+
+    // Confirmation gate (priorities 2/3/3.5/4/6/8/9/10/11 when applicable).
+    if (routing.requiresConfirmation && routing.confirmationQuestion !== undefined) {
+      const response = await askUserFn({
+        question: routing.confirmationQuestion,
+        options: [
+          { label: 'Yes', isRecommended: true },
+          { label: 'No' },
+        ],
+      });
+      if (!isAcceptResponse(response)) {
+        return EXIT.SUCCESS;
+      }
+    }
+
+    // Priority 4 — prepare-reverification.sh inline before entering Verify.
+    if (routing.priority === 4) {
+      try {
+        execSyncFn(
+          `bash ${JSON.stringify(resolvePath(resolveInstallRoot(), 'scripts', 'prepare-reverification.sh'))} ${JSON.stringify(`.swt-planning/phases/${routing.phaseTarget ?? state.next_phase}`)}`,
+          { cwd: io.cwd, encoding: 'utf8' },
+        );
+      } catch (err) {
+        io.stderr.write(
+          `swt cook: prepare-reverification.sh failed: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
+        return EXIT.RUNTIME_ERROR;
+      }
+    }
+
+    // Priority 7 — QA gate before entering Verify.
+    if (routing.priority === 7) {
+      const qaDecision = evaluateQaGate(state, config);
+      if (qaDecision.kind === 'init_qa_remediation') {
+        // Re-route the orchestrator into QA Remediation mode and skip
+        // the verify spawn.
+        return runMode(
+          {
+            mode: 'qa-remediation',
+            priority: 7,
+            requiresConfirmation: false,
+            ...(routing.phaseTarget !== undefined
+              ? { phaseTarget: routing.phaseTarget }
+              : {}),
+          },
+          { skipQa: false, skipAudit: false, yolo: false },
+          io,
+          config,
+          {
+            installRoot: resolveInstallRoot(),
+            sessionId: resolveSessionId(),
+            phaseDetectOutput: '',
+            refHash,
+          },
+          { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+        );
+      }
+      if (qaDecision.kind === 'qa_rerun_required') {
+        io.stderr.write(
+          `swt cook: QA rerun required after ${qaDecision.attemptCount} attempts. Manual intervention.\n`,
+        );
+        return EXIT.RUNTIME_ERROR;
+      }
+      // run_qa_inline + proceed_to_uat both fall through to the verify
+      // spawn — the inline QA run is the orchestrator's job inside the
+      // verify mode body, not the TS handler's.
+    }
+
+    return runMode(
+      routing,
+      { skipQa: false, skipAudit: false, yolo: false },
+      io,
+      config,
+      {
+        installRoot: resolveInstallRoot(),
+        sessionId: resolveSessionId(),
+        phaseDetectOutput: stringifyPhaseDetect(state),
+        refHash,
+      },
+      { askUserFn, spawnFn, execSyncFn, readFileSyncFn },
+    );
+  };
+}
+
+interface RunModeContext {
+  readonly installRoot: string;
+  readonly sessionId: string;
+  readonly phaseDetectOutput: string;
+  readonly refHash: string | undefined;
+}
+
+interface RunModeDeps {
+  readonly askUserFn: typeof defaultAskUser;
+  readonly spawnFn: typeof spawnOrchestratorSession;
+  readonly execSyncFn: typeof nodeExecSync;
+  readonly readFileSyncFn: typeof readFileSync;
+}
+
+async function runMode(
+  routing: RoutingDecision,
+  opts: ModeOptions,
+  io: CommandIO,
+  config: CookConfig,
+  ctx: RunModeContext,
+  deps: RunModeDeps,
+): Promise<ExitCode> {
+  // Load the cook.md mode section + substitute placeholders.
+  const prompt = loadCookModeSection(
+    ctx.installRoot,
+    routing.mode,
+    ctx.phaseDetectOutput,
+    { readFileSync: deps.readFileSyncFn },
+  );
+
+  const promptWithOpts = appendModeOptions(prompt, opts, routing, ctx.refHash);
+
+  const maxTurns = config.agent_max_turns_orchestrator ?? 100;
+  try {
+    const result = await deps.spawnFn({
+      prompt: promptWithOpts,
+      cwd: io.cwd,
+      sessionId: ctx.sessionId,
+      installRoot: ctx.installRoot,
+      maxTurns,
+    });
+    if (result.status === 'failed' || result.status === 'blocked') {
+      io.stderr.write(
+        `swt cook: orchestrator session returned status="${result.status}".\n`,
+      );
+      return EXIT.RUNTIME_ERROR;
+    }
+    return EXIT.SUCCESS;
+  } catch (err) {
+    io.stderr.write(
+      `swt cook: orchestrator spawn failed: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    return EXIT.RUNTIME_ERROR;
+  }
+}
+
+/**
+ * Append the ModeOptions + phase-target context as a structured trailer
+ * to the prompt body. The orchestrator reads this in its first turn.
+ */
+function appendModeOptions(
+  prompt: string,
+  opts: ModeOptions,
+  routing: RoutingDecision,
+  refHash: string | undefined,
+): string {
+  const trailer: string[] = ['', '---', ''];
+  trailer.push('## Orchestrator-Side Context (Plan 03-02)');
+  trailer.push('');
+  trailer.push(`- routing.mode: ${routing.mode}`);
+  trailer.push(`- routing.priority: ${routing.priority}`);
+  if (routing.phaseTarget !== undefined) {
+    trailer.push(`- routing.phaseTarget: ${routing.phaseTarget}`);
+  }
+  if (opts.effort !== undefined) trailer.push(`- effort: ${opts.effort}`);
+  if (opts.skipQa) trailer.push(`- skip_qa: true`);
+  if (opts.skipAudit) trailer.push(`- skip_audit: true`);
+  if (opts.yolo) trailer.push(`- yolo: true`);
+  if (opts.planTarget !== undefined) trailer.push(`- plan_target: ${opts.planTarget}`);
+  if (opts.phaseTarget !== undefined) trailer.push(`- phase_target: ${opts.phaseTarget}`);
+  if (refHash !== undefined) trailer.push(`- ref_hash: ${refHash}`);
+  return `${prompt}\n${trailer.join('\n')}\n`;
+}
+
+function isAcceptResponse(response: AskUserResponse): boolean {
+  if (response.selectedOption === null) return false;
+  // Match the "Yes" option label — case-insensitive substring + the
+  // canonical 'yes' / 'accept' variants. The recommended-option auto-
+  // accept path always picks the first option (Yes); freeform responses
+  // never satisfy the gate.
+  const lower = response.selectedOption.toLowerCase();
+  return lower === 'yes' || lower.includes('yes') || lower.includes('accept') || lower.includes('proceed') || lower.includes('continue');
+}
+
+/**
+ * Build the `${SWT_PHASE_DETECT_OUTPUT}` placeholder value. Currently emits
+ * a compact JSON stringification keyed by the routing-relevant fields. The
+ * orchestrator body has its own KEY=VALUE rendering when needed
+ * (commands/cook.md renders the same shape).
+ */
+function stringifyPhaseDetect(state: PhaseDetectResult): string {
+  return JSON.stringify(state, null, 2);
+}
+
+function resolveInstallRoot(): string {
+  return process.env['SWT_INSTALL_ROOT'] ?? process.cwd();
+}
+
+function resolveSessionId(): string {
+  // SWT_SESSION_ID is set by applyEnvToProcess() at CLI bootstrap. The
+  // ?? fallback covers the test path where applyEnvToProcess is not
+  // called (tests inject the env directly when needed).
+  return (
+    process.env['SWT_SESSION_ID'] ??
+    `cook-${Math.random().toString(16).slice(2, 10)}-${Date.now().toString(16)}`
+  );
+}
+
+/**
+ * Default `cookHandler` — production-wired. Tests use `makeCookHandler({...})`.
+ */
+export const cookHandler: CommandHandler = makeCookHandler();

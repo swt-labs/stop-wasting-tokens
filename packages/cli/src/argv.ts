@@ -52,6 +52,22 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       cassettes: { type: 'string' },
       output: { type: 'string' },
       milestone: { type: 'string' },
+      // swt cook mode flags — Plan 03-02 T3. The cook handler detects these
+      // and routes to the matching `commands/cook.md` mode section. They
+      // are mutually exclusive in practice — the handler picks the first
+      // match in the order Plan 03-02 documents (`--plan` wins, then
+      // `--execute`, etc.). `--plan` is a string (carries an optional NN
+      // phase target) to keep parity with `--plan=NN`; the cook handler
+      // also accepts a bare `--plan` (no value) as flag-only mode.
+      execute: { type: 'boolean', default: false },
+      discuss: { type: 'boolean', default: false },
+      assumptions: { type: 'boolean', default: false },
+      scope: { type: 'boolean', default: false },
+      add: { type: 'string' },
+      insert: { type: 'string' },
+      remove: { type: 'string' },
+      verify: { type: 'boolean', default: false },
+      archive: { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: true,

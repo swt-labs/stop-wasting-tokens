@@ -6,6 +6,7 @@ import { parseSwtArgv } from './argv.js';
 import { benchHandler } from './commands/bench.js';
 import { cleanupHandler } from './commands/cleanup.js';
 import { configHandler } from './commands/config.js';
+import { cookHandler } from './commands/cook.js';
 import { registerDashboard } from './commands/dashboard.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { doctorHandler } from './commands/doctor.js';
@@ -81,6 +82,17 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     usage: '<name> [--description "..."]',
     description: 'Scaffold .swt-planning/ (PROJECT.md, STATE.md, phases/) for a fresh project',
     handler: initHandler,
+  });
+  // Plan 03-02 (Phase 3): `swt cook` — the orchestrator entry. Auto-routes
+  // via state detection (detectPhase) and the 11-priority routing table
+  // (TDD3 §7.3), or honours --plan/--execute/--discuss/... mode flags
+  // when present (TDD3 §7.2). Replaces the v3.0.0-alpha.3 stub that
+  // returned EXIT.NOT_IMPLEMENTED (REQ-25).
+  registry.register({
+    name: 'cook',
+    usage: '[--plan|--execute|--discuss|--assumptions|--scope|--verify|--archive] [arguments]',
+    description: 'Run the SWT orchestrator (auto-routes via state detection)',
+    handler: cookHandler,
   });
   registry.register({
     name: 'update',
