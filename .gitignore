@@ -99,8 +99,10 @@ TDD3.md
 # scripts/internal/port-from-vbw.sh from
 # a_non_production_files/vibe-better-with-claude-code-vbw-main/scripts/.
 # Not tracked in git; the porter is the single source of truth.
-scripts/
+scripts/*
 # Carve out the porter itself (SWT-owned automation, not VBW asset).
+!scripts/lib/
+scripts/lib/*
 !scripts/internal/
 !scripts/internal/port-from-vbw.sh
 # Carve out SWT-owned scripts (pre-port, not VBW assets).
@@ -114,3 +116,25 @@ scripts/
 !scripts/stub-test-provider-matrix.mjs
 !scripts/stub-test-regression.mjs
 !scripts/verify-install.sh
+# Carve out Phase 02 SWT-side rewrites of §6.3 scripts (Pi-substrate-aware
+# replacements for Claude-Code-specific VBW originals). The porter's cp -n
+# preserves these on re-run, but they need to be tracked so they ship with
+# the npm tarball and arrive in fresh clones.
+!scripts/lib/swt-session-state.sh
+!scripts/lib/swt-team-state.sh
+!scripts/agent-pid-tracker.sh
+!scripts/agent-start.sh
+!scripts/agent-stop.sh
+!scripts/agent-spawn-guard.sh
+!scripts/clean-stale-teams.sh
+!scripts/tmux-watchdog.sh
+!scripts/lease-lock.sh
+!scripts/hook-wrapper.sh
+!scripts/cache-nuke.sh
+!scripts/install-hooks.sh
+!scripts/ensure-plugin-root-link.sh
+!scripts/compaction-instructions.sh
+!scripts/post-compact.sh
+!scripts/lib/swt-cache-key.sh
+!scripts/lib/swt-config-root.sh
+!scripts/lib/swt-target-root.sh
