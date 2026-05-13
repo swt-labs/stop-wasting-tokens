@@ -1,18 +1,33 @@
 name: install-smoke
 
+# This workflow is called as a reusable workflow by `release.yml` after the
+# publish job succeeds (see release.yml's `smoke` job with `needs: publish`).
+# Running it as a downstream job of the same workflow eliminates the race
+# we used to have when both workflows shared a `push: tags` trigger and
+# raced for npm — install-smoke would hit ERR_PNPM_NO_MATCHING_VERSION
+# against a tarball that hadn't been published yet.
+#
+# The `workflow_dispatch` trigger is preserved for ad-hoc verification
+# against an already-published version (e.g. a historical tag whose
+# install-smoke run failed for unrelated reasons).
+
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
+    inputs:
+      version:
+        description: 'Published version to verify (with or without leading v)'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       version:
-        description: 'Published version to verify (without leading v)'
+        description: 'Published version to verify (with or without leading v)'
         required: true
-        default: '0.1.0-alpha'
+        default: '3.0.0-alpha.1'
+        type: string
 
 jobs:
   smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
@@ -41,15 +56,10 @@ jobs:
         id: version
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            REF="${{ github.ref_name }}"
-            VERSION="${REF#v}"
-          else
-            # Triggered by Release workflow — read root package.json
-            VERSION=$(node -e "console.log(require('./package.json').version)")
-          fi
+          # Defensive strip of leading "v" so callers can pass either a tag
+          # name (v3.0.0-alpha.1) or a bare semver (3.0.0-alpha.1).
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Verifying v${VERSION}"
 

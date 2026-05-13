@@ -96,3 +96,15 @@ jobs:
       # via npx so it runs from a fresh sandboxed install.
       - name: Publish to npm via OIDC trusted publishing
         run: npx -y npm@latest publish --tag ${{ steps.dist_tag.outputs.dist_tag }} --provenance --access public
+
+  # Reusable-workflow call. Runs the 6-cell install-smoke matrix
+  # (ubuntu/macos × npm/pnpm/bun) against the version we just published.
+  # `needs: publish` makes the race impossible — install-smoke does not
+  # start until npm has the tarball. Because this is the same workflow
+  # run as `publish`, the called workflow file is the one at the tagged
+  # commit (no default-branch drift, unlike `workflow_run` triggers).
+  smoke:
+    needs: publish
+    uses: ./.github/workflows/install-smoke.yml
+    with:
+      version: ${{ github.ref_name }}
