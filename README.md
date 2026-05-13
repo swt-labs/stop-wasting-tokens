@@ -15,18 +15,13 @@
 ## Quick install
 
 ```bash
-npm install -g stop-wasting-tokens@next       # v3 prerelease (recommended)
-# or: pnpm add -g stop-wasting-tokens@next
-# or: bun  add -g stop-wasting-tokens@next
+npm install -g stop-wasting-tokens@next      
+
 ```
 
 ```bash
-swt --version        # 3.0.0-alpha.3
-swt doctor           # checks Node ≥ 20.18, Pi peer-dep, .swt-planning/ presence
-swt                  # bare `swt` auto-launches the dashboard — SWT's primary surface
+swt                  # launch Stop-Wasting-Tokens Dashboard
 ```
-
-> **Bare `swt` is the entry point.** Typing `swt` (no args) auto-launches the dashboard at `http://127.0.0.1:43911` — SWT's primary surface, where you start projects, watch agents work live, review token + cost spend, and walk through UAT. The terminal-driven `swt vibe` orchestrator and the explicit verbs (`swt qa`, `swt status`, …) remain available for power users + scripts.
 
 v3 ships on npm under dist-tag `next` during prerelease. Detailed install + tutorial: [Install](#install).
 
