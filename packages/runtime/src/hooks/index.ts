@@ -13,3 +13,12 @@ export type {
   HookContext,
   HookDecision,
 } from './types.js';
+
+export {
+  createHookDispatcher,
+  loadHookRegistrationsFromConfig,
+  type HookDispatcher,
+  type HookDispatcherOptions,
+  type HookEventBus,
+  type HookEventBusEntry,
+} from './dispatcher.js';

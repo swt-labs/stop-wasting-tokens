@@ -147,3 +147,23 @@ export { runRpc, RpcModeUnavailableError, type RunRpcOptions } from './rpc-runne
 // `process.env` at CLI bootstrap so every spawned bash script and Pi
 // session inherits the canonical pair (TDD3 §14, REQ-01).
 export { resolveInstallRoot, resolveSessionId, applyEnvToProcess } from './env.js';
+
+// Plan 01-03 (Phase 1): Pi-substrate primitive 3 — `swt:fireHook`. In-process
+// event dispatcher that subscribes to Pi session events and spawns bash
+// handler scripts with the env contract required by scripts/bash-guard.sh
+// and scripts/file-guard.sh (TDD3 §8.2, REQ-01, REQ-06). PreToolUse is
+// advisory in Phase 1 because Pi 0.74 does not expose a pre-execution
+// intercept on createAgentSession — see dispatcher.ts for the TODO(Phase F).
+export {
+  createHookDispatcher,
+  loadHookRegistrationsFromConfig,
+  type HookDispatcher,
+  type HookDispatcherOptions,
+  type HookEventBus,
+  type HookEventBusEntry,
+  type HookEvent,
+  type HookMatcher,
+  type HookRegistration,
+  type HookContext,
+  type HookDecision,
+} from './hooks/index.js';
