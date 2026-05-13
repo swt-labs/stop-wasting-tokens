@@ -29,6 +29,7 @@
  *     `stdin`/`stdout`/`stderr` triple so we don't touch the real terminal.
  */
 
+import { resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import type { AgentRole } from '@swt-labs/shared';
@@ -36,6 +37,11 @@ import { AGENT_ROLES } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
 import { askUser } from '../../src/ask-user/index.js';
+
+// REPO_ROOT — for A.6's resolveSpawnAgentConfig call which reads
+// `<installRoot>/agents/swt-{role}.md` from disk. Climbing
+// packages/runtime/test/ask-user/ up to the repo root.
+const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
 
 /**
  * Stub fetch that fails the dashboard health check. Used by A.1–A.4 so
@@ -185,32 +191,72 @@ describe('@swt-labs/runtime — askUser (Plan 01-05)', () => {
     expect(runtime.askUser.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('A.6 — no spawned role exposes a tool named askUser / swt_ask_user', async () => {
-    // Cross-plan invariant — the orchestrator-only askUser invariant from
-    // plan 01-01 is enforced at the tool-list construction layer in
-    // spawnAgent. This test asserts it from the consumer side: for every
-    // role in AGENT_ROLES (which now includes 'docs' post plan 01-01 T02),
-    // toolsForRole(role, cwd) must NOT contain a tool whose name matches
-    // /ask.?user/i. If a future change leaks askUser into a spawned role's
-    // tool list — even via a typo on an extension factory — this test
-    // fails loudly.
+  it('A.6 — orchestrator-only swt_ask_user invariant — iterates AGENT_ROLES', async () => {
+    // Mechanical regression test for the orchestrator-only `swt_ask_user`
+    // invariant. Iterates `AGENT_ROLES` (which includes 'orchestrator' and
+    // the seven spawnable roles) and asserts:
     //
-    // The 'orchestrator' role is excluded because it is not a *spawnable*
-    // role: spawnAgent throws when asked to spawn it (see
-    // packages/orchestration/src/spawn-agent.ts resolveSpawnAgentConfig).
-    // The orchestrator session is constructed by a separate code path
-    // that DOES register swt_ask_user.
-    const { toolsForRole } = await import('@swt-labs/orchestration');
+    //   (a) for every NON-orchestrator role, `toolsForRole(role, cwd)`
+    //       returns NO tool with a name matching /ask.?user/i AND
+    //       resolveSpawnAgentConfig(role) produces an extensions[] list
+    //       whose registered tool names exclude `swt_ask_user`.
+    //
+    //   (b) for the 'orchestrator' role, the
+    //       resolveOrchestratorSessionConfig(...) extensions[] list DOES
+    //       include a factory that registers a tool named `swt_ask_user`.
+    //
+    // Plan 03-02 T2 (R1): The orchestrator session is constructed by a
+    // separate code path (`spawnOrchestratorSession` in
+    // @swt-labs/orchestration), and that code path is the SOLE wirer of
+    // `buildSwtAskUserExtension()`. A future change that leaks the
+    // extension into a spawned role — or removes it from the orchestrator
+    // — fails this test loudly.
+    const { toolsForRole, resolveSpawnAgentConfig, resolveOrchestratorSessionConfig } =
+      await import('@swt-labs/orchestration');
     const ASKUSER_RE = /ask.?user/i;
     const cwd = process.cwd();
-    const spawnableRoles: AgentRole[] = AGENT_ROLES.filter((r) => r !== 'orchestrator');
-    expect(spawnableRoles.length).toBeGreaterThan(0);
-    for (const role of spawnableRoles) {
-      // SDLCRole excludes 'orchestrator'; we filtered above so the cast is
-      // safe.
+    // installRoot resolves `agents/swt-{role}.md` from disk; the repo root
+    // is the canonical location for those files.
+    const installRoot = REPO_ROOT;
+
+    expect(AGENT_ROLES.length).toBeGreaterThan(0);
+
+    for (const role of AGENT_ROLES) {
+      if (role === 'orchestrator') {
+        // (b) Orchestrator path — assert swt_ask_user IS registered.
+        const config = resolveOrchestratorSessionConfig({
+          prompt: 'test orchestrator prompt body',
+          cwd: '/tmp/swt-askuser-invariant-test',
+          sessionId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+          installRoot,
+        });
+        // Run the askUser extension factory against a fake Pi and capture
+        // the registered tool names. swt_ask_user MUST be present.
+        const registeredNames: string[] = [];
+        const fakePi = {
+          registerTool: (def: { name: string }) => {
+            registeredNames.push(def.name);
+          },
+          on: () => undefined,
+          appendEntry: () => undefined,
+        };
+        for (const ext of config.extensions) {
+          ext.factory(fakePi as never);
+        }
+        const askUserMatches = registeredNames.filter((n) => ASKUSER_RE.test(n));
+        expect(
+          askUserMatches,
+          `orchestrator session should register exactly one askUser tool`,
+        ).toEqual(['swt_ask_user']);
+        // Also: the non-orchestrator role-router does not include orchestrator.
+        continue;
+      }
+
+      // (a) Non-orchestrator (spawnable) role path. Two checks:
+      //   (a1) The role-router's tool list excludes any askUser tool.
+      //   (a2) `resolveSpawnAgentConfig(role)` produces an extensions[]
+      //        list whose registered tool names exclude swt_ask_user.
       const tools = toolsForRole(role as Exclude<AgentRole, 'orchestrator'>, cwd);
-      // Tool definitions from Pi expose a `name: string` field. Defensive
-      // narrowing in case the underlying shape evolves.
       const leakedTools = tools
         .map((t: unknown) =>
           t && typeof t === 'object' && 'name' in t && typeof (t as { name?: unknown }).name === 'string'
@@ -219,6 +265,32 @@ describe('@swt-labs/runtime — askUser (Plan 01-05)', () => {
         )
         .filter((name) => ASKUSER_RE.test(name));
       expect(leakedTools, `role "${role}" should not expose any askUser tool`).toEqual([]);
+
+      // (a2) — drive the role's extensions through a fake Pi and assert
+      // none of them register swt_ask_user.
+      const spawnConfig = resolveSpawnAgentConfig({
+        role,
+        prompt: 'test spawned-role prompt body',
+        cwd,
+        sessionId: 'cafebabe-0000-0000-0000-000000000000',
+        installRoot,
+      });
+      const spawnRegisteredNames: string[] = [];
+      const fakePi = {
+        registerTool: (def: { name: string }) => {
+          spawnRegisteredNames.push(def.name);
+        },
+        on: () => undefined,
+        appendEntry: () => undefined,
+      };
+      for (const ext of spawnConfig.extensions) {
+        ext.factory(fakePi as never);
+      }
+      const spawnAskUserMatches = spawnRegisteredNames.filter((n) => ASKUSER_RE.test(n));
+      expect(
+        spawnAskUserMatches,
+        `spawned role "${role}" must not register an askUser tool`,
+      ).toEqual([]);
     }
   });
 });

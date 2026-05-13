@@ -66,6 +66,24 @@ export {
   type SpawnAgentExtension,
 } from './spawn-agent.js';
 
+// Plan 03-02 T2 (Phase 3, R1): `swt:spawnOrchestratorSession` — the
+// dedicated code path that constructs an orchestrator Pi session.
+// SEPARATE from `spawnAgent` (which keeps its `role === 'orchestrator'`
+// guard intentionally; see spawn-agent.ts head comment). This function is
+// the ONLY caller of `buildSwtAskUserExtension()` — the orchestrator-only
+// `swt_ask_user` invariant is enforced because no other code path wires
+// the extension, and the mechanical regression test in
+// `packages/runtime/test/ask-user/ask-user.test.ts` (A.6) asserts the
+// invariant from the consumer side for every AgentRole.
+export {
+  spawnOrchestratorSession,
+  resolveOrchestratorSessionConfig,
+  type SpawnOrchestratorSessionOptions,
+  type SpawnOrchestratorSessionConfig,
+  type SpawnOrchestratorSessionFactory,
+  type OrchestratorExtension,
+} from './spawn-orchestrator-session.js';
+
 // PR-19 (M2): TPAC aggregator. Per TDD2 §8.1. Reduces a MeterSnapshot
 // into a milestone-scoped TpacReport for `swt bench` (PR-21) emit + the
 // dashboard Milestones panel + the M4 PR-32 −40% target check.

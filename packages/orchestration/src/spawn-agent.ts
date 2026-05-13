@@ -336,9 +336,11 @@ export function resolveSpawnAgentConfig(
   //
   // Per-role custom tools are owned by the extensions[] factories below
   // — they register `swt_report_result` (via buildResultProtocolExtension)
-  // but NOT askUser. The orchestrator session is a separate code path
-  // (plan 01-05) that adds the swt_ask_user custom tool to its own
-  // session config.
+  // but NOT askUser. The orchestrator session lives in a separate code
+  // path: see `./spawn-orchestrator-session.ts` (plan 03-02 T2, R1). That
+  // file is the ONLY place that wires `buildSwtAskUserExtension()`; the
+  // guard at the top of `resolveSpawnAgentConfig` (role === 'orchestrator'
+  // throws) keeps `spawnAgent` from accidentally taking over its job.
   const transcriptPath = resolve(
     opts.cwd,
     '.swt-planning',
