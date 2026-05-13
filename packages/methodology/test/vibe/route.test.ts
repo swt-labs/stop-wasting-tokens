@@ -63,13 +63,13 @@ function baseState(overrides: Partial<PhaseDetectResult> = {}): PhaseDetectResul
 }
 
 describe('routeFromState — priority table', () => {
-  it('priority 1: planning_dir_exists=false → init-redirect', () => {
+  it('priority 1: planning_dir_exists=false → bootstrap (no intermediate init step)', () => {
     const r = routeFromState(baseState({ planning_dir_exists: false }));
-    expect(r.kind).toBe('init-redirect');
-    expect(r.requires_confirmation).toBe(false);
+    expect(r.kind).toBe('bootstrap');
+    expect(r.requires_confirmation).toBe(true);
   });
 
-  it('priority 2: project_exists=false → bootstrap', () => {
+  it('priority 1: project_exists=false → bootstrap', () => {
     const r = routeFromState(baseState({ project_exists: false }));
     expect(r.kind).toBe('bootstrap');
   });

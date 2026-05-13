@@ -10,7 +10,6 @@ export interface StubSpec {
 }
 
 const STUB_SPECS: readonly StubSpec[] = [
-  { kind: 'init-redirect', roadmap_pointer: 'Phase 9 / Plan 03 (Init redirect helper)' },
   { kind: 'bootstrap', roadmap_pointer: 'Phase 9 / Plan 03 (Bootstrap mode)' },
   { kind: 'scope', roadmap_pointer: 'Phase 9 / Plan 03 (Scope mode)' },
   { kind: 'discuss', roadmap_pointer: 'Phase 9 / Plan 03 (Discussion engine)' },

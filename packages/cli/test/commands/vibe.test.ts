@@ -8,22 +8,17 @@ import { vibeHandler } from '../../src/commands/vibe.js';
 import { StringStream } from '../_helpers.js';
 
 /**
- * PR-01b removed `vibe.ts`'s direct imports of CodexAgentSpawner /
- * ClaudeCodeAgentSpawner / OllamaAgentSpawner. The 3 tests that exercised
- * those backend-switch paths (`execute path runs end-to-end without
- * NotImplementedError when spawner is wired`, `claude-code dispatch...`,
- * `ollama dispatch...`) were stale after PR-01b and have been removed in
- * PR-04 as part of finishing the entry-gate cleanup.
+ * v3.0.0-alpha.4 collapsed the old `init-redirect` route into `bootstrap`,
+ * so an empty cwd no longer dead-ends with USAGE_ERROR — it flows on to the
+ * spawner probe (the next early-exit), then into the bootstrap handler.
+ * This test pins the new behavior: the route banner is `bootstrap`, and
+ * without a SpawnerEnvironment wired the handler returns RUNTIME_ERROR
+ * with the spawner-missing diagnostic.
  *
- * The remaining test (`returns USAGE_ERROR when no .swt-planning exists`)
- * exercises an early-exit path before any spawning happens — still valid
- * behavior after the SpawnerEnvironment refactor.
- *
- * End-to-end vibe coverage will be rebuilt in M2 PR-15 (`swt vibe`
- * end-to-end with the Pi backend) — tracked via the M2 plan, not as a
- * known-issue carry-forward.
+ * End-to-end vibe coverage (spawnerEnv wired, discussion engine reached)
+ * is M2 PR-15 / live-Pi territory — tracked separately.
  */
-describe('vibeHandler — init-redirect path', () => {
+describe('vibeHandler — bootstrap route on empty cwd', () => {
   let tempCwd: string;
 
   beforeEach(() => {
@@ -34,14 +29,15 @@ describe('vibeHandler — init-redirect path', () => {
     rmSync(tempCwd, { recursive: true, force: true });
   });
 
-  it('returns USAGE_ERROR when no .swt-planning exists (init-redirect path)', async () => {
+  it('routes to bootstrap and exits RUNTIME_ERROR without a SpawnerEnvironment wired', async () => {
     const stdout = new StringStream();
     const stderr = new StringStream();
     const exit = await vibeHandler(
       { verb: 'vibe', positionals: [], flags: {} },
       { cwd: tempCwd, stdout, stderr },
     );
-    expect(exit).toBe(1);
-    expect(stderr.text()).toContain('No SWT project here');
+    expect(stdout.text()).toContain('◆ Route: bootstrap');
+    expect(exit).toBe(3); // EXIT.RUNTIME_ERROR
+    expect(stderr.text()).toContain('no SpawnerEnvironment');
   });
 });

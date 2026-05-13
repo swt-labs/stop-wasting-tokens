@@ -49,7 +49,6 @@ describe('buildStubRegistry', () => {
   const registry = buildStubRegistry();
 
   it.each<VibeRoute['kind']>([
-    'init-redirect',
     'bootstrap',
     'scope',
     'discuss',

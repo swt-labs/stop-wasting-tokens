@@ -56,13 +56,6 @@ export const vibeHandler: CommandHandler = async (parsed, io: CommandIO): Promis
 
   io.stdout.write(formatRouteBanner(route));
 
-  if (route.kind === 'init-redirect') {
-    io.stderr.write(
-      'No SWT project here. Run `swt init` to bootstrap (.swt-planning/ is missing).\n',
-    );
-    return EXIT.USAGE_ERROR;
-  }
-
   const isInteractive = Boolean((process.stdin as unknown as { isTTY?: boolean }).isTTY);
   const prompter = isInteractive && args.yolo !== true ? new ReadlinePrompter() : undefined;
 

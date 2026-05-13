@@ -32,7 +32,6 @@ export interface VibeRouteBase {
 }
 
 export type VibeRoute =
-  | (VibeRouteBase & { kind: 'init-redirect' })
   | (VibeRouteBase & { kind: 'bootstrap' })
   | (VibeRouteBase & { kind: 'scope' })
   | (VibeRouteBase & { kind: 'discuss' })
@@ -55,12 +54,12 @@ export type VibeRoute =
  * all_done QA-attention fallback and the earlier-work QA-attention fallback.
  */
 export function routeFromState(state: PhaseDetectResult, _args: RouteArgs = {}): VibeRoute {
-  // Priority 1
-  if (!state.planning_dir_exists) {
-    return { kind: 'init-redirect', requires_confirmation: false };
-  }
-  // Priority 2
-  if (!state.project_exists) {
+  // Priority 1 — bootstrap covers both "no .swt-planning/ yet" and
+  // "planning dir exists but PROJECT.md is missing". The bootstrap handler
+  // is filesystem-only (no spawner needed) and writeAtomically auto-creates
+  // any missing parent dirs, so a single route handles the empty-cwd case
+  // end-to-end without an intermediate `swt init` redirect.
+  if (!state.planning_dir_exists || !state.project_exists) {
     return { kind: 'bootstrap', requires_confirmation: true };
   }
   // Priority 3 — UAT remediation
