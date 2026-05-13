@@ -15,6 +15,8 @@ import { registerArtifactRoute } from './routes/artifact.js';
 import { registerBudgetRoute } from './routes/budget.js';
 import { registerCacheHitsRoute } from './routes/cache-hits.js';
 import { registerCommandRoute } from './routes/command.js';
+import { registerCookControlRoute } from './routes/cook-control.js';
+import { registerCookStartRoute } from './routes/cook-start.js';
 import { registerCommandsRoute } from './routes/commands.js';
 import { registerConfigRoute } from './routes/config.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
@@ -226,6 +228,13 @@ export function createApp(
     () => snapshotter?.current() ?? null,
   );
   registerCommandRoute(app, cwd);
+  // Plan 04-02 T3 — REQ-17 cook control surface. Cook is intentionally NOT
+  // routed through /api/command's allowlist: it spawns a long-lived agent
+  // loop with its own session lifecycle, so it gets its own
+  // POST /api/cook/start (detached spawn) + POST /api/cook/:sessionId/control
+  // (signal-file via writePendingSignal).
+  registerCookStartRoute(app, { projectRoot: cwd });
+  registerCookControlRoute(app, { projectRoot: cwd });
   // v2.0 Phase 2: vibe session registry + routes. Disk-backed events JSONL
   // lives under {projectRoot}/.swt-planning/.vibe-sessions/. Falls back to
   // {cwd}/.swt-planning/ when no projectRoot is resolved (greenfield) so
