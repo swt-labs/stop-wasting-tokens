@@ -22,12 +22,17 @@
  *         through dispatch exactly once.
  */
 
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SwtSession } from '@swt-labs/runtime';
 import type { PiExtensionAPI, PiToolDefinition } from '@swt-labs/runtime';
 
 import {
+  readProviderOverlay,
   resolveOrchestratorSessionConfig,
   resolveSpawnAgentConfig,
   spawnOrchestratorSession,
@@ -171,6 +176,92 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
   it("C.9 — maxTurns defaults to 100 (orchestrator's default in config/defaults.json)", () => {
     const config = resolveOrchestratorSessionConfig(baseOpts());
     expect(config.maxTurns).toBe(100);
+  });
+
+  /**
+   * Plan 01-01 T3 — per-provider overlay append on the orchestrator path
+   * (G-R1 symmetric wiring).
+   *
+   * Two assertions parallel to spawn-agent.test.ts (T2):
+   *   (O.i)  overlay-on appends body — when `provider` is supplied AND
+   *          `<installRoot>/provider_overlays/orchestrator-<provider>.md`
+   *          exists, the resolved `systemPrompt` ends with
+   *          `\n\n---\n\n<body>`, prefix is `opts.prompt` verbatim.
+   *   (O.ii) overlay-off byte-identical — when `provider` is undefined
+   *          OR no overlay file exists, `systemPrompt === opts.prompt`.
+   *
+   * Tests use a per-test tmp installRoot to avoid leaking on-disk state
+   * from the real repo (Phase 1 does NOT author an orchestrator overlay
+   * — the wiring is symmetric so future phases can drop one in).
+   */
+  describe('per-provider overlay append on orchestrator path (Plan 01-01 T3 / G-R1)', () => {
+    function makeTmpInstallRoot(): string {
+      return mkdtempSync(join(tmpdir(), 'swt-orch-overlay-'));
+    }
+
+    function writeOverlay(root: string, role: string, provider: string, body: string): void {
+      const overlaysDir = resolve(root, 'provider_overlays');
+      mkdirSync(overlaysDir, { recursive: true });
+      writeFileSync(resolve(overlaysDir, `${role}-${provider}.md`), body, 'utf8');
+    }
+
+    it('(O.i) overlay-on appends `\\n\\n---\\n\\n<body>` after opts.prompt verbatim', () => {
+      const PROMPT = '### Mode: Bootstrap\n\nDo the orchestrator thing.';
+      const OVERLAY_BODY = '## OPENAI ORCH OVERLAY\nmarker-99';
+      const root = makeTmpInstallRoot();
+      writeOverlay(root, 'orchestrator', 'openai', OVERLAY_BODY);
+
+      const config = resolveOrchestratorSessionConfig(
+        baseOpts({ prompt: PROMPT, installRoot: root, provider: 'openai' }),
+      );
+
+      const expectedSuffix = `\n\n---\n\n${OVERLAY_BODY.trim()}`;
+      expect(config.systemPrompt.endsWith(expectedSuffix)).toBe(true);
+      expect(config.systemPrompt.startsWith(PROMPT)).toBe(true);
+      expect(config.systemPrompt).toBe(`${PROMPT}${expectedSuffix}`);
+    });
+
+    it('(O.ii-a) overlay-off byte-identical — provider undefined', () => {
+      const PROMPT = '### Mode: Bootstrap\n\nDo the orchestrator thing.';
+      const root = makeTmpInstallRoot();
+      // NO overlay file written.
+
+      const config = resolveOrchestratorSessionConfig(
+        baseOpts({ prompt: PROMPT, installRoot: root /* no provider */ }),
+      );
+      expect(config.systemPrompt).toBe(PROMPT);
+    });
+
+    it('(O.ii-b) overlay-off byte-identical — provider supplied but no overlay file', () => {
+      const PROMPT = '### Mode: Plan\n\nBuild the plan.';
+      const root = makeTmpInstallRoot();
+      // provider supplied, but `provider_overlays/orchestrator-openai.md`
+      // intentionally NOT written — every provider runs with this shape
+      // by default in Phase 1 (Phase 1 does not author the orchestrator
+      // overlay file).
+
+      const config = resolveOrchestratorSessionConfig(
+        baseOpts({ prompt: PROMPT, installRoot: root, provider: 'openai' }),
+      );
+      expect(config.systemPrompt).toBe(PROMPT);
+
+      // Sanity — confirm the resolver agrees the overlay is absent.
+      expect(readProviderOverlay(root, 'orchestrator', 'openai')).toBeUndefined();
+    });
+
+    it('(O.ii-c) overlay-off byte-identical when an UNRELATED overlay file exists', () => {
+      // A `dev-openai.md` overlay must NOT bleed into the orchestrator
+      // spawn — the resolver keys off the literal role string, not a
+      // role family.
+      const PROMPT = '### Mode: Bootstrap\n\nDo it.';
+      const root = makeTmpInstallRoot();
+      writeOverlay(root, 'dev', 'openai', 'dev-only-body');
+
+      const config = resolveOrchestratorSessionConfig(
+        baseOpts({ prompt: PROMPT, installRoot: root, provider: 'openai' }),
+      );
+      expect(config.systemPrompt).toBe(PROMPT);
+    });
   });
 
   it('C.10 — askUserImpl test seam threads through to the askUser extension', async () => {

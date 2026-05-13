@@ -76,6 +76,7 @@ import type { TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
 import { createCodingTools } from '@swt-labs/runtime';
+import { readProviderOverlay } from './provider-overlay.js';
 import type { AgentToolList } from './role-router.js';
 
 /**
@@ -147,6 +148,20 @@ export interface SpawnOrchestratorSessionOptions {
   readonly sessionId: string;
   readonly installRoot: string;
   readonly maxTurns?: number;
+  /**
+   * Optional provider id (e.g., `'openai'`, `'anthropic'`,
+   * `'openrouter/anthropic/claude-...'`). When supplied AND
+   * `<installRoot>/provider_overlays/orchestrator-<provider>.md` exists,
+   * its body is appended to the resolved orchestrator system prompt with
+   * `\n\n---\n\n` separator (R1 — methodology contract first, overlay
+   * is execution-style refinement). When `undefined` or when no overlay
+   * file exists, behavior is byte-identical to pre-Phase-1 (R4 vendor-
+   * neutrality preservation). G-R1 symmetric wiring — Phase 1 does NOT
+   * author the orchestrator overlay file; the plumbing is symmetric so
+   * future phases can drop in `orchestrator-<provider>.md` without code
+   * change.
+   */
+  readonly provider?: string;
   readonly taskId?: string;
   readonly sessionFactory?: SpawnOrchestratorSessionFactory;
   readonly hookRegistrations?: ReadonlyArray<HookRegistration>;
@@ -210,13 +225,24 @@ export function resolveOrchestratorSessionConfig(
 
   const taskId = opts.taskId ?? `orchestrator-${opts.sessionId.slice(0, 8)}`;
 
+  // Phase G / Phase 1 / G-R1 — symmetric overlay append for the
+  // orchestrator path. Role key is `'orchestrator'` (i.e., the resolver
+  // looks for `<installRoot>/provider_overlays/orchestrator-<provider>.md`).
+  // No-op when `opts.provider` is undefined OR the overlay file is absent
+  // (R4 vendor-neutrality). Phase 1 does NOT author an orchestrator
+  // overlay — the wiring is symmetric so future phases can drop one in
+  // without code change.
+  const overlay = readProviderOverlay(opts.installRoot, 'orchestrator', opts.provider);
+  const finalSystemPrompt =
+    overlay !== undefined ? `${opts.prompt}\n\n---\n\n${overlay}` : opts.prompt;
+
   return {
     role: 'orchestrator' as const,
     cwd: opts.cwd,
     ephemeral: true,
     enableResultProtocol: true,
     taskId,
-    systemPrompt: opts.prompt,
+    systemPrompt: finalSystemPrompt,
     tools,
     extensions,
     transcriptPath,
