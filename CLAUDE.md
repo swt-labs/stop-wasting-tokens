@@ -5,7 +5,7 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** _(none yet)_
+**Last shipped:** 01-v3 — SWT v3 — Pi-Native Coding Harness (2026-05-13, 6 phases, 12 tasks)
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## VBW Rules
