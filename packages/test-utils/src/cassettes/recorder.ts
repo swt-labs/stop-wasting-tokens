@@ -239,13 +239,20 @@ export async function record(opts: RecordOptions): Promise<void> {
     appendFileSync(opts.outputPath, JSON.stringify(interaction) + '\n');
   };
 
-  const interceptor: Dispatcher.DispatcherComposeInterceptor = (dispatch) => {
+  // Forward through the supplied `inner` dispatcher rather than the
+  // composed dispatch chain — this lets callers stack additional
+  // dispatchers underneath the recorder (e.g., a redirect dispatcher
+  // for fixture-based recordings) and still see all outbound traffic
+  // route through that bottom layer.
+  const innerDispatch = inner.dispatch.bind(inner);
+
+  const interceptor: Dispatcher.DispatcherComposeInterceptor = (_dispatch) => {
     return function recordingDispatch(dispatchOpts, handler) {
       const url = fullUrl(dispatchOpts);
       const inScope = captureAll || isProviderUrl(url);
 
       if (!inScope) {
-        return dispatch(dispatchOpts, handler);
+        return innerDispatch(dispatchOpts, handler);
       }
 
       const method = dispatchOpts.method;
@@ -333,7 +340,7 @@ export async function record(opts: RecordOptions): Promise<void> {
             ...dispatchOpts,
             body: buf.length === 0 ? null : buf,
           };
-          dispatch(forwardedOpts, wrappedHandler);
+          innerDispatch(forwardedOpts, wrappedHandler);
         },
         (err) => {
           handler.onError?.(err instanceof Error ? err : new Error(String(err)));

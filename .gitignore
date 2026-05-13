@@ -112,6 +112,8 @@ scripts/lib/*
 !scripts/docs-gen.ts
 !scripts/public-benchmark.mjs
 !scripts/record-cassette.mjs
+!scripts/record-cassette-scenarios/
+!scripts/record-cassette-scenarios/*.mjs
 !scripts/stub-test-chaos.mjs
 !scripts/stub-test-provider-matrix.mjs
 !scripts/stub-test-regression.mjs
