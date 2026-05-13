@@ -51,6 +51,14 @@ Read or update SWT configuration.
 
 **Notes:** Read or update SWT configuration. `swt config show` prints the resolved config; `swt config get <key>` returns a single value; `swt config set <key> <value>` mutates `.swt-planning/config.json`. Validation runs through `ConfigSchema`, so invalid values are rejected with a clear error.
 
+### `swt cook`
+
+Run the SWT orchestrator (auto-routes via state detection).
+
+**Usage:** `swt cook [--plan|--execute|--discuss|--assumptions|--scope|--verify|--archive] [arguments]`
+
+**Notes:** _(no override guidance documented)_
+
 ### `swt dashboard`
 
 Boot the localhost dashboard daemon and open it in the default browser.
