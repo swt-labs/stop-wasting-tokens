@@ -26,3 +26,7 @@ export * from './thinking-level.js';
 export * from './agent-spec.js';
 export * from './worktree.js';
 export * from './dag.js';
+// Plan 01-05 (Phase 1) — swt:askUser IPC payload types (prompt.request /
+// prompt.response). The canonical Zod union still lives in schemas/events.ts;
+// this module surfaces the two new variants by name for ergonomic imports.
+export * from './snapshot-event.js';

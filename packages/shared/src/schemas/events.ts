@@ -89,6 +89,40 @@ const AgentPromptTimeoutEvent = z.object({
   expired_at: TimestampSchema,
 });
 
+// Plan 01-05: askUser dashboard-mediated primitive. The orchestrator publishes
+// `prompt.request` onto the dashboard SSE bus; the dashboard renders a card
+// (PromptCard) per references/ask-user-question.md; user clicks; dashboard POSTs
+// to /api/prompts/:id/respond which publishes the `prompt.response` mirror.
+// Distinct from `agent.prompt` (Phase 2 vibe-session conversational prompt) —
+// askUser is the Pi-substrate primitive that's orchestrator-only at the tool
+// registration layer. See research §5 for the IPC contract; Phase D swaps the
+// transport to Unix-socket without changing this shape.
+const PromptRequestOptionSchema = z.object({
+  label: z.string().min(1),
+  isRecommended: z.boolean().optional(),
+});
+
+const PromptRequestEvent = z.object({
+  type: z.literal('prompt.request'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  prompt_id: z.string().min(1),
+  header: z.string().optional(),
+  question: z.string().min(1),
+  options: z.array(PromptRequestOptionSchema).min(1),
+  multiSelect: z.boolean().optional(),
+  preview: z.string().nullable().optional(),
+});
+
+const PromptResponseEvent = z.object({
+  type: z.literal('prompt.response'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  prompt_id: z.string().min(1),
+  selectedOption: z.string().nullable(),
+  freeform: z.string().nullable(),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -98,12 +132,24 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   ErrorEvent,
   AgentPromptEvent,
   AgentPromptTimeoutEvent,
+  PromptRequestEvent,
+  PromptResponseEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
 export type AgentPromptTimeoutEvent = z.infer<typeof AgentPromptTimeoutEvent>;
 export type AgentPromptOption = z.infer<typeof AgentPromptOptionSchema>;
 export type AgentPromptContext = z.infer<typeof AgentPromptContextSchema>;
+export type PromptRequestEvent = z.infer<typeof PromptRequestEvent>;
+export type PromptResponseEvent = z.infer<typeof PromptResponseEvent>;
+export type PromptRequestOption = z.infer<typeof PromptRequestOptionSchema>;
+// Re-exported Zod schemas so route handlers can validate POST bodies that
+// project the same shape as the SSE event payload.
+export {
+  PromptRequestEvent as PromptRequestEventSchema,
+  PromptResponseEvent as PromptResponseEventSchema,
+  PromptRequestOptionSchema,
+};
 
 export const SNAPSHOT_EVENT_TYPES = [
   'snapshot.replace',
@@ -114,4 +160,6 @@ export const SNAPSHOT_EVENT_TYPES = [
   'error',
   'agent.prompt',
   'agent.prompt.timeout',
+  'prompt.request',
+  'prompt.response',
 ] as const;
