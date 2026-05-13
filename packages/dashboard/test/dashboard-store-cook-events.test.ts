@@ -1,0 +1,401 @@
+import { createRoot } from 'solid-js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const fetchSnapshotMock = vi.fn();
+const postInitMock = vi.fn();
+const postCommandMock = vi.fn();
+const postUatCheckpointMock = vi.fn();
+const fetchArtifactRenderedMock = vi.fn();
+const postVibeStartMock = vi.fn();
+const postVibeReplyMock = vi.fn();
+const openSseConnectionMock = vi.fn();
+const fetchConfigMock = vi.fn();
+const fetchDoctorMock = vi.fn();
+const fetchDetectPhaseMock = vi.fn();
+const fetchUpdateMock = vi.fn();
+const fetchCommandsMock = vi.fn();
+const postConfigMock = vi.fn();
+const postUpdateApplyMock = vi.fn();
+
+vi.mock('../src/client/services/api.js', () => ({
+  fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
+  postInit: (...args: unknown[]) => postInitMock(...args),
+  postCommand: (...args: unknown[]) => postCommandMock(...args),
+  postUatCheckpoint: (...args: unknown[]) => postUatCheckpointMock(...args),
+  fetchArtifactRendered: (...args: unknown[]) => fetchArtifactRenderedMock(...args),
+  postVibeStart: (...args: unknown[]) => postVibeStartMock(...args),
+  postVibeReply: (...args: unknown[]) => postVibeReplyMock(...args),
+  fetchConfig: (...args: unknown[]) => fetchConfigMock(...args),
+  fetchDoctor: (...args: unknown[]) => fetchDoctorMock(...args),
+  fetchDetectPhase: (...args: unknown[]) => fetchDetectPhaseMock(...args),
+  fetchUpdate: (...args: unknown[]) => fetchUpdateMock(...args),
+  fetchCommands: (...args: unknown[]) => fetchCommandsMock(...args),
+  postConfig: (...args: unknown[]) => postConfigMock(...args),
+  postUpdateApply: (...args: unknown[]) => postUpdateApplyMock(...args),
+}));
+
+vi.mock('../src/client/services/sse.js', () => ({
+  openSseConnection: (...args: unknown[]) => openSseConnectionMock(...args),
+}));
+
+import { createDashboardStore } from '../src/client/state/dashboard-store.js';
+
+beforeEach(() => {
+  openSseConnectionMock.mockReturnValue({ close: () => {} });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe('cook event reducer', () => {
+  it('cook.priority_decision sets activeSessionId', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        priority: 5,
+        mode: 'execute',
+      });
+      expect(state.activeSessionId).toBe('sess-1');
+      dispose();
+    });
+  });
+
+  it('cook.agent_spawn creates a running row keyed by sub_session_id', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      const row = state.activeAgents.get('sub-X');
+      expect(row).toBeDefined();
+      expect(row?.role).toBe('dev');
+      expect(row?.status).toBe('running');
+      expect(row?.tokens_in).toBe(0);
+      expect(row?.tokens_out).toBe(0);
+      expect(row?.cost_usd).toBe(0);
+      expect(row?.started_at).toBe('2026-05-13T10:00:00Z');
+      dispose();
+    });
+  });
+
+  it('cook.tool_call sets current_tool + excerpt on the existing row', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      actions.applyEvent({
+        type: 'cook.tool_call',
+        ts: '2026-05-13T10:00:01Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-X',
+        tool: 'Read',
+        input_excerpt: 'src/foo.ts',
+      });
+      expect(state.activeAgents.get('sub-X')?.current_tool).toBe('Read');
+      expect(state.activeAgents.get('sub-X')?.current_tool_input_excerpt).toBe('src/foo.ts');
+      dispose();
+    });
+  });
+
+  it('cook.tool_result clears current_tool when tool matches', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      actions.applyEvent({
+        type: 'cook.tool_call',
+        ts: '2026-05-13T10:00:01Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-X',
+        tool: 'Read',
+        input_excerpt: 'src/foo.ts',
+      });
+      actions.applyEvent({
+        type: 'cook.tool_result',
+        ts: '2026-05-13T10:00:02Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-X',
+        tool: 'Read',
+        result_excerpt: 'file contents',
+        duration_ms: 12,
+      });
+      expect(state.activeAgents.get('sub-X')?.current_tool).toBeUndefined();
+      expect(
+        state.activeAgents.get('sub-X')?.current_tool_input_excerpt,
+      ).toBeUndefined();
+      dispose();
+    });
+  });
+
+  it('cook.tool_result for a stale tool name leaves current_tool intact', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      actions.applyEvent({
+        type: 'cook.tool_call',
+        ts: '2026-05-13T10:00:01Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-X',
+        tool: 'Edit',
+        input_excerpt: 'foo',
+      });
+      // Stale result for a different tool — should not clear.
+      actions.applyEvent({
+        type: 'cook.tool_result',
+        ts: '2026-05-13T10:00:02Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-X',
+        tool: 'Read',
+        result_excerpt: '...',
+        duration_ms: 5,
+      });
+      expect(state.activeAgents.get('sub-X')?.current_tool).toBe('Edit');
+      dispose();
+    });
+  });
+
+  it('cook.agent_result accumulates tokens and marks status completed', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: '2026-05-13T10:00:30Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-X',
+        status: 'completed',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+          cache_creation_input_tokens: 100,
+          cache_read_input_tokens: 200,
+          cost_usd: 0.0123,
+        },
+      });
+      const row = state.activeAgents.get('sub-X');
+      expect(row?.status).toBe('completed');
+      expect(row?.tokens_in).toBe(1000);
+      expect(row?.tokens_out).toBe(500);
+      expect(row?.cache_creation).toBe(100);
+      expect(row?.cache_read).toBe(200);
+      expect(row?.cost_usd).toBeCloseTo(0.0123);
+      expect(row?.elapsed_ms).toBe(30_000);
+      // Final state has no in-flight tool.
+      expect(row?.current_tool).toBeUndefined();
+      dispose();
+    });
+  });
+
+  it('cook.agent_result with status=failed marks the row failed', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'qa',
+        sub_session_id: 'sub-Y',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: '2026-05-13T10:00:05Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-Y',
+        status: 'failed',
+        usage: { input_tokens: 50, output_tokens: 0 },
+      });
+      expect(state.activeAgents.get('sub-Y')?.status).toBe('failed');
+      dispose();
+    });
+  });
+
+  it('cook.completion clears agents after 10s via the timer', () => {
+    vi.useFakeTimers();
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        priority: 5,
+        mode: 'execute',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: '2026-05-13T10:01:00Z',
+        session_id: 'sess-1',
+        status: 'success',
+      });
+      // Before the 10s timer fires, the rows + session id are still visible
+      // for inspection.
+      expect(state.activeAgents.size).toBe(1);
+      expect(state.activeSessionId).toBe('sess-1');
+      vi.advanceTimersByTime(10_000);
+      expect(state.activeAgents.size).toBe(0);
+      expect(state.activeSessionId).toBeNull();
+      dispose();
+    });
+  });
+
+  it('cook.priority_decision cancels a pending post-completion clear', () => {
+    vi.useFakeTimers();
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: '2026-05-13T10:00:10Z',
+        session_id: 'sess-1',
+        status: 'success',
+      });
+      // Mid-clear-window a new cook starts.
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: '2026-05-13T10:00:15Z',
+        session_id: 'sess-2',
+        priority: 5,
+        mode: 'execute',
+      });
+      vi.advanceTimersByTime(10_000);
+      // Previous session's row survives — the new cook is in-flight.
+      expect(state.activeAgents.size).toBe(1);
+      expect(state.activeSessionId).toBe('sess-2');
+      dispose();
+    });
+  });
+
+  it('cook.tool_call against an unknown sub_session_id is a no-op (no row created)', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.tool_call',
+        ts: '2026-05-13T10:00:01Z',
+        session_id: 'sess-1',
+        sub_session_id: 'sub-unknown',
+        tool: 'Read',
+        input_excerpt: 'x',
+      });
+      expect(state.activeAgents.size).toBe(0);
+      dispose();
+    });
+  });
+
+  it('cook.file_write / cook.commit / cook.error do not mutate activeAgents', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-13T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'dev',
+        sub_session_id: 'sub-X',
+      });
+      const snapshotBefore = state.activeAgents.get('sub-X');
+      actions.applyEvent({
+        type: 'cook.file_write',
+        ts: '2026-05-13T10:00:01Z',
+        session_id: 'sess-1',
+        path: 'foo.ts',
+        bytes: 42,
+      });
+      actions.applyEvent({
+        type: 'cook.commit',
+        ts: '2026-05-13T10:00:02Z',
+        session_id: 'sess-1',
+        commit_sha: 'abc123',
+        message: 'feat: ...',
+      });
+      actions.applyEvent({
+        type: 'cook.error',
+        ts: '2026-05-13T10:00:03Z',
+        session_id: 'sess-1',
+        code: 'E_FOO',
+        message: 'boom',
+      });
+      // Row is unchanged.
+      expect(state.activeAgents.get('sub-X')).toEqual(snapshotBefore);
+      dispose();
+    });
+  });
+
+  it('snapshot.replace hydrates activeAgents from snapshot.active_agents[]', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      // Plan 04-02 T1 landed `active_agents[]` on the shared schema.
+      const snap = {
+        schema_version: '1',
+        generated_at: '2026-05-13T10:00:00Z',
+        project: null,
+        milestone: null,
+        phases: [],
+        recent_events: [],
+        cost_summary: null,
+        is_initialized: true,
+        active_agents: [
+          {
+            sub_session_id: 'sub-A',
+            role: 'dev',
+            status: 'running',
+            tokens_in: 100,
+            tokens_out: 50,
+            cache_read: 0,
+            cache_creation: 0,
+            cost_usd: 0.001,
+            elapsed_ms: 1234,
+            started_at: '2026-05-13T09:59:00Z',
+          },
+        ],
+      } as unknown as Parameters<typeof actions.applyEvent>[0] extends infer T
+        ? T
+        : never;
+      actions.applyEvent({ type: 'snapshot.replace', snapshot: snap as never });
+      expect(state.activeAgents.size).toBe(1);
+      expect(state.activeAgents.get('sub-A')?.role).toBe('dev');
+      dispose();
+    });
+  });
+});

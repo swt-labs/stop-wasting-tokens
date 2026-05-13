@@ -3,6 +3,7 @@ import type {
   AgentPromptOption,
   CommandRegistry,
   ConfigSnapshot,
+  CookEvent,
   DetectPhaseReport,
   DoctorReport,
   Snapshot,
@@ -58,6 +59,30 @@ export interface UatModalState {
 }
 
 export type ConversationEntryStatus = 'pending' | 'answered' | 'expired';
+
+/**
+ * Per-agent live state surfaced in the Active Agents pane (Pane 3, plan 04-03).
+ * Folded out of `cook.*` SSE events by the reducer. Will move to
+ * `@swt-labs/shared` once plan 04-02 extends the Snapshot schema with
+ * `active_agents[]`; until then we keep the local mirror to unblock T1
+ * which is the wave-2 dependency for live updates.
+ */
+export type AgentLiveStatus = 'idle' | 'spawning' | 'running' | 'completed' | 'failed';
+
+export interface AgentLiveState {
+  sub_session_id: string;
+  role: string;
+  status: AgentLiveStatus;
+  current_tool?: string;
+  current_tool_input_excerpt?: string;
+  tokens_in: number;
+  tokens_out: number;
+  cache_read: number;
+  cache_creation: number;
+  cost_usd: number;
+  elapsed_ms: number;
+  started_at: string;
+}
 
 export interface ConversationEntry {
   prompt_id: string;
@@ -138,6 +163,19 @@ export interface DashboardState {
   vibeReplying: boolean;
   errors: DashboardErrorEntry[];
   tools: ToolsState;
+  /**
+   * Plan 04-03 T1 — live agent rows folded from `cook.*` SSE events. Keyed by
+   * `sub_session_id` for O(1) updates. Pane 3 (`<ActiveAgentsPane>`) renders
+   * this map. Cleared 10 s after a `cook.completion` so the user has a beat
+   * to inspect the final state.
+   */
+  activeAgents: Map<string, AgentLiveState>;
+  /**
+   * Plan 04-03 T1 — the most recent `cook.priority_decision.session_id`.
+   * Pane 3's pause/resume/cancel buttons POST `/api/cook/:sessionId/control`
+   * with this. Null while no cook is running.
+   */
+  activeSessionId: string | null;
 }
 
 export interface DashboardActions {
@@ -233,7 +271,15 @@ export function createDashboardStore(
       update: emptyToolsCell<UpdateReport>(),
       commands: emptyToolsCell<CommandRegistry>(),
     },
+    activeAgents: new Map<string, AgentLiveState>(),
+    activeSessionId: null,
   });
+
+  // Plan 04-03 T1 — pending clear timer scheduled by `cook.completion`. Held
+  // at module scope so a follow-up `cook.priority_decision` (new session) can
+  // cancel it and prevent the previous session's rows from being wiped after
+  // the new one starts.
+  let cookClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   let sse: SseConnection | null = null;
   let logSeq = 0;
@@ -268,9 +314,137 @@ export function createDashboardStore(
     });
   };
 
+  /**
+   * Plan 04-03 T1 — fold cook orchestrator events into `activeAgents` +
+   * `activeSessionId`. Pure: no DOM access; only writes to the Solid store.
+   *
+   * `cook.completion` schedules a 10 s delayed clear so the user can inspect
+   * the final agent grid before it empties. A subsequent
+   * `cook.priority_decision` cancels that timer (a new cook is starting).
+   *
+   * `cook.file_write` / `cook.commit` / `cook.error` are intentionally
+   * no-ops here — they surface through the log/event panels via the
+   * existing `recent_events` slice.
+   */
+  const handleCookEvent = (evt: CookEvent): void => {
+    switch (evt.type) {
+      case 'cook.priority_decision': {
+        // A new (or resumed) cook session is active; cancel any pending
+        // post-completion clear so this session's rows aren't wiped.
+        if (cookClearTimer !== null) {
+          clearTimeout(cookClearTimer);
+          cookClearTimer = null;
+        }
+        setState('activeSessionId', evt.session_id);
+        return;
+      }
+      case 'cook.agent_spawn': {
+        const next = new Map(state.activeAgents);
+        next.set(evt.sub_session_id, {
+          sub_session_id: evt.sub_session_id,
+          role: evt.role,
+          status: 'running',
+          tokens_in: 0,
+          tokens_out: 0,
+          cache_read: 0,
+          cache_creation: 0,
+          cost_usd: 0,
+          elapsed_ms: 0,
+          started_at: evt.ts,
+        });
+        setState('activeAgents', next);
+        return;
+      }
+      case 'cook.agent_result': {
+        const existing = state.activeAgents.get(evt.sub_session_id);
+        if (!existing) return;
+        const next = new Map(state.activeAgents);
+        const updated: AgentLiveState = {
+          ...existing,
+          // 'blocked' isn't a row-level status — agents that block surface
+          // through askUser; treat as 'failed' for the table colouring.
+          status: evt.status === 'completed' ? 'completed' : 'failed',
+          tokens_in: existing.tokens_in + evt.usage.input_tokens,
+          tokens_out: existing.tokens_out + evt.usage.output_tokens,
+          cache_read: existing.cache_read + (evt.usage.cache_read_input_tokens ?? 0),
+          cache_creation:
+            existing.cache_creation + (evt.usage.cache_creation_input_tokens ?? 0),
+          cost_usd: existing.cost_usd + (evt.usage.cost_usd ?? 0),
+          elapsed_ms: Math.max(
+            0,
+            new Date(evt.ts).getTime() - new Date(existing.started_at).getTime(),
+          ),
+          // Clear the in-flight tool fields — the agent has finished.
+          current_tool: undefined,
+          current_tool_input_excerpt: undefined,
+        };
+        next.set(evt.sub_session_id, updated);
+        setState('activeAgents', next);
+        return;
+      }
+      case 'cook.tool_call': {
+        const existing = state.activeAgents.get(evt.sub_session_id);
+        if (!existing) return;
+        const next = new Map(state.activeAgents);
+        next.set(evt.sub_session_id, {
+          ...existing,
+          current_tool: evt.tool,
+          current_tool_input_excerpt: evt.input_excerpt,
+        });
+        setState('activeAgents', next);
+        return;
+      }
+      case 'cook.tool_result': {
+        const existing = state.activeAgents.get(evt.sub_session_id);
+        if (!existing) return;
+        // Only clear when the result matches the currently-displayed tool;
+        // a stale (race-condition) result for a different tool shouldn't
+        // wipe the live one.
+        if (existing.current_tool !== evt.tool) return;
+        const next = new Map(state.activeAgents);
+        next.set(evt.sub_session_id, {
+          ...existing,
+          current_tool: undefined,
+          current_tool_input_excerpt: undefined,
+        });
+        setState('activeAgents', next);
+        return;
+      }
+      case 'cook.completion': {
+        if (cookClearTimer !== null) clearTimeout(cookClearTimer);
+        cookClearTimer = setTimeout(() => {
+          setState('activeAgents', new Map<string, AgentLiveState>());
+          setState('activeSessionId', null);
+          cookClearTimer = null;
+        }, 10_000);
+        return;
+      }
+      case 'cook.file_write':
+      case 'cook.commit':
+      case 'cook.error':
+        // No store mutation — surfaced via the recent-events + log panels.
+        return;
+    }
+  };
+
   const applyEvent = (evt: SnapshotEvent): void => {
+    if (evt.type.startsWith('cook.')) {
+      handleCookEvent(evt as CookEvent);
+      return;
+    }
     if (evt.type === 'snapshot.replace') {
       setState('snapshot', evt.snapshot);
+      // Plan 04-03 T1 — hydrate live agents from the snapshot so a
+      // reconnected client immediately shows the right table without
+      // waiting on live events. The field is optional in the Snapshot
+      // schema until plan 04-02 lands its extension, hence the cast.
+      const seeded = (evt.snapshot as Snapshot & { active_agents?: AgentLiveState[] })
+        .active_agents;
+      if (Array.isArray(seeded)) {
+        const hydrated = new Map<string, AgentLiveState>();
+        for (const row of seeded) hydrated.set(row.sub_session_id, row);
+        setState('activeAgents', hydrated);
+      }
       return;
     }
     if (evt.type === 'state.changed') {
@@ -582,7 +756,7 @@ export function createDashboardStore(
           project: null,
           milestone: null,
           phases: [],
-          active_agent: null,
+          active_agents: [],
           recent_events: [],
           cost_summary: null,
           is_initialized: true,
@@ -787,6 +961,10 @@ export function createDashboardStore(
     sse = null;
     stopToolsPolling();
     removeToolsVisibilityHandler();
+    if (cookClearTimer !== null) {
+      clearTimeout(cookClearTimer);
+      cookClearTimer = null;
+    }
   };
 
   return [
