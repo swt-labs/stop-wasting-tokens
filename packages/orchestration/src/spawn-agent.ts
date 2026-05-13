@@ -58,6 +58,27 @@
  *                         a plan 01-03 (swt:fireHook) concern, not a plan
  *                         01-01 concern. Recorded here for completeness.
  *
+ *                         Plan 01-03 task 3 re-verification: the Pi 0.74
+ *                         internal AgentSession DOES install a private
+ *                         `beforeToolCall` hook on its underlying Agent
+ *                         (see `agent-session.js` ~line 170), but it only
+ *                         forwards `tool_call` events to the Pi extension
+ *                         runner. Since extensions are loaded only at
+ *                         CLI bootstrap via `MainOptions.extensionFactories`
+ *                         (NOT through `createAgentSession`), the
+ *                         programmatic-spawn path has no usable
+ *                         pre-execution gate. Plan 01-03 implements
+ *                         PreToolUse as advisory via
+ *                         `dispatcher.subscribeToSession()`; the would-be-
+ *                         block decisions are still logged through the
+ *                         HookEventBus. A real gate is reachable only
+ *                         when a customTool wrapper calls
+ *                         `dispatcher.dispatchPreTool()` synchronously
+ *                         before delegating to the underlying tool body
+ *                         (Phase F hardening). See
+ *                         packages/runtime/src/hooks/dispatcher.ts head
+ *                         comment for the TODO(Phase F) anchor.
+ *
  *   ⇒ Phase 1 implication: spawnAgent's resolved per-role config (system
  *     prompt, tools, extensions, maxTurns, thinkingLevel) is captured in
  *     `SpawnAgentSessionConfig` and passed through a `SpawnAgentSessionFactory`
