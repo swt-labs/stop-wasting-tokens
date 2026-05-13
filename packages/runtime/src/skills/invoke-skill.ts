@@ -20,28 +20,53 @@
  *
  * ─────────────────────────────────────────────────────────────────────────
  *
- * Pi custom-tool registration boundary — IMPORTANT FOR FUTURE READERS:
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║  WHERE THE BRIDGE TO Pi HAPPENS — Pi custom-tool registration         ║
+ * ║  boundary (READ THIS BEFORE EXTENDING THIS MODULE)                    ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
  *
  *   This module exposes the *raw* SKILL.md reader only. It DOES NOT register
  *   the `swt_invoke_skill` Pi custom tool on any agent session. That bridge
  *   is intentionally separate and lives in `swt:spawnAgent` (plan 01-01,
  *   `packages/orchestration/src/spawn-agent.ts`).
  *
- *   Pattern (locked in plan 01-01 + Phase 3's full custom-tool table):
- *     - When `spawnAgent` builds a session for a role whose frontmatter
- *       allowlist includes `Skill` (e.g. `swt-architect`, `swt-lead`,
- *       `swt-dev`, `swt-docs`), it registers a `swt_invoke_skill` custom Pi
- *       tool via `createAgentSession({ customTools: [...] })`.
- *     - The tool's `execute(args)` handler calls `invokeSkill(args.name)`
- *       from this module and returns the SKILL.md content as the tool's
- *       text output.
- *     - Roles whose frontmatter denylists `Skill` (or whose allowlist omits
- *       it) MUST NOT have `swt_invoke_skill` registered — gatekeeping is
- *       enforced one layer up in `role-router.ts` + `spawnAgent`, not here.
+ *   Bridge pattern (locked in plan 01-01 + Phase 3's full custom-tool table)
+ *   — registration is conditional on whether the role's tool allowlist
+ *   includes `Skill`:
  *
- *   See research §3 primitive 4 for the full contract. Decoupling the reader
- *   from the Pi custom-tool wiring lets us unit-test path resolution + the
- *   path-traversal guard without spinning up a Pi session.
+ *     // Inside spawnAgent's session construction, AFTER `toolsForRole(...)`
+ *     // has returned the role's Pi tool bundle:
+ *     const customTools = [];
+ *     if (roleAllowsSkill(role, spec)) {
+ *       customTools.push({
+ *         name: 'swt_invoke_skill',
+ *         description: 'Read a SKILL.md from the installed skills directory',
+ *         parameters: { name: { type: 'string' } },
+ *         async execute({ name }) {
+ *           return { content: invokeSkill(name) };
+ *         },
+ *       });
+ *     }
+ *     return createAgentSession({ ..., customTools });
+ *
+ *   Source-of-truth for the per-role `Skill` allowlist:
+ *     - `agents/swt-architect.md` → `tools: Read, Glob, Grep, Write, LSP, Skill`
+ *     - `agents/swt-lead.md`      → `tools: ..., Skill, Task(swt-dev)`
+ *     - `agents/swt-docs.md`      → `tools: Read, Grep, Glob, Bash, Write, Edit, LSP, Skill`
+ *     - `agents/swt-dev.md`       → denylist; `Skill` is permitted by omission
+ *     - `agents/swt-qa.md`        → denylist; `Skill` is permitted by omission
+ *     - `agents/swt-scout.md`     → denylist; `Skill` is permitted by omission
+ *     - `agents/swt-debugger.md`  → denylist; `Skill` is permitted by omission
+ *
+ *   Roles whose frontmatter denylists `Skill` (or whose allowlist omits it)
+ *   MUST NOT have `swt_invoke_skill` registered — gatekeeping is enforced
+ *   ONE LAYER UP in `role-router.ts` + `spawnAgent`, not here. This module
+ *   stays a pure file-system primitive and is unit-tested without a Pi
+ *   session.
+ *
+ *   See research §3 primitive 4 for the full contract. Cross-plan link:
+ *   plan 01-01 owns the spawnAgent wiring; this file is plan 01-04's
+ *   primitive 4 export.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
