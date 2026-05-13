@@ -131,7 +131,7 @@ write_live_execute_state() {
 run_sidechain_agent_hook() {
   local hook_script="$1"
   local input
-  input=$(jq -n '{agent_type:"vbw:vbw-dev", pid:"12345"}')
+  input=$(jq -n '{agent_type:"swt:swt-dev", pid:"12345"}')
 
   (
     cd "$SIDECHAIN"

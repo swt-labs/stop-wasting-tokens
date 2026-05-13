@@ -364,7 +364,7 @@ else
   fail "debug.md Path A missing already_fixed/inconclusive no-implementation-owner guard"
 fi
 
-if grep -Fq 'If `RESOLUTION_OBSERVATION=needs_change`: spawn ONE fresh post-synthesis implementation owner via TaskCreate with `subagent_type: "vbw:vbw-debugger"` and `model: "${DEBUGGER_MODEL}"`.' <<< "$DEBUG_PATH_A_BLOCK" \
+if grep -Fq 'If `RESOLUTION_OBSERVATION=needs_change`: spawn ONE fresh post-synthesis implementation owner via TaskCreate with `subagent_type: "swt:swt-debugger"` and `model: "${DEBUGGER_MODEL}"`.' <<< "$DEBUG_PATH_A_BLOCK" \
   && grep -Fq 'This is a new debugger instance, not one of the earlier hypothesis investigators.' <<< "$DEBUG_PATH_A_BLOCK"; then
   pass "debug.md Path A uses a fresh vbw-debugger as the sole post-synthesis implementation owner"
 else

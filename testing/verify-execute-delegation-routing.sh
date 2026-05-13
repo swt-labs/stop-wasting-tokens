@@ -640,7 +640,7 @@ else
 fi
 
 if grep -Fq 'spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.md`' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
-  && grep -Fq 'subagent_type: "vbw:vbw-lead"' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
+  && grep -Fq 'subagent_type: "swt:swt-lead"' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'resolve-agent-settings.sh" lead' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq '.vbw-planning/config.json' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
   && grep -Fq 'config/model-profiles.json' <<< "$QA_REMEDIATION_PLAN_BLOCK" \
