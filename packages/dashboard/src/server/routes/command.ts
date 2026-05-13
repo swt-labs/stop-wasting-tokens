@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { CommandBodySchema, type CommandResponse } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
-import { classifyVerb } from '../lib/allowed-verbs.js';
+import { classifyVerb, QUICK_VERB_TIMEOUT_MS_OVERRIDE } from '../lib/allowed-verbs.js';
 
 /**
  * Per-verb timeout budgets (ms). The defaults are tight on purpose — the
@@ -22,6 +22,8 @@ const TIMEOUT_BY_VERB: Record<string, number> = {
   doctor: 15_000,
   'detect-phase': 15_000,
   update: 30_000,
+  // Plan 04-02 T5 — quick-action verbs (REQ-17). 60s baseline / 90s for verify.
+  ...QUICK_VERB_TIMEOUT_MS_OVERRIDE,
 };
 const DEFAULT_TIMEOUT_MS = 10_000;
 

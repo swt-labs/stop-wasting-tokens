@@ -112,6 +112,15 @@ const STUB_ENTRIES: ReadonlyArray<Entry> = [
     usage: null,
     category: 'stub',
   },
+  {
+    // Plan 04-02 T5 (REQ-17) — verify is the quick-action verify pass; it
+    // runs the full QA + freshness pipeline, so the route extends its
+    // timeout to 90s (see allowed-verbs.ts QUICK_VERB_TIMEOUT_MS_OVERRIDE).
+    name: 'verify',
+    description: 'Run the QA + freshness verification pass',
+    usage: null,
+    category: 'stub',
+  },
   { name: 'discuss', description: 'Run the discussion engine', usage: null, category: 'stub' },
   {
     name: 'phase',

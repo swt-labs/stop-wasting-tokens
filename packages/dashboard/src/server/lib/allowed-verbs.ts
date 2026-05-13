@@ -31,6 +31,14 @@
 /**
  * Verbs that have real CLI handlers and run non-interactively (no stdin
  * prompts). Safe to spawn from the command bar with stdin closed.
+ *
+ * Plan 04-02 T5 (REQ-17): the quick-action verbs (`fix`, `debug`, `qa`,
+ * `verify`, `research`, `map`) ride this allowlist with stretched per-verb
+ * timeouts (see `QUICK_VERB_TIMEOUT_MS_OVERRIDE` below + the timeout map in
+ * `routes/command.ts`). `cook` is INTENTIONALLY excluded — it goes through
+ * the dedicated `/api/cook/start` detached-spawn path because it spawns a
+ * long-lived agent loop with its own session lifecycle (pause/resume/cancel)
+ * that doesn't fit `/api/command`'s sub-30s expectation.
  */
 export const ALLOWED_NON_INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
   'help',
@@ -39,7 +47,30 @@ export const ALLOWED_NON_INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
   'doctor',
   'detect-phase',
   'update',
+  // Plan 04-02 T5 — REQ-17 quick action verbs.
+  'fix',
+  'debug',
+  'qa',
+  'verify',
+  'research',
+  'map',
 ]);
+
+/**
+ * Plan 04-02 T5 — per-verb timeout overrides for the new quick-action verbs.
+ * The values are seeded from research §4.4 (60s baseline, 90s for verify
+ * since it runs the full QA + freshness pipeline). The map is consumed by
+ * `routes/command.ts:resolveTimeoutMs` so route-side and lib-side stay in
+ * lockstep.
+ */
+export const QUICK_VERB_TIMEOUT_MS_OVERRIDE: Readonly<Record<string, number>> = {
+  fix: 60_000,
+  debug: 60_000,
+  qa: 60_000,
+  research: 60_000,
+  map: 60_000,
+  verify: 90_000,
+};
 
 /**
  * Verbs that have real CLI handlers but require an interactive terminal

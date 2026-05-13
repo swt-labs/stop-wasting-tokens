@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 import { createEventBus, type EventBus } from './event-bus.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
+import { createFileBackedMeterGetter } from './lib/file-backed-meter.js';
 import { findProjectRoot } from './lib/find-project-root.js';
 import { registerArtifactDiffRoute } from './routes/artifact-diff.js';
 import { registerArtifactHistoryRoute } from './routes/artifact-history.js';
@@ -191,11 +192,14 @@ export function createApp(
   // with a nullable projectRoot — the route returns 503 when projectRoot is
   // null (greenfield daemon) so the client can still discover the endpoint.
   registerWorktreesRoute(app, projectRoot);
-  // Plan 04-01 PR-33: cache-hit ratio SSE route. Registers unconditionally
-  // with a getMeter() getter that returns null until the methodology layer
-  // wires a live TokenMeter into the dashboard server (separate M4 follow-up).
-  // Empty state when null — the panel renders "No cache data yet".
-  registerCacheHitsRoute(app, () => null);
+  // Plan 04-01 PR-33: cache-hit ratio SSE route. Plan 04-02 T5 swapped the
+  // `() => null` placeholder for a file-backed meter that reads the latest
+  // `.swt-planning/.metrics/session-*.json` (written by methodology's
+  // token-meter at plan 04-01 T3). Live updates flow through the
+  // snapshotter's chokidar watch on .metrics/ (T2), so the meter's
+  // subscribe() is a no-op — re-render is driven by snapshot deltas, not a
+  // separate METER_UPDATED channel.
+  registerCacheHitsRoute(app, createFileBackedMeterGetter(() => projectRoot));
   // Plan 04-01 PR-35: Budget Gate SSE + POST routes. Registers
   // unconditionally with a getGate() getter that returns null until the
   // methodology layer wires a live BudgetGate (separate M4 follow-up).
