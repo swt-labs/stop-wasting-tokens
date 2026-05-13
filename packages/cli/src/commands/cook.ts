@@ -49,7 +49,14 @@ import { execSync as nodeExecSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve as resolvePath, join as joinPath } from 'node:path';
 
-import { detectPhase, recordUsage, type PhaseDetectResult } from '@swt-labs/methodology';
+import {
+  detectPhase,
+  recordUsage,
+  readPendingSignal,
+  waitForResumeOrCancel,
+  CookCancelledError,
+  type PhaseDetectResult,
+} from '@swt-labs/methodology';
 import { spawnOrchestratorSession } from '@swt-labs/orchestration';
 import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
@@ -995,6 +1002,65 @@ interface RunModeDeps {
   readonly readFileSyncFn: typeof readFileSync;
 }
 
+/**
+ * Plan 04-01 T4 — Tunables for the cook-controls poller. Tests inject a
+ * tight pollIntervalMs + maxPolls so they don't hang waiting for a
+ * filesystem watcher; production keeps the 250ms default.
+ */
+export interface CookControlsConfig {
+  readonly planningRoot?: string;
+  readonly pollIntervalMs?: number;
+  readonly maxPollsPerPause?: number;
+  /** Disables polling entirely — primarily for the legacy cook.test.ts
+   *  harness that has no signal-file fixture. Default: false (polling on). */
+  readonly disabled?: boolean;
+}
+
+let cookControlsOverride: CookControlsConfig | undefined;
+/**
+ * Test seam — replaces the per-runMode cook-controls config. Production
+ * callers never invoke; the cook-events integration test (plan 04-01 T5)
+ * sets a tight poll interval so pause/cancel converge in milliseconds.
+ */
+export function __setCookControlsForTesting(config: CookControlsConfig | undefined): void {
+  cookControlsOverride = config;
+}
+
+function resolveCookControls(io: CommandIO): CookControlsConfig {
+  if (cookControlsOverride !== undefined) return cookControlsOverride;
+  return { planningRoot: io.cwd };
+}
+
+/**
+ * Poll the signal file at a runMode boundary. On 'pause', block on
+ * waitForResumeOrCancel; on 'cancel' throw CookCancelledError; on
+ * 'resume' (no pause was active) consume the signal and continue.
+ */
+async function checkBoundarySignal(
+  sessionId: string,
+  controls: CookControlsConfig,
+): Promise<void> {
+  if (controls.disabled === true) return;
+  const sig = readPendingSignal(sessionId, controls.planningRoot);
+  if (sig === null) return;
+  if (sig === 'cancel') throw new CookCancelledError(sessionId);
+  if (sig === 'pause') {
+    const waitOpts: Parameters<typeof waitForResumeOrCancel>[1] = {};
+    if (controls.pollIntervalMs !== undefined) {
+      (waitOpts as { pollIntervalMs?: number }).pollIntervalMs = controls.pollIntervalMs;
+    }
+    if (controls.planningRoot !== undefined) {
+      (waitOpts as { planningRoot?: string }).planningRoot = controls.planningRoot;
+    }
+    if (controls.maxPollsPerPause !== undefined) {
+      (waitOpts as { maxPolls?: number }).maxPolls = controls.maxPollsPerPause;
+    }
+    const next = await waitForResumeOrCancel(sessionId, waitOpts);
+    if (next === 'cancel') throw new CookCancelledError(sessionId);
+  }
+  // 'resume' with no active pause is a no-op — the signal is consumed.
+}
+
 async function runMode(
   routing: RoutingDecision,
   opts: ModeOptions,
@@ -1003,6 +1069,26 @@ async function runMode(
   ctx: RunModeContext,
   deps: RunModeDeps,
 ): Promise<ExitCode> {
+  // Plan 04-01 T4 — mode-dispatch boundary signal check (R2 next-boundary
+  // pause + SIGTERM cancel). The poll is one stat() — negligible against
+  // Pi turn latency.
+  const controls = resolveCookControls(io);
+  try {
+    await checkBoundarySignal(ctx.sessionId, controls);
+  } catch (err) {
+    if (err instanceof CookCancelledError) {
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.completion',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        status: 'cancelled',
+      });
+      io.stderr.write(`swt cook: cancelled by user (session ${ctx.sessionId}).\n`);
+      return EXIT.USER_CANCELLED;
+    }
+    throw err;
+  }
+
   // Load the cook.md mode section + substitute placeholders.
   const prompt = loadCookModeSection(
     ctx.installRoot,

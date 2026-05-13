@@ -12,3 +12,4 @@ export * from './milestone-uat.js';
 export * from './phase-detect.js';
 export * from './encode.js';
 export * from './load-config.js';
+export * from './cook-controls.js';
