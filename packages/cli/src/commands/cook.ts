@@ -1995,7 +1995,20 @@ export async function runSpawnWithFallback(
   while (true) {
     const selection = chain.select(opts.taskBrief);
     try {
-      const result = await opts.spawnFn(opts.spawnArgs);
+      // Phase G / Phase 1 / G-R1 R2 — thread the router-resolved
+      // primary provider (or the fallback chain's next provider on a
+      // retry hop) into spawnArgs so spawnOrchestratorSession's
+      // `readProviderOverlay()` keys off the right provider id on
+      // every attempt. R2 ("caller resolves") is realised here: the
+      // router lives at this callsite and the spawn path consumes a
+      // string. When no overlay file exists for the resolved provider,
+      // the spawn is byte-identical to pre-Phase-1 (R4 vendor-
+      // neutrality preserved by construction).
+      const spawnArgsWithProvider = {
+        ...opts.spawnArgs,
+        provider: selection.provider,
+      };
+      const result = await opts.spawnFn(spawnArgsWithProvider);
       return {
         result,
         providerUsed: selection.provider,
