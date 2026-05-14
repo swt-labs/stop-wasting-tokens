@@ -370,6 +370,34 @@ const CookProviderFallbackEvent = z.object({
   attempt: z.number().int().positive(),
 });
 
+// Plan 03-02 (Phase 3 / G-R4) — `cook.budget_projected` — pre-spawn cost
+// forecast emitted once per spawn from the cook callsite (plan 03-04), whether
+// the projection halts (would_exceed: true) or passes. Carries the projection's
+// gating number (projected_cost_usd), the gate's current state (spent_usd,
+// ceiling_usd), the forward-looking projected_pressure (deliberately NO `.max()`
+// — a projection CAN blow past the ceiling, so pressure can exceed 1.0), the
+// binary halt decision (would_exceed), and the honesty surface (confidence +
+// assumptions[]). assumptions is double-capped — `.max(8)` entries AND
+// `.string().max(80)` per entry — to keep the JSONL line within the PIPE_BUF
+// ~500-byte convention the sibling cook events follow. Fields map 1:1 onto the
+// CostProjection interface (packages/runtime/src/budget/cost-projector.ts) plus
+// the gate.project() state. Per R5 — pure addition to the union; the dashboard
+// reducer's unknown-type-no-op behaviour makes it safe (no schema_version bump).
+export const CookBudgetProjectedEventSchema = z.object({
+  type: z.literal('cook.budget_projected'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  sub_session_id: z.string().min(1),
+  projected_cost_usd: z.number().nonnegative(),
+  spent_usd: z.number().nonnegative(),
+  ceiling_usd: z.number().nonnegative(),
+  projected_pressure: z.number().min(0),
+  would_exceed: z.boolean(),
+  confidence: z.enum(['high', 'medium', 'low']),
+  assumptions: z.array(z.string().max(80)).max(8),
+  rate_card_source: z.enum(['embedded', 'project-override', 'fetched']),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -400,6 +428,7 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookWorktreeIsolationWarningEvent,
   CookProviderSelectedEvent,
   CookProviderFallbackEvent,
+  CookBudgetProjectedEventSchema,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -447,6 +476,10 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.worktree_isolation_warning',
   'cook.provider_selected',
   'cook.provider_fallback',
+  // Plan 03-02 (Phase 3 / G-R4) — pre-spawn cost forecast emitted once per
+  // spawn (whether the projection halts or passes); the schema plan 03-04
+  // emits against from a CostProjection + gate.project() result.
+  'cook.budget_projected',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
@@ -461,6 +494,10 @@ export type CookUsage = z.infer<typeof CookUsageSchema>;
 // on these.
 export type CookProviderSelectedEvent = z.infer<typeof CookProviderSelectedEvent>;
 export type CookProviderFallbackEvent = z.infer<typeof CookProviderFallbackEvent>;
+// Plan 03-02 (Phase 3 / G-R4) — inferred TS type for the pre-spawn cost
+// forecast event; plan 03-04's cook.ts emitter narrows on this. The
+// CookBudgetProjectedEventSchema const is already exported at its declaration.
+export type CookBudgetProjectedEvent = z.infer<typeof CookBudgetProjectedEventSchema>;
 export {
   CookModeSchema,
   CookAgentRoleSchema,
