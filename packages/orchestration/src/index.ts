@@ -189,6 +189,9 @@ export {
 // which consumes the wider `CompoundTier` vocabulary (10 strings) via the
 // `CompoundTierSchema` Zod schema. Both are re-exported alongside the
 // legacy `Tier`/`RouterTier` 4-element enum.
+// Phase 2 / G-R3 (plan 02-04) also exports `SelectedVia` + `SelectionMetadata`
+// for the cook telemetry layer — `selectWithMetadata` is the optional
+// provenance-enriched selector that backs the `cook.provider_selected` event.
 export {
   createProviderRouter,
   CompoundTierSchema,
@@ -196,6 +199,8 @@ export {
   type ProviderRouter,
   type RouterSelectionContext,
   type RouterStrategy,
+  type SelectedVia,
+  type SelectionMetadata,
   type Tier as RouterTier,
 } from './provider-router.js';
 

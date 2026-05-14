@@ -167,9 +167,53 @@ export type RouterStrategy =
       readonly fallbackStrategy?: Exclude<RouterStrategy, { readonly kind: 'tier-routed-compound' }>;
     };
 
+/**
+ * Strategy provenance for the selection event (Phase 2 / G-R3, plan 02-04).
+ * Matches the `selected_via` enum in `CookProviderSelectedEventSchema`
+ * (`@swt-labs/shared` events.ts) 1:1. The
+ * `'tier-routed-compound:fallback-strategy'` composition hint distinguishes a
+ * `tier-routed-compound` map-hit from a `fallbackStrategy` delegation per R3.
+ */
+export type SelectedVia =
+  | 'pinned'
+  | 'round-robin'
+  | 'tier-routed'
+  | 'cost-optimized'
+  | 'tier-routed-compound'
+  | 'cost-optimized-rate-card'
+  | 'tier-routed-compound:fallback-strategy';
+
+/**
+ * Provenance metadata returned by `ProviderRouter.selectWithMetadata` — the
+ * provider plus the strategy-specific fields the cook telemetry layer emits
+ * onto `cook.provider_selected`. The optional fields are populated only by
+ * the strategy variants that carry them (`tier` for tier-routed variants,
+ * `dimension` + `rate_card_source` for `cost-optimized-rate-card`).
+ *
+ * `rate_card_age_ms` is intentionally NOT on this shape — the orchestration
+ * layer has no clock; the cook callsite computes age from the strategy's
+ * `rateCard.entries[*].updated_at` timestamps (plan 02-04 T3).
+ */
+export interface SelectionMetadata {
+  readonly provider: string;
+  readonly selected_via: SelectedVia;
+  readonly tier?: string;
+  readonly rate_card_source?: 'embedded' | 'project-override' | 'fetched';
+  readonly dimension?: 'input' | 'output' | 'blended';
+}
+
 export interface ProviderRouter {
   /** Returns the provider id selected for the supplied context. */
   select(ctx: RouterSelectionContext): string;
+  /**
+   * Same selection as `select(ctx)` but returns provenance metadata for
+   * telemetry (Phase 2 / G-R3). OPTIONAL — pre-Phase-2 callers using
+   * `select(ctx)` see byte-identical behaviour. Callers MUST invoke EITHER
+   * `select` OR `selectWithMetadata` per spawn, never both: for the
+   * `round-robin` strategy each call advances the internal counter, so
+   * calling both would skip a provider.
+   */
+  selectWithMetadata?(ctx: RouterSelectionContext): SelectionMetadata;
 }
 
 /**
@@ -181,7 +225,10 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
   switch (strategy.kind) {
     case 'pinned': {
       const pinned = strategy.provider;
-      return { select: () => pinned };
+      return {
+        select: () => pinned,
+        selectWithMetadata: () => ({ provider: pinned, selected_via: 'pinned' }),
+      };
     }
     case 'round-robin': {
       if (strategy.providers.length === 0) {
@@ -190,13 +237,18 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
       const providers = strategy.providers;
       let internal = 0;
       const counter = strategy.counter ?? ((): number => internal++);
+      // Single selection step — advances the counter exactly once per call.
+      // `select` and `selectWithMetadata` each call this once; callers pick
+      // one per spawn (see ProviderRouter JSDoc).
+      const pick = (): string => {
+        const i = counter();
+        // Modulo guards negative counters (theoretical only).
+        const idx = ((i % providers.length) + providers.length) % providers.length;
+        return providers[idx] as string;
+      };
       return {
-        select: () => {
-          const i = counter();
-          // Modulo guards negative counters (theoretical only).
-          const idx = ((i % providers.length) + providers.length) % providers.length;
-          return providers[idx] as string;
-        },
+        select: () => pick(),
+        selectWithMetadata: () => ({ provider: pick(), selected_via: 'round-robin' }),
       };
     }
     case 'tier-routed': {
@@ -204,6 +256,11 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
       const fallback = strategy.fallback;
       return {
         select: (ctx) => map[ctx.tier] ?? fallback,
+        selectWithMetadata: (ctx) => ({
+          provider: map[ctx.tier] ?? fallback,
+          selected_via: 'tier-routed',
+          tier: ctx.tier,
+        }),
       };
     }
     case 'cost-optimized': {
@@ -214,20 +271,22 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
       }
       const providers = strategy.providers;
       const priceTable = strategy.priceTable;
-      return {
-        select: () => {
-          let cheapest = providers[0] as string;
-          let cheapestPrice = priceTable[cheapest] ?? Number.POSITIVE_INFINITY;
-          for (let i = 1; i < providers.length; i++) {
-            const p = providers[i] as string;
-            const price = priceTable[p] ?? Number.POSITIVE_INFINITY;
-            if (price < cheapestPrice) {
-              cheapest = p;
-              cheapestPrice = price;
-            }
+      const pick = (): string => {
+        let cheapest = providers[0] as string;
+        let cheapestPrice = priceTable[cheapest] ?? Number.POSITIVE_INFINITY;
+        for (let i = 1; i < providers.length; i++) {
+          const p = providers[i] as string;
+          const price = priceTable[p] ?? Number.POSITIVE_INFINITY;
+          if (price < cheapestPrice) {
+            cheapest = p;
+            cheapestPrice = price;
           }
-          return cheapest;
-        },
+        }
+        return cheapest;
+      };
+      return {
+        select: () => pick(),
+        selectWithMetadata: () => ({ provider: pick(), selected_via: 'cost-optimized' }),
       };
     }
     case 'cost-optimized-rate-card': {
@@ -252,20 +311,27 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
         // 'blended' — equal weight on input + output per-1k.
         return (entry.input_per_1k + entry.output_per_1k) / 2;
       };
-      return {
-        select: () => {
-          let best = providers[0] as string;
-          let bestCost = costFor(best);
-          for (let i = 1; i < providers.length; i++) {
-            const p = providers[i] as string;
-            const c = costFor(p);
-            if (c < bestCost) {
-              best = p;
-              bestCost = c;
-            }
+      const pick = (): string => {
+        let best = providers[0] as string;
+        let bestCost = costFor(best);
+        for (let i = 1; i < providers.length; i++) {
+          const p = providers[i] as string;
+          const c = costFor(p);
+          if (c < bestCost) {
+            best = p;
+            bestCost = c;
           }
-          return best;
-        },
+        }
+        return best;
+      };
+      return {
+        select: () => pick(),
+        selectWithMetadata: () => ({
+          provider: pick(),
+          selected_via: 'cost-optimized-rate-card',
+          dimension,
+          rate_card_source: rateCard.source,
+        }),
       };
     }
     case 'tier-routed-compound': {
@@ -290,6 +356,43 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
             return createProviderRouter(fallbackStrategy).select(ctx);
           }
           return fallback;
+        },
+        selectWithMetadata: (ctx) => {
+          // Map hit — provenance is plain `tier-routed-compound`.
+          const direct = map[ctx.tier as CompoundTier];
+          if (direct !== undefined) {
+            return {
+              provider: direct,
+              selected_via: 'tier-routed-compound',
+              tier: ctx.tier,
+            };
+          }
+          // fallbackStrategy delegation — provenance is the composition hint
+          // `tier-routed-compound:fallback-strategy`; the inner strategy's
+          // metadata (dimension / rate_card_source / tier) is preserved so
+          // operators can trace WHY the inner strategy picked the provider.
+          if (fallbackStrategy !== undefined) {
+            const innerRouter = createProviderRouter(fallbackStrategy);
+            const innerMeta = innerRouter.selectWithMetadata?.(ctx);
+            if (innerMeta !== undefined) {
+              return {
+                ...innerMeta,
+                selected_via: 'tier-routed-compound:fallback-strategy',
+              };
+            }
+            // Inner strategy doesn't expose metadata — fall back to select().
+            return {
+              provider: innerRouter.select(ctx),
+              selected_via: 'tier-routed-compound:fallback-strategy',
+              tier: ctx.tier,
+            };
+          }
+          // No map hit, no fallbackStrategy — literal fallback provider.
+          return {
+            provider: fallback,
+            selected_via: 'tier-routed-compound',
+            tier: ctx.tier,
+          };
         },
       };
     }
