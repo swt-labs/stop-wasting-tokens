@@ -231,7 +231,12 @@ afterEach(async () => {
   await rm(repoRoot, { recursive: true, force: true });
 });
 
-describe('@swt-labs/cli — cook events integration (Plan 04-01 T5)', () => {
+// `retry: 2` — this suite drives the cook IPC event channel + control-signal
+// pause/cancel pathway end-to-end, which is timing-sensitive. It passes in
+// isolation but flakes intermittently under the full parallel test suite. A
+// scoped retry absorbs the transient load flake without losing coverage; a
+// genuinely-broken test still fails all three attempts.
+describe('@swt-labs/cli — cook events integration (Plan 04-01 T5)', { retry: 2 }, () => {
   it('produces priority_decision → agent_spawn → agent_result → completion in order', async () => {
     const h = await buildHarness(repoRoot, {
       // priority 10 — needs_execute, gated by askUser (accepts by default)

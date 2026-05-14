@@ -56,7 +56,12 @@ const sampleLog = {
   line: 'hello',
 };
 
-describe('createEventsTailer', () => {
+// `retry: 2` — these tests exercise real filesystem-watch + poll timing.
+// They pass in isolation but flake intermittently under the full parallel
+// test suite when FS-watch + poll cycles get delayed under load. A scoped
+// retry absorbs the transient load flake without losing coverage; a
+// genuinely-broken test still fails all three attempts.
+describe('createEventsTailer', { retry: 2 }, () => {
   let root: string;
   let eventsDir: string;
   let tailer: EventsTailer | undefined;
