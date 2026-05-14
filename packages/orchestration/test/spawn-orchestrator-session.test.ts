@@ -28,7 +28,7 @@ import { join, resolve } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { SwtSession } from '@swt-labs/runtime';
+import type { SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
 import type { PiExtensionAPI, PiToolDefinition } from '@swt-labs/runtime';
 
 import {
@@ -39,6 +39,40 @@ import {
   type SpawnOrchestratorSessionFactory,
   type SpawnOrchestratorSessionConfig,
 } from '../src/index.js';
+
+/**
+ * Plan 02-03 T4 — partial mock of `@swt-labs/runtime` so we can spy on
+ * `createSession` WITHOUT replacing the rest of the barrel (the source
+ * module pulls `buildSwtAskUserExtension`, `createCodingTools`,
+ * `createHookDispatcher`, … from the same package — they must stay real).
+ * The spy lets the `defaultOrchestratorSessionFactory` coverage assert the
+ * exact `SwtSessionOptions` the default factory hands to `createSession`.
+ */
+const createSessionSpy = vi.fn(
+  async (opts: SwtSessionOptions): Promise<SwtSession> => ({
+    sessionId: 'mock-default-factory-session',
+    async prompt() {
+      // no-op — dispatcher stub harvest produces a synthetic success.
+      void opts;
+    },
+    subscribe() {
+      return () => {
+        // no-op
+      };
+    },
+    dispose() {
+      // no-op
+    },
+  }),
+);
+
+vi.mock('@swt-labs/runtime', async (importActual) => {
+  const actual = await importActual<typeof import('@swt-labs/runtime')>();
+  return {
+    ...actual,
+    createSession: (opts: SwtSessionOptions) => createSessionSpy(opts),
+  };
+});
 
 const TEST_CWD = '/tmp/swt-spawn-orchestrator-test';
 const TEST_SESSION_ID = '11111111-2222-3333-4444-555555555555';
@@ -297,5 +331,94 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
       },
     );
     expect(fakeAskUser).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Plan 02-03 T4 — Phase 2 credential threading on the orchestrator path
+   * (Risk 5 + Risk 8), symmetric with spawn-agent.test.ts's T3 block.
+   *
+   * Cases 1/2/4 assert on the resolved `SpawnOrchestratorSessionConfig`
+   * directly (the file's prevailing `resolveOrchestratorSessionConfig`
+   * style — the recording factory receives this same config object).
+   * Case 3 proves the load-bearing link: `defaultOrchestratorSessionFactory`
+   * (used when NO `sessionFactory?` override is supplied) forwards
+   * `provider`/`model`/`resolvedCredential` into the `SwtSessionOptions`
+   * it hands `createSession` — asserted via the partial-mock spy.
+   */
+  describe('Phase 2 credential threading (Plan 02-03 T4)', () => {
+    it('populates provider + resolvedCredential + model onto SpawnOrchestratorSessionConfig', () => {
+      const config = resolveOrchestratorSessionConfig(
+        baseOpts({
+          provider: 'anthropic',
+          resolvedCredential: { authMode: 'api_key', secret: 'sk-orch-test' },
+          model: 'claude-sonnet-4-5',
+        }),
+      );
+      expect(config.provider).toBe('anthropic');
+      expect(config.resolvedCredential).toEqual({
+        authMode: 'api_key',
+        secret: 'sk-orch-test',
+      });
+      expect(config.model).toBe('claude-sonnet-4-5');
+    });
+
+    it('records resolvedCredential + provider as `undefined` when omitted (pre-Phase-2 shape)', () => {
+      const config = resolveOrchestratorSessionConfig(baseOpts());
+      expect(config.resolvedCredential).toBeUndefined();
+      expect(config.provider).toBeUndefined();
+    });
+
+    it('defaultOrchestratorSessionFactory forwards provider/model/resolvedCredential to createSession', async () => {
+      createSessionSpy.mockClear();
+      // No `sessionFactory?` override ⇒ spawnOrchestratorSession uses
+      // `defaultOrchestratorSessionFactory`, which is the ONLY path that
+      // reaches the real `createSession` (here: the partial-mock spy).
+      const result = await spawnOrchestratorSession({
+        ...baseOpts({
+          provider: 'anthropic',
+          resolvedCredential: { authMode: 'api_key', secret: 'sk-orch-fwd' },
+        }),
+        // empty hooks so no FS reads
+        hookRegistrations: [],
+      });
+      expect(result.schema_version).toBe(1);
+      expect(result.status).toBe('success');
+      expect(createSessionSpy).toHaveBeenCalledTimes(1);
+      const sessionOpts = createSessionSpy.mock.calls[0]?.[0];
+      expect(sessionOpts?.provider).toBe('anthropic');
+      expect(sessionOpts?.resolvedCredential).toEqual({
+        authMode: 'api_key',
+        secret: 'sk-orch-fwd',
+      });
+      // Risk 8 — `model` was not supplied, so the forwarded SwtSessionOptions
+      // omits it entirely (conditional-spread keeps it absent, not
+      // `undefined`-valued).
+      expect('model' in (sessionOpts ?? {})).toBe(false);
+    });
+
+    it('defaultOrchestratorSessionFactory omits provider/resolvedCredential when absent (byte-identical to pre-Phase-2)', async () => {
+      createSessionSpy.mockClear();
+      await spawnOrchestratorSession({
+        ...baseOpts(),
+        hookRegistrations: [],
+      });
+      expect(createSessionSpy).toHaveBeenCalledTimes(1);
+      const sessionOpts = createSessionSpy.mock.calls[0]?.[0];
+      // Conditional-spread forwarding ⇒ absent fields stay absent.
+      expect('provider' in (sessionOpts ?? {})).toBe(false);
+      expect('model' in (sessionOpts ?? {})).toBe(false);
+      expect('resolvedCredential' in (sessionOpts ?? {})).toBe(false);
+    });
+
+    it('model stays `undefined` on the resolved config when not supplied (Risk 8)', () => {
+      const config = resolveOrchestratorSessionConfig(
+        baseOpts({
+          provider: 'anthropic',
+          resolvedCredential: { authMode: 'api_key', secret: 'sk-orch-no-model' },
+          // model intentionally omitted
+        }),
+      );
+      expect(config.model).toBeUndefined();
+    });
   });
 });
