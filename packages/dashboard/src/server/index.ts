@@ -31,6 +31,7 @@ import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
 import { registerProviderAuthRoute } from './routes/provider-auth.js';
+import { registerProviderAuthOAuthRoute } from './routes/provider-auth-oauth.js';
 import { registerProviderCostRoute } from './routes/provider-cost.js';
 import { registerPromptsRoute } from './routes/prompts.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
@@ -185,6 +186,7 @@ export function createApp(
   registerConfigRoute(app, cwd, bus);
   // Phase 3: vendor-select panel — GET (secret-free snapshot) + POST (keychain write, X-SWT-Credential-Write gated).
   registerProviderAuthRoute(app, cwd, bus);
+  registerProviderAuthOAuthRoute(app, cwd, bus); // Phase 4: OAuth login flow — POST /oauth/start + /oauth/code, OAuthLoginCallbacks bridged to oauth.* SSE events.
   registerDoctorRoute(app, cwd);
   registerDetectPhaseRoute(app, cwd);
   registerUpdateRoute(app);
