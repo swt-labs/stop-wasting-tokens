@@ -8,6 +8,7 @@ import {
   type AgentSession,
   type AgentSessionEvent,
 } from '@earendil-works/pi-coding-agent';
+import type { OAuthCredentials } from '@earendil-works/pi-ai/oauth';
 
 import { mapPiEvent } from './events.js';
 import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
@@ -54,8 +55,11 @@ import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './type
  * constructed per spawn, NEVER Pi's plaintext `~/.pi/agent/auth.json`
  * (research §6). When either is absent, the call is byte-identical to the
  * pre-Phase-2 path (Pi falls through to its own `auth.json` + env-var
- * resolution). Phase 2 only handles the `'api_key'` auth mode; the
- * `'oauth'` branch is a clearly-commented Phase 4 stub. `SwtSessionOptions.model`
+ * resolution). Phase 2 handles the `'api_key'` auth mode; Phase 4 (plan
+ * 04-04) un-stubs the `'oauth'` branch — it `JSON.parse`s the serialized
+ * `OAuthCredentials` blob from `resolvedCredential.secret` and injects the
+ * Pi `OAuthCredential` shape (`{type:'oauth'} & OAuthCredentials`) onto the
+ * SAME in-memory `AuthStorage`. `SwtSessionOptions.model`
  * is a model-id *string*, but Pi's `createAgentSession` takes a resolved
  * `Model<any>`; Phase 2 never sets `opts.model` (Risk 8) and never forwards
  * it — Pi's `ModelRegistry` resolves the provider's default model.
@@ -78,14 +82,27 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
         key: opts.resolvedCredential.secret,
       });
     } else {
-      // Phase 4 — oauth credential injection (a serialized OAuthCredentials
-      // blob -> AuthStorage OAuthCredential). Phase 2 never produces an
-      // 'oauth' resolvedCredential, so this branch is unreachable today; it
-      // throws rather than silently mis-injecting an oauth blob as an
-      // api_key. SWT-owns-refresh wiring lands in Phase 4.
-      throw new Error(
-        'createSession: oauth credential injection is not implemented until Phase 4',
-      );
+      // Phase 4 (plan 04-04) — oauth credential injection. The cook callsite
+      // (resolveSpawnCredential) resolves the keychain OAuthCredentials blob,
+      // refreshes it if near-expiry (SWT-owns-refresh, Risk 2), and serializes
+      // it into resolvedCredential.secret — `secret` is "an API-key string in
+      // Phase 2; a serialized OAuthCredentials JSON blob in Phase 4" (Phase
+      // 2-02's contract, verbatim). Deserialize it and inject the Pi
+      // OAuthCredential shape ({type:'oauth'} & OAuthCredentials) onto the SAME
+      // in-memory AuthStorage the 'api_key' branch uses. A corrupt blob throws
+      // — it is NOT silently mis-injected as an api_key. The blob lives RAM-
+      // only in this in-memory AuthStorage; it is NEVER logged.
+      let oauthCredentials: OAuthCredentials;
+      try {
+        oauthCredentials = JSON.parse(
+          opts.resolvedCredential.secret,
+        ) as OAuthCredentials;
+      } catch {
+        throw new Error(
+          'createSession: oauth resolvedCredential.secret is not a valid OAuthCredentials JSON blob',
+        );
+      }
+      authStorage.set(opts.provider, { type: 'oauth', ...oauthCredentials });
     }
     // `model` is intentionally NOT forwarded: Pi's `createAgentSession`
     // wants a resolved `Model<any>`, while `opts.model` is a model-id

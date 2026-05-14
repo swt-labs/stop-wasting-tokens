@@ -378,7 +378,38 @@ describe('createSession — credential injection branch (Phase 2)', () => {
     expect(serialized).not.toContain('sk-test-xyz');
   });
 
-  it('throws for an oauth resolvedCredential — Phase 4 stub, never mis-injects as api_key', async () => {
+  it('injects an oauth resolvedCredential — un-stubbed in Phase 4 (plan 04-04)', async () => {
+    // Phase 2-02 left the 'oauth' branch a throwing stub
+    // (/not implemented until Phase 4/). Plan 04-04 un-stubs it: the
+    // serialized OAuthCredentials blob is JSON.parse'd and injected as the
+    // Pi {type:'oauth'} & OAuthCredentials shape onto the SAME in-memory
+    // AuthStorage. The exhaustive 'oauth'-branch coverage (corrupt-blob
+    // throw, secret-leak guard, stub-message-gone) lives in the dedicated
+    // session-oauth-injection.test.ts; this is the Phase 2-02 sibling
+    // re-pointed at the post-un-stub behaviour.
+    const harness = makeMockHarness();
+    const { createSession } = await import('../src/session.js');
+
+    await createSession({
+      cwd: '/tmp/swt-test',
+      ephemeral: true,
+      provider: 'anthropic',
+      resolvedCredential: {
+        authMode: 'oauth',
+        secret: JSON.stringify({ refresh: 'r', access: 'tok', expires: 9_999_999_999_999 }),
+      },
+    });
+
+    expect(harness.authStorages).toHaveLength(1);
+    expect(harness.authStorages[0]?.set).toHaveBeenCalledWith('anthropic', {
+      type: 'oauth',
+      refresh: 'r',
+      access: 'tok',
+      expires: 9_999_999_999_999,
+    });
+  });
+
+  it('a corrupt oauth blob throws — never silently mis-injects as api_key', async () => {
     makeMockHarness();
     const { createSession } = await import('../src/session.js');
 
@@ -387,8 +418,8 @@ describe('createSession — credential injection branch (Phase 2)', () => {
         cwd: '/tmp/swt-test',
         ephemeral: true,
         provider: 'anthropic',
-        resolvedCredential: { authMode: 'oauth', secret: '{"access":"tok"}' },
+        resolvedCredential: { authMode: 'oauth', secret: '{ not json' },
       }),
-    ).rejects.toThrow(/Phase 4|oauth/i);
+    ).rejects.toThrow(/oauth/i);
   });
 });
