@@ -79,7 +79,7 @@ import {
   type RouterStrategy,
   type RouterTier,
 } from '@swt-labs/orchestration';
-import type { BudgetConfigSchemaT, TaskBrief } from '@swt-labs/shared';
+import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared';
 import {
   askUser as defaultAskUser,
   createBudgetGate,
@@ -458,6 +458,24 @@ export type CookProviderStrategy =
       readonly kind: 'cost-optimized';
       readonly providers: readonly string[];
       readonly priceTable: Readonly<Record<string, number>>;
+    }
+  | {
+      /**
+       * Phase 2 / G-R3 (plan 02-02) — picks the cheapest provider by
+       * looking up per-1k pricing in a schema-validated `RateCard` loaded
+       * by `@swt-labs/runtime`'s `createRateCardSource` (plan 02-01).
+       * Strictly opt-in — `DEFAULT_PROVIDERS_CONFIG` stays at `pinned`.
+       *
+       * Cook callers populate `rateCard` from
+       * `createRateCardSource({cwd}).readCurrent()` BEFORE handing the
+       * strategy to `runSpawnWithFallback`. The router itself is pure —
+       * no IO at selection time.
+       */
+      readonly kind: 'cost-optimized-rate-card';
+      readonly providers: readonly string[];
+      readonly rateCard: RateCard;
+      readonly dimension: 'input' | 'output' | 'blended';
+      readonly model?: string;
     };
 
 export interface CookProvidersConfig {
@@ -1889,7 +1907,7 @@ export function classifyError(err: unknown): FallbackFailureReason {
  * while the router uses `Partial<Record<Tier,...>>`. Filtering down to
  * known tier names keeps the router contract clean.
  */
-function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy {
+export function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy {
   switch (strategy.kind) {
     case 'pinned':
       return { kind: 'pinned', provider: strategy.provider };
@@ -1915,6 +1933,19 @@ function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy {
         providers: strategy.providers,
         priceTable: strategy.priceTable,
       };
+    case 'cost-optimized-rate-card': {
+      // Verbatim pass-through — the cook config shape and the router
+      // shape are intentionally identical for this kind. `model` is
+      // conditionally spread so an omitted-input remains omitted-output
+      // (preserves exactOptionalPropertyTypes if/when enabled).
+      return {
+        kind: 'cost-optimized-rate-card',
+        providers: strategy.providers,
+        rateCard: strategy.rateCard,
+        dimension: strategy.dimension,
+        ...(strategy.model !== undefined ? { model: strategy.model } : {}),
+      };
+    }
   }
 }
 
