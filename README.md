@@ -383,24 +383,79 @@ These primitives shipped in Plan 03-01..03-04 plus the session-wiring follow-up;
 
 ## Configuration
 
-Live config lives in `.swt-planning/config.json` and is editable directly or via `swt config set <key> <value>`.
+Live config lives in `.swt-planning/config.json` and is editable directly or via `swt config set <key> <value>`. The shipped defaults are in `config/defaults.json` — every key below is reproduced from that file in source order.
 
-The knobs that matter most:
+### All defaults
 
-| Key                      | Values                                              | Default    | Effect                                                                                                                                   |
-| ------------------------ | --------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `effort`                 | `thorough` / `balanced` / `fast` / `turbo`          | `balanced` | Planning depth and verification thoroughness; also a turn-budget scalar (1.5× → 0.6×) applied to every agent                             |
-| `autonomy`               | `cautious` / `standard` / `confident` / `pure-vibe` | `standard` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error |
-| `verification_tier`      | `quick` / `standard` / `deep`                       | `standard` | What QA runs. `quick` = static-check ladder only; `standard` = +must-haves; `deep` = +integration + cross-phase traceability             |
-| `model_profile`          | `quality` / `balanced` / `cost`                     | `quality`  | Coarse cost/quality switch applied across all six agents                                                                                 |
-| `prefer_teams`           | `auto` / `always` / `never`                         | `auto`     | Use parallel agent teams (when supported by your runtime).                                                                               |
-| `auto_uat`               | `true` / `false`                                    | `false`    | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`)                                                                   |
-| `auto_push`              | `never` / `after_phase` / `always`                  | `never`    | When to push commits to `origin`                                                                                                         |
-| `planning_tracking`      | `manual` / `ignore` / `commit`                      | `manual`   | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints)    |
-| `agent_max_turns.{role}` | int                                                 | varies     | Per-agent turn cap. Defaults: scout 15, qa 25, architect 30, lead 50, dev 75, debugger 80                                                |
-| `model_overrides.{role}` | string                                              | none       | Override the model for a specific agent (e.g. force the Architect onto a cheaper model for a low-stakes project)                         |
+| Key | Default | Effect |
+| --- | --- | --- |
+| `effort` | `"balanced"` | Planning depth and verification thoroughness; also a turn-budget scalar (1.5× → 0.6×) applied to every agent. `thorough` / `balanced` / `fast` / `turbo`. |
+| `autonomy` | `"standard"` | How aggressively `swt vibe` advances without prompts. `cautious` stops every stage; `pure-vibe` auto-loops everything until a hard error. `cautious` / `standard` / `confident` / `pure-vibe`. |
+| `auto_commit` | `true` | Auto-create one atomic commit per completed plan task. |
+| `planning_tracking` | `"manual"` | How `.swt-planning/` interacts with git: `manual` (you decide), `ignore` (gitignored), `commit` (auto-commit at planning checkpoints). |
+| `auto_push` | `"never"` | When to push commits to `origin`: `never` / `after_phase` / `always`. |
+| `verification_tier` | `"standard"` | What QA runs. `quick` = static-check ladder only; `standard` = +must-haves; `deep` = +integration + cross-phase traceability. |
+| `skill_suggestions` | `true` | Surface relevant skills to agents during planning and execution. |
+| `auto_install_skills` | `false` | Auto-install suggested skills instead of only recommending them. |
+| `discovery_questions` | `true` | Ask project-discovery questions during the `swt vibe` bootstrap flow. |
+| `discussion_mode` | `"questions"` | How the discussion engine gathers phase context — see [Skills and discovery](#skills-and-discovery). `questions` / `assumptions` / `auto`. |
+| `context_compiler` | `true` | Pre-compile per-agent context bundles to cut redundant token spend. |
+| `visual_format` | `"unicode"` | Status/diagram rendering style: `unicode` box-drawing or `ascii` fallback. |
+| `max_tasks_per_plan` | `5` | Upper bound on tasks the Architect packs into a single plan. |
+| `prefer_teams` | `"auto"` | Use parallel agent teams when the runtime supports them: `auto` / `always` / `never`. |
+| `branch_per_milestone` | `false` | Cut a dedicated git branch for each milestone instead of working on the current branch. |
+| `plain_summary` | `true` | Emit a plain-language summary alongside the structured `SUMMARY.md`. |
+| `active_profile` | `"default"` | The currently-selected entry from `custom_profiles` (or `default`). |
+| `custom_profiles` | `{}` | Named bundles of config overrides you can switch between with `active_profile`. |
+| `model_profile` | `"quality"` | Coarse cost/quality switch applied across all six agents — see [Model routing and cost](#model-routing-and-cost). `quality` / `balanced` / `cost`. |
+| `model_overrides` | `{}` | Per-role model overrides (e.g. force the Architect onto a cheaper model) — see [Model routing and cost](#model-routing-and-cost). |
+| `agent_max_turns` | `{...}` | Per-agent turn caps. Shipped defaults: scout 15, qa 25, architect 30, lead 50, dev 75, debugger 80. |
+| `qa_skip_agents` | `["docs"]` | Agent roles whose output skips the QA gate. |
+| `worktree_isolation` | `"off"` | Run each parallel task in an isolated git worktree: `off` / `auto` / `on`. |
+| `token_budgets` | `true` | Enforce per-agent token budgets and surface overruns. |
+| `two_phase_completion` | `true` | Require a separate verification pass before a plan is marked complete. |
+| `metrics` | `true` | Record per-run metrics (tokens, cost, durations) for `swt status`/dashboard. |
+| `smart_routing` | `true` | Let the orchestrator pick the cheapest viable route through the lifecycle FSM. |
+| `validation_gates` | `true` | Enforce static-check and must-have gates between lifecycle stages. |
+| `snapshot_resume` | `true` | Persist resumable snapshots so an interrupted run can pick up where it stopped. |
+| `lease_locks` | `true` | Use lease-based PID-liveness locks for crash-safe parallel dispatch. |
+| `event_recovery` | `true` | Replay the event log to reconcile state after a crash or compaction. |
+| `monorepo_routing` | `true` | Detect monorepo package boundaries and scope agents to the right sub-tree. |
+| `rolling_summary` | `false` | Maintain a rolling cross-phase summary instead of regenerating it each phase. |
+| `require_phase_discussion` | `false` | Force a discussion stage before every phase, even when context already exists. |
+| `auto_uat` | `false` | When QA passes, auto-route into UAT (`true`) or stop and ask (`false`). |
+| `max_uat_remediation_rounds` | `false` | Cap on automatic UAT remediation rounds; `false` means no cap. |
+| `statusline_hide_limits` | `false` | Hide rate-limit counters from the status line. |
+| `statusline_hide_limits_for_api_key` | `false` | Hide rate-limit counters specifically when running on an API key. |
+| `statusline_hide_agent_in_tmux` | `false` | Hide the active-agent indicator from the status line inside tmux. |
+| `statusline_collapse_agent_in_tmux` | `false` | Collapse the active-agent indicator to a compact form inside tmux. |
+| `debug_logging` | `false` | Emit verbose debug logs from the harness and hooks. |
+| `bash_guard` | `true` | Hook-enforced bash-command guard for spawned agents. README-only operator note — set in `config/hooks.json`, not `config/defaults.json`. |
+| `caveman_style` | `"none"` | [Caveman language mode](#caveman-language-mode) |
+| `caveman_commit` | `false` | [Caveman language mode](#caveman-language-mode) |
+| `caveman_review` | `false` | [Caveman language mode](#caveman-language-mode) |
 
-Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks`. Run `swt config show` for the full live config.
+### Optional extension hooks
+
+Advanced blocks (not usually edited by hand): `telemetry`, `marketplace`, `hooks`. The hook registry lives in `config/hooks.json`; run `swt config show` for the full live config.
+
+### Skills and discovery
+
+`skill_suggestions` and `auto_install_skills` control how SWT surfaces agent skills; `discovery_questions` and `discussion_mode` control how the discussion engine gathers phase context.
+
+| Key | Type | Default | Values |
+| --- | --- | --- | --- |
+| `discussion_mode` | string | `questions` | `questions` / `assumptions` / `auto` |
+
+`questions` asks clarifying questions from scratch. `assumptions` uses existing codebase map data to propose evidence-backed assumptions first, then falls back to questions if no map exists. `auto` picks `assumptions` when `.swt-planning/codebase/META.md` exists and otherwise uses `questions`.
+
+### Model routing and cost
+
+`model_profile` is the coarse cost/quality switch applied across all six agents (`quality` / `balanced` / `cost`). `model_overrides` is a per-role escape hatch — e.g. `{"architect": "cheaper-model"}` forces just the Architect onto a different model for a low-stakes project. `agent_max_turns` caps how many turns each role may take.
+
+### Caveman language mode
+
+`caveman_style`, `caveman_commit`, and `caveman_review` opt into a deliberately terse "caveman" phrasing for agent output. `caveman_style` (`none` / `light` / `full`) sets the overall tone; `caveman_commit` applies it to commit messages; `caveman_review` applies it to review comments. All three default to off.
 
 ---
 

@@ -46,7 +46,10 @@ DOCTOR_FILE="$ROOT/commands/doctor.md"
 TEACH_FILE="$ROOT/commands/teach.md"
 UNINSTALL_FILE="$ROOT/commands/uninstall.md"
 RESEARCH_FILE="$ROOT/commands/research.md"
-RELEASE_FILE="$ROOT/internal/release.md"
+# NOTE: the former internal/release.md assertion was dropped (G-M4 / plan 04-06).
+# internal/release.md has never existed in this repo on any branch and SWT v3 has
+# no release command surface at that path — release tooling is scripts/bump-version.sh.
+# The reference was an obsolete upstream artifact, not genuinely-expected v3 content.
 
 PLUGIN_ROOT_FILES=(
   "$CONFIG_FILE"
@@ -181,13 +184,6 @@ if contains "$RESEARCH_FILE" 'bash "{plugin-root}/scripts/todo-details.sh" get <
   pass "research: uses safe {plugin-root} script callsites"
 else
   fail "research: missing migrated {plugin-root} script callsites"
-fi
-
-if contains_re "$RELEASE_FILE" '^Version:$' \
-  && contains_re "$RELEASE_FILE" '^Current branch:$'; then
-  pass "release: inline executable context probes moved to fenced blocks"
-else
-  fail "release: inline executable context probes still present"
 fi
 
 echo ""
