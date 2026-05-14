@@ -239,3 +239,32 @@ export {
   type SwtAskUserToolParams,
   type SwtAskUserToolResult,
 } from './ask-user/swt-ask-user-tool.js';
+
+// Phase 1 (Keychain Credential Adapter): the OS-keychain credential store.
+// `resolveCredentialStore` is the Phase 2+ entry point — probe-driven backend
+// selection between the native @napi-rs/keyring keychain and the read-only
+// env-var fallback for headless hosts (CI / SSH / headless Linux). Credentials
+// are namespaced `swt:<provider>:<authMode>` and never written outside the
+// keychain. Risk 1 (@napi-rs/keyring@1.3.0 pinned) + Risk 4 (read-only
+// env-var fallback) resolved.
+export {
+  createCredentialStore,
+  createInMemoryBackend,
+  createKeychainBackend,
+  createEnvFallbackBackend,
+  probeKeychain,
+  resolveCredentialStore,
+  encodeAccount,
+  decodeAccount,
+  SWT_KEYCHAIN_SERVICE,
+} from './credentials/index.js';
+export type {
+  AuthMode,
+  CredentialRef,
+  CredentialBackend,
+  CredentialStore,
+  CredentialStoreOptions,
+  KeychainProbeResult,
+  ResolveCredentialStoreOptions,
+  ResolvedCredentialStore,
+} from './credentials/index.js';
