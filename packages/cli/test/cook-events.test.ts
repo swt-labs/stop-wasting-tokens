@@ -257,11 +257,17 @@ describe('@swt-labs/cli — cook events integration (Plan 04-01 T5)', () => {
     // cook.provider_selected once per spawn after the router resolves the
     // primary provider, landing between cook.agent_spawn and the spawn's
     // cook.agent_result.
+    // Plan 03-04 T2 (Phase 3 / G-R4) — runMode now wires onProjection: the
+    // default budget gate + the embedded rate card make projectionActive
+    // true, so cook.budget_projected is emitted once per spawn (here a
+    // passing projection — would_exceed: false), landing right after
+    // cook.provider_selected and before the spawn's cook.agent_result.
     expect(types).toEqual([
       'cook.priority_decision',
       'cook.task_start',
       'cook.agent_spawn',
       'cook.provider_selected',
+      'cook.budget_projected',
       'cook.agent_result',
       'cook.task_complete',
       'cook.completion',

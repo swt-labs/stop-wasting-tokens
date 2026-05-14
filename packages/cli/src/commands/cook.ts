@@ -85,6 +85,8 @@ import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared'
 import {
   askUser as defaultAskUser,
   createBudgetGate,
+  createRateCardSource,
+  projectSpawnCost,
   type AskUserResponse,
   type BudgetGate,
   type BudgetProjectionResult,
@@ -2522,6 +2524,30 @@ async function runMode(
     sub_session_id: subSessionId,
   });
 
+  // Plan 03-04 (Phase 3 / G-R4) — best-effort rate-card load for the
+  // pre-spawn cost projection. A missing/malformed project rate card NEVER
+  // blocks a cook turn (same posture as defaultBudgetGateFactory returning
+  // null — research §6.2 best-effort discipline).
+  let rateCard: RateCard | undefined;
+  try {
+    rateCard = createRateCardSource({ cwd: io.cwd }).readCurrent();
+  } catch {
+    rateCard = undefined;
+  }
+  // Projection is wired ONLY when ALL of: (a) projection_enabled !== false
+  // (an explicit `false` opts out); (b) the best-effort rate-card load
+  // succeeded; (c) a budget gate exists for this runMode invocation (the
+  // same `gate` handle the paused_on_entry block consulted — when
+  // defaultBudgetGateFactory returned null there is no gate and projection
+  // is skipped). When any condition fails, onProjection is left UNDEFINED
+  // and runSpawnWithFallback runs exactly as in Phase 2 (graceful degrade —
+  // the file-meter backstop stays the safety net). Decision computed once.
+  const projectionGate = gate;
+  const projectionActive =
+    config.budget.projection_enabled !== false &&
+    rateCard !== undefined &&
+    projectionGate !== undefined;
+
   try {
     // Plan 06-02 T3 (REQ-15) — provider router + fallback chain. The
     // chain is per-spawn; an empty fallback list (the default) yields a
@@ -2568,6 +2594,58 @@ async function runMode(
           ...(ev.dimension !== undefined ? { dimension: ev.dimension } : {}),
         });
       },
+      // Plan 03-04 (Phase 3 / G-R4) — pre-spawn cost projection. Wired ONLY
+      // when `projectionActive` (projection_enabled !== false AND the
+      // rate-card load succeeded AND a budget gate exists). The handler:
+      // (1) projects the spawn cost via projectSpawnCost(...) — for the
+      // orchestrator path the assembled system prompt IS the spawn prompt,
+      // so promptWithOpts is passed as systemPrompt + '' as taskPrompt (the
+      // projector sums both, so the token total is identical); (2) reads the
+      // halt decision via gate.project(...); (3) emits cook.budget_projected
+      // on EVERY projection (halt + pass) so the dashboard always sees the
+      // forecast; (4) returns the result so runSpawnWithFallback decides the
+      // throw. Best-effort discipline (research §6.2): any unexpected throw
+      // from projectSpawnCost / gate.project is swallowed with a one-line
+      // stderr notice and undefined is returned — runSpawnWithFallback then
+      // proceeds with the spawn and the file-meter backstop stays the net.
+      // The ONLY intentional spawn-aborting throw is
+      // BudgetProjectionExceededError, raised by runSpawnWithFallback itself.
+      onProjection: projectionActive
+        ? (pctx) => {
+            try {
+              const projection = projectSpawnCost(
+                {
+                  systemPrompt: promptWithOpts,
+                  taskPrompt: '',
+                  maxTurns,
+                  provider: pctx.provider,
+                },
+                rateCard as RateCard,
+              );
+              const result = projectionGate!.project(projection);
+              emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+                type: 'cook.budget_projected',
+                ts: new Date().toISOString(),
+                session_id: ctx.sessionId,
+                sub_session_id: pctx.sub_session_id,
+                projected_cost_usd: projection.projected_cost_usd,
+                spent_usd: projectionGate!.state().spent_usd,
+                ceiling_usd: projectionGate!.state().ceiling_usd,
+                projected_pressure: result.projected_pressure,
+                would_exceed: result.would_exceed,
+                confidence: projection.confidence,
+                assumptions: projection.assumptions.slice(0, 8),
+                rate_card_source: projection.rate_card_source,
+              });
+              return result;
+            } catch (err) {
+              io.stderr.write(
+                `swt cook: budget projection skipped (${String(err)}).\n`,
+              );
+              return undefined;
+            }
+          }
+        : undefined,
       // Production hook: forward fallback events to stderr so operators see
       // the transition (preserved verbatim for human visibility). Plan 02-04
       // (Phase 2 / G-R3) ADDS a dual-emit onto the cook events JSONL channel
@@ -2707,6 +2785,45 @@ async function runMode(
     }
     return EXIT.SUCCESS;
   } catch (err) {
+    // Plan 03-04 (Phase 3 / G-R4) — pre-spawn budget halt. The onProjection
+    // handler returned a would_exceed result, so runSpawnWithFallback threw
+    // BudgetProjectionExceededError BEFORE the fallback chain ran — spawnFn
+    // was never reached, no money was spent. The cook.budget_projected event
+    // (with would_exceed: true) was ALREADY emitted by the handler, so the
+    // dashboard has the forecast; here we mirror the paused_on_entry failure
+    // shape: cook.task_fail + cook.completion(failed) with the analogous
+    // reason 'budget_projection_exceeded', then return EXIT.RUNTIME_ERROR.
+    // Ordered BEFORE the generic error handling (instanceof check). The gate
+    // handle dispose + worktree cleanup happen in the shared `finally` below.
+    if (err instanceof BudgetProjectionExceededError) {
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.task_fail',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        plan: planLabel,
+        task_id: taskId,
+        reason: 'budget_projection_exceeded',
+      });
+      emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+        type: 'cook.completion',
+        ts: new Date().toISOString(),
+        session_id: ctx.sessionId,
+        status: 'failed',
+      });
+      // No spawn ran — release the worktree (nothing to keep for forensics,
+      // unlike the spawn-failed path). The `finally` disposes the gate.
+      if (worktreeSession !== null) {
+        await releaseWorktreeOnSuccess(worktreeSession, io.stderr);
+        worktreeSession = null;
+      }
+      try {
+        markCrashed(io.cwd);
+      } catch {
+        // best-effort
+      }
+      io.stderr.write(`swt cook: ${err.message} — spawn aborted, no spend.\n`);
+      return EXIT.RUNTIME_ERROR;
+    }
     const message = err instanceof Error ? err.message : String(err);
     emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
       type: 'cook.error',
