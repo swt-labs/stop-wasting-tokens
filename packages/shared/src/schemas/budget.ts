@@ -18,6 +18,14 @@ export const BudgetConfigSchema = z.object({
   tier_downgrade_threshold: z.number().min(0).max(1).default(0.7),
   /** Pressure threshold (0..1) that pauses the milestone. Default 0.95. */
   pause_threshold: z.number().min(0).max(1).default(0.95),
+  /** Pre-spawn cost projection toggle. Default on (G-R4). */
+  projection_enabled: z.boolean().default(true),
+  /**
+   * Pressure threshold (0..1) that halts a spawn pre-emptively based on the
+   * cost PROJECTION. When undefined, the projection path reuses
+   * `pause_threshold`. Lets operators be stricter pre-spawn than post-spawn.
+   */
+  projection_halt_threshold: z.number().min(0).max(1).optional(),
 });
 
 export const BudgetStateSchema = z.object({
