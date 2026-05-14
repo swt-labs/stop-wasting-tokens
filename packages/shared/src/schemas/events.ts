@@ -398,6 +398,67 @@ export const CookBudgetProjectedEventSchema = z.object({
   rate_card_source: z.enum(['embedded', 'project-override', 'fetched']),
 });
 
+// Plan 04-01 (Phase 4) — OAuth login flow SSE bridge channel. The dashboard's
+// POST /api/provider-auth/oauth/start route (plan 04-02) drives pi-ai's
+// OAuthProviderInterface.login() and bridges OAuthLoginCallbacks onto this
+// EventBus as `oauth.*` events; the SPA (plan 04-03) renders them. Every
+// variant carries `flow_id` (correlates the events of one OAuth flow) +
+// `provider`. NONE carries a token — the OAuthCredentials blob pi-ai produces
+// goes straight to the OS keychain (research §6), never onto the SSE wire.
+
+/** pi-ai's OAuthLoginCallbacks.onAuth({url, instructions}) fired — the SPA
+ *  renders "open this URL in your browser". `url` is the genuine provider
+ *  URL (it comes from pi-ai, trusted). */
+const OAuthAuthUrlEvent = z.object({
+  type: z.literal('oauth.auth_url'),
+  ts: TimestampSchema,
+  flow_id: z.string().min(1),
+  provider: z.string().min(1),
+  url: z.string().min(1),
+  instructions: z.string().optional(),
+});
+
+/** pi-ai's OAuthLoginCallbacks.onProgress(message) fired — a human-readable
+ *  progress line for the SPA. */
+const OAuthProgressEvent = z.object({
+  type: z.literal('oauth.progress'),
+  ts: TimestampSchema,
+  flow_id: z.string().min(1),
+  provider: z.string().min(1),
+  message: z.string().min(1),
+});
+
+/** pi-ai's OAuthLoginCallbacks.onManualCodeInput invoked — the headless
+ *  paste-flow signal (Risk 4). The SPA shows the auth-code paste box; the
+ *  user POSTs the code to /api/provider-auth/oauth/code. */
+const OAuthAwaitingCodeEvent = z.object({
+  type: z.literal('oauth.awaiting_code'),
+  ts: TimestampSchema,
+  flow_id: z.string().min(1),
+  provider: z.string().min(1),
+  message: z.string().optional(),
+});
+
+/** pi-ai's login() resolved and the OAuthCredentials blob was stored in the
+ *  OS keychain. Success is signalled by the event TYPE — this event carries
+ *  NO token (the credential lives only in the keychain). */
+const OAuthCompleteEvent = z.object({
+  type: z.literal('oauth.complete'),
+  ts: TimestampSchema,
+  flow_id: z.string().min(1),
+  provider: z.string().min(1),
+});
+
+/** pi-ai's login() rejected, or the flow was aborted / timed out. */
+const OAuthErrorEvent = z.object({
+  type: z.literal('oauth.error'),
+  ts: TimestampSchema,
+  flow_id: z.string().min(1),
+  provider: z.string().min(1),
+  code: z.string().min(1),
+  message: z.string().min(1),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -429,6 +490,12 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookProviderSelectedEvent,
   CookProviderFallbackEvent,
   CookBudgetProjectedEventSchema,
+  // Plan 04-01 (Phase 4) — OAuth login flow SSE bridge events.
+  OAuthAuthUrlEvent,
+  OAuthProgressEvent,
+  OAuthAwaitingCodeEvent,
+  OAuthCompleteEvent,
+  OAuthErrorEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -480,6 +547,12 @@ export const SNAPSHOT_EVENT_TYPES = [
   // spawn (whether the projection halts or passes); the schema plan 03-04
   // emits against from a CostProjection + gate.project() result.
   'cook.budget_projected',
+  // Plan 04-01 (Phase 4) — OAuth login flow SSE bridge events.
+  'oauth.auth_url',
+  'oauth.progress',
+  'oauth.awaiting_code',
+  'oauth.complete',
+  'oauth.error',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
@@ -498,6 +571,13 @@ export type CookProviderFallbackEvent = z.infer<typeof CookProviderFallbackEvent
 // forecast event; plan 03-04's cook.ts emitter narrows on this. The
 // CookBudgetProjectedEventSchema const is already exported at its declaration.
 export type CookBudgetProjectedEvent = z.infer<typeof CookBudgetProjectedEventSchema>;
+// Plan 04-01 (Phase 4) — inferred TS types for the OAuth login SSE bridge
+// events; plan 04-02's route bridge + plan 04-03's SPA fold narrow on these.
+export type OAuthAuthUrlEvent = z.infer<typeof OAuthAuthUrlEvent>;
+export type OAuthProgressEvent = z.infer<typeof OAuthProgressEvent>;
+export type OAuthAwaitingCodeEvent = z.infer<typeof OAuthAwaitingCodeEvent>;
+export type OAuthCompleteEvent = z.infer<typeof OAuthCompleteEvent>;
+export type OAuthErrorEvent = z.infer<typeof OAuthErrorEvent>;
 export {
   CookModeSchema,
   CookAgentRoleSchema,
@@ -518,4 +598,11 @@ export {
   CookResumeEvent as CookResumeEventSchema,
   CookProviderSelectedEvent as CookProviderSelectedEventSchema,
   CookProviderFallbackEvent as CookProviderFallbackEventSchema,
+  // Plan 04-01 (Phase 4) — Zod schema aliases so plan 04-02's route can
+  // validate the `oauth.*` payloads it publishes onto the EventBus.
+  OAuthAuthUrlEvent as OAuthAuthUrlEventSchema,
+  OAuthProgressEvent as OAuthProgressEventSchema,
+  OAuthAwaitingCodeEvent as OAuthAwaitingCodeEventSchema,
+  OAuthCompleteEvent as OAuthCompleteEventSchema,
+  OAuthErrorEvent as OAuthErrorEventSchema,
 };
