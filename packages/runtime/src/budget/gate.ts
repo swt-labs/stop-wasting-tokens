@@ -33,6 +33,8 @@
 
 import type { BudgetConfigSchemaT, TokenMeter } from '@swt-labs/shared';
 
+import type { CostProjection } from './cost-projector.js';
+
 export type BudgetStatus = 'ok' | 'warning' | 'paused';
 
 export type BudgetEvent =
@@ -76,10 +78,37 @@ export interface BudgetGateOptions {
   readonly clock?: () => string;
 }
 
+/**
+ * Result of `BudgetGate.project()` — the pure forward-looking read (G-R4).
+ *
+ * `would_exceed` is the binary halt signal: `true` when the projected
+ * pressure crosses `projection_halt_threshold ?? pause_threshold` OR when
+ * `projected_cost_usd` exceeds the per-spawn `task_usd` cap. Computed purely
+ * from the conservative worst-case `projected_cost_usd` — `confidence` is
+ * NEVER consulted (R4: a low-confidence over-threshold projection is exactly
+ * when to halt; confidence is a downstream display concern).
+ */
+export interface BudgetProjectionResult {
+  /** Binary halt signal — true iff this spawn would cross the halt cutoff. */
+  readonly would_exceed: boolean;
+  /** `(spent + projected_cost_usd) / ceiling`, NaN-guarded. Telemetry-honest. */
+  readonly projected_pressure: number;
+  /** The projection echoed back unchanged (no copy, no mutation). */
+  readonly projection: CostProjection;
+}
+
 export interface BudgetGate {
   state(): BudgetGateState;
   subscribe(listener: (event: BudgetEvent) => void): () => void;
   bumpCeiling(delta_usd: number): void;
+  /**
+   * Pure forward-looking read (R3 complement) — answers "if this spawn costs
+   * `projection.projected_cost_usd`, would we cross the halt threshold?".
+   * Never mutates gate state, never fires a `BudgetEvent`. When
+   * `config.projection_enabled === false` it short-circuits to
+   * `would_exceed: false` while still returning an honest `projected_pressure`.
+   */
+  project(projection: CostProjection): BudgetProjectionResult;
   dispose(): void;
 }
 
@@ -174,6 +203,37 @@ export function createBudgetGate(opts: BudgetGateOptions): BudgetGate {
           ceiling_usd: ceiling,
         });
       }
+    },
+    project(projection: CostProjection): BudgetProjectionResult {
+      // Pure read (R3 complement) — reads the LIVE closure `ceiling` (so a
+      // prior `bumpCeiling` is reflected) and `spent`, mutates NOTHING:
+      // never touches `spent` / `status` / `warningFiredAt` / `pausedAt`,
+      // never calls `evaluate()`, never emits a `BudgetEvent`.
+      const projectedSpent = spent + projection.projected_cost_usd;
+      const projected_pressure = ceiling > 0 ? projectedSpent / ceiling : 0;
+      // R6.2 short-circuit — projection disabled means the gate never halts
+      // on a projection, but the result still carries an honest
+      // `projected_pressure` for the dashboard (plan 03-04 telemetry).
+      if (config.projection_enabled === false) {
+        return { would_exceed: false, projected_pressure, projection };
+      }
+      // Threshold-crossing check — the projection-path cutoff reuses
+      // `pause_threshold` when `projection_halt_threshold` is undefined.
+      const haltAt = config.projection_halt_threshold ?? config.pause_threshold;
+      const overThreshold = projected_pressure >= haltAt;
+      // Per-spawn cap check — makes the previously-declared-but-unconsumed
+      // `task_usd` schema field LIVE for the first time (research §6.3).
+      const overTaskCap =
+        config.task_usd !== undefined &&
+        projection.projected_cost_usd > config.task_usd;
+      // R4 — `would_exceed` is computed purely from the conservative
+      // worst-case `projected_cost_usd`; it does NOT inspect
+      // `projection.confidence` (confidence is a downstream display concern).
+      return {
+        would_exceed: overThreshold || overTaskCap,
+        projected_pressure,
+        projection,
+      };
     },
     dispose(): void {
       unsubscribe();

@@ -108,6 +108,7 @@ export {
   type BudgetGate,
   type BudgetGateOptions,
   type BudgetGateState,
+  type BudgetProjectionResult,
   type BudgetStatus,
 } from './budget/gate.js';
 
