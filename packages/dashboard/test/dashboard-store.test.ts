@@ -1038,6 +1038,152 @@ describe('providerAuth tools-cell', () => {
   });
 });
 
+/* ── User Notes — the userNotes tools-cell + saveUserNotes action ──────
+ * Locks the three load-bearing invariants: (a) refreshToolsCell('userNotes')
+ * populates the cell, (b) userNotes is NOT on any poll group so a poll tick
+ * never fetches it, and (c) saveUserNotes optimistically updates the cell on
+ * success and surfaces the error on failure.
+ */
+
+function makeUserNotesSnapshot(
+  overrides: Partial<{ notes: string; exists: boolean; generated_at: string }> = {},
+): { notes: string; exists: boolean; generated_at: string } {
+  return {
+    notes: 'remember the rate-card',
+    exists: true,
+    generated_at: '2026-05-14T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('userNotes tools-cell', () => {
+  it('initializes the userNotes cell empty', async () => {
+    await createRoot(async (dispose) => {
+      const [state] = createDashboardStore();
+      expect(state.tools.userNotes.data).toBeNull();
+      expect(state.tools.userNotes.loading).toBe(false);
+      expect(state.tools.userNotes.error).toBeNull();
+      expect(state.tools.userNotes.lastFetched).toBeNull();
+      dispose();
+    });
+  });
+
+  it("refreshToolsCell('userNotes') populates the cell from fetchUserNotes", async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      const snap = makeUserNotesSnapshot();
+      fetchUserNotesMock.mockResolvedValue(snap);
+      await actions.refreshToolsCell('userNotes');
+      expect(fetchUserNotesMock).toHaveBeenCalledTimes(1);
+      // Only the userNotes fetcher fired — the others are untouched.
+      expect(fetchConfigMock).not.toHaveBeenCalled();
+      expect(fetchProviderAuthMock).not.toHaveBeenCalled();
+      expect(state.tools.userNotes.data).toEqual(snap);
+      expect(state.tools.userNotes.loading).toBe(false);
+      expect(state.tools.userNotes.error).toBeNull();
+      expect(state.tools.userNotes.lastFetched).toBeTypeOf('string');
+      dispose();
+    });
+  });
+
+  it('bootstrap on an initialized snapshot fetches userNotes exactly once', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+      fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+      fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+      fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+      fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
+      fetchCommandsMock.mockResolvedValue({
+        verbs: [],
+        generated_at: '2026-05-10T12:00:00.000Z',
+      });
+      fetchUserNotesMock.mockResolvedValue(makeUserNotesSnapshot());
+      await actions.bootstrap();
+      await Promise.resolve();
+      await Promise.resolve();
+      // The one-shot bootstrap fetch landed.
+      expect(fetchUserNotesMock).toHaveBeenCalledTimes(1);
+      expect(state.tools.userNotes.data).not.toBeNull();
+      actions.shutdown();
+      dispose();
+    });
+  });
+
+  it('userNotes is NOT on any poll group — poll ticks never fetch it', async () => {
+    vi.useFakeTimers();
+    try {
+      await createRoot(async (dispose) => {
+        const [, actions] = createDashboardStore({ pollIntervalMs: 1000 });
+        fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+        fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+        fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+        fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+        fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+        fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
+        fetchCommandsMock.mockResolvedValue({
+          verbs: [],
+          generated_at: '2026-05-10T12:00:00.000Z',
+        });
+        fetchUserNotesMock.mockResolvedValue(makeUserNotesSnapshot());
+        await actions.bootstrap();
+        // Settle bootstrap's immediate refreshTools() + the one-shot
+        // userNotes fetch.
+        await vi.advanceTimersByTimeAsync(0);
+        const baseline = fetchUserNotesMock.mock.calls.length;
+        expect(baseline).toBe(1); // only the bootstrap one-shot
+        // Advance past many fast (1s) AND slow (60s) poll ticks.
+        await vi.advanceTimersByTimeAsync(70_000);
+        // userNotes was NEVER re-fetched — it is on no poll group.
+        expect(fetchUserNotesMock.mock.calls.length).toBe(baseline);
+        actions.shutdown();
+        dispose();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('saveUserNotes on success optimistically updates the cell', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postUserNotesMock.mockResolvedValue({
+        ok: true,
+        generated_at: '2026-05-14T13:00:00.000Z',
+      });
+      const result = await actions.saveUserNotes('my freshly typed notes');
+      expect(result).toEqual({ ok: true });
+      expect(postUserNotesMock).toHaveBeenCalledTimes(1);
+      expect(postUserNotesMock).toHaveBeenCalledWith('my freshly typed notes');
+      // Optimistic apply — the saved text becomes the cell's source of
+      // truth (no SSE event refetches it).
+      expect(state.tools.userNotes.data?.notes).toBe('my freshly typed notes');
+      expect(state.tools.userNotes.data?.exists).toBe(true);
+      expect(state.tools.userNotes.loading).toBe(false);
+      expect(state.tools.userNotes.error).toBeNull();
+      expect(state.tools.userNotes.lastFetched).toBe('2026-05-14T13:00:00.000Z');
+      dispose();
+    });
+  });
+
+  it('saveUserNotes on POST failure sets the cell error, pushes to errors[], returns {error}', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postUserNotesMock.mockRejectedValue(new Error('user_notes_write_failed: EACCES'));
+      const result = await actions.saveUserNotes('notes that fail to save');
+      expect('error' in result).toBe(true);
+      if ('error' in result) {
+        expect(result.error).toMatch(/user_notes_write_failed/);
+      }
+      expect(state.tools.userNotes.error).toMatch(/user_notes_write_failed/);
+      expect(state.tools.userNotes.loading).toBe(false);
+      expect(state.errors.at(-1)?.message).toMatch(/user_notes_write_failed/);
+      dispose();
+    });
+  });
+});
+
 describe('applyUpdate', () => {
   it('on success returns the daemon response and refreshes the update cell', async () => {
     await createRoot(async (dispose) => {
