@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LIST_CMD="$ROOT/commands/list-todos.md"
 DEBUG_CMD="$ROOT/commands/debug.md"
 FIX_CMD="$ROOT/commands/fix.md"
-VIBE_CMD="$ROOT/commands/cook.md"
+COOK_CMD="$ROOT/commands/cook.md"
 RESEARCH_CMD="$ROOT/commands/research.md"
 LIST_SCRIPT="$ROOT/scripts/list-todos.sh"
 DEBUG_START_SCRIPT="$ROOT/scripts/debug-start-selected-todo.sh"
@@ -71,7 +71,7 @@ require_grep "debug-start helper uses snapshot-backed resolver" 'resolve-todo-it
 require_grep "debug-start helper loads selected detail" 'todo-details\.sh" get "\$REF_VALUE"' "$DEBUG_START_SCRIPT"
 require_grep "debug-start helper writes detail warning" 'todo-lifecycle\.sh" detail-warning "\$REF_VALUE"' "$DEBUG_START_SCRIPT"
 require_grep "debug-start helper creates selected debug session" 'debug-session-state\.sh" start-with-selected-todo' "$DEBUG_START_SCRIPT"
-require_grep "debug-start helper owns debug pickup" 'todo-lifecycle\.sh" pickup /swt:debug' "$DEBUG_START_SCRIPT"
+require_grep "debug-start helper owns debug pickup" 'todo-lifecycle\.sh" pickup swt debug' "$DEBUG_START_SCRIPT"
 require_grep "debug-start helper supports already-complete repair" 'already_complete' "$DEBUG_START_SCRIPT"
 require_grep "debug-start helper canonicalizes legacy debug sessions" 'debug-session-state\.sh" list "\$PLANNING_DIR"' "$DEBUG_START_SCRIPT"
 require_grep "debug-start helper scans canonical completed sessions" 'debugging/completed' "$DEBUG_START_SCRIPT"
@@ -95,9 +95,9 @@ require_grep "list-todos uses helper-backed snapshot capture" 'todo-lifecycle\.s
 require_absent "list-todos no longer asks markdown to pipe JSON into snapshot-save" 'todo-lifecycle\.sh" snapshot-save' "$LIST_CMD"
 require_grep "list-todos remove uses snapshot resolver" 'resolve-todo-item\.sh" <N> --session-snapshot' "$LIST_CMD"
 require_grep "list-todos remove delegates to lifecycle helper" 'todo-lifecycle\.sh" remove' "$LIST_CMD"
-require_grep "list-todos filtered view rerun-unfiltered hint exists" 'rerun unfiltered /swt:list-todos' "$LIST_CMD"
-require_grep "list-todos advertises /swt:research N" '/swt:research N' "$LIST_CMD"
-require_grep "list-todos filtered guard includes /swt:research N" 'rerun unfiltered /swt:list-todos before using /swt:vibe N, /swt:fix N, /swt:debug N, or /swt:research N' "$LIST_CMD"
+require_grep "list-todos filtered view rerun-unfiltered hint exists" 'rerun unfiltered swt list-todos' "$LIST_CMD"
+require_grep "list-todos advertises swt research N" 'swt research N' "$LIST_CMD"
+require_grep "list-todos filtered guard includes swt research N" 'rerun unfiltered swt list-todos before using swt cook N, swt fix N, swt debug N, or swt research N' "$LIST_CMD"
 
 # debug command surface
 require_grep "debug documents selected-todo helper contract" '<selected_todo_start_helper>' "$DEBUG_CMD"
@@ -124,21 +124,22 @@ require_grep "debug marks pre-pickup numbering as stale after pickup" 'numbered 
 require_grep "debug says selected todo was picked up automatically" 'picked up automatically' "$DEBUG_CMD"
 require_grep "debug forbids remove N advice after automatic pickup" 'Never tell the user to `remove N`' "$DEBUG_CMD"
 require_grep "debug requires refresh before citing remaining todo numbers" 'Never cite a remaining todo number unless you first refresh' "$DEBUG_CMD"
-require_grep "debug reruns list-todos for fresh numbering after pickup" 'Rerun /swt:list-todos for fresh numbering' "$DEBUG_CMD"
+require_grep "debug reruns list-todos for fresh numbering after pickup" 'Rerun swt list-todos for fresh numbering' "$DEBUG_CMD"
 require_grep "debug explicitly surfaces partial pickup warnings" '\.pickup\.status` is `partial`' "$DEBUG_CMD"
 
 # fix command surface
 require_grep "fix uses snapshot-backed todo resolver" 'resolve-todo-item\.sh" <N> --session-snapshot --require-unfiltered --validate-live' "$FIX_CMD"
 require_grep "fix writes detail warning through lifecycle helper" 'todo-lifecycle\.sh" detail-warning' "$FIX_CMD"
-require_grep "fix pickup uses lifecycle helper" 'todo-lifecycle\.sh" pickup /swt:fix' "$FIX_CMD"
+require_grep "fix pickup uses lifecycle helper" 'todo-lifecycle\.sh" pickup swt fix' "$FIX_CMD"
 
-# vibe command surface
-require_grep "vibe inspects the todo snapshot" 'todo-lifecycle\.sh" snapshot-show' "$VIBE_CMD"
-require_grep "vibe uses snapshot-backed todo resolver" 'resolve-todo-item\.sh" <N> --session-snapshot --require-unfiltered --validate-live' "$VIBE_CMD"
-require_grep "vibe preserves filtered-view rerun-unfiltered guard" 'Current list view is filtered — rerun unfiltered /swt:list-todos before using /swt:vibe N as a todo pickup' "$VIBE_CMD"
-require_grep "vibe eagerly loads detail during Input Parsing for selected todos" 'eagerly load detail during Input Parsing' "$VIBE_CMD"
-require_grep "vibe pickup uses lifecycle helper" 'todo-lifecycle\.sh" pickup /swt:vibe' "$VIBE_CMD"
-require_grep "vibe writes detail warning through lifecycle helper" 'todo-lifecycle\.sh" detail-warning' "$VIBE_CMD"
+# cook command surface (the todo-pickup lifecycle moved from vibe to cook;
+# commands/vibe.md was renamed to commands/cook.md at v3.0.0-alpha.3)
+require_grep "cook inspects the todo snapshot" 'todo-lifecycle\.sh" snapshot-show' "$COOK_CMD"
+require_grep "cook uses snapshot-backed todo resolver" 'resolve-todo-item\.sh" <N> --session-snapshot --require-unfiltered --validate-live' "$COOK_CMD"
+require_grep "cook preserves filtered-view rerun-unfiltered guard" 'Current list view is filtered — rerun unfiltered swt list-todos before using swt cook N as a todo pickup' "$COOK_CMD"
+require_grep "cook eagerly loads detail during Input Parsing for selected todos" 'eagerly load detail during Input Parsing' "$COOK_CMD"
+require_grep "cook pickup uses lifecycle helper" 'todo-lifecycle\.sh" pickup swt cook' "$COOK_CMD"
+require_grep "cook writes detail warning through lifecycle helper" 'todo-lifecycle\.sh" detail-warning' "$COOK_CMD"
 
 # research command surface
 require_grep "research uses snapshot-backed todo resolver" 'resolve-todo-item\.sh" <N> --session-snapshot --require-unfiltered --validate-live' "$RESEARCH_CMD"
