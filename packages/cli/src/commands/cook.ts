@@ -95,14 +95,15 @@ import {
 } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
+import { EXIT, type ExitCode } from '../exit-codes.js';
+import type { CommandHandler, CommandIO } from '../router.js';
+
 import {
   parseAuthConfig,
   DEFAULT_AUTH_CONFIG,
   type AuthConfig,
   type AuthMode,
 } from './auth-config.js';
-import { EXIT, type ExitCode } from '../exit-codes.js';
-import type { CommandHandler, CommandIO } from '../router.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Plan 04-01 — Cook IPC event emitter (R1 file-tail decision).
