@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AuthMode } from '../../src/credentials/types.js';
 import {
   SWT_KEYCHAIN_SERVICE,
   decodeAccount,
   encodeAccount,
 } from '../../src/credentials/namespace.js';
+import type { AuthMode } from '../../src/credentials/types.js';
 
 describe('@swt-labs/runtime — credentials/namespace codec (Plan 01-01)', () => {
   describe('SWT_KEYCHAIN_SERVICE', () => {
