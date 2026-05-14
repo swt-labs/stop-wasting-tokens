@@ -466,6 +466,45 @@ export const OAuthManualCodeResponseSchema = z
   .strict();
 export type OAuthManualCodeResponse = z.infer<typeof OAuthManualCodeResponseSchema>;
 
+/* ── User Notes — freeform per-project scratchpad ────────────────────────
+ *
+ * A deliberately-isolated personal scratchpad backed by a single plain-text
+ * file (`<cwd>/.swt-planning/USER_NOTES.md`). Decoupled from the methodology
+ * artifacts by design: no SSE coupling, not on the dashboard poll loop —
+ * the dashboard fetches it once on bootstrap and auto-saves on a debounce.
+ *
+ * The schemas mirror the `Config*` idiom: a GET snapshot, a `.strict()` POST
+ * body, and a minimal POST response. The notes string is capped at 1 MB so a
+ * runaway client cannot write an unbounded file.
+ */
+
+export const UserNotesSnapshotSchema = z.object({
+  /** The notes file content. Empty string on greenfield (file absent). */
+  notes: z.string(),
+  /** False when `<cwd>/.swt-planning/USER_NOTES.md` does not exist yet. */
+  exists: z.boolean(),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type UserNotesSnapshot = z.infer<typeof UserNotesSnapshotSchema>;
+
+/**
+ * `POST /api/user-notes` body. `notes` is capped at 1 MB — the panel is a
+ * personal scratchpad, not a document store; the cap stops a runaway client
+ * from writing an unbounded file. `.strict()` rejects any extra fields.
+ */
+export const UserNotesUpdateBodySchema = z
+  .object({
+    notes: z.string().max(1_000_000),
+  })
+  .strict();
+export type UserNotesUpdateBody = z.infer<typeof UserNotesUpdateBodySchema>;
+
+export const UserNotesUpdateResponseSchema = z.object({
+  ok: z.literal(true),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type UserNotesUpdateResponse = z.infer<typeof UserNotesUpdateResponseSchema>;
+
 export const ApiSchemas = {
   '/api/health': {
     method: 'GET',
@@ -533,6 +572,15 @@ export const ApiSchemas = {
   '/api/update/apply': {
     method: 'POST',
     response: UpdateApplyResponseSchema,
+  },
+  '/api/user-notes': {
+    method: 'GET',
+    response: UserNotesSnapshotSchema,
+  },
+  '/api/user-notes:POST': {
+    method: 'POST',
+    body: UserNotesUpdateBodySchema,
+    response: UserNotesUpdateResponseSchema,
   },
 } as const;
 export type ApiSchemaMap = typeof ApiSchemas;
