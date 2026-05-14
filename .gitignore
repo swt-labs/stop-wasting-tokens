@@ -123,6 +123,8 @@ scripts/lib/*
 !scripts/docs-gen.ts
 !scripts/public-benchmark.mjs
 !scripts/record-cassette.mjs
+# Phase 2 / Plan 02-01 (G-R3): developer-local rate-card refresh.
+!scripts/refresh-rate-card.mjs
 !scripts/record-cassette-scenarios/
 !scripts/record-cassette-scenarios/*.mjs
 !scripts/stub-test-chaos.mjs
