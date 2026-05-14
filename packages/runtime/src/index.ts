@@ -111,6 +111,18 @@ export {
   type BudgetStatus,
 } from './budget/gate.js';
 
+// Phase 2 / Plan 02-01 (G-R3): Rate-card source loader. Deterministic
+// resolution order — explicit `opts.path` > `<cwd>/.swt-planning/rate-card.json`
+// > embedded snapshot. Zod-validated on construction; throws at load time
+// (not lazily on first `find()`). Sibling of `gate.ts`; the upcoming
+// `cost-optimized-rate-card` strategy in plan 02-02 consumes the `RateCard`
+// shape via `@swt-labs/shared`, while runtime owns the disk IO.
+export {
+  createRateCardSource,
+  type RateCardSource,
+  type RateCardSourceOptions,
+} from './budget/rate-card-source.js';
+
 // PR-09: result-protocol + journal extensions (ADR-002 Accepted).
 // The closure-captured `pi.appendEntry` pattern is encoded in `PiExtensionAPI`
 // (see `extensions/pi-types.ts`) — `PiExtensionContext` intentionally has NO
