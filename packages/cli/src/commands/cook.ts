@@ -87,6 +87,8 @@ import {
   createBudgetGate,
   type AskUserResponse,
   type BudgetGate,
+  type BudgetProjectionResult,
+  type CostProjection,
 } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
@@ -537,6 +539,10 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfigSchemaT = {
   milestone_usd: 10,
   tier_downgrade_threshold: 0.7,
   pause_threshold: 0.95,
+  // Plan 03-03 added `projection_enabled` as a required schema field
+  // (default true / G-R4). Mirror that default here so the safe-fallback
+  // config keeps pre-spawn projection on unless an operator opts out.
+  projection_enabled: true,
 };
 
 /**
@@ -1116,16 +1122,30 @@ function parseBudgetConfig(raw: unknown): BudgetConfigSchemaT {
     (block['pause_threshold'] as number) <= 1
       ? (block['pause_threshold'] as number)
       : DEFAULT_BUDGET_CONFIG.pause_threshold;
+  // Plan 03-03 added `projection_enabled` (required, default true) +
+  // `projection_halt_threshold` (optional) to the budget schema. Parse both
+  // best-effort — an explicit `false` disables the pre-spawn projection path
+  // (G-R4); anything else keeps it on.
+  const projectionEnabled =
+    typeof block['projection_enabled'] === 'boolean'
+      ? (block['projection_enabled'] as boolean)
+      : DEFAULT_BUDGET_CONFIG.projection_enabled;
   return {
     schema_version: 1,
     milestone_usd: milestone,
     tier_downgrade_threshold: downgrade,
     pause_threshold: pause,
+    projection_enabled: projectionEnabled,
     ...(typeof block['phase_usd'] === 'number' && (block['phase_usd'] as number) > 0
       ? { phase_usd: block['phase_usd'] as number }
       : {}),
     ...(typeof block['task_usd'] === 'number' && (block['task_usd'] as number) > 0
       ? { task_usd: block['task_usd'] as number }
+      : {}),
+    ...(typeof block['projection_halt_threshold'] === 'number' &&
+    (block['projection_halt_threshold'] as number) >= 0 &&
+    (block['projection_halt_threshold'] as number) <= 1
+      ? { projection_halt_threshold: block['projection_halt_threshold'] as number }
       : {}),
   };
 }
@@ -2074,6 +2094,37 @@ export interface RunSpawnWithFallbackResult {
   readonly attempts: number;
 }
 
+/**
+ * Plan 03-04 (Phase 3 / G-R4) — typed pre-spawn budget halt.
+ *
+ * Thrown from inside `runSpawnWithFallback` when the `onProjection` handler
+ * returns a `BudgetProjectionResult` with `would_exceed: true` — aborting the
+ * spawn BEFORE `spawnFn` is ever invoked (no money spent). The cook callsite's
+ * existing `try { ... } catch` around the `runSpawnWithFallback` invocation
+ * catches it via `instanceof` and turns it into a `cook.task_fail` +
+ * `cook.completion(failed)` + `EXIT.RUNTIME_ERROR`, mirroring the
+ * `paused_on_entry` failure shape.
+ *
+ * Carries the projection + the gate's projection result on the instance so the
+ * catch branch (and tests) can inspect the forecast that triggered the halt.
+ */
+export class BudgetProjectionExceededError extends Error {
+  readonly projection: CostProjection;
+  readonly projectionResult: BudgetProjectionResult;
+
+  constructor(projectionResult: BudgetProjectionResult) {
+    const pressurePct = (projectionResult.projected_pressure * 100).toFixed(1);
+    super(
+      `pre-spawn cost projection would exceed the budget ` +
+        `(projected pressure ${pressurePct}%, ` +
+        `projected_cost_usd=$${projectionResult.projection.projected_cost_usd.toFixed(4)})`,
+    );
+    this.name = 'BudgetProjectionExceededError';
+    this.projection = projectionResult.projection;
+    this.projectionResult = projectionResult;
+  }
+}
+
 export interface RunSpawnWithFallbackOptions {
   readonly providers: CookProvidersConfig;
   readonly spawnArgs: Parameters<typeof spawnOrchestratorSession>[0];
@@ -2102,6 +2153,19 @@ export interface RunSpawnWithFallbackOptions {
     dimension?: 'input' | 'output' | 'blended';
     sub_session_id: string;
   }) => void;
+  /**
+   * Plan 03-04 (Phase 3 / G-R4) — fired once per spawn AFTER the router
+   * resolves the primary provider, BEFORE the fallback chain runs. The cook
+   * callsite wires this to projectSpawnCost(...) -> gate.project(...) ->
+   * emit cook.budget_projected. When the handler returns a result with
+   * would_exceed: true, runSpawnWithFallback throws BudgetProjectionExceededError
+   * and the spawn is aborted pre-emptively (no spawnFn call). Optional —
+   * omitted callers see no behavioural change.
+   */
+  readonly onProjection?: (ctx: {
+    provider: string;
+    sub_session_id: string;
+  }) => BudgetProjectionResult | undefined;
   /**
    * Plan 02-04 — the sub-session id correlated with this spawn. Threaded
    * through so `onSelectionEvent` can stamp `cook.provider_selected` with
@@ -2159,6 +2223,22 @@ export async function runSpawnWithFallback(
       sub_session_id: opts.subSessionId ?? '',
     });
   }
+
+  // Plan 03-04 (Phase 3 / G-R4) — pre-spawn cost projection. The router has
+  // resolved `primary`; that's the single input the projection needs. The
+  // cook callsite's handler does projectSpawnCost -> gate.project -> emit;
+  // we only own the abort: when the handler signals would_exceed, throw a
+  // typed error that the runMode try/catch turns into a pre-spawn halt.
+  // Invoked at most once per runSpawnWithFallback call; when opts.onProjection
+  // is undefined this is a no-op and behaviour is byte-identical to Phase 2.
+  const projectionResult = opts.onProjection?.({
+    provider: primary,
+    sub_session_id: opts.subSessionId ?? '',
+  });
+  if (projectionResult?.would_exceed === true) {
+    throw new BudgetProjectionExceededError(projectionResult);
+  }
+
   // The chain's `primary` is what the router picked; fallbacks come straight
   // from config. The empty-fallbacks list yields a degenerate chain (one
   // provider, one attempt) — preserves today's single-provider behavior
