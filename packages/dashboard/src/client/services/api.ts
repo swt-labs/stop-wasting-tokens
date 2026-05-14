@@ -10,6 +10,9 @@ import {
   HealthResponseSchema,
   InitBodySchema,
   InitResponseSchema,
+  ProviderAuthSnapshotSchema,
+  ProviderAuthUpdateBodySchema,
+  ProviderAuthUpdateResponseSchema,
   SnapshotSchema,
   UatCheckpointBodySchema,
   UatCheckpointResponseSchema,
@@ -27,6 +30,10 @@ import {
   type HealthResponse,
   type InitBody,
   type InitResponse,
+  type ProviderAuthSnapshot,
+  type ProviderAuthStatus,
+  type ProviderAuthUpdateBody,
+  type ProviderAuthUpdateResponse,
   type Snapshot,
   type UatCheckpointBody,
   type UatCheckpointResponse,
@@ -46,6 +53,10 @@ export type {
   DoctorReport,
   InitBody,
   InitResponse,
+  ProviderAuthSnapshot,
+  ProviderAuthStatus,
+  ProviderAuthUpdateBody,
+  ProviderAuthUpdateResponse,
   UatCheckpointBody,
   UatCheckpointResponse,
   UpdateApplyResponse,
@@ -115,6 +126,20 @@ export async function fetchCommands(): Promise<CommandRegistry> {
   return CommandRegistrySchema.parse(raw);
 }
 
+/**
+ * Phase 3 — `GET /api/provider-auth`. The vendor-select panel's read side:
+ * the current selection + per-provider auth *status* + keychain
+ * availability for the panel's banner. The response is secret-FREE by
+ * 03-01's `ProviderAuthSnapshotSchema` construction — there is no key
+ * value on the wire. Mirrors `fetchConfig`: thin GET wrapper, parses the
+ * response through the matching `@swt-labs/shared` schema so the panel
+ * sees fully-typed data and any wire drift surfaces here.
+ */
+export async function fetchProviderAuth(): Promise<ProviderAuthSnapshot> {
+  const raw = await jsonRequest<unknown>('/api/provider-auth');
+  return ProviderAuthSnapshotSchema.parse(raw);
+}
+
 /* ── v2.3 Phase 03: mutation wrappers ─────────────────────────────────
  * postConfig + postUpdateApply mirror the existing postInit / postCommand
  * shape — validate body via the matching schema, POST, parse the response
@@ -134,6 +159,39 @@ export async function postConfig(body: ConfigUpdateBody): Promise<ConfigUpdateRe
   }
   const raw: unknown = await res.json();
   return ConfigUpdateResponseSchema.parse(raw);
+}
+
+/**
+ * Phase 3 — `POST /api/provider-auth`. Persists the vendor selection +
+ * writes the API key to the OS keychain. Mirrors `postConfig`, plus the
+ * Risk-7 `X-SWT-Credential-Write: confirm` header the credential-write
+ * route requires (a confused-deputy / CSRF defense-in-depth gate layered
+ * on top of the per-boot `Bearer` token). This wrapper is the ONLY place
+ * the client sets that header — every `postProviderAuth` call carries it
+ * unconditionally; the panel + store never set it manually.
+ *
+ * The `apiKey` field is INBOUND ONLY — it travels client→server exactly
+ * once in this body and goes straight to the keychain. The response's
+ * embedded snapshot is secret-free.
+ */
+export async function postProviderAuth(
+  body: ProviderAuthUpdateBody,
+): Promise<ProviderAuthUpdateResponse> {
+  const validated = ProviderAuthUpdateBodySchema.parse(body);
+  const res = await fetch('/api/provider-auth', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'X-SWT-Credential-Write': 'confirm',
+    },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return ProviderAuthUpdateResponseSchema.parse(raw);
 }
 
 export async function postUpdateApply(): Promise<UpdateApplyResponse> {
