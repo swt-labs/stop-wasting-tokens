@@ -62,6 +62,13 @@ export default defineConfig({
   // which rollup-dts can't resolve. Skipping dts for it is safe.
   dts: { resolve: true, entry: { cli: 'packages/cli/src/index.ts' } },
   tsconfig: 'tsconfig.build.json',
+  // `@napi-rs/keyring` is a native NAPI module — its `index.js` does a
+  // platform-switched `require('./keyring.<platform>.node')`. esbuild cannot
+  // bundle a `.node` binary, so it must stay an external runtime `require`
+  // (the banner injects a `createRequire`-based `require`; the keychain
+  // credential module reaches it transitively via `@swt-labs/runtime`, which
+  // carries `@napi-rs/keyring` as a dependency).
+  external: ['@napi-rs/keyring'],
   sourcemap: !reproducible,
   clean: true,
   splitting: false,
