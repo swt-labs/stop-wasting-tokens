@@ -2710,3 +2710,84 @@
   font-style: italic;
   color: rgba(0, 255, 65, 0.45);
 }
+
+/* ── Phase 2: Options dropdown — SettingsSection ──────────────────────
+ * The per-project config Settings surface mounted into OptionsMenu's
+ * `.options-menu-section[data-section="settings"]` slot. Additive only —
+ * the segmented-control palette mirrors `.config-edit-select` /
+ * `.options-menu-*`; the meta / error / empty lines reuse
+ * `.tools-panel-meta` / `.tools-panel-error` / `.tools-panel-empty`. */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The source + last-fetched line. Inherits `.tools-panel-meta`; this rule
+ * only lays the refresh button out inline at the end of the line. */
+.settings-section-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-section-refresh {
+  margin-left: auto;
+}
+
+/* A labelled field row — the field name beside its segmented control. */
+.settings-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+/* The field name — small, muted-green, mirrors `.config-tree-key` sizing. */
+.settings-field-label {
+  flex: 0 0 auto;
+  min-width: 96px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 255, 65, 0.85);
+}
+
+/* The button-group container — a tight segmented look. */
+.settings-segment-group {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+/* Each value button — the terminal-green idiom of `.config-edit-select`. */
+.settings-segment {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.settings-segment:hover:not([disabled]):not(.settings-segment-active) {
+  background: rgba(0, 255, 65, 0.12);
+}
+
+/* The highlighted current value — inverted / filled so it is unmistakable. */
+.settings-segment-active {
+  background: var(--terminal-green);
+  border-color: var(--terminal-green);
+  color: var(--deep-void);
+  font-weight: 600;
+  cursor: default;
+}
+
+/* Disabled covers the in-flight busy state — a field's whole segmented
+ * control is `disabled` while its `onApply` is pending. */
+.settings-segment:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
