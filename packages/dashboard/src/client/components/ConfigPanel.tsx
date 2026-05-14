@@ -1,6 +1,8 @@
 import type { ConfigSnapshot } from '@swt-labs/shared';
 import { For, Show, createSignal, type Component, type JSX } from 'solid-js';
 
+import { CONFIG_ENUM_OPTIONS } from './config-enum-vocab.js';
+
 export interface ConfigPanelProps {
   data: ConfigSnapshot | null;
   loading: boolean;
@@ -32,33 +34,6 @@ function formatRelative(iso: string | null): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   return `${Math.floor(diff / 3600)}h ago`;
 }
-
-/**
- * Hand-mirrored enum lists from `@swt-labs/core/types/*`. Matches the
- * `command-registry-mirror.ts` / `allowed-verbs.ts` precedent: the
- * dashboard package ships as a standalone bundle and avoids a hard
- * runtime dependency on `@swt-labs/core` for these eight enum lists.
- *
- * **Source of truth:** `packages/core/src/types/effort.ts`,
- * `autonomy.ts`, `verification.ts`, plus the inline enums in
- * `packages/core/src/config/Config.ts` (model_profile, backend,
- * prefer_teams, planning_tracking, auto_push). Sync when those move.
- *
- * The keys here name the leaf path inside the config tree, e.g.
- * `'effort'` → top-level `config.effort`. Nested enum keys use dotted
- * notation (`'telemetry.enabled'`) but none of v2.3's editable enums
- * are nested today.
- */
-const CONFIG_ENUM_OPTIONS: Readonly<Record<string, ReadonlyArray<string>>> = {
-  effort: ['thorough', 'balanced', 'fast', 'turbo'],
-  autonomy: ['cautious', 'standard', 'confident', 'pure-vibe'],
-  verification_tier: ['quick', 'standard', 'deep'],
-  model_profile: ['quality', 'balanced', 'cost'],
-  backend: ['codex', 'claude-code', 'ollama'],
-  prefer_teams: ['auto', 'always', 'never'],
-  planning_tracking: ['manual', 'ignore', 'commit'],
-  auto_push: ['never', 'after_phase', 'always'],
-};
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
