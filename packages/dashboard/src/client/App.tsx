@@ -370,6 +370,10 @@ export const App: Component = () => {
                     lastFetched={state.tools.providerAuth.lastFetched}
                     onRefresh={() => void actions.refreshToolsCell('providerAuth')}
                     onSave={(body) => actions.applyProviderAuthUpdate(body)}
+                    oauthFlow={state.oauthFlow}
+                    onStartOAuth={(provider) => actions.startOAuthFlow(provider)}
+                    onSubmitOAuthCode={(code) => actions.submitOAuthCode(code)}
+                    onDismissOAuthFlow={() => actions.dismissOAuthFlow()}
                   />
                 </Resizable.Panel>
               </Resizable>
