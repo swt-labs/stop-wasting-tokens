@@ -20,6 +20,7 @@ import {
   fetchConfig,
   fetchDetectPhase,
   fetchDoctor,
+  fetchProviderAuth,
   fetchSnapshot,
   fetchUpdate,
   postCommand,
@@ -27,11 +28,14 @@ import {
   postCookStart,
   postInit,
   postPromptRespond,
+  postProviderAuth,
   postUatCheckpoint,
   postUpdateApply,
   type CommandResponse,
   type ConfigUpdateBody,
   type InitBody,
+  type ProviderAuthSnapshot,
+  type ProviderAuthUpdateBody,
   type RenderedArtifact,
   type UatCheckpointBody,
   type UpdateApplyResponse,
@@ -118,6 +122,14 @@ export interface ToolsState {
    * been visible for a while.
    */
   commands: ToolsCellState<CommandRegistry>;
+  /**
+   * Phase 3 (vendor-select): the `ProviderAuthPanel`'s read state — the
+   * current provider selection + per-provider auth *status* + keychain
+   * availability. Secret-free by 03-01's `ProviderAuthSnapshotSchema`.
+   * Fetched alongside the other cells and refetched on the `state.changed`
+   * SSE event the `POST /api/provider-auth` route publishes.
+   */
+  providerAuth: ToolsCellState<ProviderAuthSnapshot>;
 }
 
 export type ToolsCellKey = keyof ToolsState;
@@ -181,6 +193,18 @@ export interface DashboardActions {
    * `{error: string}` on validation/write failure (also pushed to errors[]).
    */
   applyConfigUpdate: (body: ConfigUpdateBody) => Promise<{ ok: true } | { error: string }>;
+  /**
+   * Phase 3 (vendor-select): POST a provider selection + API key to the
+   * daemon. The key goes straight to the OS keychain; only the non-secret
+   * selection lands in `config.json`. On success the `providerAuth` cell
+   * is optimistically updated from the response snapshot, and the server's
+   * `state.changed` SSE event refetches it shortly after. Returns
+   * `{ok: true}` on success, `{error: string}` on validation/write
+   * failure (also pushed to errors[]).
+   */
+  applyProviderAuthUpdate: (
+    body: ProviderAuthUpdateBody,
+  ) => Promise<{ ok: true } | { error: string }>;
   /**
    * v2.3 Phase 03: trigger `npm i -g stop-wasting-tokens@latest` server-side.
    * On success, refreshes the Update cell. Elevation case (EACCES) returns
@@ -247,6 +271,7 @@ export function createDashboardStore(
       detectPhase: emptyToolsCell<DetectPhaseReport>(),
       update: emptyToolsCell<UpdateReport>(),
       commands: emptyToolsCell<CommandRegistry>(),
+      providerAuth: emptyToolsCell<ProviderAuthSnapshot>(),
     },
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
@@ -440,6 +465,23 @@ export function createDashboardStore(
       if (evt.changed.includes('config')) {
         void refreshToolsCell('config');
       }
+      // Phase 3 (vendor-select): the `POST /api/provider-auth` route
+      // publishes `state.changed` with `changed:['config']` (the
+      // `StateChangedEvent.changed` Zod enum has no 'provider-auth'
+      // member — see 03-02's DEVN-01), so a credential save from this
+      // panel OR from another browser tab lands on the `config` change.
+      // Refetch the `providerAuth` cell on either `config` OR a future
+      // `provider-auth` change — a plain config edit refetching the
+      // provider-auth status too is harmless and keeps the keychain
+      // status fresh. The `provider-auth` arm is checked through a
+      // widened `string[]` view because the schema enum doesn't include
+      // it yet; if a later phase adds it to the enum this keeps working.
+      // Reuses the existing state.changed → refreshToolsCell mechanism;
+      // no new SSE event type, no new channel.
+      const changedKeys: readonly string[] = evt.changed;
+      if (changedKeys.includes('config') || changedKeys.includes('provider-auth')) {
+        void refreshToolsCell('providerAuth');
+      }
       return;
     }
     if (evt.type === 'agent.spawn' || evt.type === 'agent.complete') {
@@ -506,6 +548,7 @@ export function createDashboardStore(
     detectPhase: typeof fetchDetectPhase;
     update: typeof fetchUpdate;
     commands: typeof fetchCommands;
+    providerAuth: typeof fetchProviderAuth;
   };
   const toolsFetchers: ToolsFetcher = {
     config: fetchConfig,
@@ -513,8 +556,16 @@ export function createDashboardStore(
     detectPhase: fetchDetectPhase,
     update: fetchUpdate,
     commands: fetchCommands,
+    providerAuth: fetchProviderAuth,
   };
-  const TOOLS_KEYS: ToolsCellKey[] = ['config', 'doctor', 'detectPhase', 'update', 'commands'];
+  const TOOLS_KEYS: ToolsCellKey[] = [
+    'config',
+    'doctor',
+    'detectPhase',
+    'update',
+    'commands',
+    'providerAuth',
+  ];
 
   const refreshToolsCell = async (key: ToolsCellKey): Promise<void> => {
     setState('tools', key, 'loading', true);
@@ -924,6 +975,33 @@ export function createDashboardStore(
     }
   };
 
+  const applyProviderAuthUpdate = async (
+    body: ProviderAuthUpdateBody,
+  ): Promise<{ ok: true } | { error: string }> => {
+    setState('tools', 'providerAuth', 'loading', true);
+    setState('tools', 'providerAuth', 'error', null);
+    try {
+      const response = await postProviderAuth(body);
+      // Optimistic apply — the server's state.changed event will arrive
+      // shortly after and trigger a fresh refreshToolsCell('providerAuth'),
+      // but updating here keeps the UI snappy and survives momentary SSE
+      // disconnects. The response snapshot is secret-free by 03-01's schema.
+      setState('tools', 'providerAuth', {
+        data: response.snapshot as never,
+        loading: false,
+        error: null,
+        lastFetched: response.generated_at,
+      });
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('tools', 'providerAuth', 'loading', false);
+      setState('tools', 'providerAuth', 'error', message);
+      pushError(`provider auth update failed: ${message}`);
+      return { error: message };
+    }
+  };
+
   const applyUpdate = async (): Promise<UpdateApplyResponse | { error: string }> => {
     setState('tools', 'update', 'loading', true);
     setState('tools', 'update', 'error', null);
@@ -972,6 +1050,7 @@ export function createDashboardStore(
       refreshTools,
       refreshToolsCell,
       applyConfigUpdate,
+      applyProviderAuthUpdate,
       applyUpdate,
       pushError,
       shutdown,
