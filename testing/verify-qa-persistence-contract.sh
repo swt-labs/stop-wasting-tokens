@@ -96,6 +96,7 @@ EXEC_PROTO="$ROOT/references/execute-protocol.md"
 # 7. Execute protocol does NOT have orchestrator-side pipe to write-verification.sh
 #    (The old pattern was: echo "$QA_VERDICT_JSON" | bash ... write-verification.sh)
 EXEC_PIPE_COUNT=$(grep -c 'echo.*QA_VERDICT.*write-verification' "$EXEC_PROTO" || true)
+EXEC_PIPE_COUNT=${EXEC_PIPE_COUNT:-0}
 if [ "$EXEC_PIPE_COUNT" -gt 0 ]; then
   fail "7: execute-protocol.md still has orchestrator-side pipe to write-verification.sh ($EXEC_PIPE_COUNT occurrences)"
 else
@@ -144,19 +145,24 @@ fi
 
 # ── Finding-regression checks (QA round 2) ───────────────────────────
 
+# Phase 4 / Plan 04-03 (G-M4): the resolved plugin-root variable was renamed
+# VBW_PLUGIN_ROOT -> SWT_INSTALL_ROOT as part of the v3 vbw->swt rename.
+# execute-protocol.md QA task descriptions now emit `Plugin root: ${SWT_INSTALL_ROOT}`.
+# Assertions #15/#16 are reconciled to the current variable name.
+
 # 13. Execute protocol does NOT pass a literal `echo ...` snippet as plugin root
-#     (must use $VBW_PLUGIN_ROOT or `!` executable expansion, not a bare code span)
+#     (must use ${SWT_INSTALL_ROOT} or `!` executable expansion, not a bare code span)
 if grep -q 'Plugin root:.*`echo /tmp/' "$EXEC_PROTO"; then
   fail "13: execute-protocol.md passes literal echo snippet instead of resolved plugin root"
 else
   pass "13: execute-protocol.md does not pass literal echo snippet as plugin root"
 fi
 
-# 15. Execute protocol QA task descriptions use VBW_PLUGIN_ROOT (not CLAUDE_PLUGIN_ROOT)
-#     CLAUDE_PLUGIN_ROOT is only set for --plugin-dir installs; VBW_PLUGIN_ROOT is the
-#     resolved variable from the 6-step cascade at the top of execute-protocol.md.
+# 15. Execute protocol QA task descriptions use SWT_INSTALL_ROOT (not CLAUDE_PLUGIN_ROOT)
+#     CLAUDE_PLUGIN_ROOT is only set for --plugin-dir installs; SWT_INSTALL_ROOT is the
+#     resolved variable from the cascade at the top of execute-protocol.md.
 if grep -q 'Plugin root: \${CLAUDE_PLUGIN_ROOT}' "$EXEC_PROTO"; then
-  fail "15: execute-protocol.md QA task descriptions use CLAUDE_PLUGIN_ROOT instead of VBW_PLUGIN_ROOT"
+  fail "15: execute-protocol.md QA task descriptions use CLAUDE_PLUGIN_ROOT instead of SWT_INSTALL_ROOT"
 else
   pass "15: execute-protocol.md QA task descriptions use correct plugin root variable"
 fi
@@ -176,13 +182,14 @@ fi
 
 # ── Finding-regression checks (QA round 4) ───────────────────────────
 
-# 16. Execute protocol QA task descriptions use ${VBW_PLUGIN_ROOT} consistently
+# 16. Execute protocol QA task descriptions use ${SWT_INSTALL_ROOT} consistently
 #     (same pattern as all other script invocations — orchestrator resolves at top of file)
-PLUGIN_ROOT_COUNT=$(grep -c 'Plugin root: \${VBW_PLUGIN_ROOT}' "$EXEC_PROTO" || true)
+PLUGIN_ROOT_COUNT=$(grep -c 'Plugin root: \${SWT_INSTALL_ROOT}' "$EXEC_PROTO" || true)
+PLUGIN_ROOT_COUNT=${PLUGIN_ROOT_COUNT:-0}
 if [ "$PLUGIN_ROOT_COUNT" -ge 2 ]; then
-  pass "16: execute-protocol.md QA task descriptions use \${VBW_PLUGIN_ROOT} consistently ($PLUGIN_ROOT_COUNT occurrences)"
+  pass "16: execute-protocol.md QA task descriptions use \${SWT_INSTALL_ROOT} consistently ($PLUGIN_ROOT_COUNT occurrences)"
 else
-  fail "16: execute-protocol.md QA task descriptions missing \${VBW_PLUGIN_ROOT} (found $PLUGIN_ROOT_COUNT, expected ≥2)"
+  fail "16: execute-protocol.md QA task descriptions missing \${SWT_INSTALL_ROOT} (found $PLUGIN_ROOT_COUNT, expected ≥2)"
 fi
 
 if grep -q 'track-known-issues\.sh" sync-summaries' "$ROOT/commands/cook.md"; then
