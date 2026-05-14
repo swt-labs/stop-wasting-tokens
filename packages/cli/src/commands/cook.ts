@@ -94,6 +94,7 @@ import {
 } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
+import { parseAuthConfig, DEFAULT_AUTH_CONFIG, type AuthConfig } from './auth-config.js';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
@@ -570,6 +571,19 @@ export interface CookConfig {
    * evidence per R6.
    */
   readonly worktree_isolation: 'off' | 'on' | 'auto';
+  /**
+   * Plan 02-04 (Phase 2 / Selection → Spawn Wiring) — the additive `auth`
+   * config block: per-provider `{mode, credentialRef?}` entries describing
+   * HOW each provider authenticates. Parsed by {@link parseAuthConfig} from
+   * the `auth` sub-key of `.swt-planning/config.json` — a sub-key entirely
+   * SEPARATE from `providers.strategy` (which is routing, not credentials).
+   * ALWAYS present: `DEFAULT_AUTH_CONFIG` (`{}`) when no `auth` block is
+   * configured or the config is malformed, so the cook spawn callsite never
+   * has to guard for `undefined`. An empty `auth` block ⇒ behaviour is
+   * byte-identical to pre-Phase-2 (the spawn resolves no credential and Pi
+   * falls through to its own auth resolution).
+   */
+  readonly auth: AuthConfig;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1208,6 +1222,7 @@ export function loadCookConfig(
       providers: DEFAULT_PROVIDERS_CONFIG,
       budget: DEFAULT_BUDGET_CONFIG,
       worktree_isolation: 'off',
+      auth: DEFAULT_AUTH_CONFIG,
     };
   }
   try {
@@ -1226,11 +1241,17 @@ export function loadCookConfig(
     const providers = parseProvidersConfig(parsed['providers']);
     const budget = parseBudgetConfig(parsed['budget']);
     const worktreeIsolation = parseWorktreeIsolation(parsed['worktree_isolation']);
+    // Plan 02-04 (Phase 2) — parse the additive `auth` block alongside the
+    // EXISTING `parseProvidersConfig(parsed['providers'])` call. Two
+    // independent calls on two independent sub-keys; nothing about the
+    // `providers` block changes — `auth` is purely additive.
+    const authConfig = parseAuthConfig(parsed['auth']);
     return {
       auto_uat: autoUat,
       providers,
       budget,
       worktree_isolation: worktreeIsolation,
+      auth: authConfig,
       ...(overrides !== undefined ? { qa_gate_overrides: overrides } : {}),
       ...(typeof maxTurns === 'number' && Number.isFinite(maxTurns)
         ? { agent_max_turns_orchestrator: maxTurns }
@@ -1242,6 +1263,7 @@ export function loadCookConfig(
       providers: DEFAULT_PROVIDERS_CONFIG,
       budget: DEFAULT_BUDGET_CONFIG,
       worktree_isolation: 'off',
+      auth: DEFAULT_AUTH_CONFIG,
     };
   }
 }
