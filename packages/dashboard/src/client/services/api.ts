@@ -10,6 +10,10 @@ import {
   HealthResponseSchema,
   InitBodySchema,
   InitResponseSchema,
+  OAuthManualCodeBodySchema,
+  OAuthManualCodeResponseSchema,
+  OAuthStartBodySchema,
+  OAuthStartResponseSchema,
   ProviderAuthSnapshotSchema,
   ProviderAuthUpdateBodySchema,
   ProviderAuthUpdateResponseSchema,
@@ -30,6 +34,8 @@ import {
   type HealthResponse,
   type InitBody,
   type InitResponse,
+  type OAuthManualCodeResponse,
+  type OAuthStartResponse,
   type ProviderAuthSnapshot,
   type ProviderAuthStatus,
   type ProviderAuthUpdateBody,
@@ -53,6 +59,8 @@ export type {
   DoctorReport,
   InitBody,
   InitResponse,
+  OAuthManualCodeResponse,
+  OAuthStartResponse,
   ProviderAuthSnapshot,
   ProviderAuthStatus,
   ProviderAuthUpdateBody,
@@ -192,6 +200,69 @@ export async function postProviderAuth(
   }
   const raw: unknown = await res.json();
   return ProviderAuthUpdateResponseSchema.parse(raw);
+}
+
+/**
+ * Plan 04-03 (Phase 4) — `POST /api/provider-auth/oauth/start`. Kick off an
+ * OAuth login flow for `provider`. The flow runs in the background on the
+ * server (pi-ai's `OAuthProviderInterface.login()` driven by plan 04-02's
+ * route); this returns immediately with the `flow_id` to correlate the
+ * `oauth.*` SSE events that follow. Carries the Risk-7
+ * `X-SWT-Credential-Write: confirm` header — an OAuth flow culminates in a
+ * keychain write, so it is a credential-write operation, gated the same way
+ * `postProviderAuth` is. `api.ts` stays the single client-side owner of that
+ * header. No secret travels on this request — OAuth carries no inbound key.
+ */
+export async function postOAuthStart(provider: string): Promise<OAuthStartResponse> {
+  const validated = OAuthStartBodySchema.parse({ provider });
+  const res = await fetch('/api/provider-auth/oauth/start', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'X-SWT-Credential-Write': 'confirm',
+    },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return OAuthStartResponseSchema.parse(raw);
+}
+
+/**
+ * Plan 04-03 (Phase 4) — `POST /api/provider-auth/oauth/code`. Feed a
+ * manually-pasted authorization code into an in-flight OAuth flow (the
+ * Risk-4 headless paste path). `flow_id` correlates to the running flow
+ * (from the `/oauth/start` response or the `oauth.*` SSE events); `code` is
+ * the authorization code the user copied from the provider's browser page.
+ * The actual login completion still arrives via the `oauth.complete` SSE
+ * event — this route just acknowledges the paste. Carries the same
+ * `X-SWT-Credential-Write: confirm` header `postOAuthStart` does.
+ *
+ * `code` is used ONLY in the request body — it is never logged, never
+ * stored in a module-level variable, and not retained after this `fetch`.
+ */
+export async function postOAuthCode(
+  flow_id: string,
+  code: string,
+): Promise<OAuthManualCodeResponse> {
+  const validated = OAuthManualCodeBodySchema.parse({ flow_id, code });
+  const res = await fetch('/api/provider-auth/oauth/code', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'X-SWT-Credential-Write': 'confirm',
+    },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return OAuthManualCodeResponseSchema.parse(raw);
 }
 
 export async function postUpdateApply(): Promise<UpdateApplyResponse> {
