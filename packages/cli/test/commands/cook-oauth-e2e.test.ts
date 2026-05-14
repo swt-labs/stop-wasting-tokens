@@ -329,7 +329,7 @@ describe('Plan 04-04 — end-to-end OAuth-spawn integration (the "actually works
       sub_session_id: 'oauth-e2e-session',
       selected_provider: resolved?.provider ?? 'unknown',
       selected_via: 'pinned',
-    } as CookEvent);
+    });
 
     const session = await createSession({
       cwd: '/tmp/swt-oauth-e2e',

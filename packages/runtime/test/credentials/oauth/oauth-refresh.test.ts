@@ -22,9 +22,8 @@
  *  7. secret-leak guard — no `console.*` call during a refresh.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { OAuthCredentials } from '@earendil-works/pi-ai/oauth';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** A minimal fake `OAuthProviderInterface` — only `id` / `name` /
  *  `refreshToken` are exercised by the refresh module; the rest are stubbed

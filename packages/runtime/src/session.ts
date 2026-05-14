@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { OAuthCredentials } from '@earendil-works/pi-ai/oauth';
 import {
   AuthStorage,
   createAgentSession,
@@ -8,7 +9,6 @@ import {
   type AgentSession,
   type AgentSessionEvent,
 } from '@earendil-works/pi-coding-agent';
-import type { OAuthCredentials } from '@earendil-works/pi-ai/oauth';
 
 import { mapPiEvent } from './events.js';
 import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
