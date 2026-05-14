@@ -1,6 +1,14 @@
 import type { TokenMeter } from './meter.js';
 
 /**
+ * Credential kind. MUST stay byte-identical to `@swt-labs/runtime`'s
+ * `credentials/types.ts` `AuthMode` — `shared` (L0) cannot import `runtime`
+ * (L2) without an upward-cycle layering violation, so this is a deliberate
+ * local mirror. Phase 2 (Selection → Spawn Wiring) / Risk 8.
+ */
+export type AuthMode = 'api_key' | 'oauth';
+
+/**
  * SWT session — vendor-neutral wrapper over Pi's `AgentSession`.
  *
  * Migrated from `runtime/src/types.ts` in PR-04. The shape is locked in here
@@ -66,6 +74,49 @@ export interface SwtSessionOptions {
    * Pi's session entry by the session-wiring follow-up.
    */
   readonly taskId?: string;
+  /**
+   * Phase 2 (Selection → Spawn Wiring) — the resolved provider id this
+   * session runs on (e.g. `'openai'`, `'anthropic'`). When set, the real
+   * `createSession` injects the credential for this provider into Pi's
+   * `AuthStorage`. When `undefined`, `createSession` is byte-identical to
+   * pre-Phase-2 (Pi falls through to its own `auth.json` + env-var
+   * resolution). Resolved by the cook spawn callsite (Phase 2 plan 02-04).
+   *
+   * Risk 5: this field is OPTIONAL — every existing `SwtSessionOptions`
+   * construction (incl. `createMockSession`, the recording factory, every
+   * cassette/parity fixture) compiles + behaves unchanged when it is absent.
+   */
+  readonly provider?: string;
+  /**
+   * Phase 2 — OPTIONAL model-id override. Risk 8: Phase 2 NEVER sets this —
+   * it stays `undefined` for every Phase 2 path so Pi's `ModelRegistry` +
+   * `model-resolver.ts` resolves the chosen provider's default model. The
+   * field exists purely so the documented model-picker fast-follow can
+   * populate it without a contract change. Note: this is a model-id
+   * *string*; Pi's `createAgentSession` takes a resolved `Model<any>` — the
+   * fast-follow that populates this field also owns the id → `Model`
+   * resolution. Phase 2's `createSession` never forwards it to Pi.
+   */
+  readonly model?: string;
+  /**
+   * Phase 2 — the already-resolved credential the cook callsite pulled from
+   * the OS keychain (Phase 2 plan 02-04, via Phase 1's
+   * `resolveCredentialStore`). `secret` is an API-key string in Phase 2; a
+   * serialized `OAuthCredentials` JSON blob in Phase 4.
+   *
+   * SECURITY — this field carries a SECRET. It MUST NEVER be logged, NEVER
+   * serialized into transcripts / events JSONL, NEVER written to disk. It is
+   * consumed ONLY by the real `createSession`'s in-memory `AuthStorage`
+   * injection (RAM-only, via `InMemoryAuthStorageBackend`) and then dropped.
+   * The mock path `void`s it.
+   *
+   * Risk 5: OPTIONAL — absent ⇒ `createSession` is byte-identical to
+   * pre-Phase-2.
+   */
+  readonly resolvedCredential?: {
+    readonly authMode: AuthMode;
+    readonly secret: string;
+  };
 }
 
 /**
