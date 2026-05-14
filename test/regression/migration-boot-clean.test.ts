@@ -87,15 +87,18 @@ function sha256Tree(dir: string): string {
   return hash.digest('hex');
 }
 
-describe('swt migrate --to=v3 + boot-clean', () => {
+// `skipIf` rather than a hard-throwing `beforeAll`: this suite boots the
+// built `dist/cli.mjs`, so it is only meaningful once `pnpm build` has run.
+// It is part of the default `pnpm test` set (`vitest.config.ts` includes
+// `test/**`), and `ci.yml` / `release.yml` run `pnpm test` *before* `pnpm
+// build` — a hard throw there crashes the whole suite. Skipping when the
+// CLI bundle is absent is the correct behaviour; the `Regression` workflow
+// builds first, so the suite still gets real coverage there (+ any local
+// run after a build).
+describe.skipIf(!existsSync(CLI_BIN))('swt migrate --to=v3 + boot-clean', () => {
   let tmpOut: string;
 
   beforeAll(() => {
-    if (!existsSync(CLI_BIN)) {
-      throw new Error(
-        `dist/cli.mjs not found at ${CLI_BIN}. Run \`pnpm build\` before \`pnpm test:regression\`.`,
-      );
-    }
     if (!existsSync(join(FIXTURE, '.swt-planning', 'config.json'))) {
       throw new Error(`v2-baseline fixture missing at ${FIXTURE}/.swt-planning/config.json.`);
     }
