@@ -57,6 +57,10 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfigSchemaT = {
   milestone_usd: 10,
   tier_downgrade_threshold: 0.7,
   pause_threshold: 0.95,
+  // Plan 03-03 made `projection_enabled` a required schema field
+  // (default true / G-R4). Mirror cook.ts's backfilled DEFAULT_BUDGET_CONFIG
+  // so the dashboard's safe-fallback keeps pre-spawn projection on.
+  projection_enabled: true,
 };
 
 export interface BudgetWiringOptions {
