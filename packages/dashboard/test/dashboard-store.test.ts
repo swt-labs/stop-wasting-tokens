@@ -15,8 +15,8 @@ const postInitMock = vi.fn();
 const postCommandMock = vi.fn();
 const postUatCheckpointMock = vi.fn();
 const fetchArtifactRenderedMock = vi.fn();
-const postVibeStartMock = vi.fn();
-const postVibeReplyMock = vi.fn();
+const postCookStartMock = vi.fn();
+const postPromptRespondMock = vi.fn();
 const openSseConnectionMock = vi.fn();
 const fetchConfigMock = vi.fn();
 const fetchDoctorMock = vi.fn();
@@ -32,8 +32,8 @@ vi.mock('../src/client/services/api.js', () => ({
   postCommand: (...args: unknown[]) => postCommandMock(...args),
   postUatCheckpoint: (...args: unknown[]) => postUatCheckpointMock(...args),
   fetchArtifactRendered: (...args: unknown[]) => fetchArtifactRenderedMock(...args),
-  postVibeStart: (...args: unknown[]) => postVibeStartMock(...args),
-  postVibeReply: (...args: unknown[]) => postVibeReplyMock(...args),
+  postCookStart: (...args: unknown[]) => postCookStartMock(...args),
+  postPromptRespond: (...args: unknown[]) => postPromptRespondMock(...args),
   fetchConfig: (...args: unknown[]) => fetchConfigMock(...args),
   fetchDoctor: (...args: unknown[]) => fetchDoctorMock(...args),
   fetchDetectPhase: (...args: unknown[]) => fetchDetectPhaseMock(...args),
@@ -70,8 +70,8 @@ beforeEach(() => {
   postCommandMock.mockReset();
   postUatCheckpointMock.mockReset();
   fetchArtifactRenderedMock.mockReset();
-  postVibeStartMock.mockReset();
-  postVibeReplyMock.mockReset();
+  postCookStartMock.mockReset();
+  postPromptRespondMock.mockReset();
   openSseConnectionMock.mockReset();
   fetchConfigMock.mockReset();
   fetchDoctorMock.mockReset();
@@ -194,38 +194,30 @@ describe('runCommand verb-aware refresh', () => {
 });
 
 describe('vibe session lifecycle', () => {
-  it('startVibeSession sets the active session and clears stale state', async () => {
+  // G-D3 — `startVibeSession` now ports to `POST /api/cook/start`
+  // (`postCookStart`) and `replyToActivePrompt` ports to
+  // `POST /api/prompts/:id/respond` (`postPromptRespond`). The legacy
+  // `/api/vibe` shim + its `postVibeStart` / `postVibeReply` helpers were
+  // removed; these tests exercise the cook/prompts wiring.
+  it('startVibeSession starts a cook session and clears stale state', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-123',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 4242,
+        started_at: '2026-05-14T00:00:00Z',
       });
 
       const id = await actions.startVibeSession('build me a snake game');
       expect(id).toBe('sess-123');
+      expect(postCookStartMock).toHaveBeenCalledTimes(1);
       expect(state.vibeSession?.session_id).toBe('sess-123');
       expect(state.vibeSession?.initial_prompt).toBe('build me a snake game');
       expect(state.vibeSession?.conversation).toEqual([]);
+      // v3 ships Pi as the sole agent backend — a successful cook spawn
+      // implies `agent_backend: 'pi'` (cook/start carries no backend field).
+      expect(state.vibeSession?.agent_backend).toBe('pi');
       expect(state.vibeStarting).toBe(false);
-      dispose();
-    });
-  });
-
-  it('startVibeSession captures agent_backend=none and emits a setup-hint log line', async () => {
-    await createRoot(async (dispose) => {
-      const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
-        session_id: 'sess-no-agent',
-        state: 'idle',
-        agent_backend: 'none',
-      });
-      await actions.startVibeSession('test prompt');
-      expect(state.vibeSession?.agent_backend).toBe('none');
-      // The hint log line should appear on stderr channel.
-      const stderrLines = state.recentLogLines.filter((l) => l.channel === 'stderr');
-      expect(stderrLines.some((l) => l.line.includes('SWT_VIBE_AGENT=codex'))).toBe(true);
       dispose();
     });
   });
@@ -233,11 +225,11 @@ describe('vibe session lifecycle', () => {
   it('startVibeSession returns null on rejection and pushes an error', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockRejectedValue(new Error('vibe_start_failed'));
+      postCookStartMock.mockRejectedValue(new Error('cook_start_failed'));
       const id = await actions.startVibeSession('test');
       expect(id).toBeNull();
       expect(state.vibeSession).toBeNull();
-      expect(state.errors.at(-1)?.message).toContain('vibe_start_failed');
+      expect(state.errors.at(-1)?.message).toContain('cook_start_failed');
       dispose();
     });
   });
@@ -245,10 +237,10 @@ describe('vibe session lifecycle', () => {
   it('agent.prompt event appends to conversation as pending when session_id matches', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-A',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
       });
       await actions.startVibeSession('test');
 
@@ -273,10 +265,10 @@ describe('vibe session lifecycle', () => {
   it('agent.prompt for a different session_id is ignored', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-A',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
       });
       await actions.startVibeSession('test');
 
@@ -296,12 +288,12 @@ describe('vibe session lifecycle', () => {
   it('replyToActivePrompt POSTs reply, updates conversation entry to answered', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-A',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
       });
-      postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
+      postPromptRespondMock.mockResolvedValue(undefined);
       await actions.startVibeSession('test');
       actions.applyEvent({
         type: 'agent.prompt',
@@ -314,9 +306,13 @@ describe('vibe session lifecycle', () => {
 
       const ok = await actions.replyToActivePrompt({ kind: 'free_form', text: 'a snake game' });
       expect(ok).toBe(true);
-      expect(postVibeReplyMock).toHaveBeenCalledWith('sess-A', {
+      // G-D3 — the UI answer union maps onto the prompts route's
+      // `{prompt_id, selectedOption, freeform}` wire body: free_form text
+      // rides `freeform`, `selectedOption` is null.
+      expect(postPromptRespondMock).toHaveBeenCalledWith({
         prompt_id: 'p-1',
-        answer: { kind: 'free_form', text: 'a snake game' },
+        selectedOption: null,
+        freeform: 'a snake game',
       });
       const entry = state.vibeSession?.conversation[0];
       expect(entry?.status).toBe('answered');
@@ -325,18 +321,68 @@ describe('vibe session lifecycle', () => {
     });
   });
 
+  it('replyToActivePrompt maps choice + permission answers onto the prompts wire body', async () => {
+    await createRoot(async (dispose) => {
+      const [, actions] = createDashboardStore();
+      postCookStartMock.mockResolvedValue({
+        session_id: 'sess-A',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
+      });
+      postPromptRespondMock.mockResolvedValue(undefined);
+      await actions.startVibeSession('test');
+
+      // choice → selectedOption set, freeform null
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:00:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-choice',
+        subtype: 'clarification',
+        question: 'pick one',
+      });
+      await actions.replyToActivePrompt({ kind: 'choice', value: 'option-b' });
+      expect(postPromptRespondMock).toHaveBeenLastCalledWith({
+        prompt_id: 'p-choice',
+        selectedOption: 'option-b',
+        freeform: null,
+      });
+
+      // permission → decision rides selectedOption, note rides freeform
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-09T10:01:00Z',
+        session_id: 'sess-A',
+        prompt_id: 'p-perm',
+        subtype: 'permission',
+        question: 'allow write?',
+      });
+      await actions.replyToActivePrompt({
+        kind: 'permission',
+        decision: 'once',
+        user_note: 'looks fine',
+      });
+      expect(postPromptRespondMock).toHaveBeenLastCalledWith({
+        prompt_id: 'p-perm',
+        selectedOption: 'once',
+        freeform: 'looks fine',
+      });
+      dispose();
+    });
+  });
+
   it('replyToActivePrompt returns false when no pending prompt exists', async () => {
     await createRoot(async (dispose) => {
       const [, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-A',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
       });
       await actions.startVibeSession('test');
       const ok = await actions.replyToActivePrompt({ kind: 'free_form', text: 'a' });
       expect(ok).toBe(false);
-      expect(postVibeReplyMock).not.toHaveBeenCalled();
+      expect(postPromptRespondMock).not.toHaveBeenCalled();
       dispose();
     });
   });
@@ -344,10 +390,10 @@ describe('vibe session lifecycle', () => {
   it('agent.prompt.timeout flips matching pending entry to expired', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-A',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
       });
       await actions.startVibeSession('test');
       actions.applyEvent({
@@ -375,12 +421,12 @@ describe('vibe session lifecycle', () => {
   it('multiple sequential prompts stack as a conversation thread', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postVibeStartMock.mockResolvedValue({
+      postCookStartMock.mockResolvedValue({
         session_id: 'sess-A',
-        state: 'idle',
-        agent_backend: 'pi',
+        pid: 1,
+        started_at: '2026-05-14T00:00:00Z',
       });
-      postVibeReplyMock.mockResolvedValue({ ok: true, accepted: true });
+      postPromptRespondMock.mockResolvedValue(undefined);
       await actions.startVibeSession('test');
 
       actions.applyEvent({

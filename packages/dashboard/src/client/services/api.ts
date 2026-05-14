@@ -15,10 +15,6 @@ import {
   UatCheckpointResponseSchema,
   UpdateApplyResponseSchema,
   UpdateReportSchema,
-  VibeReplyBodySchema,
-  VibeReplyResponseSchema,
-  VibeStartBodySchema,
-  VibeStartResponseSchema,
   type CommandBody,
   type CommandRegistry,
   type CommandResponse,
@@ -36,10 +32,6 @@ import {
   type UatCheckpointResponse,
   type UpdateApplyResponse,
   type UpdateReport,
-  type VibeReplyBody,
-  type VibeReplyResponse,
-  type VibeStartBody,
-  type VibeStartResponse,
 } from '@swt-labs/shared';
 
 export type {
@@ -58,10 +50,6 @@ export type {
   UatCheckpointResponse,
   UpdateApplyResponse,
   UpdateReport,
-  VibeReplyBody,
-  VibeReplyResponse,
-  VibeStartBody,
-  VibeStartResponse,
 };
 
 export interface RenderedArtifact {
@@ -301,35 +289,79 @@ export async function postCommand(body: CommandBody): Promise<CommandResponse> {
   return CommandResponseSchema.parse(raw);
 }
 
-export async function postVibeStart(body: VibeStartBody): Promise<VibeStartResponse> {
-  const validated = VibeStartBodySchema.parse(body);
-  const res = await fetch('/api/vibe', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(validated),
-  });
-  if (!res.ok) {
-    const message = await readErrorMessage(res);
-    throw new ApiError(message, res.status);
-  }
-  const raw: unknown = await res.json();
-  return VibeStartResponseSchema.parse(raw);
+/**
+ * G-D3 — `POST /api/cook/start`. The v3 successor to the removed v2
+ * vibe-start helper that targeted the `/api/vibe` shim (deleted in commit
+ * 860b59d). Spawns `swt cook` as a detached subprocess server-side; the daemon mints the
+ * session_id. Cook is plan-driven and non-interactive — there is no
+ * per-call free-text "prompt" in v3, so the dashboard's TopBar prompt is
+ * kept only for the local session log line / `initial_prompt` display and
+ * is NOT forwarded on the wire. Optional `args` flow straight through to
+ * the `swt cook` CLI invocation.
+ *
+ * No zod schema in `@swt-labs/shared` for this route's response yet — the
+ * server-side shape is locked by `cook-start.ts` + its route test; we do a
+ * thin runtime shape check here (mirrors `fetchArtifactHistory`).
+ */
+export interface CookStartResponse {
+  session_id: string;
+  pid: number | null;
+  started_at: string;
 }
 
-export async function postVibeReply(
-  session_id: string,
-  body: VibeReplyBody,
-): Promise<VibeReplyResponse> {
-  const validated = VibeReplyBodySchema.parse(body);
-  const res = await fetch(`/api/vibe/${encodeURIComponent(session_id)}/reply`, {
+export async function postCookStart(args?: ReadonlyArray<string>): Promise<CookStartResponse> {
+  const res = await fetch('/api/cook/start', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(validated),
+    body: JSON.stringify(args && args.length > 0 ? { args } : {}),
   });
   if (!res.ok) {
     const message = await readErrorMessage(res);
     throw new ApiError(message, res.status);
   }
   const raw: unknown = await res.json();
-  return VibeReplyResponseSchema.parse(raw);
+  if (
+    typeof raw !== 'object' ||
+    raw === null ||
+    typeof (raw as { session_id?: unknown }).session_id !== 'string'
+  ) {
+    throw new ApiError('cook/start response missing session_id field', 500);
+  }
+  const r = raw as { session_id: string; pid?: number | null; started_at?: string };
+  return {
+    session_id: r.session_id,
+    pid: typeof r.pid === 'number' ? r.pid : null,
+    started_at: typeof r.started_at === 'string' ? r.started_at : new Date().toISOString(),
+  };
+}
+
+/**
+ * G-D3 — `POST /api/prompts/:id/respond`. The v3 successor to the removed
+ * v2 vibe-reply helper that targeted the `/api/vibe/:id/reply` shim. This
+ * is the dashboard side of the `swt:askUser` IPC contract from Phase 1 (plan 01-05):
+ * `agent.prompt` SSE events populate the conversation thread, and the user's
+ * answer to a pending entry flows back through this route as a
+ * `prompt.response` bus event the orchestrator awaits.
+ *
+ * The wire body is `{prompt_id, selectedOption, freeform}` — both
+ * `selectedOption` and `freeform` are nullable strings (one is set, the
+ * other null). Callers map their UI answer shape (choice / free_form /
+ * permission) onto that pair before calling.
+ */
+export interface PromptRespondBody {
+  prompt_id: string;
+  selectedOption: string | null;
+  freeform: string | null;
+}
+
+export async function postPromptRespond(body: PromptRespondBody): Promise<void> {
+  const res = await fetch(`/api/prompts/${encodeURIComponent(body.prompt_id)}/respond`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
 }

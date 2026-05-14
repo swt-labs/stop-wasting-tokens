@@ -24,11 +24,11 @@ import {
   fetchUpdate,
   postCommand,
   postConfig,
+  postCookStart,
   postInit,
+  postPromptRespond,
   postUatCheckpoint,
   postUpdateApply,
-  postVibeReply,
-  postVibeStart,
   type CommandResponse,
   type ConfigUpdateBody,
   type InitBody,
@@ -825,25 +825,26 @@ export function createDashboardStore(
     if (trimmed.length === 0) return null;
     setState('vibeStarting', true);
     try {
-      const response = await postVibeStart({ prompt: trimmed });
+      // G-D3 — ported from the removed v2 vibe-start helper (`/api/vibe`
+      // shim) to the live `POST /api/cook/start` route. v3's cook is
+      // plan-driven and non-interactive: there is no per-call free-text
+      // prompt on the wire, so `trimmed` is kept only for the local
+      // session log line + `initial_prompt` display. The daemon mints the
+      // session_id and spawns `swt cook` detached. v3 ships Pi as the sole
+      // agent backend, so a successful spawn implies `agent_backend: 'pi'`.
+      const response = await postCookStart();
       setState('vibeSession', {
         session_id: response.session_id,
         initial_prompt: trimmed,
-        started_at: new Date().toISOString(),
+        started_at: response.started_at,
         conversation: [],
-        agent_backend: response.agent_backend ?? 'none',
+        agent_backend: 'pi',
       });
-      appendLogLine(`[vibe] started session ${response.session_id.slice(0, 8)} — "${trimmed}"`);
-      if ((response.agent_backend ?? 'none') === 'none') {
-        appendLogLine(
-          `[vibe] no agent backend configured — set SWT_VIBE_AGENT=codex (and have codex CLI installed) to run real agents.`,
-          'stderr',
-        );
-      }
+      appendLogLine(`[cook] started session ${response.session_id.slice(0, 8)} — "${trimmed}"`);
       return response.session_id;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      pushError(`vibe start failed: ${message}`);
+      pushError(`cook start failed: ${message}`);
       return null;
     } finally {
       setState('vibeStarting', false);
@@ -857,10 +858,21 @@ export function createDashboardStore(
     if (!active) return false;
     setState('vibeReplying', true);
     try {
-      await postVibeReply(session.session_id, {
-        prompt_id: active.prompt_id,
-        answer,
-      });
+      // G-D3 — ported from the removed v2 vibe-reply helper
+      // (`/api/vibe/:id/reply` shim) to the live `POST /api/prompts/:id/respond`
+      // route (the dashboard
+      // half of the Phase 1 `swt:askUser` IPC contract). The route's wire
+      // body is `{prompt_id, selectedOption, freeform}` — both nullable
+      // strings, one set per answer. The UI's discriminated answer union
+      // maps on as: choice → selectedOption, free_form → freeform,
+      // permission → selectedOption (the decision) + freeform (the note).
+      const respondBody =
+        answer.kind === 'choice'
+          ? { selectedOption: answer.value, freeform: null }
+          : answer.kind === 'free_form'
+            ? { selectedOption: null, freeform: answer.text }
+            : { selectedOption: answer.decision, freeform: answer.user_note ?? null };
+      await postPromptRespond({ prompt_id: active.prompt_id, ...respondBody });
       const resolved_at = new Date().toISOString();
       setState('vibeSession', 'conversation', (entries) =>
         entries.map((entry) =>
