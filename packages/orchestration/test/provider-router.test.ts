@@ -27,6 +27,25 @@ function ctx(tier: Tier): RouterSelectionContext {
   return { task: TASK, tier };
 }
 
+// Phase 2 / G-R3 — tier-routed-compound describe block widens ctx.tier to
+// CompoundTier values that are not part of the legacy 4-element Tier. The
+// helper below casts so test ctxs can carry e.g. `'cheap-standard'`. The
+// router's switch case already casts internally (Tier → CompoundTier) so
+// runtime semantics are correct; this cast just sidesteps TS at test scope
+// without widening the production `RouterSelectionContext.tier` typing
+// (deferred to a future plan per 02-03 scope-boundary).
+type AnyTierForTest =
+  | Tier
+  | 'cheap-standard'
+  | 'standard-fast'
+  | 'standard-standard'
+  | 'standard-slow'
+  | 'premium-standard'
+  | 'premium-slow';
+function ctxAny(tier: AnyTierForTest): RouterSelectionContext {
+  return { task: TASK, tier: tier as Tier };
+}
+
 describe('createProviderRouter — pinned (M5 PR-41)', () => {
   it('always returns the same provider regardless of tier', () => {
     const router = createProviderRouter({ kind: 'pinned', provider: 'anthropic' });
@@ -305,5 +324,126 @@ describe('createProviderRouter — cost-optimized-rate-card (Phase 2 / G-R3)', (
       dimension: 'input',
     });
     expect(router.select(ctx('balanced'))).toBe('anthropic');
+  });
+});
+
+describe('createProviderRouter — tier-routed-compound (Phase 2 / G-R3)', () => {
+  // Self-contained fixture for the fallbackStrategy:cost-optimized-rate-card
+  // composition test. Mirrors the upper describe-block's asymmetric pricing:
+  //   anthropic:  input $15 / output $0.5
+  //   openrouter: input $0.5 / output $15
+  // So selecting `dimension: 'input'` picks openrouter.
+  const fixtureCard = {
+    schema_version: 1 as const,
+    source: 'embedded' as const,
+    generated_at: '2026-05-14T00:00:00Z',
+    entries: [
+      {
+        provider: 'anthropic',
+        model: 'claude-opus-4-7',
+        input_per_1k: 15.0,
+        output_per_1k: 0.5,
+        updated_at: '2026-05-14T00:00:00Z',
+      },
+      {
+        provider: 'openrouter',
+        model: 'openrouter/anthropic/claude-opus-4-7',
+        input_per_1k: 0.5,
+        output_per_1k: 15.0,
+        updated_at: '2026-05-14T00:00:00Z',
+      },
+    ],
+  };
+
+  it('all 7 compound tier values resolve to mapped providers', () => {
+    const map = {
+      'cheap-fast': 'cf',
+      'cheap-standard': 'cs',
+      'standard-fast': 'sf',
+      'standard-standard': 'ss',
+      'standard-slow': 'sl',
+      'premium-standard': 'ps',
+      'premium-slow': 'pl',
+    } as const;
+    const router = createProviderRouter({
+      kind: 'tier-routed-compound',
+      map,
+      fallback: 'fb',
+    });
+    expect(router.select(ctxAny('cheap-fast'))).toBe('cf');
+    expect(router.select(ctxAny('cheap-standard'))).toBe('cs');
+    expect(router.select(ctxAny('standard-fast'))).toBe('sf');
+    expect(router.select(ctxAny('standard-standard'))).toBe('ss');
+    expect(router.select(ctxAny('standard-slow'))).toBe('sl');
+    expect(router.select(ctxAny('premium-standard'))).toBe('ps');
+    expect(router.select(ctxAny('premium-slow'))).toBe('pl');
+  });
+
+  it('legacy alias tiers (balanced, quality, reasoning) resolve', () => {
+    const router = createProviderRouter({
+      kind: 'tier-routed-compound',
+      map: {
+        balanced: 'anthropic',
+        quality: 'openai',
+        reasoning: 'openrouter',
+      },
+      fallback: 'fb',
+    });
+    expect(router.select(ctx('balanced'))).toBe('anthropic');
+    expect(router.select(ctx('quality'))).toBe('openai');
+    expect(router.select(ctx('reasoning'))).toBe('openrouter');
+  });
+
+  it('map miss + no fallbackStrategy returns fallback string', () => {
+    const router = createProviderRouter({
+      kind: 'tier-routed-compound',
+      map: { 'cheap-fast': 'cf' },
+      fallback: 'fb-provider',
+    });
+    // 'reasoning' is a legacy Tier value, not present in the map → fallback.
+    expect(router.select(ctx('reasoning'))).toBe('fb-provider');
+  });
+
+  it('empty map + fallbackStrategy:pinned delegates to inner strategy', () => {
+    const router = createProviderRouter({
+      kind: 'tier-routed-compound',
+      map: {},
+      fallback: 'fb',
+      fallbackStrategy: { kind: 'pinned', provider: 'inner-pinned' },
+    });
+    expect(router.select(ctx('cheap-fast'))).toBe('inner-pinned');
+    expect(router.select(ctx('reasoning'))).toBe('inner-pinned');
+  });
+
+  it('fallbackStrategy:cost-optimized-rate-card composes correctly', () => {
+    const router = createProviderRouter({
+      kind: 'tier-routed-compound',
+      // Unrelated tier mapping — only `cheap-fast` triggers the map hit; any
+      // other ctx falls through to the cost-optimized-rate-card delegate.
+      map: { 'cheap-fast': 'tier-mapped-provider' },
+      fallback: 'fb',
+      fallbackStrategy: {
+        kind: 'cost-optimized-rate-card',
+        providers: ['anthropic', 'openrouter'],
+        rateCard: fixtureCard,
+        dimension: 'input',
+      },
+    });
+    // 'reasoning' is not in map → delegates to cost-optimized-rate-card with
+    // input dim. openrouter input_per_1k=0.5, anthropic=15.0 → openrouter wins.
+    expect(router.select(ctx('reasoning'))).toBe('openrouter');
+  });
+
+  it('map hit takes precedence over fallbackStrategy', () => {
+    const router = createProviderRouter({
+      kind: 'tier-routed-compound',
+      map: { 'cheap-fast': 'map-winner' },
+      fallback: 'fb',
+      fallbackStrategy: { kind: 'pinned', provider: 'fb-winner' },
+    });
+    // cheap-fast is in the map → map wins.
+    expect(router.select(ctx('cheap-fast'))).toBe('map-winner');
+    // standard-standard is NOT in the map → delegates to fallbackStrategy.
+    expect(router.select(ctxAny('standard-standard'))).toBe('fb-winner');
   });
 });
