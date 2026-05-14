@@ -4,9 +4,9 @@
 
 ## Active Context
 
-**Work:** `Multi-Provider Vendor Selection + Auth` — milestone complete, pending archive (4 phases, 15 plans, 68 commits on `main`, unpushed). Dashboard vendor-select panel + API-key + OAuth, OS-keychain credentials, end-to-end spawn wiring.
-**Last shipped:** `04-phase-g-post-v3-followups` — Phase G post-v3.0 follow-up executable subset (archived 2026-05-14, 5 phases, ~20 plans, ~67 commits). Open Phase G backlog (8 items + 4 G-M4 follow-ups) lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
-**Next action:** Run /vbw:vibe --archive to archive the completed milestone (then push + version bump when authorized)
+**Work:** No active milestone
+**Last shipped:** `05-multi-provider-vendor-selection-auth` — Multi-Provider Vendor Selection + Auth (archived 2026-05-14, 4 phases, 15 plans, 67 commits). Dashboard vendor-select panel + API-key + OAuth login, OS-keychain credentials, end-to-end spawn wiring. The 67 milestone commits + 2 docs commits sit on `main`, UNPUSHED — `git push` + version bump + `npm publish` remain user-driven. Open Phase G backlog (8 items + 4 G-M4 follow-ups) still lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
+**Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## Commands
 
