@@ -364,10 +364,21 @@ async function runHandler(
       resolveExec({ exitCode: code, stderr, degraded: false });
     });
 
-    // Pipe stdin and close. Wrap in try/catch — if the child is already
-    // dead by the time we write, surface as degraded rather than throw.
+    // Pipe stdin and close. Two failure modes, two guards:
+    //  - a *synchronous* throw from `.end()` (rare) — the try/catch below
+    //    surfaces it as degraded;
+    //  - an *asynchronous* `error` event on the stream — `EPIPE` when the
+    //    child has already exited and closed its stdin. A synchronous
+    //    try/catch CANNOT catch that, so attach an `error` listener.
+    //    The EPIPE is benign here: the child-exit handler above already
+    //    resolves the exec outcome from the exit code; failing to deliver
+    //    stdin to an already-gone child changes nothing. Swallow it rather
+    //    than let it surface as an unhandled stream error.
     try {
       if (child.stdin !== null) {
+        child.stdin.on('error', () => {
+          /* async EPIPE / stream closed early — child-exit handler owns the outcome */
+        });
         child.stdin.end(stdin);
       }
     } catch (err) {
