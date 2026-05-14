@@ -16,6 +16,8 @@ const fetchUpdateMock = vi.fn();
 const fetchCommandsMock = vi.fn();
 const postConfigMock = vi.fn();
 const postUpdateApplyMock = vi.fn();
+const fetchProviderAuthMock = vi.fn();
+const postProviderAuthMock = vi.fn();
 
 vi.mock('../src/client/services/api.js', () => ({
   fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
@@ -32,6 +34,10 @@ vi.mock('../src/client/services/api.js', () => ({
   fetchCommands: (...args: unknown[]) => fetchCommandsMock(...args),
   postConfig: (...args: unknown[]) => postConfigMock(...args),
   postUpdateApply: (...args: unknown[]) => postUpdateApplyMock(...args),
+  // Phase 3 — dashboard-store.ts now imports these; the mock must export
+  // them or createDashboardStore() throws at the toolsFetchers map.
+  fetchProviderAuth: (...args: unknown[]) => fetchProviderAuthMock(...args),
+  postProviderAuth: (...args: unknown[]) => postProviderAuthMock(...args),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({
