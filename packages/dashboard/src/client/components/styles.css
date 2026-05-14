@@ -2899,3 +2899,66 @@
   color: rgba(0, 255, 65, 0.75);
   word-break: break-word;
 }
+
+/* ── User Notes panel — freeform per-project scratchpad ──
+ * Additive only — reuses the existing panel / tools-panel-header /
+ * tools-panel-meta / tools-panel-error / tools-refresh-btn classes (the
+ * card is a sibling of ConfigPanel / ProviderAuthPanel). Below are only
+ * the genuinely-new classes the panel references. No global rule
+ * changes, no overrides of existing classes.
+ */
+
+/* The freeform textarea — fills the panel's remaining height, terminal-
+ * style mono text on the dark panel background. Mirrors the input idiom
+ * of `.provider-auth-key-input` (border / focus / radius) but grows to
+ * fill the vertical space the resizable panel gives it. */
+.user-notes-textarea {
+  flex: 1 1 auto;
+  min-height: 60px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 6px 8px;
+  border-radius: 2px;
+}
+
+.user-notes-textarea:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.user-notes-textarea::placeholder {
+  color: rgba(0, 255, 65, 0.35);
+  font-style: italic;
+}
+
+/* The save-status word inside `.tools-panel-meta`. The `idle` / `saved`
+ * states are muted green (inherits the meta colour); `unsaved` is amber;
+ * `saving` is a brighter green; `error` is danger-red. */
+.user-notes-status {
+  font-weight: 600;
+}
+
+.user-notes-status-idle,
+.user-notes-status-saved {
+  color: rgba(0, 255, 65, 0.75);
+}
+
+.user-notes-status-unsaved {
+  color: #ffb000;
+}
+
+.user-notes-status-saving {
+  color: var(--terminal-green);
+}
+
+.user-notes-status-error {
+  color: var(--danger-red);
+}
