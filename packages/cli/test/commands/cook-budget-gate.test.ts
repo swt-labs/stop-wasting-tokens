@@ -15,7 +15,7 @@
  *       cook.budget_resume on the JSONL.
  */
 
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -32,6 +32,8 @@ import type {
   BudgetEvent,
   BudgetGate,
   BudgetGateState,
+  BudgetProjectionResult,
+  CostProjection,
 } from '@swt-labs/runtime';
 
 import {
@@ -157,11 +159,15 @@ Archive.
 /**
  * Fake BudgetGate — exposes setState() so tests can flip the gate's
  * status before runMode reads it, plus emit() so tests can fire transition
- * events from inside the spawn callback.
+ * events from inside the spawn callback. Plan 03-04: setProjectionResult()
+ * lets a test pin what gate.project(...) returns so the runMode onProjection
+ * wiring can be driven into the would_exceed halt path.
  */
 interface FakeGate extends BudgetGate {
   setState(s: Partial<BudgetGateState>): void;
   emit(ev: BudgetEvent): void;
+  /** Plan 03-04 — pin the result of project() (default: would_exceed false). */
+  setProjectionResult(fn: (projection: CostProjection) => BudgetProjectionResult): void;
 }
 
 function makeFakeGate(initial: Partial<BudgetGateState> = {}): FakeGate {
@@ -173,6 +179,17 @@ function makeFakeGate(initial: Partial<BudgetGateState> = {}): FakeGate {
     ...initial,
   };
   const listeners: Array<(ev: BudgetEvent) => void> = [];
+  // Plan 03-04 — default project() impl: a passing projection (would_exceed
+  // false) with an honest projected_pressure. Tests override via
+  // setProjectionResult() to drive the halt path.
+  let projectImpl: (projection: CostProjection) => BudgetProjectionResult = (
+    projection,
+  ) => {
+    const projectedSpent = currentState.spent_usd + projection.projected_cost_usd;
+    const projected_pressure =
+      currentState.ceiling_usd > 0 ? projectedSpent / currentState.ceiling_usd : 0;
+    return { would_exceed: false, projected_pressure, projection };
+  };
   return {
     state: () => currentState,
     subscribe: (l) => {
@@ -189,6 +206,7 @@ function makeFakeGate(initial: Partial<BudgetGateState> = {}): FakeGate {
         pressure: currentState.spent_usd / (currentState.ceiling_usd + delta),
       };
     },
+    project: (projection) => projectImpl(projection),
     dispose: () => {
       listeners.length = 0;
     },
@@ -197,6 +215,9 @@ function makeFakeGate(initial: Partial<BudgetGateState> = {}): FakeGate {
     },
     emit(ev) {
       for (const l of [...listeners]) l(ev);
+    },
+    setProjectionResult(fn) {
+      projectImpl = fn;
     },
   };
 }
@@ -207,6 +228,13 @@ interface HarnessOpts {
   /** Hook that runs inside spawn — can emit on the gate to test in-flight transitions. */
   readonly spawnSideEffect?: (gate: FakeGate | undefined) => Promise<void> | void;
   readonly spawnResult?: Partial<TaskResult>;
+  /**
+   * Plan 03-04 — when set, the harness routes `.swt-planning/config.json`
+   * reads to this JSON object (existsSync → true for that path, readFileSync
+   * → the stringified object). Lets a test exercise the
+   * `budget.projection_enabled: false` config path through loadCookConfig.
+   */
+  readonly configJson?: Record<string, unknown>;
 }
 
 async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
@@ -230,8 +258,30 @@ async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
 
   const detectPhaseImpl = vi.fn(async () => makePhaseDetect({ next_phase_state: 'needs_execute' }));
   const execSyncImpl = vi.fn((_cmd: string, _opts: unknown) => '' as unknown as Buffer);
-  const readFileSyncImpl = vi.fn(() => STUB_COOK_MD);
-  const existsSyncImpl = vi.fn(() => false);
+  // Plan 03-04 — config.json routing. When opts.configJson is set, the
+  // injected fs impls report the config path as present and return its
+  // JSON; all other reads still resolve to STUB_COOK_MD.
+  const configPathSuffix = join('.swt-planning', 'config.json');
+  const readFileSyncImpl = vi.fn((p?: unknown) => {
+    if (
+      opts.configJson !== undefined &&
+      typeof p === 'string' &&
+      p.endsWith(configPathSuffix)
+    ) {
+      return JSON.stringify(opts.configJson);
+    }
+    return STUB_COOK_MD;
+  });
+  const existsSyncImpl = vi.fn((p?: unknown) => {
+    if (
+      opts.configJson !== undefined &&
+      typeof p === 'string' &&
+      p.endsWith(configPathSuffix)
+    ) {
+      return true;
+    }
+    return false;
+  });
 
   // Resolve the factory: explicit factory > gate seed > no-op (gate disabled).
   const factory: BudgetGateFactory =
@@ -490,6 +540,135 @@ describe('Plan 06-02 T4 — BudgetGate wired into cook task loop', () => {
       factory: () => ({ gate, dispose }),
     });
     await h.run([]);
+    expect(dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Plan 03-04 T4 (G-R4) — runMode pre-spawn projection wiring', () => {
+  it('(1) projection_enabled: false → no projection path, spawn proceeds, no cook.budget_projected', async () => {
+    // A gate exists and a rate card would load, but config opts out — the
+    // onProjection handler must NOT be wired.
+    const gate = makeFakeGate({ status: 'ok', spent_usd: 1.0 });
+    const h = await buildHarness(repoRoot, {
+      gate,
+      configJson: {
+        budget: {
+          schema_version: 1,
+          milestone_usd: 10,
+          tier_downgrade_threshold: 0.7,
+          pause_threshold: 0.95,
+          projection_enabled: false,
+        },
+      },
+    });
+
+    const code = await h.run([]);
+    expect(code).toBe(EXIT.SUCCESS);
+    expect(h.spawnImpl).toHaveBeenCalledTimes(1);
+
+    const events = await readJsonl(await findCookEventsFile(repoRoot));
+    const types = events.map((e) => (e as { type: string }).type);
+    expect(types).toContain('cook.agent_spawn');
+    expect(types).toContain('cook.agent_result');
+    // projection disabled → the forecast event is never emitted.
+    expect(types).not.toContain('cook.budget_projected');
+  });
+
+  it('(2) rate-card load failure → projection skipped, spawn proceeds, turn does not fail', async () => {
+    // A malformed project rate card makes createRateCardSource(...) throw on
+    // construction. The best-effort load swallows it → rateCard undefined →
+    // onProjection is left unwired → the spawn proceeds, the turn succeeds.
+    await mkdir(join(repoRoot, '.swt-planning'), { recursive: true });
+    await writeFile(
+      join(repoRoot, '.swt-planning', 'rate-card.json'),
+      '{ this is not valid json',
+      'utf8',
+    );
+
+    const gate = makeFakeGate({ status: 'ok', spent_usd: 1.0 });
+    const h = await buildHarness(repoRoot, { gate });
+
+    const code = await h.run([]);
+    // The cook turn does NOT fail — the projection path degraded gracefully.
+    expect(code).toBe(EXIT.SUCCESS);
+    expect(h.spawnImpl).toHaveBeenCalledTimes(1);
+
+    const events = await readJsonl(await findCookEventsFile(repoRoot));
+    const types = events.map((e) => (e as { type: string }).type);
+    expect(types).toContain('cook.agent_spawn');
+    // rate card failed to load → no projection → no forecast event.
+    expect(types).not.toContain('cook.budget_projected');
+  });
+
+  it('(3) projection would_exceed → cook turn fails pre-spawn with the right events + exit code', async () => {
+    // The gate's project() is pinned to would_exceed: true. The runMode
+    // onProjection handler emits cook.budget_projected(would_exceed:true),
+    // returns the result; runSpawnWithFallback throws
+    // BudgetProjectionExceededError; the catch branch emits cook.task_fail +
+    // cook.completion(failed) and returns EXIT.RUNTIME_ERROR. spawnFn is
+    // never invoked — no money spent.
+    const gate = makeFakeGate({ status: 'ok', spent_usd: 9.0, ceiling_usd: 10 });
+    gate.setProjectionResult((projection: CostProjection) => ({
+      would_exceed: true,
+      projected_pressure: 1.4,
+      projection,
+    }));
+    const h = await buildHarness(repoRoot, { gate });
+
+    const code = await h.run([]);
+    expect(code).toBe(EXIT.RUNTIME_ERROR);
+    // No spawn ran — the halt is pre-emptive.
+    expect(h.spawnImpl).not.toHaveBeenCalled();
+
+    const events = await readJsonl(await findCookEventsFile(repoRoot));
+    const types = events.map((e) => (e as { type: string }).type);
+
+    // The forecast event fired BEFORE the halt — would_exceed: true.
+    expect(types).toContain('cook.budget_projected');
+    const projected = events.find(
+      (e) => (e as { type: string }).type === 'cook.budget_projected',
+    ) as { would_exceed: boolean; projected_pressure: number } | undefined;
+    expect(projected?.would_exceed).toBe(true);
+    expect(projected?.projected_pressure).toBe(1.4);
+
+    // Followed by the failure events mirroring the paused_on_entry shape.
+    expect(types).toContain('cook.task_fail');
+    expect(types).toContain('cook.completion');
+    const taskFail = events.find(
+      (e) => (e as { type: string }).type === 'cook.task_fail',
+    ) as { reason: string } | undefined;
+    expect(taskFail?.reason).toBe('budget_projection_exceeded');
+    const completion = events.find(
+      (e) => (e as { type: string }).type === 'cook.completion',
+    ) as { status: string } | undefined;
+    expect(completion?.status).toBe('failed');
+
+    // Event ordering: cook.budget_projected lands before cook.task_fail.
+    expect(types.indexOf('cook.budget_projected')).toBeLessThan(
+      types.indexOf('cook.task_fail'),
+    );
+
+    // All emitted events still parse through the canonical schema.
+    for (const ev of events) {
+      const parsed = SnapshotEventSchema.safeParse(ev);
+      expect(parsed.success, `event=${JSON.stringify(ev)}`).toBe(true);
+    }
+  });
+
+  it('(3b) would_exceed halt still disposes the gate handle (cleanup)', async () => {
+    const gate = makeFakeGate({ status: 'ok', spent_usd: 9.0, ceiling_usd: 10 });
+    gate.setProjectionResult((projection: CostProjection) => ({
+      would_exceed: true,
+      projected_pressure: 1.4,
+      projection,
+    }));
+    const dispose = vi.fn(async () => undefined);
+    const h = await buildHarness(repoRoot, {
+      factory: () => ({ gate, dispose }),
+    });
+    const code = await h.run([]);
+    expect(code).toBe(EXIT.RUNTIME_ERROR);
+    // The shared finally disposes the gate even on the projection-halt path.
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 });
