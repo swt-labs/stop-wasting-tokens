@@ -288,7 +288,17 @@ export interface CreateDashboardStoreOptions {
   now?: () => Date;
 }
 
-const DEFAULT_TOOLS_POLL_INTERVAL_MS = 60_000;
+// Slow-tier tools poll — the fallback cadence for cells that are cheap to
+// leave stale: `commands` is a static verb registry, `update` is a 24 h-cached
+// npm version check, `doctor` spawns toolchain checks. None benefit from a
+// fast poll.
+const DEFAULT_TOOLS_SLOW_POLL_INTERVAL_MS = 60_000;
+// Fast-tier tools poll — the volatile cells (`config`, `detectPhase`,
+// `providerAuth`) where an out-of-band change (a hand-edited config.json, a
+// `swt` command in a terminal) can land at any time. These also get an
+// instant SSE `state.changed` refetch, so this fast timer is only the
+// fallback for changes made entirely outside the dashboard.
+const DEFAULT_TOOLS_FAST_POLL_INTERVAL_MS = 5_000;
 
 function emptyToolsCell<T>(): ToolsCellState<T> {
   return { data: null, loading: false, error: null, lastFetched: null };
@@ -309,7 +319,10 @@ function cacheKey(phase: string, name: string): string {
 export function createDashboardStore(
   opts: CreateDashboardStoreOptions = {},
 ): [DashboardState, DashboardActions] {
-  const pollIntervalMs = opts.pollIntervalMs ?? DEFAULT_TOOLS_POLL_INTERVAL_MS;
+  // `opts.pollIntervalMs` (a test seam) overrides the fast tier; the slow
+  // tier keeps its fixed 60 s default.
+  const fastPollIntervalMs = opts.pollIntervalMs ?? DEFAULT_TOOLS_FAST_POLL_INTERVAL_MS;
+  const slowPollIntervalMs = DEFAULT_TOOLS_SLOW_POLL_INTERVAL_MS;
   const nowFn = opts.now ?? ((): Date => new Date());
 
   const [state, setState] = createStore<DashboardState>({
@@ -353,10 +366,15 @@ export function createDashboardStore(
   let logSeq = 0;
   let sseHasOpened = false;
 
-  // v2.3 tools polling: one timer drives all four cells, so a 60 s poll
-  // means a single batched refresh, not four staggered ones. Pause when
-  // the tab is hidden to keep idle laptops cool.
-  let toolsTimer: ReturnType<typeof setInterval> | null = null;
+  // Tools polling runs two tiers: a fast 5 s timer for the volatile cells
+  // (config / detect-phase / provider-auth — where an out-of-band change can
+  // land at any time) and a slow 60 s timer for the cheap/static/cached ones
+  // (doctor / update / commands). Both pause when the tab is hidden to keep
+  // idle laptops cool. The volatile cells also get an instant SSE
+  // `state.changed` refetch — the fast timer is only the fallback for changes
+  // made entirely outside the dashboard.
+  let toolsFastTimer: ReturnType<typeof setInterval> | null = null;
+  let toolsSlowTimer: ReturnType<typeof setInterval> | null = null;
   let toolsVisibilityHandler: (() => void) | null = null;
 
   const pushError = (message: string): void => {
@@ -731,6 +749,11 @@ export function createDashboardStore(
     'commands',
     'providerAuth',
   ];
+  // Fast tier — volatile cells an out-of-band edit can change at any time.
+  const FAST_TOOLS_KEYS: ToolsCellKey[] = ['config', 'detectPhase', 'providerAuth'];
+  // Slow tier — cheap/static/cached cells: `commands` is a static registry,
+  // `update` is a 24 h-cached npm check, `doctor` spawns toolchain checks.
+  const SLOW_TOOLS_KEYS: ToolsCellKey[] = ['doctor', 'update', 'commands'];
 
   const refreshToolsCell = async (key: ToolsCellKey): Promise<void> => {
     setState('tools', key, 'loading', true);
@@ -758,17 +781,34 @@ export function createDashboardStore(
     await Promise.all(TOOLS_KEYS.map((k) => refreshToolsCell(k)));
   };
 
+  // Refresh one poll tier (a subset of TOOLS_KEYS). Shares refreshTools's
+  // greenfield short-circuit so a tier timer never fetches before init.
+  const refreshToolsGroup = async (keys: readonly ToolsCellKey[]): Promise<void> => {
+    if (state.snapshot?.is_initialized !== true) return;
+    await Promise.all(keys.map((k) => refreshToolsCell(k)));
+  };
+
   const startToolsPolling = (): void => {
-    if (toolsTimer !== null) return;
-    toolsTimer = setInterval(() => {
-      void refreshTools();
-    }, pollIntervalMs);
+    if (toolsFastTimer === null) {
+      toolsFastTimer = setInterval(() => {
+        void refreshToolsGroup(FAST_TOOLS_KEYS);
+      }, fastPollIntervalMs);
+    }
+    if (toolsSlowTimer === null) {
+      toolsSlowTimer = setInterval(() => {
+        void refreshToolsGroup(SLOW_TOOLS_KEYS);
+      }, slowPollIntervalMs);
+    }
   };
 
   const stopToolsPolling = (): void => {
-    if (toolsTimer !== null) {
-      clearInterval(toolsTimer);
-      toolsTimer = null;
+    if (toolsFastTimer !== null) {
+      clearInterval(toolsFastTimer);
+      toolsFastTimer = null;
+    }
+    if (toolsSlowTimer !== null) {
+      clearInterval(toolsSlowTimer);
+      toolsSlowTimer = null;
     }
   };
 

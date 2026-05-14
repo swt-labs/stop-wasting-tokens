@@ -721,7 +721,7 @@ describe('tools sub-state', () => {
     });
   });
 
-  it('60s polling timer fires refreshTools after each interval tick', async () => {
+  it('fast poll timer fires the volatile-cell group after each interval tick', async () => {
     vi.useFakeTimers();
     try {
       await createRoot(async (dispose) => {
@@ -738,6 +738,49 @@ describe('tools sub-state', () => {
         // Advance past one polling tick.
         await vi.advanceTimersByTimeAsync(1100);
         expect(fetchConfigMock.mock.calls.length).toBeGreaterThan(baselineCalls);
+        actions.shutdown();
+        dispose();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fast timer polls only the volatile cells; slow cells stay on the slow interval', async () => {
+    vi.useFakeTimers();
+    try {
+      await createRoot(async (dispose) => {
+        // opts.pollIntervalMs overrides the FAST tier (→ 1000ms); the SLOW
+        // tier (doctor / update / commands) keeps its fixed 60s default.
+        const [, actions] = createDashboardStore({ pollIntervalMs: 1000 });
+        fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
+        fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+        fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+        fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+        fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+        await actions.bootstrap();
+        // Settle bootstrap's immediate full refreshTools() (all six cells).
+        await vi.advanceTimersByTimeAsync(0);
+        const fastBaseline = {
+          config: fetchConfigMock.mock.calls.length,
+          detectPhase: fetchDetectPhaseMock.mock.calls.length,
+          providerAuth: fetchProviderAuthMock.mock.calls.length,
+        };
+        const slowBaseline = {
+          doctor: fetchDoctorMock.mock.calls.length,
+          update: fetchUpdateMock.mock.calls.length,
+          commands: fetchCommandsMock.mock.calls.length,
+        };
+        // Advance past 3 fast ticks (3000ms) — nowhere near a slow tick (60s).
+        await vi.advanceTimersByTimeAsync(3300);
+        // Fast group (config / detect-phase / provider-auth) refreshed each tick…
+        expect(fetchConfigMock.mock.calls.length).toBeGreaterThan(fastBaseline.config);
+        expect(fetchDetectPhaseMock.mock.calls.length).toBeGreaterThan(fastBaseline.detectPhase);
+        expect(fetchProviderAuthMock.mock.calls.length).toBeGreaterThan(fastBaseline.providerAuth);
+        // …slow group (doctor / update / commands) did NOT — still on the 60s timer.
+        expect(fetchDoctorMock.mock.calls.length).toBe(slowBaseline.doctor);
+        expect(fetchUpdateMock.mock.calls.length).toBe(slowBaseline.update);
+        expect(fetchCommandsMock.mock.calls.length).toBe(slowBaseline.commands);
         actions.shutdown();
         dispose();
       });
