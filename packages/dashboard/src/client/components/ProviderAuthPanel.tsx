@@ -29,21 +29,45 @@
  * AND disables the key input + Save — the panel does not let the user
  * enter a key that cannot be persisted.
  *
- * **OAuth radio — rendered but disabled, pending Phase 4.** The OAuth
- * radio EXISTS (so the panel's shape is honest about what's coming) but is
- * `disabled` with a "coming in a future release" note. Selecting it (if it
- * were somehow enabled) does not enable Save and the client makes no OAuth
- * network call. Phase 4 un-stubs the radio + adds the OAuth flow.
+ * **OAuth radio — un-stubbed in Phase 4 (plan 04-03).** Phase 3 shipped the
+ * OAuth radio disabled with a coming-later note. Plan 04-03 removes that
+ * stub and makes the radio selectable for the three providers pi-ai ships
+ * an OAuth subsystem for (`anthropic` / `openai-codex` / `github-copilot`)
+ * — a provider not in pi-ai's OAuth registry has no OAuth option. The radio
+ * stays disabled when the keychain is unavailable (an OAuth login also
+ * culminates in a keychain write) OR the selected provider has no OAuth
+ * support.
+ *
+ * **Risk 4 — auth URL shown ALWAYS + manual-code paste box.** When an OAuth
+ * flow is active, the panel renders the auth URL from the `oauth.auth_url`
+ * event UNCONDITIONALLY (not just headless) plus, on `oauth.awaiting_code`,
+ * a manual-code paste box wired to `onSubmitOAuthCode`. The paste box is the
+ * always-available fallback — pi-ai's `onManualCodeInput` races its own
+ * browser-callback server, so on a host where the callback works the user
+ * never needs it; no host-environment detection. The panel NEVER displays,
+ * stores, or transports a token: the `oauthFlow` prop is token-free by
+ * construction, the manual-code `codeInput` local signal is cleared on a
+ * successful submit, the auth URL is rendered as a plain href/text node
+ * (no raw-HTML sink), and the panel makes no direct OAuth network call.
  */
 
 import { PROVIDER_VOCABULARY } from '@swt-labs/shared';
-import { For, Show, createSignal, type Component, type JSX } from 'solid-js';
+import {
+  For,
+  Match,
+  Show,
+  Switch,
+  createSignal,
+  type Component,
+  type JSX,
+} from 'solid-js';
 
 import type {
   ProviderAuthSnapshot,
   ProviderAuthStatus,
   ProviderAuthUpdateBody,
 } from '../services/api.js';
+import type { OAuthFlowState } from '../state/dashboard-store.js';
 
 export interface ProviderAuthPanelProps {
   data: ProviderAuthSnapshot | null;
@@ -58,6 +82,26 @@ export interface ProviderAuthPanelProps {
    * the error inline and keeps the key input populated for a retry.
    */
   onSave: (body: ProviderAuthUpdateBody) => Promise<{ ok: true } | { error: string }>;
+  /**
+   * Plan 04-03 (Phase 4) — the in-progress OAuth login flow, or `null` when
+   * no OAuth login is running. Token-free by construction. App.tsx passes
+   * the dashboard-store's `oauthFlow` signal here.
+   *
+   * The four OAuth props are OPTIONAL: plan 04-03 ships the panel + store +
+   * api surface, and 04-04 completes the trivial App.tsx prop-passing
+   * extension (per the Phase 4 OVERVIEW — "04-04 completes the App.tsx
+   * wiring 04-03 deferred"). Optional keeps App.tsx compiling unchanged in
+   * the 04-03 → 04-04 window; the panel degrades gracefully (the OAuth
+   * radio falls back to disabled, the Login button is a no-op) until the
+   * wiring lands. See 04-03-SUMMARY DEVN-02.
+   */
+  oauthFlow?: OAuthFlowState | null;
+  /** Kick off an OAuth login for the selected provider (wraps `postOAuthStart`). */
+  onStartOAuth?: (provider: string) => Promise<{ ok: true } | { error: string }>;
+  /** Submit a manually-pasted authorization code — Risk 4 headless path (wraps `postOAuthCode`). */
+  onSubmitOAuthCode?: (code: string) => Promise<{ ok: true } | { error: string }>;
+  /** Clear the OAuth flow state — the 'Done' / 'Dismiss' affordance. */
+  onDismissOAuthFlow?: () => void;
 }
 
 /** The two auth modes the panel offers. `oauth` is rendered-but-disabled. */
@@ -134,6 +178,48 @@ export function isSaveDisabled(
 }
 
 /**
+ * The three providers pi-ai ships an OAuth subsystem for. Plan 04-03 (Phase
+ * 4) enables the OAuth auth-mode radio ONLY for these — a provider not in
+ * pi-ai's OAuth registry simply has no OAuth option (Phase 4 OVERVIEW Scope
+ * Boundary). All three are members of `PROVIDER_VOCABULARY`.
+ */
+export const OAUTH_PROVIDERS: readonly string[] = ['anthropic', 'openai-codex', 'github-copilot'];
+
+/** Whether `provider` has a pi-ai OAuth subsystem (plan 04-03). Pure. */
+export function isOAuthProvider(provider: string): boolean {
+  return OAUTH_PROVIDERS.includes(provider);
+}
+
+/**
+ * Plan 04-03 (Phase 4) — whether the OAuth auth-mode radio is `disabled`.
+ * The radio is selectable ONLY when the selected provider has a pi-ai OAuth
+ * subsystem AND the keychain is available (an OAuth login culminates in a
+ * keychain write, so the Risk-4 read-only headless mode applies just as it
+ * does to the API-key path). Pure — exported for the panel's tests.
+ */
+export function isOAuthRadioDisabled(
+  data: ProviderAuthSnapshot | null,
+  provider: string,
+): boolean {
+  return data?.keychain_available === false || !isOAuthProvider(provider);
+}
+
+/**
+ * Plan 04-03 (Phase 4) — whether the "Login with OAuth" button is
+ * `disabled`. Locked when the keychain is unavailable OR an OAuth flow is
+ * already in progress (a flow that is not yet `complete`/`error`). Pure —
+ * exported for the panel's tests.
+ */
+export function isOAuthLoginDisabled(
+  data: ProviderAuthSnapshot | null,
+  oauthFlow: OAuthFlowState | null,
+): boolean {
+  const flowInProgress =
+    oauthFlow != null && oauthFlow.status !== 'complete' && oauthFlow.status !== 'error';
+  return data?.keychain_available === false || flowInProgress;
+}
+
+/**
  * Build the `POST /api/provider-auth` body from the panel's local state.
  * Pure — exported so the tests lock the with-key / without-key contract
  * directly.
@@ -174,6 +260,12 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
   const [keyInput, setKeyInput] = createSignal<string>('');
   const [saving, setSaving] = createSignal(false);
   const [saveError, setSaveError] = createSignal<string | null>(null);
+  // Plan 04-03 (Phase 4) — the ONLY place the manually-pasted OAuth
+  // authorization code lives. Bound to the manual-code paste <input>;
+  // cleared on a successful submit (write-only-input discipline, mirroring
+  // the api_key `keyInput` clear). Holds the code only between typing and
+  // `onSubmitOAuthCode` — never persisted.
+  const [codeInput, setCodeInput] = createSignal<string>('');
 
   const handleSave = async (): Promise<void> => {
     setSaving(true);
@@ -235,7 +327,14 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
           value={selectedProvider()}
           disabled={saving()}
           onChange={(e): void => {
-            setSelectedProvider(e.currentTarget.value);
+            const next = e.currentTarget.value;
+            setSelectedProvider(next);
+            // Plan 04-03 (Phase 4) — if the new provider has no pi-ai OAuth
+            // subsystem, fall back to api_key mode so the panel never sits
+            // in oauth mode for a provider that cannot do OAuth.
+            if (selectedMode() === 'oauth' && !isOAuthProvider(next)) {
+              setSelectedMode('api_key');
+            }
           }}
         >
           <For each={PROVIDER_VOCABULARY}>
@@ -260,19 +359,31 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
             />
             API key
           </label>
-          <label class="provider-auth-radio provider-auth-radio-disabled">
+          <label
+            class="provider-auth-radio"
+            classList={{
+              'provider-auth-radio-disabled': isOAuthRadioDisabled(
+                props.data,
+                selectedProvider(),
+              ),
+            }}
+          >
             <input
               type="radio"
               name="provider-auth-mode"
               value="oauth"
               checked={selectedMode() === 'oauth'}
-              disabled
+              disabled={saving() || isOAuthRadioDisabled(props.data, selectedProvider())}
               onChange={(): void => {
                 setSelectedMode('oauth');
               }}
             />
             OAuth
-            <span class="provider-auth-coming-soon">OAuth login — coming in a future release</span>
+            <Show when={!isOAuthProvider(selectedProvider())}>
+              <span class="provider-auth-oauth-unavailable">
+                no OAuth subsystem for this provider
+              </span>
+            </Show>
           </label>
         </div>
       </div>
@@ -297,19 +408,140 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
         </div>
       </Show>
 
-      <div class="provider-auth-actions">
-        <button
-          type="button"
-          class="provider-auth-save-btn"
-          disabled={isSaveDisabled(props.data, selectedMode(), saving())}
-          onClick={(): void => void handleSave()}
-        >
-          {saving() ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+      <Show when={selectedMode() === 'api_key'}>
+        <div class="provider-auth-actions">
+          <button
+            type="button"
+            class="provider-auth-save-btn"
+            disabled={isSaveDisabled(props.data, selectedMode(), saving())}
+            onClick={(): void => void handleSave()}
+          >
+            {saving() ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </Show>
+
+      {/* Plan 04-03 (Phase 4) — the oauth-mode "Login with OAuth" button,
+          shown IN PLACE OF the API-key input + Save button. Disabled when
+          the keychain is unavailable or an OAuth flow is already running. */}
+      <Show when={selectedMode() === 'oauth'}>
+        <div class="provider-auth-actions">
+          <button
+            type="button"
+            class="provider-auth-login-btn"
+            disabled={
+              props.onStartOAuth === undefined ||
+              isOAuthLoginDisabled(props.data, props.oauthFlow ?? null)
+            }
+            onClick={(): void => void props.onStartOAuth?.(selectedProvider())}
+          >
+            Login with OAuth
+          </button>
+        </div>
+      </Show>
 
       <Show when={saveError() ?? props.error}>
         {(message): JSX.Element => <p class="tools-panel-error">⚠ {message()}</p>}
+      </Show>
+
+      {/* Plan 04-03 (Phase 4) — the OAuth flow sub-section. Only rendered
+          while an OAuth flow is active. Risk 4: the auth URL is shown
+          ALWAYS once it arrives (not just headless), and the manual-code
+          paste box appears on `awaiting_code`. The auth URL is rendered as
+          a plain href/text node — no raw-HTML sink. Token-free by
+          construction: the `oauthFlow` prop carries no secret. */}
+      <Show when={props.oauthFlow} keyed>
+        {(flow): JSX.Element => (
+          <div class="provider-auth-oauth-section">
+            <Switch>
+              <Match when={flow.status === 'starting'}>
+                <p class="provider-auth-oauth-status">Starting OAuth login…</p>
+              </Match>
+              <Match
+                when={flow.status === 'awaiting_browser' || flow.status === 'awaiting_code'}
+              >
+                <p class="provider-auth-oauth-status">
+                  Open this URL to authorize:{' '}
+                  <a
+                    class="provider-auth-oauth-url"
+                    href={flow.authUrl ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {flow.authUrl}
+                  </a>
+                </p>
+                <Show when={flow.instructions}>
+                  <p class="provider-auth-oauth-status">{flow.instructions}</p>
+                </Show>
+                <Show when={flow.progressMessage}>
+                  <p class="provider-auth-oauth-status">{flow.progressMessage}</p>
+                </Show>
+                <Show when={flow.status === 'awaiting_browser'}>
+                  <p class="provider-auth-oauth-status">
+                    The browser callback will complete automatically — or paste the code
+                    below if prompted.
+                  </p>
+                </Show>
+                <Show when={flow.status === 'awaiting_code'}>
+                  <div class="provider-auth-oauth-code-box">
+                    <input
+                      type="text"
+                      class="provider-auth-key-input"
+                      autocomplete="off"
+                      placeholder="paste the authorization code"
+                      value={codeInput()}
+                      onInput={(e): void => {
+                        setCodeInput(e.currentTarget.value);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      class="provider-auth-save-btn"
+                      onClick={(): void => {
+                        void (async (): Promise<void> => {
+                          const result = await props.onSubmitOAuthCode?.(
+                            codeInput().trim(),
+                          );
+                          // Write-only-input discipline: clear the pasted
+                          // code on a successful submit so it is not retained.
+                          if (result && 'ok' in result) setCodeInput('');
+                        })();
+                      }}
+                    >
+                      Submit code
+                    </button>
+                  </div>
+                </Show>
+              </Match>
+              <Match when={flow.status === 'complete'}>
+                <p class="provider-auth-oauth-status">
+                  ✓ OAuth login complete — {flow.provider} is now configured.
+                </p>
+                <button
+                  type="button"
+                  class="provider-auth-save-btn"
+                  onClick={(): void => props.onDismissOAuthFlow?.()}
+                >
+                  Done
+                </button>
+              </Match>
+              <Match when={flow.status === 'error'}>
+                <p class="tools-panel-error">
+                  ⚠ OAuth login failed
+                  {flow.errorCode ? ` (${flow.errorCode})` : ''}: {flow.errorMessage}
+                </p>
+                <button
+                  type="button"
+                  class="provider-auth-save-btn"
+                  onClick={(): void => props.onDismissOAuthFlow?.()}
+                >
+                  Dismiss
+                </button>
+              </Match>
+            </Switch>
+          </div>
+        )}
       </Show>
 
       <Show
