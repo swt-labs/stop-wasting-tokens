@@ -1,5 +1,5 @@
 import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
-import { Show, createMemo, createSignal, type Component } from 'solid-js';
+import { Show, createMemo, createSignal, type Component, type JSX } from 'solid-js';
 
 import type { ConnectionState } from '../state/dashboard-store.js';
 import { OptionsMenu } from './OptionsMenu.js';
@@ -23,6 +23,12 @@ export interface TopBarProps {
   onToggleOptionsMenu?: () => void;
   /** Phase 1 — store-backed close; when omitted, TopBar closes its local signal. */
   onCloseOptionsMenu?: () => void;
+  /**
+   * Phase 2 (Dashboard Options Menu) — the Settings section content mounted
+   * into OptionsMenu's `settingsSection` slot. Optional: when App.tsx does
+   * not pass it, OptionsMenu falls back to its Phase-1 'Coming soon' skeleton.
+   */
+  settingsSection?: JSX.Element;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -196,7 +202,11 @@ export const TopBar: Component<TopBarProps> = (props) => {
           >
             Options ▾
           </button>
-          <OptionsMenu open={menuOpen()} onClose={closeMenu} />
+          <OptionsMenu
+            open={menuOpen()}
+            onClose={closeMenu}
+            settingsSection={props.settingsSection}
+          />
         </div>
       </div>
     </header>
