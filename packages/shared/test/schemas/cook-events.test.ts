@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CookBudgetProjectedEventSchema,
   SnapshotEventSchema,
   SNAPSHOT_EVENT_TYPES,
+  type CookBudgetProjectedEvent,
   type CookEvent,
 } from '../../src/schemas/events.js';
 
@@ -55,6 +57,9 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       // onto the JSONL channel.
       'cook.provider_selected',
       'cook.provider_fallback',
+      // Plan 03-02 (Phase 3 / G-R4) — pre-spawn cost forecast emitted once
+      // per spawn (whether the projection halts or passes).
+      'cook.budget_projected',
     ]);
   });
 
@@ -325,5 +330,86 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       question: 'x',
     });
     expect(bad.success).toBe(false);
+  });
+});
+
+/**
+ * Plan 03-02 (Phase 3 / G-R4) T2 — `cook.budget_projected` is the pre-spawn
+ * cost-forecast event plan 03-04 emits from a CostProjection + gate.project()
+ * result. A pure-additive member of SnapshotEventSchema (mirrors the Phase 2
+ * cook.provider_* additions). Covers parse round-trip, discriminated-union
+ * narrowing on `type === 'cook.budget_projected'`, and the rejection /
+ * acceptance edges — the assumptions PIPE_BUF caps (.max(8) entries +
+ * .string().max(80) chars), missing would_exceed, and projected_pressure: 1.5
+ * ACCEPTED (no `.max()` — a projection can blow past the ceiling).
+ */
+describe('@swt-labs/shared — cook.budget_projected event', () => {
+  const validBudgetProjected: CookBudgetProjectedEvent = {
+    type: 'cook.budget_projected',
+    ts: TS,
+    session_id: SID,
+    sub_session_id: SUB,
+    projected_cost_usd: 0.42,
+    spent_usd: 1.18,
+    ceiling_usd: 2.0,
+    projected_pressure: 0.8,
+    would_exceed: true,
+    confidence: 'low',
+    assumptions: [
+      'input estimated via char/4 heuristic',
+      'output bounded at maxTurns(40) x 800 tok/turn worst case',
+      'cache priced cold (no prefix reuse assumed)',
+    ],
+    rate_card_source: 'embedded',
+  };
+
+  it('parses a valid cook.budget_projected round-trip (deep-equals input)', () => {
+    const parsed = CookBudgetProjectedEventSchema.parse(validBudgetProjected);
+    expect(parsed).toEqual(validBudgetProjected);
+  });
+
+  it('is a discriminated-union member that narrows on type', () => {
+    const parsed = SnapshotEventSchema.parse(validBudgetProjected);
+    // TypeScript narrows the union on the literal discriminator — the
+    // budget-projection fields are only visible inside this branch.
+    if (parsed.type === 'cook.budget_projected') {
+      expect(parsed.projected_cost_usd).toBe(0.42);
+      expect(parsed.would_exceed).toBe(true);
+      expect(parsed.confidence).toBe('low');
+    } else {
+      throw new Error(`expected cook.budget_projected, got ${parsed.type}`);
+    }
+  });
+
+  it('rejects an assumptions array over the 8-entry cap', () => {
+    const tooMany = {
+      ...validBudgetProjected,
+      assumptions: Array.from({ length: 9 }, (_, i) => `assumption ${i}`),
+    };
+    expect(CookBudgetProjectedEventSchema.safeParse(tooMany).success).toBe(false);
+  });
+
+  it('rejects an assumptions entry over the 80-char cap', () => {
+    const tooLong = {
+      ...validBudgetProjected,
+      assumptions: ['x'.repeat(81)],
+    };
+    expect(CookBudgetProjectedEventSchema.safeParse(tooLong).success).toBe(false);
+  });
+
+  it('rejects an object missing would_exceed', () => {
+    const { would_exceed: _omit, ...withoutWouldExceed } = validBudgetProjected;
+    expect(
+      CookBudgetProjectedEventSchema.safeParse(withoutWouldExceed).success,
+    ).toBe(false);
+  });
+
+  it('ACCEPTS projected_pressure > 1.0 (no .max() — a projection can blow past the ceiling)', () => {
+    const overPressure = { ...validBudgetProjected, projected_pressure: 1.5 };
+    expect(
+      CookBudgetProjectedEventSchema.safeParse(overPressure).success,
+    ).toBe(true);
+    // The discriminated union accepts it too.
+    expect(SnapshotEventSchema.safeParse(overPressure).success).toBe(true);
   });
 });
