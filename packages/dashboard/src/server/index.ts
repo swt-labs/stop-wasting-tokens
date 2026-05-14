@@ -38,6 +38,7 @@ import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { registerUpdateRoute } from './routes/update.js';
+import { registerUserNotesRoute } from './routes/user-notes.js';
 import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
 
@@ -191,6 +192,11 @@ export function createApp(
   registerDetectPhaseRoute(app, cwd);
   registerUpdateRoute(app);
   registerCommandsRoute(app);
+  // User Notes: a freeform per-project scratchpad backed by
+  // `<cwd>/.swt-planning/USER_NOTES.md`. Registers unconditionally
+  // (cwd-relative, greenfield-tolerant) alongside the other tools routes.
+  // Deliberately isolated — the POST route publishes no SSE event.
+  registerUserNotesRoute(app, cwd, bus);
   if (projectRoot) {
     registerArtifactRoute(app, projectRoot);
     registerArtifactHistoryRoute(app, projectRoot);
