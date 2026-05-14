@@ -553,7 +553,7 @@ else
   fail "ask-user-question: contains volatile upstream issue links"
 fi
 
-if grep -Fq '@${CLAUDE_PLUGIN_ROOT}/references/ask-user-question.md' "$VIBE_COMMAND_FILE"; then
+if grep -Fq '@${SWT_INSTALL_ROOT}/references/ask-user-question.md' "$VIBE_COMMAND_FILE"; then
   pass "vibe: loads shared AskUserQuestion reference"
 else
   fail "vibe: missing shared AskUserQuestion reference include"
@@ -759,7 +759,12 @@ for pd_cmd in $PHASE_DETECT_REQUIRED_COMMANDS; do
     fail "$pd_cmd: command file not found"
     continue
   fi
-  if grep -q 'phase-detect\.sh' "$pd_file"; then
+  # v3 contract: a command satisfies state-detection by EITHER spelling out
+  # phase-detect.sh (resume/cook/qa/verify name it in re-run steps) OR consuming
+  # the pre-computed ${SWT_PHASE_DETECT_OUTPUT} block the orchestrator injects
+  # (discuss uses only the injected block). Both bind to phase-detect.sh output.
+  if grep -q 'phase-detect\.sh' "$pd_file" \
+    || grep -q 'SWT_PHASE_DETECT_OUTPUT' "$pd_file"; then
     pass "$pd_cmd: uses phase-detect.sh for state detection"
   else
     fail "$pd_cmd: missing phase-detect.sh — LLM may read archived milestone data"
@@ -917,7 +922,12 @@ else
   fail "qa: missing round-scoped qa-remediation-state needs-round before standalone remediation handoff"
 fi
 
-if grep -q 'echo "verify_context=unavailable"' "$VIBE_FILE"; then
+# REQ-25 (d15070b) removed the inline precompute heredocs from cook.md; the
+# precompute now runs at the orchestrator entry handler. cook.md's fail-closed
+# contract is now a CONSUMPTION guard: the routed verify path STOPs when the
+# active verify block carries verify_context_error=true or verify_context=unavailable.
+if grep -q 'verify_context_error=true` or `verify_context=unavailable' "$VIBE_FILE" \
+  && grep -Fq 'Verify context compilation failed' "$VIBE_FILE"; then
   pass "vibe: routed verify precompute emits fail-closed verify_context sentinel"
 else
   fail "vibe: routed verify precompute missing fail-closed verify_context sentinel"
@@ -996,10 +1006,14 @@ else
   fail "vibe: needs_reverification missing refreshed round-scoped uat_path validation"
 fi
 
+# REQ-25 (d15070b) moved the inline precompute heredoc (which emitted the
+# uat_resume=error / uat_resume=unavailable wrapper sentinels) to the orchestrator
+# entry handler. cook.md's deterministic-UAT-resume contract is now: carry the
+# deterministic resume fields (uat_resume_scenario / uat_resume_expected) and
+# re-run extract-uat-resume.sh to refresh them for each checkpoint.
 if grep -q 'uat_resume_scenario' "$VIBE_FILE" \
   && grep -q 'uat_resume_expected' "$VIBE_FILE" \
-  && grep -q 'bash "$L/scripts/extract-uat-resume.sh" "$PDIR" 2>/dev/null || echo "uat_resume=error"' "$VIBE_FILE" \
-  && grep -q 'echo "uat_resume=unavailable"' "$VIBE_FILE"; then
+  && grep -q 'extract-uat-resume\.sh' "$VIBE_FILE"; then
   pass "vibe: Verify mode passes deterministic UAT resume fields and preserves wrapper sentinels"
 else
   fail "vibe: Verify mode missing deterministic UAT resume fields or wrapper sentinels"
@@ -1521,8 +1535,8 @@ if grep -Fq 'resolve-execute-delegation-mode.sh' "$ROOT/references/execute-proto
   && grep -Fq "prefer_teams='auto'" "$ROOT/references/execute-protocol.md" \
   && grep -Fq 'max_parallel_width > 1' "$ROOT/references/execute-protocol.md" \
   && ! grep -Fq "prefer_teams='auto': request team mode only when 2+ uncompleted plans remain" "$ROOT/references/execute-protocol.md" \
-  && grep -Fq 'When true team mode is active, pass `team_name: "vbw-phase-{NN}"` and `name: "dev-{MM}"`' "$ROOT/references/execute-protocol.md" \
-  && grep -Fq 'When true team mode is active, pass `team_name: "vbw-phase-{NN}"` and `name: "qa"' "$ROOT/references/execute-protocol.md"; then
+  && grep -Fq 'When true team mode is active, pass `team_name: "swt-phase-{NN}"` and `name: "dev-{MM}"`' "$ROOT/references/execute-protocol.md" \
+  && grep -Fq 'When true team mode is active, pass `team_name: "swt-phase-{NN}"` and `name: "qa"' "$ROOT/references/execute-protocol.md"; then
   pass "execute-protocol: dependency-aware routing uses consistent true-team metadata wording"
 else
   fail "execute-protocol: dependency-aware routing wording is inconsistent or still references stale 2+ plan team creation"
