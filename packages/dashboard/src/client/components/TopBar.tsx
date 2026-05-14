@@ -1,5 +1,5 @@
 import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
-import { Show, createMemo, createSignal, type Component, type JSX } from 'solid-js';
+import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
 import type { ConnectionState } from '../state/dashboard-store.js';
 import { OptionsMenu } from './OptionsMenu.js';
@@ -48,45 +48,100 @@ const BACKEND_LABEL: Record<Backend, string> = {
   pi: 'pi',
 };
 
-// Mirrors packages/dashboard/src/server/lib/allowed-verbs.ts. Kept in sync by
-// hand because the SPA bundle ships separately from the dashboard server bundle
-// per tsup.config.ts; a runtime import would couple the build graphs.
-const ALLOWLIST = new Set(['help', 'version', 'status', 'doctor', 'detect-phase', 'update']);
-const INTERACTIVE = new Set(['vibe', 'watch', 'dashboard']);
+// The verb dropdown's curated action-verb set. cook is the orchestrator
+// (routes via onVibe); the rest are dashboard-safe CLI verbs (route via
+// onCommand). `requiresInput` gates the submit button — cook/research need
+// a prompt/topic; qa/verify/map take optional-or-no args.
+//
+// Hand-maintained, mirroring the (now removed) `ALLOWLIST` const pattern:
+// a curated 5-item list does not warrant threading from the store.
+export const ACTION_VERBS = [
+  { value: 'cook', label: 'cook', requiresInput: true },
+  { value: 'research', label: 'research', requiresInput: true },
+  { value: 'qa', label: 'qa', requiresInput: false },
+  { value: 'verify', label: 'verify', requiresInput: false },
+  { value: 'map', label: 'map', requiresInput: false },
+] as const;
 
-type VerbStatus = 'empty' | 'literal' | 'interactive' | 'unknown' | 'natural_language';
-
-/**
- * Decides whether unknown input looks like natural language (route to vibe)
- * vs a typo of a literal verb (suggest the allowlist). Heuristic:
- *   - 3+ tokens → treat as natural language. "build me a snake game" matches.
- *   - first token has 8+ chars → treat as natural language. "describe …" matches.
- *   - otherwise → unknown verb (typo). "stauts" suggests "status".
- *
- * Conservative on the natural-language side — false positives route to vibe
- * which spawns an agent (cost). False negatives show the allowlist hint
- * which is recoverable. We tune toward fewer false positives.
- */
-function looksLikeNaturalLanguage(trimmed: string): boolean {
-  const tokens = trimmed.split(/\s+/);
-  if (tokens.length >= 3) return true;
-  const first = tokens[0] ?? '';
-  return first.length >= 8;
+/** The result of composing a selected verb + the typed input into a route. */
+export interface ComposedCommand {
+  /** `vibe` → the orchestrator path (`onVibe`); `command` → a CLI verb (`onCommand`). */
+  route: 'vibe' | 'command';
+  /** The fully composed string handed to the routing callback. */
+  value: string;
 }
 
-function classifyInput(input: string): VerbStatus {
+/**
+ * Composes the selected dropdown verb + the user's typed content into the
+ * routed command. `cook` is the orchestrator: the input IS the cook prompt,
+ * so it routes through `vibe` with the bare trimmed text (no "cook " prefix).
+ * Every other verb routes through `command` as `${verb} ${trimmedInput}`,
+ * collapsing to just `verb` when the input is empty.
+ */
+export function composeCommand(verb: string, input: string): ComposedCommand {
   const trimmed = input.trim();
-  if (trimmed.length === 0) return 'empty';
-  const firstToken = trimmed.split(/\s+/)[0]?.toLowerCase() ?? '';
-  if (ALLOWLIST.has(firstToken)) return 'literal';
-  if (INTERACTIVE.has(firstToken)) return 'interactive';
-  if (looksLikeNaturalLanguage(trimmed)) return 'natural_language';
-  return 'unknown';
+  if (verb === 'cook') {
+    return { route: 'vibe', value: trimmed };
+  }
+  return { route: 'command', value: trimmed ? `${verb} ${trimmed}` : verb };
+}
+
+/**
+ * Whether the form can submit for the given verb + input. A verb whose
+ * `requiresInput` is true (cook/research) needs non-empty trimmed input;
+ * the optional-arg verbs (qa/verify/map) can always submit.
+ */
+export function canSubmit(verb: string, input: string): boolean {
+  const entry = ACTION_VERBS.find((v) => v.value === verb);
+  if (entry?.requiresInput) {
+    return input.trim().length > 0;
+  }
+  return true;
+}
+
+/** Verb-aware hint text describing what pressing ↵ / Run will do. */
+function hintForVerb(verb: string): string {
+  switch (verb) {
+    case 'cook':
+      return '↵ start a cook session';
+    case 'research':
+      return '↵ research <your text>';
+    case 'qa':
+      return '↵ run qa (optional phase arg)';
+    case 'verify':
+      return '↵ run verify (optional phase arg)';
+    case 'map':
+      return '↵ run map';
+    default:
+      return '↵ run';
+  }
+}
+
+/** Verb-aware input placeholder. */
+function placeholderForVerb(verb: string): string {
+  switch (verb) {
+    case 'cook':
+      return 'Describe what you want built…';
+    case 'research':
+      return 'Topic to research…';
+    case 'qa':
+    case 'verify':
+      return 'Phase number (optional)…';
+    case 'map':
+      return '(no input needed)';
+    default:
+      return 'Enter command input…';
+  }
 }
 
 export const TopBar: Component<TopBarProps> = (props) => {
   const [input, setInput] = createSignal('');
-  const status = createMemo<VerbStatus>(() => classifyInput(input()));
+  // The selected verb is local TopBar UI state — not in the store, not
+  // persisted (keep it simple, mirroring the `input` signal). cook default.
+  const [verb, setVerb] = createSignal<string>('cook');
+
+  const hint = createMemo(() => hintForVerb(verb()));
+  const placeholder = createMemo(() => placeholderForVerb(verb()));
 
   // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so
   // `App.tsx` (out of this plan's files_modified) needs no edit; when they
@@ -108,15 +163,20 @@ export const TopBar: Component<TopBarProps> = (props) => {
 
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
-    const value = input().trim();
-    if (value.length === 0) return;
+    const selectedVerb = verb();
+    if (!canSubmit(selectedVerb, input())) return;
+    const composed = composeCommand(selectedVerb, input());
+    // Clear the typed content; leave the verb sticky — a user running
+    // several cook prompts shouldn't have to re-pick it each time.
     setInput('');
-    if (status() === 'natural_language') {
-      await props.onVibe(value);
+    if (composed.route === 'vibe') {
+      await props.onVibe(composed.value);
       return;
     }
-    await props.onCommand(value);
+    await props.onCommand(composed.value);
   };
+
+  const controlsDisabled = (): boolean => props.commandSubmitting || props.vibeStarting;
 
   return (
     <header class="topbar" role="banner">
@@ -126,41 +186,41 @@ export const TopBar: Component<TopBarProps> = (props) => {
       </h1>
       <div class="topbar-cmd-wrapper">
         <form class="topbar-cmd" onSubmit={(e) => void onSubmit(e)} aria-label="Run swt command">
+          <select
+            class="topbar-cmd-verb"
+            aria-label="Command"
+            disabled={controlsDisabled()}
+            value={verb()}
+            onChange={(e) => setVerb(e.currentTarget.value)}
+          >
+            <For each={ACTION_VERBS}>
+              {(v) => <option value={v.value}>{v.label}</option>}
+            </For>
+          </select>
           <span class="topbar-cmd-prompt">$</span>
           <input
             type="text"
             class="topbar-cmd-input"
-            placeholder="Describe what you want to build, or run: status / doctor / help / version …"
+            placeholder={placeholder()}
             autocomplete="off"
             spellcheck={false}
-            disabled={props.commandSubmitting || props.vibeStarting}
+            disabled={controlsDisabled()}
             value={input()}
             onInput={(e) => setInput(e.currentTarget.value)}
           />
+          <button
+            type="submit"
+            class="topbar-cmd-submit"
+            disabled={controlsDisabled() || !canSubmit(verb(), input())}
+          >
+            Run
+          </button>
         </form>
-        <Show
-          when={
-            status() === 'natural_language' || status() === 'unknown' || status() === 'interactive'
-          }
-        >
-          <div class="topbar-cmd-hint-row">
-            <Show when={status() === 'natural_language'}>
-              <span class="topbar-cmd-hint" data-hint="natural" role="status">
-                ↵ Press enter to start a vibe session
-              </span>
-            </Show>
-            <Show when={status() === 'unknown'}>
-              <span class="topbar-cmd-hint" data-hint="unknown" role="status">
-                ↪ Try: status, doctor, help, detect-phase, version, update
-              </span>
-            </Show>
-            <Show when={status() === 'interactive'}>
-              <span class="topbar-cmd-hint" data-hint="interactive" role="status">
-                ↪ Interactive — run from your terminal
-              </span>
-            </Show>
-          </div>
-        </Show>
+        <div class="topbar-cmd-hint-row">
+          <span class="topbar-cmd-hint" data-hint="verb" role="status">
+            {hint()}
+          </span>
+        </div>
       </div>
       <div class="topbar-status">
         <Show when={props.project} fallback={<span class="topbar-placeholder">project: …</span>}>

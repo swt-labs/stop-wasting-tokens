@@ -261,7 +261,64 @@
   color: var(--slate-muted);
 }
 
-/* Inline hint chip when first command-bar token is unknown / interactive */
+/* Verb dropdown — the authoritative command selector, leading the command
+   bar (after the `swt` logo, before the `$` prompt). Matches the terminal
+   face of the surrounding `.topbar-cmd-*` controls. */
+.topbar-cmd-verb {
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  border-radius: 3px;
+  color: var(--terminal-green);
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+  cursor: pointer;
+  outline: none;
+}
+
+.topbar-cmd-verb:focus {
+  border-color: var(--terminal-green);
+}
+
+.topbar-cmd-verb:disabled {
+  color: var(--slate-muted);
+  cursor: not-allowed;
+}
+
+/* Submit button — the click path for running the composed command
+   (Enter on the form still works too). */
+.topbar-cmd-submit {
+  flex-shrink: 0;
+  background: rgba(0, 255, 65, 0.1);
+  border: 1px solid rgba(0, 255, 65, 0.35);
+  border-radius: 3px;
+  color: var(--terminal-green);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.topbar-cmd-submit:hover:not(:disabled) {
+  background: rgba(0, 255, 65, 0.2);
+  border-color: var(--terminal-green);
+}
+
+.topbar-cmd-submit:focus-visible {
+  border-color: var(--terminal-green);
+}
+
+.topbar-cmd-submit:disabled {
+  color: var(--slate-muted);
+  border-color: rgba(0, 255, 65, 0.12);
+  background: transparent;
+  cursor: not-allowed;
+}
+
+/* Inline hint chip — verb-aware affordance describing what submit will do */
 .topbar-cmd-hint {
   font-size: 11px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -271,16 +328,10 @@
   flex-shrink: 0;
 }
 
-.topbar-cmd-hint[data-hint='unknown'] {
-  color: var(--warm-amber, #ffaa44);
-  background: rgba(255, 170, 68, 0.08);
-  border: 1px solid rgba(255, 170, 68, 0.25);
-}
-
-.topbar-cmd-hint[data-hint='interactive'] {
-  color: var(--neon-cyan, #44ddff);
-  background: rgba(68, 221, 255, 0.08);
-  border: 1px solid rgba(68, 221, 255, 0.25);
+.topbar-cmd-hint[data-hint='verb'] {
+  color: var(--terminal-green);
+  background: rgba(0, 255, 65, 0.06);
+  border: 1px solid rgba(0, 255, 65, 0.2);
 }
 
 /* Init screen — greenfield onboarding */
