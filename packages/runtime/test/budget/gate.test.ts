@@ -18,6 +18,7 @@
 import type { BudgetConfigSchemaT, MeterRecord } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
+import type { CostProjection } from '../../src/budget/cost-projector.js';
 import { createBudgetGate, type BudgetEvent } from '../../src/budget/gate.js';
 import { createTokenMeter } from '../../src/meter/token-meter.js';
 
@@ -49,6 +50,27 @@ function makeRecord(cost_usd: number, overrides: Partial<MeterRecord> = {}): Met
     cacheRead: 0,
     cacheWrite: 0,
     cost_usd,
+    ...overrides,
+  };
+}
+
+/**
+ * Build a `CostProjection` fixture (plan 03-01 shape). `projected_cost_usd`
+ * is the worst-case gating number `BudgetGate.project()` reads; the other
+ * fields ride along for the event payload but never drive `would_exceed`.
+ */
+function makeProjection(
+  projected_cost_usd: number,
+  overrides: Partial<CostProjection> = {},
+): CostProjection {
+  return {
+    projected_cost_usd,
+    expected_cost_usd: projected_cost_usd / 2,
+    projected_input_tokens: 1000,
+    projected_output_tokens: 2000,
+    confidence: 'medium',
+    assumptions: ['input estimated via char/4 heuristic'],
+    rate_card_source: 'embedded',
     ...overrides,
   };
 }
@@ -257,6 +279,139 @@ describe('createBudgetGate — state shape (M4 PR-35)', () => {
     gate.bumpCeiling(-0.0001);
     expect(gate.state().pressure).toBe(0);
     expect(Number.isNaN(gate.state().pressure)).toBe(false);
+    gate.dispose();
+  });
+});
+
+describe('createBudgetGate — project() pre-spawn projection (Phase 3 / 03-03, G-R4)', () => {
+  it('is a pure read — never mutates state or fires events across many calls', () => {
+    const meter = createTokenMeter();
+    const gate = createBudgetGate({ config: defaultConfig(), meter, clock: FIXED_CLOCK });
+    const events: BudgetEvent[] = [];
+    gate.subscribe((e) => events.push(e));
+
+    // Drive `spent` to a non-trivial baseline so the snapshot is meaningful.
+    meter.record(makeRecord(40), 40);
+    const snapshot = structuredClone(gate.state());
+
+    // Call project() repeatedly with widely varying projections — including
+    // one that would blow the ceiling.
+    gate.project(makeProjection(5));
+    gate.project(makeProjection(100));
+    gate.project(makeProjection(0));
+    gate.project(makeProjection(9999));
+
+    // State is byte-identical and no BudgetEvent fired from project().
+    expect(gate.state()).toEqual(snapshot);
+    expect(events).toEqual([]);
+    gate.dispose();
+  });
+
+  it('would_exceed reflects the projection_halt_threshold ?? pause_threshold cutoff', () => {
+    const meter = createTokenMeter();
+    const gate = createBudgetGate({ config: defaultConfig(), meter, clock: FIXED_CLOCK });
+
+    // spent = 90 / ceiling 100 → pressure 0.90 (under pause_threshold 0.95).
+    meter.record(makeRecord(90), 90);
+
+    // +6 → projected_pressure 0.96 ≥ 0.95 → would_exceed.
+    const over = gate.project(makeProjection(6));
+    expect(over.projected_pressure).toBeCloseTo(0.96);
+    expect(over.would_exceed).toBe(true);
+
+    // +2 → projected_pressure 0.92 < 0.95 → stays under.
+    const under = gate.project(makeProjection(2));
+    expect(under.projected_pressure).toBeCloseTo(0.92);
+    expect(under.would_exceed).toBe(false);
+    gate.dispose();
+  });
+
+  it('projection_halt_threshold overrides pause_threshold with a stricter cutoff', () => {
+    const meter = createTokenMeter();
+    const gate = createBudgetGate({
+      config: defaultConfig({ pause_threshold: 0.95, projection_halt_threshold: 0.8 }),
+      meter,
+      clock: FIXED_CLOCK,
+    });
+
+    // spent = 70 / ceiling 100 → pressure 0.70. +15 → projected_pressure
+    // 0.85: BETWEEN the stricter 0.80 cutoff and the looser 0.95 one.
+    meter.record(makeRecord(70), 70);
+    const result = gate.project(makeProjection(15));
+    expect(result.projected_pressure).toBeCloseTo(0.85);
+    // would_exceed under the 0.80 projection cutoff (would be false at 0.95).
+    expect(result.would_exceed).toBe(true);
+    gate.dispose();
+  });
+
+  it('task_usd cap makes would_exceed true on the per-spawn ceiling alone', () => {
+    // task_usd set — a projection over the per-spawn cap halts even though
+    // projected_pressure is nowhere near the threshold.
+    const capped = createBudgetGate({
+      config: defaultConfig({ task_usd: 5 }),
+      meter: createTokenMeter(),
+      clock: FIXED_CLOCK,
+    });
+    // projected_cost_usd 8 > task_usd 5; projected_pressure = 8/100 = 0.08.
+    const cappedResult = capped.project(makeProjection(8));
+    expect(cappedResult.projected_pressure).toBeCloseTo(0.08);
+    expect(cappedResult.would_exceed).toBe(true);
+    capped.dispose();
+
+    // Same projection, task_usd undefined → no per-spawn cap → would_exceed false.
+    const uncapped = createBudgetGate({
+      config: defaultConfig(), // task_usd omitted
+      meter: createTokenMeter(),
+      clock: FIXED_CLOCK,
+    });
+    const uncappedResult = uncapped.project(makeProjection(8));
+    expect(uncappedResult.would_exceed).toBe(false);
+    uncapped.dispose();
+  });
+
+  it('projection_enabled: false short-circuits would_exceed but keeps projected_pressure honest', () => {
+    const meter = createTokenMeter();
+    const gate = createBudgetGate({
+      config: defaultConfig({ projection_enabled: false, task_usd: 1 }),
+      meter,
+      clock: FIXED_CLOCK,
+    });
+
+    // A projection that would blow the ceiling AND the task_usd cap.
+    const result = gate.project(makeProjection(150));
+    // Halt is suppressed...
+    expect(result.would_exceed).toBe(false);
+    // ...but projected_pressure is still the honest computed value (> 1.0).
+    expect(result.projected_pressure).toBeCloseTo(1.5);
+    expect(result.projected_pressure).toBeGreaterThan(1);
+    gate.dispose();
+  });
+
+  it('confidence does not soften the halt — a low-confidence over-threshold projection still halts (R4)', () => {
+    const meter = createTokenMeter();
+    const gate = createBudgetGate({ config: defaultConfig(), meter, clock: FIXED_CLOCK });
+
+    // spent = 90 / ceiling 100; +6 → projected_pressure 0.96 ≥ 0.95.
+    meter.record(makeRecord(90), 90);
+
+    const low = gate.project(makeProjection(6, { confidence: 'low' }));
+    const medium = gate.project(makeProjection(6, { confidence: 'medium' }));
+
+    // Identical halt decision regardless of confidence band.
+    expect(low.would_exceed).toBe(true);
+    expect(medium.would_exceed).toBe(true);
+    expect(low.would_exceed).toBe(medium.would_exceed);
+    gate.dispose();
+  });
+
+  it('echoes the same projection object back unchanged on the result', () => {
+    const meter = createTokenMeter();
+    const gate = createBudgetGate({ config: defaultConfig(), meter, clock: FIXED_CLOCK });
+
+    const projection = makeProjection(3);
+    const result = gate.project(projection);
+    // Same reference — no copy, no mutation (event-payload echo).
+    expect(result.projection).toBe(projection);
     gate.dispose();
   });
 });
