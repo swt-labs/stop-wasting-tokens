@@ -38,6 +38,10 @@ vi.mock('../src/client/services/api.js', () => ({
   // them or createDashboardStore() throws at the toolsFetchers map.
   fetchProviderAuth: (...args: unknown[]) => fetchProviderAuthMock(...args),
   postProviderAuth: (...args: unknown[]) => postProviderAuthMock(...args),
+  // User Notes — dashboard-store.ts imports these for the userNotes cell;
+  // the mock must export them or createDashboardStore() throws.
+  fetchUserNotes: vi.fn(),
+  postUserNotes: vi.fn(),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({

@@ -22,6 +22,9 @@ import {
   UatCheckpointResponseSchema,
   UpdateApplyResponseSchema,
   UpdateReportSchema,
+  UserNotesSnapshotSchema,
+  UserNotesUpdateBodySchema,
+  UserNotesUpdateResponseSchema,
   type CommandBody,
   type CommandRegistry,
   type CommandResponse,
@@ -45,6 +48,9 @@ import {
   type UatCheckpointResponse,
   type UpdateApplyResponse,
   type UpdateReport,
+  type UserNotesSnapshot,
+  type UserNotesUpdateBody,
+  type UserNotesUpdateResponse,
 } from '@swt-labs/shared';
 
 export type {
@@ -69,6 +75,9 @@ export type {
   UatCheckpointResponse,
   UpdateApplyResponse,
   UpdateReport,
+  UserNotesSnapshot,
+  UserNotesUpdateBody,
+  UserNotesUpdateResponse,
 };
 
 export interface RenderedArtifact {
@@ -167,6 +176,34 @@ export async function postConfig(body: ConfigUpdateBody): Promise<ConfigUpdateRe
   }
   const raw: unknown = await res.json();
   return ConfigUpdateResponseSchema.parse(raw);
+}
+
+/* ── User Notes — freeform per-project scratchpad ─────────────────────
+ * `fetchUserNotes` / `postUserNotes` mirror `fetchConfig` / `postConfig`:
+ * thin GET/POST wrappers that validate through the matching
+ * `@swt-labs/shared` schema so the panel sees fully-typed data and any
+ * wire drift surfaces here. The notes file is deliberately isolated —
+ * no SSE coupling, not on the poll loop (see dashboard-store.ts).
+ */
+
+export async function fetchUserNotes(): Promise<UserNotesSnapshot> {
+  const raw = await jsonRequest<unknown>('/api/user-notes');
+  return UserNotesSnapshotSchema.parse(raw);
+}
+
+export async function postUserNotes(notes: string): Promise<UserNotesUpdateResponse> {
+  const validated: UserNotesUpdateBody = UserNotesUpdateBodySchema.parse({ notes });
+  const res = await fetch('/api/user-notes', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validated),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return UserNotesUpdateResponseSchema.parse(raw);
 }
 
 /**

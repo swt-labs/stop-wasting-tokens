@@ -56,6 +56,8 @@ vi.mock('../src/client/services/api.js', () => ({
   postProviderAuth: vi.fn(),
   postOAuthStart: (...args: unknown[]) => postOAuthStartMock(...args),
   postOAuthCode: (...args: unknown[]) => postOAuthCodeMock(...args),
+  fetchUserNotes: vi.fn(),
+  postUserNotes: vi.fn(),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({

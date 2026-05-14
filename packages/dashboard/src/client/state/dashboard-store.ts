@@ -10,6 +10,7 @@ import type {
   Snapshot,
   SnapshotEvent,
   UpdateReport,
+  UserNotesSnapshot,
   VibeReplyBody,
 } from '@swt-labs/shared';
 import { createStore } from 'solid-js/store';
@@ -23,6 +24,7 @@ import {
   fetchProviderAuth,
   fetchSnapshot,
   fetchUpdate,
+  fetchUserNotes,
   postCommand,
   postConfig,
   postCookStart,
@@ -33,6 +35,7 @@ import {
   postProviderAuth,
   postUatCheckpoint,
   postUpdateApply,
+  postUserNotes,
   type CommandResponse,
   type ConfigUpdateBody,
   type InitBody,
@@ -42,6 +45,8 @@ import {
   type UatCheckpointBody,
   type UpdateApplyResponse,
 } from '../services/api.js';
+// `UserNotesSnapshot` is imported from `@swt-labs/shared` above alongside the
+// other wire types — the store types its `userNotes` tools-cell against it.
 import { openSseConnection, type SseConnection } from '../services/sse.js';
 
 export type ConnectionState = 'connecting' | 'syncing' | 'connected' | 'error';
@@ -156,6 +161,15 @@ export interface ToolsState {
    * SSE event the `POST /api/provider-auth` route publishes.
    */
   providerAuth: ToolsCellState<ProviderAuthSnapshot>;
+  /**
+   * User Notes — a freeform per-project scratchpad backed by
+   * `<cwd>/.swt-planning/USER_NOTES.md`. DELIBERATELY NOT on the poll loop
+   * (`TOOLS_KEYS` / `FAST_TOOLS_KEYS` / `SLOW_TOOLS_KEYS` all exclude it):
+   * polling would clobber the user's in-progress typing, and it is a
+   * single-editor personal file. Fetched ONCE on bootstrap; mutated via the
+   * `saveUserNotes` action (the panel debounces, the action does not).
+   */
+  userNotes: ToolsCellState<UserNotesSnapshot>;
 }
 
 export type ToolsCellKey = keyof ToolsState;
@@ -263,6 +277,15 @@ export interface DashboardActions {
   submitOAuthCode: (code: string) => Promise<{ ok: true } | { error: string }>;
   /** Plan 04-03 (Phase 4): clear the `oauthFlow` signal back to `null`. */
   dismissOAuthFlow: () => void;
+  /**
+   * User Notes — POST the scratchpad text to the daemon. On success,
+   * optimistically updates the `userNotes` cell (sets `data.notes` to the
+   * saved text, `exists: true`, refreshes `lastFetched`). Returns `{ok:true}`
+   * on success or `{error}` on failure (also pushed to errors[]). The
+   * DEBOUNCE lives in the panel — this is a plain async action with no
+   * timer. No SSE event is involved (the route publishes none).
+   */
+  saveUserNotes: (notes: string) => Promise<{ ok: true } | { error: string }>;
   /** Phase 1 — open the TopBar Options dropdown. */
   openOptionsMenu: () => void;
   /** Phase 1 — close the TopBar Options dropdown. */
@@ -350,6 +373,7 @@ export function createDashboardStore(
       update: emptyToolsCell<UpdateReport>(),
       commands: emptyToolsCell<CommandRegistry>(),
       providerAuth: emptyToolsCell<ProviderAuthSnapshot>(),
+      userNotes: emptyToolsCell<UserNotesSnapshot>(),
     },
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
@@ -732,6 +756,7 @@ export function createDashboardStore(
     update: typeof fetchUpdate;
     commands: typeof fetchCommands;
     providerAuth: typeof fetchProviderAuth;
+    userNotes: typeof fetchUserNotes;
   };
   const toolsFetchers: ToolsFetcher = {
     config: fetchConfig,
@@ -740,7 +765,12 @@ export function createDashboardStore(
     update: fetchUpdate,
     commands: fetchCommands,
     providerAuth: fetchProviderAuth,
+    userNotes: fetchUserNotes,
   };
+  // The poll-loop key sets DELIBERATELY EXCLUDE `userNotes`. It is a
+  // single-editor personal scratchpad — polling would clobber in-progress
+  // typing. It is fetched once on bootstrap (see below) and otherwise only
+  // re-fetched on the panel's manual ↻ refresh via `refreshToolsCell`.
   const TOOLS_KEYS: ToolsCellKey[] = [
     'config',
     'doctor',
@@ -895,6 +925,12 @@ export function createDashboardStore(
       void refreshTools();
       startToolsPolling();
       installToolsVisibilityHandler();
+      // User Notes is fetched ONCE here on bootstrap — it is deliberately
+      // NOT on the poll loop (polling would clobber in-progress typing) and
+      // emits no SSE event, so this one-shot fetch is the only automatic
+      // load. The panel's ↻ button triggers `refreshToolsCell('userNotes')`
+      // for an explicit manual re-fetch thereafter.
+      void refreshToolsCell('userNotes');
     }
   };
 
@@ -1289,6 +1325,41 @@ export function createDashboardStore(
     setState('oauthFlow', null);
   };
 
+  /* ── User Notes action ────────────────────────────────────────────────
+   * `saveUserNotes` POSTs the scratchpad text and, on success,
+   * optimistically updates the `userNotes` cell. The DEBOUNCE lives in
+   * `UserNotesPanel` — this is a plain async action with no timer. There is
+   * no SSE event to wait on (the route publishes none by design), so the
+   * optimistic update IS the cell's source of truth until the next manual
+   * ↻ refresh.
+   */
+  const saveUserNotes = async (
+    notes: string,
+  ): Promise<{ ok: true } | { error: string }> => {
+    setState('tools', 'userNotes', 'loading', true);
+    setState('tools', 'userNotes', 'error', null);
+    try {
+      const response = await postUserNotes(notes);
+      setState('tools', 'userNotes', {
+        data: {
+          notes,
+          exists: true,
+          generated_at: response.generated_at,
+        } as never,
+        loading: false,
+        error: null,
+        lastFetched: response.generated_at,
+      });
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('tools', 'userNotes', 'loading', false);
+      setState('tools', 'userNotes', 'error', message);
+      pushError(`user notes save failed: ${message}`);
+      return { error: message };
+    }
+  };
+
   const applyUpdate = async (): Promise<UpdateApplyResponse | { error: string }> => {
     setState('tools', 'update', 'loading', true);
     setState('tools', 'update', 'error', null);
@@ -1341,6 +1412,7 @@ export function createDashboardStore(
       startOAuthFlow,
       submitOAuthCode,
       dismissOAuthFlow,
+      saveUserNotes,
       openOptionsMenu,
       closeOptionsMenu,
       toggleOptionsMenu,

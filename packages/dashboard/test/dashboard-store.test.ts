@@ -28,6 +28,8 @@ const postConfigMock = vi.fn();
 const postUpdateApplyMock = vi.fn();
 const fetchProviderAuthMock = vi.fn();
 const postProviderAuthMock = vi.fn();
+const fetchUserNotesMock = vi.fn();
+const postUserNotesMock = vi.fn();
 
 vi.mock('../src/client/services/api.js', () => ({
   fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
@@ -46,6 +48,8 @@ vi.mock('../src/client/services/api.js', () => ({
   postUpdateApply: (...args: unknown[]) => postUpdateApplyMock(...args),
   fetchProviderAuth: (...args: unknown[]) => fetchProviderAuthMock(...args),
   postProviderAuth: (...args: unknown[]) => postProviderAuthMock(...args),
+  fetchUserNotes: (...args: unknown[]) => fetchUserNotesMock(...args),
+  postUserNotes: (...args: unknown[]) => postUserNotesMock(...args),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({
@@ -87,6 +91,8 @@ beforeEach(() => {
   postUpdateApplyMock.mockReset();
   fetchProviderAuthMock.mockReset();
   postProviderAuthMock.mockReset();
+  fetchUserNotesMock.mockReset();
+  postUserNotesMock.mockReset();
   openSseConnectionMock.mockReturnValue({ close: () => {} });
 });
 
