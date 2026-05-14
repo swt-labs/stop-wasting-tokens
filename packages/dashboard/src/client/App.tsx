@@ -20,6 +20,7 @@ import { ProjectStatePanel } from './components/ProjectStatePanel.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
 import { ProviderCostPanel } from './components/ProviderCostPanel.js';
+import { SettingsSection, buildConfigPatch } from './components/SettingsSection.js';
 import { TopBar } from './components/TopBar.js';
 import { TpacPanel } from './components/TpacPanel.js';
 import { UatModal } from './components/UatModal.js';
@@ -99,6 +100,32 @@ export const App: Component = () => {
         vibeStarting={state.vibeStarting}
         onCommand={actions.runCommand}
         onVibe={actions.startVibeSession}
+        optionsMenuOpen={state.optionsMenuOpen}
+        onToggleOptionsMenu={actions.toggleOptionsMenu}
+        onCloseOptionsMenu={actions.closeOptionsMenu}
+        settingsSection={
+          <SettingsSection
+            data={state.tools.config.data}
+            loading={state.tools.config.loading}
+            error={state.tools.config.error}
+            lastFetched={state.tools.config.lastFetched}
+            onRefresh={() => void actions.refreshToolsCell('config')}
+            onApply={(key, value) =>
+              actions.applyConfigUpdate(
+                // FULL-config merge off the live config cell — NOT a single-key
+                // partial (a partial silently resets every non-target field, a
+                // confirmed data-loss bug). `ConfigSnapshot.config` is typed
+                // `unknown`, so the `?? {}` greenfield fallback needs the cast
+                // to land on `Record<string, unknown>` for `buildConfigPatch`.
+                buildConfigPatch(
+                  (state.tools.config.data?.config ?? {}) as Record<string, unknown>,
+                  key,
+                  value,
+                ),
+              )
+            }
+          />
+        }
       />
       <Show
         when={isInitialized()}
