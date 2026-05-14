@@ -27,6 +27,8 @@ import {
   postConfig,
   postCookStart,
   postInit,
+  postOAuthCode,
+  postOAuthStart,
   postPromptRespond,
   postProviderAuth,
   postUatCheckpoint,
@@ -94,6 +96,30 @@ export interface VibeSessionState {
    * daemons), assume 'none' for back-compat.
    */
   agent_backend: 'none' | 'pi';
+}
+
+/**
+ * Plan 04-03 (Phase 4) — the in-progress OAuth login flow. `null` when no
+ * OAuth login is running. TOKEN-FREE by construction: it holds only the
+ * non-secret auth URL + progress/error strings the `oauth.*` SSE events
+ * carry (04-01's events are token-free; the `OAuthCredentials` blob never
+ * reaches the SPA — it goes straight to the OS keychain server-side, 04-02).
+ *
+ * `status` discriminates the flow's phase: `starting` (the `postOAuthStart`
+ * POST is in flight, awaiting the first event), `awaiting_browser` (an
+ * `oauth.auth_url` arrived — the panel shows "open this URL"),
+ * `awaiting_code` (an `oauth.awaiting_code` arrived — the panel shows the
+ * manual-code paste box), `complete`, `error`.
+ */
+export interface OAuthFlowState {
+  flowId: string;
+  provider: string;
+  status: 'starting' | 'awaiting_browser' | 'awaiting_code' | 'complete' | 'error';
+  authUrl: string | null;
+  instructions: string | null;
+  progressMessage: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
 }
 
 /**
@@ -165,6 +191,14 @@ export interface DashboardState {
    * with this. Null while no cook is running.
    */
   activeSessionId: string | null;
+  /**
+   * Plan 04-03 (Phase 4) — the in-progress OAuth login flow, or `null` when
+   * no OAuth login is running. The `ProviderAuthPanel`'s source of truth for
+   * what to render during an OAuth login. Token-free by construction (see
+   * `OAuthFlowState`). `flow_id`-correlated: the `applyEvent` `oauth.*`
+   * branch ignores any event whose `flow_id` does not match this flow.
+   */
+  oauthFlow: OAuthFlowState | null;
 }
 
 export interface DashboardActions {
@@ -205,6 +239,24 @@ export interface DashboardActions {
   applyProviderAuthUpdate: (
     body: ProviderAuthUpdateBody,
   ) => Promise<{ ok: true } | { error: string }>;
+  /**
+   * Plan 04-03 (Phase 4): kick off an OAuth login flow for `provider`. Sets
+   * the `oauthFlow` signal to a `starting` entry, calls `postOAuthStart`,
+   * and on success updates `oauthFlow.flowId` so the subsequent `oauth.*`
+   * SSE events correlate. Returns `{ok: true}` on success, `{error}` on
+   * failure (also pushed to errors[]).
+   */
+  startOAuthFlow: (provider: string) => Promise<{ ok: true } | { error: string }>;
+  /**
+   * Plan 04-03 (Phase 4): submit a manually-pasted authorization code into
+   * the active OAuth flow (Risk 4 headless paste path). Returns
+   * `{error: 'no_active_oauth_flow'}` when there is no active flow. The
+   * flow's actual completion still arrives via the `oauth.complete` SSE
+   * event — this does NOT optimistically complete the flow.
+   */
+  submitOAuthCode: (code: string) => Promise<{ ok: true } | { error: string }>;
+  /** Plan 04-03 (Phase 4): clear the `oauthFlow` signal back to `null`. */
+  dismissOAuthFlow: () => void;
   /**
    * v2.3 Phase 03: trigger `npm i -g stop-wasting-tokens@latest` server-side.
    * On success, refreshes the Update cell. Elevation case (EACCES) returns
@@ -275,6 +327,7 @@ export function createDashboardStore(
     },
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
+    oauthFlow: null,
   });
 
   // Plan 04-03 T1 — pending clear timer scheduled by `cook.completion`. Held
@@ -429,9 +482,108 @@ export function createDashboardStore(
     }
   };
 
+  /**
+   * Plan 04-03 (Phase 4) — fold the five `oauth.*` SSE bridge events (04-01)
+   * into the `oauthFlow` signal. The 04-02 server route publishes these as
+   * it drives pi-ai's `OAuthProviderInterface.login()`.
+   *
+   * `flow_id`-correlated (Risk 4): every branch first checks the event's
+   * `flow_id` against the active `oauthFlow.flowId`. An event whose
+   * `flow_id` does NOT match — a stale flow, or a concurrent flow from
+   * another browser tab — is IGNORED, so concurrent flows never cross-wire.
+   * The `oauth.auth_url` branch also accepts a still-`starting` flow for the
+   * same provider whose `flowId` is empty (the provisional entry
+   * `startOAuthFlow` set before the `postOAuthStart` response landed).
+   *
+   * NONE of the branches reads or stores a token — 04-01's `oauth.*` events
+   * are token-free by construction; the `oauthFlow` signal mirrors that.
+   */
+  const handleOAuthEvent = (
+    evt: Extract<SnapshotEvent, { type: `oauth.${string}` }>,
+  ): void => {
+    const flow = state.oauthFlow;
+    switch (evt.type) {
+      case 'oauth.auth_url': {
+        // Accept either an exact flow_id match, or a still-`starting`
+        // provisional entry for this provider (flowId not yet assigned).
+        const matches =
+          flow?.flowId === evt.flow_id ||
+          (flow?.status === 'starting' &&
+            flow.provider === evt.provider &&
+            flow.flowId.length === 0);
+        if (!matches) return;
+        setState('oauthFlow', (prev) => ({
+          flowId: evt.flow_id,
+          provider: evt.provider,
+          status: 'awaiting_browser',
+          authUrl: evt.url,
+          instructions: evt.instructions ?? null,
+          progressMessage: prev?.progressMessage ?? null,
+          errorCode: null,
+          errorMessage: null,
+        }));
+        return;
+      }
+      case 'oauth.progress': {
+        if (flow?.flowId !== evt.flow_id) return;
+        setState('oauthFlow', (prev) =>
+          prev
+            ? {
+                ...prev,
+                progressMessage: evt.message,
+                status: prev.status === 'starting' ? 'awaiting_browser' : prev.status,
+              }
+            : prev,
+        );
+        return;
+      }
+      case 'oauth.awaiting_code': {
+        if (flow?.flowId !== evt.flow_id) return;
+        setState('oauthFlow', (prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'awaiting_code',
+                progressMessage: evt.message ?? prev.progressMessage,
+              }
+            : prev,
+        );
+        return;
+      }
+      case 'oauth.complete': {
+        if (flow?.flowId !== evt.flow_id) return;
+        setState('oauthFlow', 'status', 'complete');
+        // Immediate refetch so the auth-status display reflects the
+        // now-configured provider. The 04-02 route also publishes
+        // `state.changed`, which 03-04's handler refetches `providerAuth`
+        // on too — belt-and-suspenders; either path is correct.
+        void refreshToolsCell('providerAuth');
+        return;
+      }
+      case 'oauth.error': {
+        if (flow?.flowId !== evt.flow_id) return;
+        setState('oauthFlow', (prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'error',
+                errorCode: evt.code,
+                errorMessage: evt.message,
+              }
+            : prev,
+        );
+        return;
+      }
+    }
+  };
+
   const applyEvent = (evt: SnapshotEvent): void => {
     if (evt.type.startsWith('cook.')) {
       handleCookEvent(evt as CookEvent);
+      return;
+    }
+    if (evt.type.startsWith('oauth.')) {
+      handleOAuthEvent(evt as Extract<SnapshotEvent, { type: `oauth.${string}` }>);
       return;
     }
     if (evt.type === 'snapshot.replace') {
@@ -1002,6 +1154,72 @@ export function createDashboardStore(
     }
   };
 
+  /* ── Plan 04-03 (Phase 4) OAuth flow actions ─────────────────────────
+   * Mirror `applyProviderAuthUpdate`'s shape. `startOAuthFlow` /
+   * `submitOAuthCode` wrap the `api.ts` OAuth wrappers; `dismissOAuthFlow`
+   * is the panel's 'Done' / 'Dismiss' affordance. None retains a token —
+   * the `oauthFlow` signal is token-free, and the manual-code `code` is
+   * passed straight to `postOAuthCode` and never stored on the store.
+   */
+
+  const startOAuthFlow = async (
+    provider: string,
+  ): Promise<{ ok: true } | { error: string }> => {
+    // Provisional entry — the real `flowId` arrives in the
+    // `postOAuthStart` response; until then `oauth.*` events for this
+    // provider are correlated through the still-`starting` status.
+    setState('oauthFlow', {
+      flowId: '',
+      provider,
+      status: 'starting',
+      authUrl: null,
+      instructions: null,
+      progressMessage: null,
+      errorCode: null,
+      errorMessage: null,
+    });
+    try {
+      const response = await postOAuthStart(provider);
+      setState('oauthFlow', (prev) =>
+        prev ? { ...prev, flowId: response.flow_id } : prev,
+      );
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('oauthFlow', (prev) =>
+        prev
+          ? { ...prev, status: 'error', errorCode: 'oauth_start_failed', errorMessage: message }
+          : prev,
+      );
+      pushError(`oauth_start_failed: ${message}`);
+      return { error: message };
+    }
+  };
+
+  const submitOAuthCode = async (
+    code: string,
+  ): Promise<{ ok: true } | { error: string }> => {
+    const flow = state.oauthFlow;
+    if (!flow || flow.flowId.length === 0) return { error: 'no_active_oauth_flow' };
+    try {
+      // `code` is passed straight through — never stored on `oauthFlow`
+      // or anywhere in the store. The flow's actual completion arrives
+      // via the `oauth.complete` SSE event; this action does NOT
+      // optimistically set `status: 'complete'`.
+      await postOAuthCode(flow.flowId, code);
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setState('oauthFlow', (prev) => (prev ? { ...prev, errorMessage: message } : prev));
+      pushError(`oauth_code_failed: ${message}`);
+      return { error: message };
+    }
+  };
+
+  const dismissOAuthFlow = (): void => {
+    setState('oauthFlow', null);
+  };
+
   const applyUpdate = async (): Promise<UpdateApplyResponse | { error: string }> => {
     setState('tools', 'update', 'loading', true);
     setState('tools', 'update', 'error', null);
@@ -1051,6 +1269,9 @@ export function createDashboardStore(
       refreshToolsCell,
       applyConfigUpdate,
       applyProviderAuthUpdate,
+      startOAuthFlow,
+      submitOAuthCode,
+      dismissOAuthFlow,
       applyUpdate,
       pushError,
       shutdown,
