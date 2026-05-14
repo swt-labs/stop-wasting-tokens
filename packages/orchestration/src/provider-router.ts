@@ -28,7 +28,7 @@
  * responsible for interpreting those into Pi-bound wire calls.
  */
 
-import type { TaskBrief } from '@swt-labs/shared';
+import type { RateCard, TaskBrief } from '@swt-labs/shared';
 
 export type Tier = 'cheap-fast' | 'balanced' | 'quality' | 'reasoning';
 
@@ -60,6 +60,31 @@ export type RouterStrategy =
       readonly providers: readonly string[];
       /** Per-provider price (USD per million tokens, or any normalized unit). */
       readonly priceTable: Readonly<Record<string, number>>;
+    }
+  | {
+      /**
+       * Phase 2 / G-R3 — picks the cheapest provider from `providers` by
+       * looking up per-1k pricing in a schema-validated `RateCard` (loaded
+       * via `@swt-labs/runtime`'s `createRateCardSource`, plan 02-01).
+       * Missing entries (provider not in card OR model mismatch when
+       * `model` is supplied) fall through to `Infinity` (excluded). Empty
+       * `providers` throws (mirrors the legacy `cost-optimized` contract).
+       *
+       * `dimension` controls which axis to minimize:
+       *   - 'input'   — input_per_1k only.
+       *   - 'output'  — output_per_1k only.
+       *   - 'blended' — (input_per_1k + output_per_1k) / 2.
+       *
+       * `model` optionally pins lookup to a specific (provider, model)
+       * pair; when undefined, the FIRST entry matching `provider` is used
+       * (deterministic by array order). Strict `<` comparison preserves
+       * the existing first-wins tie-break behavior from `cost-optimized`.
+       */
+      readonly kind: 'cost-optimized-rate-card';
+      readonly providers: readonly string[];
+      readonly rateCard: RateCard;
+      readonly dimension: 'input' | 'output' | 'blended';
+      readonly model?: string;
     };
 
 export interface ProviderRouter {
@@ -122,6 +147,44 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
             }
           }
           return cheapest;
+        },
+      };
+    }
+    case 'cost-optimized-rate-card': {
+      if (strategy.providers.length === 0) {
+        throw new Error(
+          "createProviderRouter: 'cost-optimized-rate-card' requires a non-empty providers list.",
+        );
+      }
+      const providers = strategy.providers;
+      const rateCard = strategy.rateCard;
+      const dimension = strategy.dimension;
+      const model = strategy.model;
+      const costFor = (provider: string): number => {
+        const entry = rateCard.entries.find(
+          (e) => e.provider === provider && (model === undefined || e.model === model),
+        );
+        if (entry === undefined) {
+          return Number.POSITIVE_INFINITY;
+        }
+        if (dimension === 'input') return entry.input_per_1k;
+        if (dimension === 'output') return entry.output_per_1k;
+        // 'blended' — equal weight on input + output per-1k.
+        return (entry.input_per_1k + entry.output_per_1k) / 2;
+      };
+      return {
+        select: () => {
+          let best = providers[0] as string;
+          let bestCost = costFor(best);
+          for (let i = 1; i < providers.length; i++) {
+            const p = providers[i] as string;
+            const c = costFor(p);
+            if (c < bestCost) {
+              best = p;
+              bestCost = c;
+            }
+          }
+          return best;
         },
       };
     }
