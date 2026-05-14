@@ -60,9 +60,17 @@ export function shouldCloseOnOutsideClick(
   menuRoot: HTMLElement | null,
   triggerEl: HTMLElement | null,
 ): boolean {
-  if (!(target instanceof Node)) return true; // defensive: no element target → treat as outside
-  if (menuRoot && menuRoot.contains(target)) return false;
-  if (triggerEl && triggerEl.contains(target)) return false;
+  // A null / non-`Node` target is treated as OUTSIDE → returns `true`
+  // (LOCKED, see the plan's `## Decisions`). The `typeof Node` guard keeps
+  // this safe in the node-env vitest run where `Node` is undefined —
+  // `target instanceof Node` would otherwise throw. The containment check
+  // below is duck-typed on `.contains()`, so the unit test can pass fake
+  // `{ contains }` stubs without a DOM; in the browser `EventTarget` from a
+  // real click is always a `Node` and `HTMLElement.contains` is native.
+  if (target === null) return true;
+  if (typeof Node !== 'undefined' && !(target instanceof Node)) return true;
+  if (menuRoot && menuRoot.contains(target as unknown as Node)) return false;
+  if (triggerEl && triggerEl.contains(target as unknown as Node)) return false;
   return true;
 }
 

@@ -2614,3 +2614,99 @@
 .provider-auth-oauth-code-box .provider-auth-key-input {
   flex: 1;
 }
+
+/* ── Phase 1: Dashboard Options Menu — the TopBar "Options ▾" dropdown ──
+ * Additive only — no existing rule is modified. The popover is a minimal
+ * purpose-built component (R1): plain `position: absolute` inside the
+ * `position: relative` `.options-menu-wrapper` TopBar renders around the
+ * trigger — no portal, no floating-ui dep. Border / background tokens
+ * mirror the `.command-palette` + `.provider-auth-*` terminal-panel idiom.
+ */
+
+/* The anchor — TopBar drops this into `.topbar-controls`; the popover
+ * absolute-positions against it. */
+.options-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+/* The "Options ▾" trigger — visually consistent with `.topbar-pill` and the
+ * topbar control group (same pill sizing + monospace face). */
+.options-menu-trigger {
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.options-menu-trigger:hover {
+  background: rgba(0, 255, 65, 0.25);
+}
+
+.options-menu-trigger:focus-visible {
+  outline: 1px solid var(--terminal-green);
+  outline-offset: 1px;
+}
+
+/* The popover — anchored UNDER the trigger, right-aligned so it cannot
+ * overflow the viewport edge (the dashboard is desktop-first). z-index sits
+ * clearly above the topbar (`.topbar-cmd-hint-row` is z-index 5). */
+.options-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
+  min-width: 240px;
+  background: var(--deep-void);
+  border: 1px solid rgba(0, 255, 65, 0.4);
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 4px 0;
+}
+
+/* The root is `tabindex={-1}` and receives focus on open — a subtle outline
+ * keeps that visible without shouting. */
+.options-menu:focus,
+.options-menu:focus-visible {
+  outline: 1px solid rgba(0, 255, 65, 0.5);
+  outline-offset: -1px;
+}
+
+.options-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 16px;
+}
+
+/* A separator between the two stacked sections — mirrors the
+ * `.command-palette-footer` border-top idiom. */
+.options-menu-section + .options-menu-section {
+  border-top: 1px solid rgba(0, 255, 65, 0.2);
+}
+
+.options-menu-section-heading {
+  margin: 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(0, 255, 65, 0.7);
+}
+
+/* The muted "Coming soon" placeholder line — Phase 2 / Phase 3 fill the
+ * section slots and this fallback no longer renders. */
+.options-menu-skeleton {
+  margin: 0;
+  font-size: 11px;
+  font-style: italic;
+  color: rgba(0, 255, 65, 0.45);
+}
