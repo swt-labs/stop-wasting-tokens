@@ -2,6 +2,7 @@ import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared
 import { Show, createMemo, createSignal, type Component } from 'solid-js';
 
 import type { ConnectionState } from '../state/dashboard-store.js';
+import { OptionsMenu } from './OptionsMenu.js';
 
 export interface TopBarProps {
   project: ProjectSummary | null;
@@ -11,6 +12,17 @@ export interface TopBarProps {
   vibeStarting: boolean;
   onCommand: (input: string) => Promise<unknown>;
   onVibe: (input: string) => Promise<unknown>;
+  /**
+   * Phase 1 (Dashboard Options Menu) — store-backed open state; when omitted,
+   * TopBar falls back to a local signal so the dropdown is visibly working
+   * end-to-end with zero `App.tsx` edit. Phase 2 adds the one-line `App.tsx`
+   * wiring to pass these store-backed props in (see the plan's `## Decisions`).
+   */
+  optionsMenuOpen?: boolean;
+  /** Phase 1 — store-backed toggle; when omitted, TopBar toggles its local signal. */
+  onToggleOptionsMenu?: () => void;
+  /** Phase 1 — store-backed close; when omitted, TopBar closes its local signal. */
+  onCloseOptionsMenu?: () => void;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -63,6 +75,24 @@ function classifyInput(input: string): VerbStatus {
 export const TopBar: Component<TopBarProps> = (props) => {
   const [input, setInput] = createSignal('');
   const status = createMemo<VerbStatus>(() => classifyInput(input()));
+
+  // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so
+  // `App.tsx` (out of this plan's files_modified) needs no edit; when they
+  // are absent TopBar drives the dropdown off a local signal. `triggerRef`
+  // is held so `closeMenu` can return focus to the trigger button (R5) —
+  // TopBar owns the focus-return, OptionsMenu only calls `onClose`.
+  let triggerRef: HTMLButtonElement | undefined;
+  const [localOpen, setLocalOpen] = createSignal(false);
+  const menuOpen = (): boolean => props.optionsMenuOpen ?? localOpen();
+  const toggleMenu = (): void => {
+    if (props.onToggleOptionsMenu) props.onToggleOptionsMenu();
+    else setLocalOpen((v) => !v);
+  };
+  const closeMenu = (): void => {
+    if (props.onCloseOptionsMenu) props.onCloseOptionsMenu();
+    else setLocalOpen(false);
+    triggerRef?.focus(); // focus-return to the trigger (R5)
+  };
 
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
@@ -155,6 +185,19 @@ export const TopBar: Component<TopBarProps> = (props) => {
         <span class="connection-pill" data-state={props.connection}>
           {PILL_LABEL[props.connection]}
         </span>
+        <div class="options-menu-wrapper">
+          <button
+            type="button"
+            class="options-menu-trigger"
+            ref={triggerRef}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen()}
+            onClick={() => toggleMenu()}
+          >
+            Options ▾
+          </button>
+          <OptionsMenu open={menuOpen()} onClose={closeMenu} />
+        </div>
       </div>
     </header>
   );
