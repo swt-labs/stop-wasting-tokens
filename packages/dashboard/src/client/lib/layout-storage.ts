@@ -12,8 +12,9 @@ export type DashboardLayout = {
   center: number[];
   /** 2 entries: [agentTimeline, costPanel]. */
   right: number[];
-  /** 4 entries: vertical split inside the tools column —
-   *  [Config, Doctor, DetectPhase, Update]. */
+  /** 5 entries: vertical split inside the tools column —
+   *  [Config, Doctor, DetectPhase, Update, ProviderAuth]. Phase 3
+   *  appended the ProviderAuth panel as the 5th slot. */
   tools: number[];
 };
 
@@ -21,7 +22,7 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
   main: [0.12, 0.15, 0.45, 0.13, 0.15],
   center: [0.65, 0.35],
   right: [0.65, 0.35],
-  tools: [0.25, 0.25, 0.25, 0.25],
+  tools: [0.2, 0.2, 0.2, 0.2, 0.2],
 };
 
 const isFractionArray = (value: unknown, length: number): value is number[] =>
@@ -51,7 +52,7 @@ export function loadLayout(): DashboardLayout {
       main: isFractionArray(parsed.main, 5) ? parsed.main : DEFAULT_LAYOUT.main,
       center: isFractionArray(parsed.center, 2) ? parsed.center : DEFAULT_LAYOUT.center,
       right: isFractionArray(parsed.right, 2) ? parsed.right : DEFAULT_LAYOUT.right,
-      tools: isFractionArray(parsed.tools, 4) ? parsed.tools : DEFAULT_LAYOUT.tools,
+      tools: isFractionArray(parsed.tools, 5) ? parsed.tools : DEFAULT_LAYOUT.tools,
     };
   } catch {
     return DEFAULT_LAYOUT;

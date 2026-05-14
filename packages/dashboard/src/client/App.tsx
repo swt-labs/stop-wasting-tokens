@@ -18,6 +18,7 @@ import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { ProjectStatePanel } from './components/ProjectStatePanel.js';
 import { PromptCard } from './components/PromptCard.js';
+import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
 import { ProviderCostPanel } from './components/ProviderCostPanel.js';
 import { TopBar } from './components/TopBar.js';
 import { TpacPanel } from './components/TpacPanel.js';
@@ -351,6 +352,24 @@ export const App: Component = () => {
                     lastFetched={state.tools.update.lastFetched}
                     onRefresh={() => void actions.refreshToolsCell('update')}
                     onApply={() => actions.applyUpdate()}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize update / provider-auth"
+                />
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[4]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <ProviderAuthPanel
+                    data={state.tools.providerAuth.data}
+                    loading={state.tools.providerAuth.loading}
+                    error={state.tools.providerAuth.error}
+                    lastFetched={state.tools.providerAuth.lastFetched}
+                    onRefresh={() => void actions.refreshToolsCell('providerAuth')}
+                    onSave={(body) => actions.applyProviderAuthUpdate(body)}
                   />
                 </Resizable.Panel>
               </Resizable>
