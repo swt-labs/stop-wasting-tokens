@@ -2262,6 +2262,21 @@ export interface RunSpawnWithFallbackOptions {
    * string (callers not wiring telemetry don't supply it).
    */
   readonly subSessionId?: string;
+  /**
+   * Plan 02-04 (Phase 2 / Selection → Spawn Wiring) — invoked per-attempt
+   * with the provider the chain selected (`selection.provider`), BEFORE
+   * `spawnFn` runs. Returns the keychain-resolved credential to merge into
+   * `spawnArgs`, or `undefined` to spawn with no `resolvedCredential`
+   * (byte-identical to pre-Phase-2). Re-invoked on a fallback hop so a hop
+   * to a DIFFERENT provider resolves THAT provider's credential. Optional —
+   * omitted callers (every pre-Phase-2 callsite, every test not exercising
+   * the credential path) see no behavioural change.
+   */
+  readonly onResolveCredential?: (
+    provider: string,
+  ) => Promise<
+    { provider: string; resolvedCredential: { authMode: AuthMode; secret: string } } | undefined
+  >;
   /** Test seam — override the per-chain clock for deterministic time-budget assertions. */
   readonly clock?: () => number;
   /** Test seam — override classifyError so tests can inject reason classifications. */
@@ -2357,9 +2372,24 @@ export async function runSpawnWithFallback(
       // string. When no overlay file exists for the resolved provider,
       // the spawn is byte-identical to pre-Phase-1 (R4 vendor-
       // neutrality preserved by construction).
+      //
+      // Plan 02-04 (Phase 2 / Selection → Spawn Wiring) — resolve the
+      // keychain credential for THIS attempt's provider via the optional
+      // `onResolveCredential` callback (re-invoked per attempt so a
+      // fallback hop to a different provider resolves that provider's
+      // credential). When the callback is omitted, or returns `undefined`
+      // (no `auth` entry / keychain miss — graceful degrade), no
+      // `resolvedCredential` is merged and the spawn is byte-identical to
+      // pre-Phase-2.
+      const resolved = opts.onResolveCredential
+        ? await opts.onResolveCredential(selection.provider)
+        : undefined;
       const spawnArgsWithProvider = {
         ...opts.spawnArgs,
         provider: selection.provider,
+        ...(resolved !== undefined
+          ? { resolvedCredential: resolved.resolvedCredential }
+          : {}),
       };
       const result = await opts.spawnFn(spawnArgsWithProvider);
       return {
@@ -2660,6 +2690,17 @@ async function runMode(
       // telemetry events below carry the same correlation id as the sibling
       // cook.* emissions.
       subSessionId,
+      // Plan 02-04 (Phase 2 / Selection → Spawn Wiring) — resolve the
+      // OS-keychain credential for whichever provider the chain selects, at
+      // spawn time. `config.auth` is the `auth` block parsed by
+      // `loadCookConfig`; when it is empty (`DEFAULT_AUTH_CONFIG` — no `auth`
+      // block configured) `resolveSpawnCredential` returns `undefined` for
+      // every provider, so `runSpawnWithFallback` merges no `resolvedCredential`
+      // and the spawn is byte-identical to pre-Phase-2. The resolved secret
+      // rides straight into `spawnArgs` → `spawnOrchestratorSession` →
+      // `createSession`'s in-memory `AuthStorage` injection — never logged,
+      // never persisted.
+      onResolveCredential: (provider) => resolveSpawnCredential(provider, config.auth),
       // Plan 02-04 (Phase 2 / G-R3) — emit cook.provider_selected onto the
       // JSONL channel once per spawn after the router resolves the primary.
       onSelectionEvent: (ev) => {
