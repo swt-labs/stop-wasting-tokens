@@ -8,6 +8,7 @@ import { ArtifactTree } from './components/ArtifactTree.js';
 import { BudgetPanel } from './components/BudgetPanel.js';
 import { CacheHitPanel } from './components/CacheHitPanel.js';
 import { CommandPalette } from './components/CommandPalette.js';
+import { CommandsSection } from './components/CommandsSection.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
 import { CostPanel } from './components/CostPanel.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
@@ -103,6 +104,16 @@ export const App: Component = () => {
         optionsMenuOpen={state.optionsMenuOpen}
         onToggleOptionsMenu={actions.toggleOptionsMenu}
         onCloseOptionsMenu={actions.closeOptionsMenu}
+        commandsSection={
+          <CommandsSection
+            verbs={state.tools.commands.data?.verbs ?? []}
+            loading={state.tools.commands.loading}
+            error={state.tools.commands.error}
+            onRunSafeVerb={(verb) => actions.runCommand(verb)}
+            onStartCook={() => actions.startVibeSession('vibe')}
+            lastResult={null}
+          />
+        }
         settingsSection={
           <SettingsSection
             data={state.tools.config.data}

@@ -24,6 +24,12 @@ export interface TopBarProps {
   /** Phase 1 — store-backed close; when omitted, TopBar closes its local signal. */
   onCloseOptionsMenu?: () => void;
   /**
+   * Phase 3 (Dashboard Options Menu) — the Commands section content mounted
+   * into OptionsMenu's `commandsSection` slot. Optional: when App.tsx does
+   * not pass it, OptionsMenu falls back to its Phase-1 'Coming soon' skeleton.
+   */
+  commandsSection?: JSX.Element;
+  /**
    * Phase 2 (Dashboard Options Menu) — the Settings section content mounted
    * into OptionsMenu's `settingsSection` slot. Optional: when App.tsx does
    * not pass it, OptionsMenu falls back to its Phase-1 'Coming soon' skeleton.
@@ -205,6 +211,7 @@ export const TopBar: Component<TopBarProps> = (props) => {
           <OptionsMenu
             open={menuOpen()}
             onClose={closeMenu}
+            commandsSection={props.commandsSection}
             settingsSection={props.settingsSection}
           />
         </div>
