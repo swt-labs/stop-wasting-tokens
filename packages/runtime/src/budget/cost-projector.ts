@@ -148,9 +148,24 @@ export interface CostProjection {
 /** Max `assumptions[]` entries — respects plan 03-02's PIPE_BUF event cap. */
 const MAX_ASSUMPTIONS = 8;
 
+/**
+ * Max chars per `assumptions[]` string — keeps the downstream
+ * `cook.budget_projected` JSONL line (plan 03-02) within the PIPE_BUF cap.
+ * The provider-miss note can interpolate an arbitrarily long provider name,
+ * so each string is hard-truncated to this length.
+ */
+const MAX_ASSUMPTION_LEN = 80;
+
 /** `cost = (tokens / 1000) * per1k` — research §3.1, per-1k units. */
 function priceTokens(tokens: number, per1k: number): number {
   return (tokens / 1000) * per1k;
+}
+
+/** Hard-truncate an assumption string to `MAX_ASSUMPTION_LEN` chars. */
+function clampAssumption(text: string): string {
+  return text.length <= MAX_ASSUMPTION_LEN
+    ? text
+    : text.slice(0, MAX_ASSUMPTION_LEN);
 }
 
 /**
@@ -238,8 +253,11 @@ export function projectSpawnCost(
       `provider '${input.provider}' not in rate card - priced at ${fallbackEntry.provider}/${fallbackEntry.model} fallback`,
     );
   }
-  // Cap at MAX_ASSUMPTIONS — drop from the END (always-present notes first).
-  const cappedAssumptions = assumptions.slice(0, MAX_ASSUMPTIONS);
+  // Cap the array at MAX_ASSUMPTIONS — drop from the END (always-present
+  // notes come first) — and hard-truncate each string to MAX_ASSUMPTION_LEN.
+  const cappedAssumptions = assumptions
+    .slice(0, MAX_ASSUMPTIONS)
+    .map(clampAssumption);
 
   return {
     projected_cost_usd,
