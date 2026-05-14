@@ -6,8 +6,12 @@ import path from 'node:path';
 // Allowed: localhost / 127.* / relative URLs / data: URIs / blob: URIs / mailto: / `https://docs.stopwastingtokens.dev`
 // (which is documentation reference text only and never fetched at runtime — it
 // only appears in human-facing markdown if a docs page reference slipped through).
+// Also allowed: `www.w3.org` — these are XML namespace URIs (`xmlns` for SVG /
+// XLink / MathML), emitted by `solid-js`'s `createElementNS` rendering path.
+// They are namespace *identifiers*, never network requests; the SPA works
+// fully offline with them present. Allowlisted like docs.stopwastingtokens.dev.
 const FORBIDDEN_PATTERNS = [
-  /https?:\/\/(?!127\.|localhost|0\.0\.0\.0|0:0:0:0:0:0:0:1|::1|docs\.stopwastingtokens\.dev)[a-z0-9.-]+/gi,
+  /https?:\/\/(?!127\.|localhost|0\.0\.0\.0|0:0:0:0:0:0:0:1|::1|docs\.stopwastingtokens\.dev|www\.w3\.org)[a-z0-9.-]+/gi,
   /\bcdnjs\.cloudflare\.com\b/gi,
   /\bunpkg\.com\b/gi,
   /\bjsdelivr\.net\b/gi,
