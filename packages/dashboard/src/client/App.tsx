@@ -26,6 +26,7 @@ import { TopBar } from './components/TopBar.js';
 import { TpacPanel } from './components/TpacPanel.js';
 import { UatModal } from './components/UatModal.js';
 import { UpdatePanel } from './components/UpdatePanel.js';
+import { UserNotesPanel } from './components/UserNotesPanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
 import { detectExtensionInterference } from './lib/detect-extension-interference.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
@@ -412,6 +413,24 @@ export const App: Component = () => {
                     onStartOAuth={(provider) => actions.startOAuthFlow(provider)}
                     onSubmitOAuthCode={(code) => actions.submitOAuthCode(code)}
                     onDismissOAuthFlow={() => actions.dismissOAuthFlow()}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize provider-auth / user-notes"
+                />
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[5]}
+                  minSize={0.1}
+                  class="resizable-panel"
+                >
+                  <UserNotesPanel
+                    data={state.tools.userNotes.data}
+                    loading={state.tools.userNotes.loading}
+                    error={state.tools.userNotes.error}
+                    lastFetched={state.tools.userNotes.lastFetched}
+                    onRefresh={() => void actions.refreshToolsCell('userNotes')}
+                    onSave={(notes) => actions.saveUserNotes(notes)}
                   />
                 </Resizable.Panel>
               </Resizable>
