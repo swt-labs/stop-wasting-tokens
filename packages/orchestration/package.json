@@ -18,7 +18,8 @@
   "dependencies": {
     "@swt-labs/core": "workspace:*",
     "@swt-labs/shared": "workspace:*",
-    "@swt-labs/runtime": "workspace:*"
+    "@swt-labs/runtime": "workspace:*",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "vitest": "^2.1.9"

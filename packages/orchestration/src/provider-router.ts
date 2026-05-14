@@ -29,8 +29,67 @@
  */
 
 import type { RateCard, TaskBrief } from '@swt-labs/shared';
+import { z } from 'zod';
 
 export type Tier = 'cheap-fast' | 'balanced' | 'quality' | 'reasoning';
+
+/**
+ * Compound tier vocabulary for `tier-routed-compound` strategy (Phase 2 / G-R3).
+ *
+ * Axes:
+ *   - cost  ∈ {cheap, standard, premium}
+ *   - speed ∈ {fast, standard, slow}
+ *   - model-class (axis-orthogonal) ∈ {reasoning}
+ *
+ * The set is intentionally a CURATED subset of the 3×3 cost×speed grid:
+ *   - `premium-fast` excluded — no model is both top-tier AND latency-optimised today.
+ *   - `cheap-slow` excluded — cheap models are inherently fast; no use case.
+ *
+ * Legacy `Tier` values (`'balanced'`, `'quality'`) are preserved as accepted
+ * aliases so Phase 6 configs continue to work — they map naturally onto the
+ * 2D grid (`balanced` ≈ `standard-standard`; `quality` ≈ `standard-slow`).
+ * The other two legacy `Tier` values (`'cheap-fast'`, `'reasoning'`) are
+ * already part of the compound vocabulary above.
+ *
+ * The legacy `Tier` type at line 33 (4 elements) stays unchanged; this is an
+ * additive widening for the new `tier-routed-compound` strategy.
+ *
+ * Final unique list: 10 strings (7 compound + 1 model-class hint + 2 legacy
+ * aliases not already in the compound grid).
+ */
+export type CompoundTier =
+  | 'cheap-fast'
+  | 'cheap-standard'
+  | 'standard-fast'
+  | 'standard-standard'
+  | 'standard-slow'
+  | 'premium-standard'
+  | 'premium-slow'
+  | 'reasoning'
+  // Legacy aliases (preserve Phase 6 Tier compat):
+  | 'balanced'
+  | 'quality';
+
+/**
+ * Zod schema mirroring `CompoundTier`. Exported for config-layer validators
+ * and external consumers that want runtime validation. Kept in lockstep with
+ * the type union above — both list EXACTLY the same 10 strings in the same
+ * order. The `as const` here is unnecessary (z.enum infers literal types
+ * already) but the array ordering is a load-bearing contract documented in
+ * `docs/operations/provider-routing.md`.
+ */
+export const CompoundTierSchema = z.enum([
+  'cheap-fast',
+  'cheap-standard',
+  'standard-fast',
+  'standard-standard',
+  'standard-slow',
+  'premium-standard',
+  'premium-slow',
+  'reasoning',
+  'balanced',
+  'quality',
+]);
 
 export interface RouterSelectionContext {
   /** The task being dispatched. The router may inspect `role` or `claims`. */
@@ -85,6 +144,27 @@ export type RouterStrategy =
       readonly rateCard: RateCard;
       readonly dimension: 'input' | 'output' | 'blended';
       readonly model?: string;
+    }
+  | {
+      /**
+       * Tier-routed with compound tier vocabulary (Phase 2 / G-R3, R2 decision).
+       *
+       * Resolution order:
+       *   1. `map[ctx.tier]` — if present, return it.
+       *   2. `fallbackStrategy` — if supplied, delegate (R3 bounded depth-1
+       *      recursion; the type bound `Exclude<RouterStrategy, {kind:
+       *      'tier-routed-compound'}>` prevents nesting).
+       *   3. `fallback` — return the literal fallback provider id.
+       *
+       * `ctx.tier` is cast from `Tier` to `CompoundTier` at lookup time; the
+       * legacy `RouterSelectionContext.tier` typing is preserved. All 4 legacy
+       * `Tier` values are valid `CompoundTier` members so the cast is
+       * semantically safe.
+       */
+      readonly kind: 'tier-routed-compound';
+      readonly map: Readonly<Partial<Record<CompoundTier, string>>>;
+      readonly fallback: string;
+      readonly fallbackStrategy?: Exclude<RouterStrategy, { readonly kind: 'tier-routed-compound' }>;
     };
 
 export interface ProviderRouter {
@@ -185,6 +265,31 @@ export function createProviderRouter(strategy: RouterStrategy): ProviderRouter {
             }
           }
           return best;
+        },
+      };
+    }
+    case 'tier-routed-compound': {
+      // Phase 2 / G-R3 R2 + R3 — resolution order: map hit → fallbackStrategy
+      // delegate → fallback literal. The fallbackStrategy type bound
+      // (`Exclude<RouterStrategy, {kind:'tier-routed-compound'}>`) enforces
+      // depth-1 recursion at compile time; no runtime check needed.
+      const map = strategy.map;
+      const fallback = strategy.fallback;
+      const fallbackStrategy = strategy.fallbackStrategy;
+      return {
+        select: (ctx) => {
+          // ctx.tier is typed `Tier` (legacy 4-element); cast to CompoundTier
+          // for lookup. All legacy Tier values are valid CompoundTier members
+          // (`cheap-fast`, `balanced`, `quality`, `reasoning`) so the cast is
+          // semantically safe.
+          const direct = map[ctx.tier as CompoundTier];
+          if (direct !== undefined) {
+            return direct;
+          }
+          if (fallbackStrategy !== undefined) {
+            return createProviderRouter(fallbackStrategy).select(ctx);
+          }
+          return fallback;
         },
       };
     }

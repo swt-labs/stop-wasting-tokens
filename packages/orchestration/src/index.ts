@@ -184,8 +184,15 @@ export {
 // PR-41 (M5): provider router strategies. Pure stateless selectors that
 // pick a provider for a dispatch given a (task, tier) context. Per
 // TDD2 §7.3.
+//
+// Phase 2 / G-R3 (plan 02-03) extends the union with `tier-routed-compound`
+// which consumes the wider `CompoundTier` vocabulary (10 strings) via the
+// `CompoundTierSchema` Zod schema. Both are re-exported alongside the
+// legacy `Tier`/`RouterTier` 4-element enum.
 export {
   createProviderRouter,
+  CompoundTierSchema,
+  type CompoundTier,
   type ProviderRouter,
   type RouterSelectionContext,
   type RouterStrategy,
