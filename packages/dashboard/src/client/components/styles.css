@@ -3013,3 +3013,143 @@
 .user-notes-status-error {
   color: var(--danger-red);
 }
+
+/* ── Shared <Popover> primitive ───────────────────────────────────────
+ * `OptionsMenu` and `ProviderMenu` both render through `<Popover>`, which
+ * applies the base `.popover` class plus a consumer skin class
+ * (`.options-menu` / `.provider-menu`). The base class is intentionally
+ * minimal — the existing `.options-menu` rules already carry the full
+ * positioning/border treatment, so `.popover` only needs to be a stable
+ * hook. `.provider-menu` reuses that same idiom but is wider to fit the
+ * full `<ProviderAuthPanel>`. */
+.popover {
+  /* Base hook — the skin classes (.options-menu / .provider-menu) carry
+   * the positioning + chrome. Kept as a no-op anchor so future shared
+   * popover treatment has a home without touching the skins. */
+}
+
+/* ── "Provider ▾" TopBar dropdown ─────────────────────────────────────
+ * The dedicated provider/auth menu, sibling to "Options ▾". The wrapper +
+ * trigger mirror `.options-menu-wrapper` / `.options-menu-trigger` exactly;
+ * the popover mirrors `.options-menu` but is wider to host the full
+ * `<ProviderAuthPanel>` and drops the section padding (the panel brings its
+ * own `.panel` chrome). */
+.provider-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.provider-menu-trigger {
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.provider-menu-trigger:hover {
+  background: rgba(0, 255, 65, 0.25);
+}
+
+.provider-menu-trigger:focus-visible {
+  outline: 1px solid var(--terminal-green);
+  outline-offset: 1px;
+}
+
+.provider-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
+  width: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--deep-void);
+  border: 1px solid rgba(0, 255, 65, 0.4);
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+}
+
+.provider-menu:focus,
+.provider-menu:focus-visible {
+  outline: 1px solid rgba(0, 255, 65, 0.5);
+  outline-offset: -1px;
+}
+
+/* The hosted `<ProviderAuthPanel>` carries its own `.panel` chrome; inside
+ * the dropdown the extra border is redundant noise. */
+.provider-menu .provider-auth-panel {
+  border: 0;
+  background: transparent;
+}
+
+/* ── InitScreen — optional provider/auth section ──────────────────────
+ * A clearly-optional block below name/description on the greenfield/
+ * brownfield init form. Visually set apart with a top border + muted
+ * heading; the skip affordance points the user at the Provider ▾ menu. */
+.init-provider-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(232, 234, 237, 0.12);
+}
+
+.init-provider-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.init-provider-heading span {
+  color: var(--slate-muted);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.init-provider-optional {
+  text-transform: none;
+  letter-spacing: 0;
+  font-style: italic;
+  color: var(--slate-muted);
+  opacity: 0.8;
+}
+
+.init-provider-skip-hint {
+  margin: 0;
+  color: var(--slate-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.init-provider-skip-hint code {
+  color: var(--neon-cyan);
+}
+
+/* The auth-mode radio pair on the init form — mirrors
+ * `.provider-auth-radio-group` / `.provider-auth-radio` sizing. */
+.init-provider-radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.init-provider-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ghost-white);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
