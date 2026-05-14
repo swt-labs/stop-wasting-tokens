@@ -53,6 +53,8 @@ pnpm-debug.log*
 .claude/worktrees/
 .claude/cache/
 .claude/*.lock
+.claude/agent-memory/
+.claude/agent-memory-local/
 
 # SWT dashboard live event stream (per-session JSONL emitted by the CLI;
 # session-local state, not project artifact).
