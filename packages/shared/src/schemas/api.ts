@@ -301,6 +301,113 @@ export const UpdateApplyResponseSchema = z.object({
 });
 export type UpdateApplyResponse = z.infer<typeof UpdateApplyResponseSchema>;
 
+/* ── Phase 3: provider-auth (vendor-select panel) routes ─────────────── */
+
+/**
+ * The provider ids the dashboard's vendor dropdown offers. Aligned with
+ * `@earendil-works/pi-ai`'s `KnownProvider` union (research §1) — every id
+ * below is a member of that union (verified against
+ * `node_modules/.pnpm/@earendil-works+pi-ai@0.74.0.../dist/types.d.ts`).
+ * `provider-router` (`packages/orchestration/src/provider-router.ts`) keeps
+ * provider ids as free-form strings (no fixed list), so it imposes no
+ * additional constraint — the pi-ai union is the binding vocabulary.
+ *
+ * The client SPA mirrors THIS list (it depends on @swt-labs/shared already),
+ * so the dashboard needs no @swt-labs/runtime dependency for the dropdown
+ * (Risk 6). `anthropic` + `openai` are the milestone's primary targets.
+ */
+export const PROVIDER_VOCABULARY = [
+  'anthropic',
+  'openai',
+  'google',
+  'openai-codex',
+  'deepseek',
+  'github-copilot',
+  'xai',
+  'groq',
+  'openrouter',
+  'mistral',
+] as const;
+export type ProviderId = (typeof PROVIDER_VOCABULARY)[number];
+
+/**
+ * Wire form of Phase 1/2's `AuthMode`. The route bridges this to the
+ * `AuthMode` the CredentialStore expects.
+ */
+export const ProviderAuthModeSchema = z.enum(['api_key', 'oauth']);
+export type ProviderAuthMode = z.infer<typeof ProviderAuthModeSchema>;
+
+/**
+ * Secret-FREE per-provider auth status. Mirrors Pi's
+ * `AuthStorage.getAuthStatus` ({configured, source, label}) + the provider
+ * id and selected mode. NO secret/key/apiKey/token field — the panel shows
+ * "configured", never the value.
+ */
+export const ProviderAuthStatusSchema = z.object({
+  provider: z.string().min(1),
+  configured: z.boolean(),
+  mode: z.union([ProviderAuthModeSchema, z.null()]),
+  /**
+   * Where the credential resolves from: the OS keychain, or an env var
+   * (headless fallback), or null when not configured.
+   */
+  source: z.union([z.enum(['keychain', 'env']), z.null()]),
+  /** Short human label, e.g. "Keychain", "ANTHROPIC_API_KEY". Never the value. */
+  label: z.union([z.string(), z.null()]),
+});
+export type ProviderAuthStatus = z.infer<typeof ProviderAuthStatusSchema>;
+
+/**
+ * `GET /api/provider-auth` response. The current selection + per-provider
+ * status + keychain availability for the panel's banner. No secrets.
+ */
+export const ProviderAuthSnapshotSchema = z.object({
+  /** The provider `providers.strategy` currently pins, or null. */
+  selected_provider: z.union([z.string(), z.null()]),
+  /**
+   * The `providers.strategy.kind` ('pinned' | 'round-robin' | …). The panel
+   * warns when it is not 'pinned' (the dropdown only drives the pinned case).
+   */
+  strategy_kind: z.string(),
+  /**
+   * False on headless hosts — the panel renders the "keychain unavailable"
+   * banner with env-var guidance (research §3, Phase 1 probe result).
+   */
+  keychain_available: z.boolean(),
+  keychain_reason: z.union([z.string(), z.null()]),
+  statuses: z.array(ProviderAuthStatusSchema),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type ProviderAuthSnapshot = z.infer<typeof ProviderAuthSnapshotSchema>;
+
+/**
+ * `POST /api/provider-auth` body. `apiKey` is the ONLY secret-carrying
+ * field in the whole provider-auth contract and it is INBOUND ONLY — the
+ * secret travels client→server exactly once and goes straight to the
+ * keychain. `apiKey` is OPTIONAL: an `authMode:'oauth'` save carries no
+ * key (Phase 4), and re-selecting an already-configured `api_key` provider
+ * may omit it to keep the existing keychain entry.
+ */
+export const ProviderAuthUpdateBodySchema = z
+  .object({
+    provider: z.string().min(1),
+    authMode: ProviderAuthModeSchema,
+    apiKey: z.string().min(1).optional(),
+  })
+  .strict();
+export type ProviderAuthUpdateBody = z.infer<typeof ProviderAuthUpdateBodySchema>;
+
+/**
+ * `POST /api/provider-auth` response — the fresh snapshot after the write.
+ * No secret echoed back (the embedded snapshot is secret-free).
+ */
+export const ProviderAuthUpdateResponseSchema = z.object({
+  ok: z.literal(true),
+  snapshot: ProviderAuthSnapshotSchema,
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type ProviderAuthUpdateResponse = z.infer<typeof ProviderAuthUpdateResponseSchema>;
+
 export const ApiSchemas = {
   '/api/health': {
     method: 'GET',
