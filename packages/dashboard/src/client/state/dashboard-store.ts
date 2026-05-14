@@ -196,6 +196,14 @@ export interface DashboardState {
    * The canonical home so later phases / other components can observe it.
    */
   optionsMenuOpen: boolean;
+  /**
+   * Whether the TopBar "Provider ▾" dropdown is open. Pure client UI state,
+   * exactly like `optionsMenuOpen` — no SSE event, no tools-cell, no polling.
+   * Hosts the (re-surfaced) `<ProviderAuthPanel>`; the two top-bar dropdowns
+   * are independent (opening one does not close the other — each owns its
+   * own click-outside dismissal via its `<Popover>`).
+   */
+  providerMenuOpen: boolean;
   errors: DashboardErrorEntry[];
   tools: ToolsState;
   /**
@@ -292,6 +300,12 @@ export interface DashboardActions {
   closeOptionsMenu: () => void;
   /** Phase 1 — toggle the TopBar Options dropdown. */
   toggleOptionsMenu: () => void;
+  /** Open the TopBar Provider dropdown. */
+  openProviderMenu: () => void;
+  /** Close the TopBar Provider dropdown. */
+  closeProviderMenu: () => void;
+  /** Toggle the TopBar Provider dropdown. */
+  toggleProviderMenu: () => void;
   /**
    * v2.3 Phase 03: trigger `npm i -g stop-wasting-tokens@latest` server-side.
    * On success, refreshes the Update cell. Elevation case (EACCES) returns
@@ -365,6 +379,7 @@ export function createDashboardStore(
     vibeStarting: false,
     vibeReplying: false,
     optionsMenuOpen: false,
+    providerMenuOpen: false,
     errors: [],
     tools: {
       config: emptyToolsCell<ConfigSnapshot>(),
@@ -983,6 +998,21 @@ export function createDashboardStore(
     setState('optionsMenuOpen', !state.optionsMenuOpen);
   };
 
+  /* ── TopBar "Provider ▾" dropdown open/close ──────────────────────────
+   * Mirrors the Options-menu trio exactly. Pure client UI state — no SSE
+   * event, no tools-cell, no polling; `shutdown()` does not touch it (the
+   * document listeners live in the `<Popover>`'s own `onCleanup`).
+   */
+  const openProviderMenu = (): void => {
+    setState('providerMenuOpen', true);
+  };
+  const closeProviderMenu = (): void => {
+    setState('providerMenuOpen', false);
+  };
+  const toggleProviderMenu = (): void => {
+    setState('providerMenuOpen', !state.providerMenuOpen);
+  };
+
   const submitUatCheckpoint = async (result: 'pass' | 'fail', note?: string): Promise<void> => {
     const modal = state.uatModal;
     if (!modal) return;
@@ -1405,6 +1435,9 @@ export function createDashboardStore(
       openOptionsMenu,
       closeOptionsMenu,
       toggleOptionsMenu,
+      openProviderMenu,
+      closeProviderMenu,
+      toggleProviderMenu,
       applyUpdate,
       pushError,
       shutdown,
