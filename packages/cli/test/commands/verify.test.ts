@@ -10,6 +10,8 @@
  *   - Returns EXIT.SUCCESS when the loop completes
  */
 
+import type { PathLike, PathOrFileDescriptor } from 'node:fs';
+
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -83,7 +85,7 @@ function buildVerifyHarness(opts: HarnessOpts = {}) {
   const phaseSlug = '03-orchestrator-wiring-swt-cook';
   const phaseDir = `.swt-planning/phases/${phaseSlug}`;
 
-  const existsSyncImpl = vi.fn((p: import('node:fs').PathLike) => {
+  const existsSyncImpl = vi.fn((p: PathLike) => {
     const s = String(p);
     if (s.endsWith('config.json')) return opts.verifyScope !== undefined;
     if (s.endsWith(phaseDir)) return true;
@@ -93,7 +95,7 @@ function buildVerifyHarness(opts: HarnessOpts = {}) {
     return false;
   });
 
-  const readdirSyncImpl = vi.fn((p: import('node:fs').PathLike) => {
+  const readdirSyncImpl = vi.fn((p: PathLike) => {
     const s = String(p);
     if (s.endsWith('phases')) return [phaseSlug] as never;
     if (s.endsWith(phaseSlug)) {
@@ -104,7 +106,7 @@ function buildVerifyHarness(opts: HarnessOpts = {}) {
     return [] as never;
   });
 
-  const readFileSyncImpl = vi.fn((p: import('node:fs').PathOrFileDescriptor, _enc?: unknown) => {
+  const readFileSyncImpl = vi.fn((p: PathOrFileDescriptor, _enc?: unknown) => {
     const s = String(p);
     if (s.endsWith('config.json')) {
       return JSON.stringify({ verify_scope: opts.verifyScope, max_uat_remediation_rounds: 2 });
@@ -116,11 +118,7 @@ function buildVerifyHarness(opts: HarnessOpts = {}) {
 
   const writtenFiles = new Map<string, string>();
   const writeFileSyncImpl = vi.fn(
-    (
-      p: import('node:fs').PathOrFileDescriptor,
-      data: string | NodeJS.ArrayBufferView,
-      _enc?: unknown,
-    ) => {
+    (p: PathOrFileDescriptor, data: string | NodeJS.ArrayBufferView, _enc?: unknown) => {
       writtenFiles.set(
         String(p),
         typeof data === 'string' ? data : Buffer.from(data).toString('utf8'),

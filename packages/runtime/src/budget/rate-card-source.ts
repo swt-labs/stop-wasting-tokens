@@ -86,7 +86,7 @@ export function createRateCardSource(opts: RateCardSourceOptions): RateCardSourc
   }
 
   const raw = readFileSync(rawPath, 'utf8');
-  const parsed = JSON.parse(raw);
+  const parsed: unknown = JSON.parse(raw);
   const card: RateCard = RateCardSchema.parse(parsed);
   const finalCard: RateCard =
     labelOverride !== undefined ? { ...card, source: labelOverride } : card;

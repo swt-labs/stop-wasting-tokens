@@ -230,6 +230,7 @@ export {
 // asserted in `packages/runtime/test/ask-user/ask-user.test.ts` (A.6).
 export {
   buildSwtAskUserExtension,
+  swtAskUserExtension,
   SWT_ASK_USER_TOOL_NAME,
   type BuildSwtAskUserExtensionOptions,
   type SwtAskUserToolParams,

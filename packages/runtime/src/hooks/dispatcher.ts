@@ -661,10 +661,15 @@ export function loadHookRegistrationsFromConfig(
     );
   }
   const wire = parsed as HooksJsonWire;
-  if (!Array.isArray(wire.hooks)) {
+  // `Array.isArray` as a control-flow guard narrows `wire.hooks` to `any[]`
+  // (a TS quirk), which would poison `row` below — so compute the runtime
+  // check as a plain boolean and keep `hooks` at its declared element type.
+  const hooksIsArray: boolean = Array.isArray(wire.hooks);
+  if (!hooksIsArray) {
     throw new Error(`loadHookRegistrationsFromConfig: ${configPath} "hooks" must be an array`);
   }
-  return wire.hooks.map((row, idx) => normaliseWireRow(row, idx, configPath));
+  const hooks: ReadonlyArray<HookRegistrationWire> = wire.hooks;
+  return hooks.map((row, idx) => normaliseWireRow(row, idx, configPath));
 }
 
 const KNOWN_EVENTS: ReadonlySet<HookEvent> = new Set<HookEvent>([

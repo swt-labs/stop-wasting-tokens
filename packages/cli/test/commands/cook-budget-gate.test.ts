@@ -20,7 +20,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { PhaseDetectResult } from '@swt-labs/methodology';
-import type { AskUserResponse } from '@swt-labs/runtime';
 import type {
   BudgetEvent,
   BudgetGate,

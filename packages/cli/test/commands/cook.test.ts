@@ -35,6 +35,9 @@
  * tests assert on captured args + injected return values.
  */
 
+import type { execSync as ExecSyncFn } from 'node:child_process';
+import type { PathLike, PathOrFileDescriptor } from 'node:fs';
+
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
@@ -196,7 +199,7 @@ interface HarnessOpts {
   readonly autoUat?: boolean;
   readonly configOverrides?: Partial<CookConfig>;
   readonly spawnResult?: Partial<TaskResult>;
-  readonly execSyncImpl?: typeof import('node:child_process').execSync;
+  readonly execSyncImpl?: typeof ExecSyncFn;
 }
 
 function buildHarness(opts: HarnessOpts = {}) {
@@ -227,10 +230,8 @@ function buildHarness(opts: HarnessOpts = {}) {
     opts.execSyncImpl ?? ((_cmd: string, _opts: unknown) => '' as unknown as Buffer),
   );
 
-  const readFileSyncImpl = vi.fn(
-    (_p: import('node:fs').PathOrFileDescriptor, _enc?: unknown) => STUB_COOK_MD,
-  );
-  const existsSyncImpl = vi.fn((_p: import('node:fs').PathLike) => {
+  const readFileSyncImpl = vi.fn((_p: PathOrFileDescriptor, _enc?: unknown) => STUB_COOK_MD);
+  const existsSyncImpl = vi.fn((_p: PathLike) => {
     // The config.json existsSync check — return false so loadCookConfig
     // returns its default (auto_uat: false, no overrides). Tests that want
     // a richer config pass `configOverrides` and we monkey-patch via
@@ -258,10 +259,10 @@ function buildHarness(opts: HarnessOpts = {}) {
         ? { qa_gate_overrides: opts.configOverrides.qa_gate_overrides }
         : {}),
     });
-    existsSyncImpl.mockImplementation((p: import('node:fs').PathLike) => {
+    existsSyncImpl.mockImplementation((p: PathLike) => {
       return String(p).endsWith('config.json');
     });
-    readFileSyncImpl.mockImplementation((p: import('node:fs').PathOrFileDescriptor) => {
+    readFileSyncImpl.mockImplementation((p: PathOrFileDescriptor) => {
       if (String(p).endsWith('config.json')) return cfgJson;
       return STUB_COOK_MD;
     });
@@ -541,7 +542,7 @@ describe('@swt-labs/cli — cookHandler priority 4 reverification (Plan 03-02 T5
   it('D.6 — execSync failure surfaces EXIT.RUNTIME_ERROR; no spawn', async () => {
     const failingExec = (() => {
       throw new Error('prepare-reverification.sh: missing artifact');
-    }) as unknown as typeof import('node:child_process').execSync;
+    }) as unknown as typeof ExecSyncFn;
     const h = buildHarness({
       state: makePhaseDetect({ next_phase_state: 'needs_reverification' }),
       askResponses: [{ selectedOption: 'Yes', freeform: null }],

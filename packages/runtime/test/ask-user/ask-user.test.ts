@@ -32,7 +32,6 @@
 import { resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import type { AgentRole } from '@swt-labs/shared';
 import { AGENT_ROLES } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 

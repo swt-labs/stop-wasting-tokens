@@ -26,6 +26,7 @@
  * the fake-spawn variant on by default so the suite stays under 5 seconds.
  */
 
+import type { spawn as SpawnFn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -44,7 +45,7 @@ interface FakeChild {
   unref: () => void;
 }
 
-function makeFakeSpawn(): typeof import('node:child_process').spawn {
+function makeFakeSpawn(): typeof SpawnFn {
   let counter = 0;
   return ((_cmd: string, _args: ReadonlyArray<string>, _opts: Record<string, unknown>) => {
     counter += 1;
@@ -52,7 +53,7 @@ function makeFakeSpawn(): typeof import('node:child_process').spawn {
     return child;
     // intentionally typed loose — Hono never inspects ChildProcess fields the
     // test doesn't supply, and the cook-start route only calls `unref()`.
-  }) as unknown as typeof import('node:child_process').spawn;
+  }) as unknown as typeof SpawnFn;
 }
 
 describe('e2e: cook control surface (start → events JSONL → tailer → bus → control signal)', () => {

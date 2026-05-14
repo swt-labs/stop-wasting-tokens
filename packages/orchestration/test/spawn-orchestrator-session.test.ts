@@ -26,6 +26,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import type * as RuntimeModule from '@swt-labs/runtime';
 import type { SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
 import type { PiExtensionAPI, PiToolDefinition } from '@swt-labs/runtime';
 import { describe, expect, it, vi } from 'vitest';
@@ -66,7 +67,7 @@ const createSessionSpy = vi.fn(
 );
 
 vi.mock('@swt-labs/runtime', async (importActual) => {
-  const actual = await importActual<typeof import('@swt-labs/runtime')>();
+  const actual = await importActual<typeof RuntimeModule>();
   return {
     ...actual,
     createSession: (opts: SwtSessionOptions) => createSessionSpy(opts),

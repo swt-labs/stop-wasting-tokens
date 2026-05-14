@@ -18,7 +18,6 @@ import { fetch, getGlobalDispatcher } from 'undici';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
-  CassetteUnsealedError,
   hashRequest,
   installReplay,
   loadCassette,

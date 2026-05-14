@@ -233,9 +233,9 @@ export function buildSwtAskUserExtension(
 }
 
 /**
- * Default factory — equivalent to `buildSwtAskUserExtension()` with no
- * overrides. Pi loads extensions by default-export-of-factory convention;
- * this export is symmetric with `result-protocol.ts`'s default export so
- * callers wire it the same way.
+ * Default extension instance — equivalent to `buildSwtAskUserExtension()`
+ * with no overrides. Exported as a named binding (re-exported from
+ * `index.ts` as `swtAskUserExtension`, symmetric with how
+ * `result-protocol.ts`'s factory result surfaces as `resultProtocolExtension`).
  */
-export default buildSwtAskUserExtension();
+export const swtAskUserExtension = buildSwtAskUserExtension();

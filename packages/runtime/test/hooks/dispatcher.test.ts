@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -64,9 +64,9 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
     writeFileSync(join(tmpRoot, 'install.placeholder'), '');
     // Provide install / cwd dirs the dispatcher will pass to child env.
     // Both already exist because mkdtempSync created tmpRoot; we just
-    // need them as directories. Use mkdirSync inline via node:fs.
-    require('node:fs').mkdirSync(installRoot, { recursive: true });
-    require('node:fs').mkdirSync(cwd, { recursive: true });
+    // need them as directories.
+    mkdirSync(installRoot, { recursive: true });
+    mkdirSync(cwd, { recursive: true });
   });
 
   afterEach(() => {

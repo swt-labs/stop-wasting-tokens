@@ -98,9 +98,11 @@ describe('REQ-12 snake-game canary (anti-empty-PLAN.md regression)', () => {
       const reqPath = join(SPEC_DIR, 'REQUIREMENTS.md');
       expect(existsSync(reqPath)).toBe(true);
       const body = readFileSync(reqPath, 'utf8');
-      const reqRows = body.match(/^\| REQ-\d+ \|/gm) ?? [];
+      // Whitespace-tolerant: prettier pads markdown table cells to column
+      // width, so match `| REQ-NN |` / `| P0 |` with variable internal spacing.
+      const reqRows = body.match(/^\|\s*REQ-\d+\s*\|/gm) ?? [];
       expect(reqRows.length).toBe(5);
-      const p0Count = (body.match(/\| P0 \|/g) ?? []).length;
+      const p0Count = (body.match(/\|\s*P0\s*\|/g) ?? []).length;
       expect(p0Count).toBe(5);
     });
 

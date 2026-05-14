@@ -155,8 +155,10 @@ async function readDispatchBody(body: Dispatcher.DispatchOptions['body']): Promi
   }
   if (body instanceof Readable) {
     const chunks: Buffer[] = [];
-    for await (const chunk of body) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    for await (const chunk of body as AsyncIterable<Buffer | Uint8Array | string>) {
+      if (Buffer.isBuffer(chunk)) chunks.push(chunk);
+      else if (typeof chunk === 'string') chunks.push(Buffer.from(chunk, 'utf8'));
+      else chunks.push(Buffer.from(chunk));
     }
     return Buffer.concat(chunks);
   }

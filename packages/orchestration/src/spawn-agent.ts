@@ -106,7 +106,6 @@ import {
   type HookRegistration,
   type JournalSink,
   type PiExtensionAPI,
-  type SDLCRole,
   type SwtSession,
   type SwtSessionOptions,
   type ThinkingLevel,

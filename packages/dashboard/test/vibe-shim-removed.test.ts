@@ -1,3 +1,5 @@
+import type { spawn as SpawnFn } from 'node:child_process';
+
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 
@@ -67,7 +69,7 @@ describe('plan 06-06 T3 — /api/vibe shim removed', () => {
           /* no-op */
         },
       };
-    }) as unknown as typeof import('node:child_process').spawn;
+    }) as unknown as typeof SpawnFn;
     registerCookStartRoute(app, {
       projectRoot: '/tmp/swt-vibe-shim-removed',
       spawnFn: fakeSpawn,

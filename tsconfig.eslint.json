@@ -16,6 +16,7 @@
     "scripts/**/*.ts",
     "tsup.config.ts",
     "vitest.config.ts",
+    "vitest.regression.config.ts",
     "eslint.config.mjs",
     "packages/dashboard/vite.config.ts"
   ],

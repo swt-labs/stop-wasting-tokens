@@ -197,11 +197,8 @@ function findEventsFileForSession(
 ): string | undefined {
   const dir = joinPath(cwd, '.swt-planning', '.events');
   if (!existsSyncFn(dir)) return undefined;
-  // Lazy import readdirSync to avoid widening the module top-level imports
-  // (cook.ts already does file IO via fs/promises in places; sync is fine
-  // here — the probe runs once at cookHandler entry).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const readdir = readdirSyncImpl ?? ((d: string): string[] => require('node:fs').readdirSync(d));
+  // Sync IO is fine here — the probe runs once at cookHandler entry.
+  const readdir = readdirSyncImpl ?? ((d: string): string[] => readdirSync(d));
   let names: string[];
   try {
     names = readdir(dir);

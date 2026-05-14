@@ -163,13 +163,17 @@ function assertValidQuestion(q: AskUserQuestion): void {
   if (typeof q.question !== 'string' || q.question.trim().length === 0) {
     throw new Error('askUser: question must be a non-empty string.');
   }
-  if (!Array.isArray(q.options) || q.options.length === 0) {
+  // `Array.isArray` would narrow `q.options` to `any[]` (a TS quirk on
+  // already-typed arrays), poisoning `opt` below — so check the array shape
+  // without letting the guard rewrite the element type.
+  const options: ReadonlyArray<AskUserOption> = Array.isArray(q.options) ? q.options : [];
+  if (options.length === 0) {
     throw new Error(
       'askUser: options must be a non-empty array. ' +
         'Use intentional freeform (a separate primitive) when the choice space is unbounded.',
     );
   }
-  for (const opt of q.options) {
+  for (const opt of options) {
     if (typeof opt.label !== 'string' || opt.label.trim().length === 0) {
       throw new Error('askUser: every option must have a non-empty label.');
     }

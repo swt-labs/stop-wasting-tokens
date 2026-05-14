@@ -1,3 +1,4 @@
+import type * as NodeFs from 'node:fs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -79,7 +80,7 @@ describe('@swt-labs/runtime — env resolvers (Plan 01-02)', () => {
       // on fs and force both existsSync checks to return false.
       vi.resetModules();
       vi.doMock('node:fs', async () => {
-        const real = await vi.importActual<typeof import('node:fs')>('node:fs');
+        const real = await vi.importActual<typeof NodeFs>('node:fs');
         return {
           ...real,
           existsSync: () => false,

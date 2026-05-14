@@ -9,6 +9,7 @@
  * matches every plan 04-01 success criterion.
  */
 
+import type { PathLike, PathOrFileDescriptor } from 'node:fs';
 import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -166,10 +167,8 @@ async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
 
   const detectPhaseImpl = vi.fn(async () => state);
   const execSyncImpl = vi.fn((_cmd: string, _opts: unknown) => '' as unknown as Buffer);
-  const readFileSyncImpl = vi.fn(
-    (_p: import('node:fs').PathOrFileDescriptor, _enc?: unknown) => STUB_COOK_MD,
-  );
-  const existsSyncImpl = vi.fn((_p: import('node:fs').PathLike) => false);
+  const readFileSyncImpl = vi.fn((_p: PathOrFileDescriptor, _enc?: unknown) => STUB_COOK_MD);
+  const existsSyncImpl = vi.fn((_p: PathLike) => false);
 
   const handler = makeCookHandler({
     detectPhaseImpl: detectPhaseImpl,
