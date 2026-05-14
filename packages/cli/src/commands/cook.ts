@@ -88,10 +88,13 @@ import {
   createRateCardSource,
   projectSpawnCost,
   resolveCredentialStore,
+  refreshOAuthCredentialsIfNeeded,
+  OAuthRefreshError,
   type AskUserResponse,
   type BudgetGate,
   type BudgetProjectionResult,
   type CostProjection,
+  type OAuthCredentials,
 } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
@@ -2117,6 +2120,17 @@ export function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy
  * provider/authMode pair is a Phase 3+ concern — Phase 2's contract is "the
  * helper resolves the secret for the configured `mode`".
  *
+ * Phase 4 (plan 04-04) — for an `'oauth'` authMode entry the keychain secret
+ * is a serialized `OAuthCredentials` JSON blob. The `'oauth'` arm parses it,
+ * runs the SWT-owns-refresh check (`refreshOAuthCredentialsIfNeeded` —
+ * spawn-time lazy-refresh, Risk 2: refresh + keychain write-back ONLY when
+ * near-expiry, otherwise passthrough), and re-serializes the (possibly
+ * refreshed) blob into `resolvedCredential.secret`. A corrupt blob degrades to
+ * `undefined`; an `OAuthRefreshError` (revoked token / network failure)
+ * degrades to the existing stale blob with a non-secret stderr breadcrumb —
+ * a refresh failure never crashes the cook turn. The `'api_key'` path is
+ * byte-identical to Phase 2-04.
+ *
  * Exported (not module-private) so `cook-auth-wiring.test.ts` can unit-test
  * the resolve / graceful-degrade branches directly with the keychain mocked
  * — mirroring the other `cook.ts` internals (`runSpawnWithFallback`,
@@ -2142,6 +2156,43 @@ export async function resolveSpawnCredential(
     // Phase 2 case) needs nothing more than the provider + mode.
     const secret = await store.get(provider, entry.mode);
     if (secret === undefined || secret.length === 0) return undefined; // keychain miss — degrade
+
+    // Phase 4 (plan 04-04) — for an 'oauth' authMode entry, the keychain
+    // secret is a serialized OAuthCredentials JSON blob. Spawn-time
+    // lazy-refresh (Risk 2): parse it, refresh-if-near-expiry (which writes
+    // the refreshed blob back to the keychain via storeOAuthCredentials),
+    // re-serialize. The OAuthCredentials blob is NEVER logged — the
+    // refresh-failed breadcrumb carries only the provider id + a status string.
+    if (entry.mode === 'oauth') {
+      let oauthCredentials: OAuthCredentials;
+      try {
+        oauthCredentials = JSON.parse(secret) as OAuthCredentials;
+      } catch {
+        return undefined; // corrupt blob — graceful degrade, never throw
+      }
+      let effective = oauthCredentials;
+      try {
+        effective = await refreshOAuthCredentialsIfNeeded(provider, oauthCredentials);
+      } catch (err) {
+        // OAuthRefreshError — refresh failed (revoked token, network). Degrade
+        // to the existing (stale) blob rather than crashing the cook turn; if
+        // it is genuinely dead, Pi surfaces the auth error downstream.
+        if (err instanceof OAuthRefreshError) {
+          process.stderr.write(
+            `swt cook: provider ${provider} — OAuth token refresh failed, using existing credential\n`,
+          );
+          effective = oauthCredentials;
+        } else {
+          return undefined; // unexpected — degrade
+        }
+      }
+      return {
+        provider,
+        resolvedCredential: { authMode: 'oauth', secret: JSON.stringify(effective) },
+      };
+    }
+
+    // 'api_key' — unchanged from Phase 2-04.
     return { provider, resolvedCredential: { authMode: entry.mode, secret } };
   } catch {
     // resolveCredentialStore / store.get should not throw (Phase 1's probe
