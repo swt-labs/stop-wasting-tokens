@@ -2791,3 +2791,111 @@
   opacity: 0.4;
   cursor: default;
 }
+
+/* ── CommandsSection (Phase 3 — Dashboard Options Menu) ───────────────
+ * The CLI verb registry surfaced as grouped, clickable buttons, mounted
+ * into OptionsMenu's `.options-menu-section[data-section="commands"]` slot.
+ * Additive only — no existing rule modified; the verb-button palette
+ * mirrors `.command-palette-row` / `.settings-segment`; the error / empty
+ * / feedback lines reuse `.tools-panel-error` / `.tools-panel-empty`. */
+.commands-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* A per-category sub-group (core / interactive / stub). */
+.commands-section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* A small separator between stacked category groups. */
+.commands-section-group + .commands-section-group {
+  margin-top: 6px;
+}
+
+/* The category label — small, uppercase, muted green; mirrors
+ * `.options-menu-section-heading` sizing one notch smaller. */
+.commands-section-group-heading {
+  margin: 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(0, 255, 65, 0.6);
+}
+
+/* The verb-button list — wrapping flex row, tight gap. */
+.commands-section-verb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+/* Each verb button — the terminal-green idiom of `.settings-segment` /
+ * `.command-palette-row`. */
+.commands-section-verb {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.commands-section-verb:hover:not(:disabled) {
+  background: rgba(0, 255, 65, 0.12);
+}
+
+/* The dimmed disabled state for interactive / stub verbs — never a hover
+ * affordance, never fires a request. */
+.commands-section-verb:disabled,
+.commands-section-verb[data-action^='disabled'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The in-flight busy state — a subtle dimming while the dispatch is
+ * pending (the button is also `disabled` via the pendingVerb guard). */
+.commands-section-verb-busy {
+  opacity: 0.6;
+}
+
+/* The verb name — the primary label. */
+.commands-section-verb-name {
+  color: var(--terminal-green);
+  font-weight: 700;
+}
+
+/* The muted usage / affordance hint ('run from your terminal' etc). */
+.commands-section-verb-usage {
+  color: rgba(0, 255, 65, 0.5);
+  font-size: 9px;
+}
+
+/* The loading line — italic muted green, mirrors `.tools-panel-empty`. */
+.commands-section-loading {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.55);
+  font-style: italic;
+}
+
+/* The inline result line — the success variant in muted green; the error
+ * variant additionally carries `.tools-panel-error` (added by the
+ * component), which supplies the danger-red colour + border. */
+.commands-section-feedback {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.75);
+  word-break: break-word;
+}
