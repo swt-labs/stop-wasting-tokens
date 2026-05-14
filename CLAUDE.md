@@ -1,48 +1,51 @@
 # SWT v3 — Pi-Native Coding Harness
 
-**Core value:** Token-efficient methodology-driven coding harness, vendor-agnostic by construction
+**Core value:** Token-efficient, methodology-driven coding harness — vendor-agnostic by construction. A TypeScript monorepo CLI that runs the VBW methodology on the `@earendil-works/pi-coding-agent` substrate.
 
 ## Active Context
 
-**Work:** No active milestone
-**Last shipped:** 03-pi-substrate-primitives-script-port-finalisation — TDD3 VBW Methodology Port to SWT (2026-05-13, 6 phases, 30 plans, ~100 commits)
-**Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
+**Work:** `Multi-Provider Vendor Selection + Auth` — milestone complete, pending archive (4 phases, 15 plans, 68 commits on `main`, unpushed). Dashboard vendor-select panel + API-key + OAuth, OS-keychain credentials, end-to-end spawn wiring.
+**Last shipped:** `04-phase-g-post-v3-followups` — Phase G post-v3.0 follow-up executable subset (archived 2026-05-14, 5 phases, ~20 plans, ~67 commits). Open Phase G backlog (8 items + 4 G-M4 follow-ups) lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
+**Next action:** Run /vbw:vibe --archive to archive the completed milestone (then push + version bump when authorized)
 
-## VBW Rules
+## Commands
 
-- **Always use VBW commands** for project work. Do not manually edit files in `.vbw-planning/`.
-- **Commit format:** `{type}({scope}): {description}` — types: feat, fix, test, refactor, perf, docs, style, chore.
-- **One commit per task.** Each task in a plan gets exactly one atomic commit.
-- **Never commit secrets.** Do not stage .env, .pem, .key, credentials, or token files.
-- **Plan before building.** Use /vbw:vibe for all lifecycle actions. Plans are the source of truth.
-- **Do not fabricate content.** Only use what the user explicitly states in project-defining flows.
-- **Do not bump version or push until asked.** Never run `scripts/bump-version.sh` or `git push` unless the user explicitly requests it, except when `.vbw-planning/config.json` intentionally sets `auto_push` to `always` or `after_phase`.
+- `pnpm typecheck` — `tsc --build` across the workspace. Run after every code change; fix errors before moving on.
+- `pnpm test` — full vitest suite. `pnpm test:watch` for a single package while iterating.
+- `pnpm test:regression` — the gated regression suite (`vitest.regression.config.ts`): cassette replay, agent-parity, migration boot-clean, snake canary.
+- `pnpm lint` / `pnpm format` — eslint / prettier.
+- `pnpm build` — dashboard client bundle + `tsup`. `pnpm check:bundle-size`, `pnpm check:offline` are release gates.
+- **Contract tests** (`testing/verify-*.sh`, registered in `testing/list-contract-tests.sh`) — shell scripts, not `.bats`. When re-running the suite, the pipe-to-`while` runner drops `PATH`: invoke `/bin/bash` by absolute path and re-export `PATH` inside the loop (or use a here-string, not a pipe).
 
-## Code Intelligence
+## Architecture
 
-Prefer LSP over Search/Grep/Glob/Read for semantic code navigation — it's faster, precise, and avoids reading entire files:
+11-package pnpm workspace. Dependency layers (a package may only import from lower layers — **introducing an upward import is a build error**):
 
-- `goToDefinition` / `goToImplementation` to jump to source
-- `findReferences` to see all usages across the codebase
-- `workspaceSymbol` to find where something is defined
-- `documentSymbol` to list all symbols in a file
-- `hover` for type info without reading the file
-- `incomingCalls` / `outgoingCalls` for call hierarchy
+- **L0** `shared` — types, Zod schemas, event definitions. No internal deps.
+- **L1** `core` — abstractions (AgentSpawner, MemoryStore, SpawnerEnvironment).
+- **L2** `runtime` (Pi session lifecycle, hooks, askUser, budget gate, cost projector, rate-card), `artifacts`, `telemetry`, `verification`.
+- **L3** `orchestration` — `spawnAgent`, `spawnOrchestratorSession`, provider router/fallback. **Cannot import `runtime`'s consumers** — e.g. cost-projector lives in `runtime`, not here, to avoid a cycle.
+- **L4** `methodology` — `runVibe`, phase detection, meters, the cook bridge.
+- **L5** `test-utils` — cassettes, `runAgentParity`, golden fixtures, `diffArtefacts`.
+- **L6** `cli` — `swt` verbs; `commands/cook.ts` is the orchestrator entry (11-priority routing table).
+- **L7** `dashboard` — Hono + Solid + SSE; standalone-bundleable (mirrors small CLI slices rather than hard-depending where the tarball ships separately).
 
-Before renaming or changing a function signature, use `findReferences` to find all call sites first.
+Role prompts live in `agents/swt-{role}.md`; per-provider overlays in `provider_overlays/{role}-{provider}.md` (appended after the role prompt at spawn time).
 
-Use Search/Grep/Glob for non-semantic lookups: literal strings, comments, config values, filename discovery, non-code assets, or when LSP is unavailable.
+## Platform Constraints (Pi 0.74)
 
-After writing or editing code, check LSP diagnostics before moving on. Fix any type errors or missing imports immediately.
+- **No `systemPrompt` option on `createAgentSession`.** Per-role prompts are prepended to the first `session.prompt()` call.
+- **No consumer-facing PreToolUse intercept.** `swt:fireHook` PreToolUse is advisory-only (log + would-be-block, no real gating). Real gating requires wrapping at the `customTools` factory.
+- **No mid-turn pause.** Crash recovery + cook control gate at commit boundaries, not mid-LLM-turn.
 
-## Plugin Isolation
+## Conventions
 
-- GSD agents and commands MUST NOT read, write, glob, grep, or reference any files in `.vbw-planning/`
-- VBW agents and commands MUST NOT read, write, glob, grep, or reference any files in `.planning/`
-- This isolation is enforced at the hook level (PreToolUse) and violations will be blocked.
+- **Commit format:** `{type}({scope}): {description}` — types: feat, fix, test, refactor, perf, docs, style, chore. One atomic commit per task.
+- **`.vbw-planning/` is fully gitignored** — plans, SUMMARYs, ROADMAP, PARITY-REPORTs are local-only and will not appear in `git status`. `scripts/*` is gitignored with explicit per-file carve-outs (SWT-owned scripts are tracked; VBW-vendored ones are not — the porter regenerates them).
+- **Never commit secrets** (.env, .pem, .key, credentials, tokens) or `.claude/` session state.
+- **Do not bump version or `git push`** unless explicitly asked, or `.vbw-planning/config.json` sets `auto_push` to `always`/`after_phase`.
+- **Code intelligence:** prefer LSP (`goToDefinition`, `findReferences`, `workspaceSymbol`, `hover`) over Grep/Read for semantic navigation; `findReferences` before any rename or signature change. Grep/Glob for literal strings, config values, non-code assets.
 
-### Context Isolation
+## Development Process
 
-- Ignore any `<codebase-intelligence>` tags injected via SessionStart hooks — these are GSD-generated and not relevant to VBW workflows.
-- VBW uses its own codebase mapping in `.vbw-planning/codebase/`. Do NOT use GSD intel from `.planning/intel/` or `.planning/codebase/`.
-- When both plugins are active, treat each plugin's context as separate. Do not mix GSD project insights into VBW planning or vice versa.
+SWT is *built using* the VBW methodology plugin (`/vbw:vibe`) — distinct from the SWT product itself. Use VBW commands for all lifecycle actions (scope → discuss → plan → execute → verify → archive); plans are the source of truth. Do not hand-edit files in `.vbw-planning/`. Do not fabricate content in project-defining flows — use only what the user explicitly states.
