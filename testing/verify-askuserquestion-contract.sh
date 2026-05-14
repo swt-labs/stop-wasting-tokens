@@ -24,7 +24,7 @@ COMMANDS_DIR="$ROOT/commands"
 REFERENCES_DIR="$ROOT/references"
 
 ASK_USER_QUESTION_REF="$REFERENCES_DIR/ask-user-question.md"
-VIBE_COMMAND_FILE="$COMMANDS_DIR/vibe.md"
+VIBE_COMMAND_FILE="$COMMANDS_DIR/cook.md"
 VERIFY_COMMAND_FILE="$COMMANDS_DIR/verify.md"
 INIT_COMMAND_FILE="$COMMANDS_DIR/init.md"
 LIST_TODOS_COMMAND_FILE="$COMMANDS_DIR/list-todos.md"
@@ -442,7 +442,7 @@ echo "--- Check 4: /swt:vibe confirmation boundary ---"
 
 VIBE_CONFIRMATION_BLOCK="$(extract_heading_block "$VIBE_COMMAND_FILE" "### Confirmation Gate" '^## ' || true)"
 
-require_file_literal "vibe: loads shared AskUserQuestion reference" '@${CLAUDE_PLUGIN_ROOT}/references/ask-user-question.md' "$VIBE_COMMAND_FILE"
+require_file_literal "vibe: loads shared AskUserQuestion reference" '@${SWT_INSTALL_ROOT}/references/ask-user-question.md' "$VIBE_COMMAND_FILE"
 
 if [ -n "$VIBE_CONFIRMATION_BLOCK" ]; then
   pass "vibe: confirmation gate block extracted"
@@ -525,7 +525,7 @@ for prompt_target in \
   require_text_literal "$prompt_label: DNN modal forbids generic expected-only question" 'must not be the only visible AskUserQuestion question' "$prompt_block"
   require_text_literal "$prompt_label: DNN Pass option accepts non-blocking deviation" 'Accept this deviation as non-blocking for this phase' "$prompt_block"
   require_text_literal "$prompt_label: DNN Track Todo option exists" 'Track Todo' "$prompt_block"
-  require_text_literal "$prompt_label: DNN Track Todo option adds VBW todo" 'Accept this deviation and add a VBW todo' "$prompt_block"
+  require_text_literal "$prompt_label: DNN Track Todo option adds VBW todo" 'Accept this deviation and add a SWT todo' "$prompt_block"
   require_text_literal "$prompt_label: DNN Skip option leaves deviation unaccepted" 'Leave this deviation unaccepted for now' "$prompt_block"
 done
 
@@ -604,8 +604,12 @@ require_file_literal "verify: resumed product UAT consumes uat_resume_scenario" 
 require_file_literal "verify: resumed product UAT consumes uat_resume_expected" 'uat_resume_expected' "$VERIFY_COMMAND_FILE"
 require_file_literal "vibe: passes resumed product UAT scenario field" 'uat_resume_scenario' "$VIBE_COMMAND_FILE"
 require_file_literal "vibe: passes resumed product UAT expected field" 'uat_resume_expected' "$VIBE_COMMAND_FILE"
-require_file_literal "vibe: extractor failure uses error sentinel" '|| echo "uat_resume=error"' "$VIBE_COMMAND_FILE"
-require_file_literal "vibe: extractor unavailable uses unavailable sentinel" 'echo "uat_resume=unavailable"' "$VIBE_COMMAND_FILE"
+# REQ-25 (d15070b) moved the inline precompute heredoc (which emitted the
+# uat_resume=error / uat_resume=unavailable wrapper sentinels) to the
+# orchestrator entry handler. cook.md's retained contract is to re-run
+# extract-uat-resume.sh to refresh the deterministic resume fields.
+require_file_literal "vibe: extractor failure uses error sentinel" 'extract-uat-resume.sh' "$VIBE_COMMAND_FILE"
+require_file_literal "vibe: extractor unavailable uses unavailable sentinel" 'extract-uat-resume.sh' "$VIBE_COMMAND_FILE"
 
 # --------------------------------------------------------------------------
 # Check 5: /swt:list-todos intentional plain-text/freeform handoff
@@ -633,14 +637,16 @@ fi
 
 require_text_literal "list-todos: step 5 displays action hints and stops" "Display action hints and STOP" "$LIST_TODOS_STEP_5"
 require_text_literal "list-todos: step 5 does not prompt the user for input" "Do NOT prompt the user for input" "$LIST_TODOS_STEP_5"
-require_text_literal "list-todos: unfiltered hints preserve /swt:vibe N" "/swt:vibe N" "$LIST_TODOS_UNFILTERED_HINTS"
-require_text_literal "list-todos: unfiltered hints preserve /swt:fix N" "/swt:fix N" "$LIST_TODOS_UNFILTERED_HINTS"
-require_text_literal "list-todos: unfiltered hints preserve /swt:debug N" "/swt:debug N" "$LIST_TODOS_UNFILTERED_HINTS"
-require_text_literal "list-todos: unfiltered hints preserve /swt:research N" "/swt:research N" "$LIST_TODOS_UNFILTERED_HINTS"
+# v3 list-todos.md emits bare `swt cook N` action hints (no `/swt:` slash-command
+# prefix); `vibe` collapsed into `cook` at v3.0.0-alpha.3.
+require_text_literal "list-todos: unfiltered hints preserve /swt:vibe N" "swt cook N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:fix N" "swt fix N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:debug N" "swt debug N" "$LIST_TODOS_UNFILTERED_HINTS"
+require_text_literal "list-todos: unfiltered hints preserve /swt:research N" "swt research N" "$LIST_TODOS_UNFILTERED_HINTS"
 require_text_regex "list-todos: unfiltered hints preserve remove N" '(^|[[:space:]])remove N([[:space:]]|$)' "$LIST_TODOS_UNFILTERED_HINTS"
 require_text_regex "list-todos: filtered hints preserve remove N" '(^|[[:space:]])remove N([[:space:]]|$)' "$LIST_TODOS_FILTERED_HINTS"
 require_text_regex "list-todos: filtered hints preserve delete N" '(^|[[:space:]])delete N([[:space:]]|$)' "$LIST_TODOS_FILTERED_HINTS"
-require_text_literal "list-todos: filtered hints preserve rerun-unfiltered guard" "rerun unfiltered /swt:list-todos before using /swt:vibe N, /swt:fix N, /swt:debug N, or /swt:research N" "$LIST_TODOS_FILTERED_HINTS"
+require_text_literal "list-todos: filtered hints preserve rerun-unfiltered guard" "rerun unfiltered swt list-todos before using swt cook N, swt fix N, swt debug N, or swt research N" "$LIST_TODOS_FILTERED_HINTS"
 
 # --------------------------------------------------------------------------
 # Check 6: /swt:config bounded structured flow
@@ -761,8 +767,8 @@ INIT_STEP_0="$(extract_regex_block "$INIT_COMMAND_FILE" '^### Step 0: Environmen
 INIT_SKILL_PROMPT="$(extract_regex_block "$INIT_COMMAND_FILE" '^### Step 3: Convergence' '^### Step 3\.5:' || true)"
 INIT_CORRECTION_FLOW="$(extract_regex_block "$INIT_COMMAND_FILE" '^\*\*6e\. Correction flow' '^### Step 7:' || true)"
 
-require_file_literal "init: loads shared AskUserQuestion reference" '@${CLAUDE_PLUGIN_ROOT}/references/ask-user-question.md' "$INIT_COMMAND_FILE"
-require_text_occurrence_count "init: shared AskUserQuestion reference appears once" "$INIT_BODY" '@${CLAUDE_PLUGIN_ROOT}/references/ask-user-question.md' 1
+require_file_literal "init: loads shared AskUserQuestion reference" '@${SWT_INSTALL_ROOT}/references/ask-user-question.md' "$INIT_COMMAND_FILE"
+require_text_occurrence_count "init: shared AskUserQuestion reference appears once" "$INIT_BODY" '@${SWT_INSTALL_ROOT}/references/ask-user-question.md' 1
 
 if [ -n "$INIT_SHARED_BLOCK" ]; then
   pass "init: shared interaction contract block extracted"

@@ -90,7 +90,10 @@ write_plan_block() {
 }
 
 run_helper() {
-  (cd "$FIXTURE" && "$HELPER" --phase-dir .swt-planning/phases/01-test "${@}")
+  # bash 3.2 under `set -u` treats "${@}" (braced) as an unset-variable
+  # reference when run_helper is called with no args; "$@" (unbraced) is the
+  # portable, set-u-safe form for forwarding a possibly-empty arg list.
+  (cd "$FIXTURE" && "$HELPER" --phase-dir .swt-planning/phases/01-test "$@")
 }
 
 json_field() {
@@ -577,11 +580,11 @@ check_literal_before_literal "execute-protocol handles no-tool Dev return before
 
 if grep -Fq '**Spawn-shape rule (applies to both non-team and true-team spawns):**' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'whether the live tool is `Agent` or `TaskCreate`' "$EXECUTE_PROTOCOL" \
-  && grep -Fq 'never set Claude-side `isolation:"worktree"` or pass a `cwd` pointing into `.claude/worktrees/...` or `.vbw-worktrees/...`' "$EXECUTE_PROTOCOL" \
+  && grep -Fq 'never set Claude-side `isolation:"worktree"` or pass a `cwd` pointing into `.claude/worktrees/...` or `.swt-worktrees/...`' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'agent-spawn-guard.sh` validates these isolation/cwd fields before it branches on delegation mode' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'non-team spawns must omit `team_name` and `run_in_background`; `name` is optional label-only metadata' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'must never be used for routing, lifecycle state, or team semantics' "$EXECUTE_PROTOCOL" \
-  && grep -Fq 'Prepared VBW worktree targeting means the `Working directory:` and `Worktree targeting:` lines in the task description' "$EXECUTE_PROTOCOL" \
+  && grep -Fq 'Prepared SWT worktree targeting means the `Working directory:` and `Worktree targeting:` lines in the task description' "$EXECUTE_PROTOCOL" \
   && grep -Fq '`.execution-state.json` `worktree_path` and `scripts/worktree-target.sh`' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'it is not an `isolation` or `cwd` field on the spawn call' "$EXECUTE_PROTOCOL" \
   && grep -Fq '.claude/worktrees/agent-*' "$EXECUTE_PROTOCOL"; then
@@ -610,7 +613,7 @@ if grep -Fq '<qa_remediation_spawn_contract>' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'QA remediation uses plain sequential subagent calls' "$EXECUTE_PROTOCOL" \
   && grep -Fq 'Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`)' "$EXECUTE_PROTOCOL" \
   && grep -Fq '`name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics' "$EXECUTE_PROTOCOL" \
-  && grep -Fq 'VBW worktree targeting is task prompt/state metadata, not a spawn isolation or cwd handoff' "$EXECUTE_PROTOCOL"; then
+  && grep -Fq 'SWT worktree targeting is task prompt/state metadata, not a spawn isolation or cwd handoff' "$EXECUTE_PROTOCOL"; then
   pass "execute-protocol documents QA remediation non-team spawn shape"
 else
   fail "execute-protocol missing QA remediation non-team spawn shape contract"
@@ -706,8 +709,8 @@ check_literal_before_literal "execute-protocol QA verify breaker appears before 
 check_literal_before_literal "execute-protocol QA verify breaker appears before known-issue promotion" "$QA_REMEDIATION_VERIFY_BLOCK" 'After QA returns, apply the QA remediation no-tool circuit breaker' 'track-known-issues.sh" promote-todos'
 check_literal_before_literal "execute-protocol QA verify breaker appears before deterministic gate" "$QA_REMEDIATION_VERIFY_BLOCK" 'After QA returns, apply the QA remediation no-tool circuit breaker' 'qa-result-gate.sh'
 
-if grep -Fq 'When true team mode is active, pass `team_name: "vbw-phase-{NN}"` and `name: "dev-{MM}"`' "$EXECUTE_PROTOCOL" \
-  && grep -Fq 'When true team mode is active, pass `team_name: "vbw-phase-{NN}"` and `name: "qa"`' "$EXECUTE_PROTOCOL"; then
+if grep -Fq 'When true team mode is active, pass `team_name: "swt-phase-{NN}"` and `name: "dev-{MM}"`' "$EXECUTE_PROTOCOL" \
+  && grep -Fq 'When true team mode is active, pass `team_name: "swt-phase-{NN}"` and `name: "qa"`' "$EXECUTE_PROTOCOL"; then
   pass "execute-protocol preserves team_name/name invariant for true team mode"
 else
   fail "execute-protocol preserves team_name/name invariant for true team mode"
