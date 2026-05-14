@@ -66,21 +66,38 @@ jobs:
       - name: Install via ${{ matrix.manager }}
         shell: bash
         run: |
+          # The release workflow publishes, then immediately calls this smoke
+          # workflow. npm registry propagation to all consumers (bun/pnpm CDN
+          # edges) can lag a few seconds behind the publish — installs then
+          # fail with "no matching version" for a version that genuinely
+          # exists. Retry with a short backoff to absorb that propagation lag;
+          # a genuinely-missing version still fails after all attempts.
+          retry_install() {
+            local n=0
+            until [ "$n" -ge 6 ]; do
+              "$@" && return 0
+              n=$((n + 1))
+              echo "::warning::install attempt $n failed (registry propagation lag?) — retrying in 10s"
+              sleep 10
+            done
+            echo "::error::install failed after $n attempts" >&2
+            return 1
+          }
           case "${{ matrix.manager }}" in
             npm)
-              npm install -g stop-wasting-tokens@${{ steps.version.outputs.version }}
+              retry_install npm install -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             pnpm)
               # `pnpm/action-setup@v4` (above, gated on matrix.manager
               # == 'pnpm') has already wired PNPM_HOME + the bin path
               # onto PATH for this step and into GITHUB_PATH for the
               # subsequent "Verify install" step. We just install.
-              pnpm add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
+              retry_install pnpm add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
             bun)
               curl -fsSL https://bun.sh/install | bash
               echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
-              "$HOME/.bun/bin/bun" add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
+              retry_install "$HOME/.bun/bin/bun" add -g stop-wasting-tokens@${{ steps.version.outputs.version }}
               ;;
           esac
 
