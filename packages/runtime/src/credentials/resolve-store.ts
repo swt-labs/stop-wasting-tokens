@@ -15,12 +15,12 @@
  * deterministically without depending on host keychain state.
  */
 
-import type { CredentialStore } from './types.js';
 import { createCredentialStore } from './credential-store.js';
-import { createKeychainBackend } from './keychain-backend.js';
 import { createEnvFallbackBackend } from './env-fallback-backend.js';
-import { probeKeychain, type KeychainProbeResult } from './probe.js';
+import { createKeychainBackend } from './keychain-backend.js';
 import { SWT_KEYCHAIN_SERVICE } from './namespace.js';
+import { probeKeychain, type KeychainProbeResult } from './probe.js';
+import type { CredentialStore } from './types.js';
 
 /** Options for {@link resolveCredentialStore}. */
 export interface ResolveCredentialStoreOptions {

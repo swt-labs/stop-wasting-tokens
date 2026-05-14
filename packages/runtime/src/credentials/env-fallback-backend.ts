@@ -23,8 +23,8 @@
  * native module is touched only by `keychain-backend.ts` and `probe.ts`.)
  */
 
-import type { CredentialBackend } from './types.js';
 import { decodeAccount, encodeAccount } from './namespace.js';
+import type { CredentialBackend } from './types.js';
 
 /**
  * The provider-id -> environment-variable-name mapping. Mirrors `pi-ai`'s

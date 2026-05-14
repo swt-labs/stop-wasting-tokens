@@ -39,8 +39,8 @@
 
 import { Entry } from '@napi-rs/keyring';
 
-import type { CredentialBackend } from './types.js';
 import { SWT_KEYCHAIN_SERVICE } from './namespace.js';
+import type { CredentialBackend } from './types.js';
 
 /** Reserved account holding the secret-free `listAccounts` index. */
 const INDEX_ACCOUNT = '__swt_index__';
