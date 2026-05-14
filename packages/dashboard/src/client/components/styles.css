@@ -2350,3 +2350,183 @@
   overflow: auto;
   max-height: 320px;
 }
+
+/* ── Phase 3: provider-auth (vendor-select) panel ──
+ * Additive only — reuses the existing panel / tools-panel-header /
+ * tools-panel-meta / tools-panel-banner / tools-panel-error /
+ * tools-refresh-btn classes (the panel is a sibling of ConfigPanel /
+ * DoctorPanel). Below are only the genuinely-new classes the panel
+ * references. No global rule changes, no overrides of existing classes.
+ */
+
+.provider-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+
+.provider-auth-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 255, 65, 0.85);
+}
+
+/* Mirrors .config-edit-select. */
+.provider-auth-select {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.provider-auth-select:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.provider-auth-select[disabled] {
+  opacity: 0.5;
+}
+
+.provider-auth-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.provider-auth-radio {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.85);
+}
+
+.provider-auth-radio input {
+  accent-color: var(--terminal-green);
+  cursor: pointer;
+}
+
+.provider-auth-radio input[disabled] {
+  cursor: not-allowed;
+}
+
+.provider-auth-radio-disabled {
+  color: rgba(0, 255, 65, 0.45);
+}
+
+.provider-auth-coming-soon {
+  font-size: 10px;
+  font-style: italic;
+  color: rgba(255, 176, 0, 0.7);
+}
+
+/* Mirrors .config-edit-input. */
+.provider-auth-key-input {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.provider-auth-key-input:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.provider-auth-key-input[disabled] {
+  opacity: 0.5;
+}
+
+.provider-auth-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 8px;
+}
+
+/* Mirrors .config-save-btn. */
+.provider-auth-save-btn {
+  background: rgba(0, 255, 65, 0.18);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.provider-auth-save-btn:hover:not([disabled]) {
+  background: rgba(0, 255, 65, 0.28);
+}
+
+.provider-auth-save-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.provider-auth-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.provider-auth-status-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: rgba(0, 255, 65, 0.04);
+  font-size: 11px;
+}
+
+.provider-auth-status-provider {
+  color: rgba(0, 255, 65, 0.85);
+  font-weight: 600;
+}
+
+.provider-auth-status-indicator {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.provider-auth-status-on {
+  color: var(--terminal-green);
+}
+
+.provider-auth-status-off {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.provider-auth-status-source,
+.provider-auth-status-label {
+  color: rgba(0, 255, 65, 0.6);
+  font-size: 10px;
+}
+
+/* The keychain-unavailable banner — inherits .tools-panel-banner; this
+ * class is a hook for future per-panel tweaks and keeps the JSX explicit. */
+.provider-auth-banner {
+  white-space: normal;
+}
