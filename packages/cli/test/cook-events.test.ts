@@ -253,10 +253,15 @@ describe('@swt-labs/cli — cook events integration (Plan 04-01 T5)', () => {
     // emitted when `git log -1` resolves a HEAD commit; in this test
     // sandbox the cwd is a tmp dir with no git repo, so task_commit is
     // absent from the sequence.
+    // Plan 02-04 T3 (Phase 2 / G-R3) — runSpawnWithFallback now emits
+    // cook.provider_selected once per spawn after the router resolves the
+    // primary provider, landing between cook.agent_spawn and the spawn's
+    // cook.agent_result.
     expect(types).toEqual([
       'cook.priority_decision',
       'cook.task_start',
       'cook.agent_spawn',
+      'cook.provider_selected',
       'cook.agent_result',
       'cook.task_complete',
       'cook.completion',

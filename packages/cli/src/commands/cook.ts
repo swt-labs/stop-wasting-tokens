@@ -79,6 +79,7 @@ import {
   type FallbackFailureReason,
   type RouterStrategy,
   type RouterTier,
+  type SelectedVia,
 } from '@swt-labs/orchestration';
 import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared';
 import {
@@ -2084,6 +2085,31 @@ export interface RunSpawnWithFallbackOptions {
    * this to a stderr-or-journal emitter; tests inject a capture array.
    */
   readonly onProviderEvent?: (event: ProviderFallbackEvent) => void;
+  /**
+   * Plan 02-04 (Phase 2 / G-R3) — fired once per spawn AFTER the router
+   * resolves the primary provider. The cook callsite wires this to
+   * `emitCookEvent('cook.provider_selected', ...)`. Optional — omitted
+   * callers see no behavioural change. `rate_card_age_ms` is computed here
+   * (in `runSpawnWithFallback`) from the strategy's embedded rate-card
+   * timestamps since the orchestration layer has no clock.
+   */
+  readonly onSelectionEvent?: (ev: {
+    selected_provider: string;
+    selected_via: SelectedVia;
+    tier?: string;
+    rate_card_age_ms?: number;
+    rate_card_source?: 'embedded' | 'project-override' | 'fetched';
+    dimension?: 'input' | 'output' | 'blended';
+    sub_session_id: string;
+  }) => void;
+  /**
+   * Plan 02-04 — the sub-session id correlated with this spawn. Threaded
+   * through so `onSelectionEvent` can stamp `cook.provider_selected` with
+   * the same `sub_session_id` the sibling cook events carry. Optional for
+   * backwards compat; when absent, `onSelectionEvent` receives an empty
+   * string (callers not wiring telemetry don't supply it).
+   */
+  readonly subSessionId?: string;
   /** Test seam — override the per-chain clock for deterministic time-budget assertions. */
   readonly clock?: () => number;
   /** Test seam — override classifyError so tests can inject reason classifications. */
@@ -2096,7 +2122,43 @@ export async function runSpawnWithFallback(
   const classify = opts.classifyErrorFn ?? classifyError;
   const tier: RouterTier = opts.tier ?? 'balanced';
   const router = createProviderRouter(toRouterStrategy(opts.providers.strategy));
-  const primary = router.select({ task: opts.taskBrief, tier });
+  // Plan 02-04 (Phase 2 / G-R3) — prefer `selectWithMetadata` for telemetry-
+  // rich emission; fall back to `select(ctx)` for any external router
+  // implementor that doesn't expose the optional metadata method (backwards
+  // compat). EITHER is called once per spawn, never both.
+  const selectionCtx = { task: opts.taskBrief, tier };
+  const selectionMeta = router.selectWithMetadata?.(selectionCtx);
+  const primary = selectionMeta?.provider ?? router.select(selectionCtx);
+
+  // Compute `rate_card_age_ms` ONLY for the rate-card strategy variant. The
+  // orchestration layer has no clock, so the cook code re-derives the age
+  // from the strategy's embedded `rateCard.entries[*].updated_at` timestamps
+  // directly (oldest entry age = now - min(updated_at)). No extra loader call.
+  let rateCardAgeMs: number | undefined;
+  if (
+    selectionMeta?.rate_card_source !== undefined &&
+    opts.providers.strategy.kind === 'cost-optimized-rate-card'
+  ) {
+    const entries = opts.providers.strategy.rateCard.entries;
+    if (entries.length > 0) {
+      const oldest = Math.min(...entries.map((e) => Date.parse(e.updated_at)));
+      if (!Number.isNaN(oldest)) {
+        rateCardAgeMs = Math.max(0, Date.now() - oldest);
+      }
+    }
+  }
+
+  if (selectionMeta !== undefined && opts.onSelectionEvent !== undefined) {
+    opts.onSelectionEvent({
+      selected_provider: selectionMeta.provider,
+      selected_via: selectionMeta.selected_via,
+      tier: selectionMeta.tier,
+      rate_card_age_ms: rateCardAgeMs,
+      rate_card_source: selectionMeta.rate_card_source,
+      dimension: selectionMeta.dimension,
+      sub_session_id: opts.subSessionId ?? '',
+    });
+  }
   // The chain's `primary` is what the router picked; fallbacks come straight
   // from config. The empty-fallbacks list yields a degenerate chain (one
   // provider, one attempt) — preserves today's single-provider behavior
@@ -2402,15 +2464,49 @@ async function runMode(
       },
       spawnFn: deps.spawnFn,
       taskBrief: fallbackTaskBrief,
-      // Production hook: forward fallback events to stderr so operators
-      // see the transition. The cook events JSONL channel doesn't have a
-      // dedicated schema entry for provider transitions (today); a future
-      // plan adds `cook.provider_fallback` if dashboards need it.
+      // Plan 02-04 (Phase 2 / G-R3) — thread the sub-session id so the
+      // telemetry events below carry the same correlation id as the sibling
+      // cook.* emissions.
+      subSessionId,
+      // Plan 02-04 (Phase 2 / G-R3) — emit cook.provider_selected onto the
+      // JSONL channel once per spawn after the router resolves the primary.
+      onSelectionEvent: (ev) => {
+        emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+          type: 'cook.provider_selected',
+          ts: new Date().toISOString(),
+          session_id: ctx.sessionId,
+          sub_session_id: ev.sub_session_id,
+          selected_provider: ev.selected_provider,
+          selected_via: ev.selected_via,
+          ...(ev.tier !== undefined ? { tier: ev.tier } : {}),
+          ...(ev.rate_card_age_ms !== undefined
+            ? { rate_card_age_ms: ev.rate_card_age_ms }
+            : {}),
+          ...(ev.rate_card_source !== undefined
+            ? { rate_card_source: ev.rate_card_source }
+            : {}),
+          ...(ev.dimension !== undefined ? { dimension: ev.dimension } : {}),
+        });
+      },
+      // Production hook: forward fallback events to stderr so operators see
+      // the transition (preserved verbatim for human visibility). Plan 02-04
+      // (Phase 2 / G-R3) ADDS a dual-emit onto the cook events JSONL channel
+      // as cook.provider_fallback so the dashboard sees provider transitions.
       onProviderEvent: (ev) => {
         io.stderr.write(
           `swt cook: provider fallback fired (from=${ev.from} to=${ev.to} ` +
             `reason=${ev.reason} attempt=${ev.attempt}).\n`,
         );
+        emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
+          type: 'cook.provider_fallback',
+          ts: new Date().toISOString(),
+          session_id: ctx.sessionId,
+          sub_session_id: subSessionId,
+          from: ev.from,
+          to: ev.to,
+          reason: ev.reason,
+          attempt: ev.attempt,
+        });
       },
     });
     const result = fallbackResult.result;

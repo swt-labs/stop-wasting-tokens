@@ -220,6 +220,128 @@ describe('Plan 06-02 T3 — runSpawnWithFallback', () => {
   });
 });
 
+describe('Plan 02-04 (G-R3) — runSpawnWithFallback telemetry events', () => {
+  it('(a) onSelectionEvent fires with selected_via:pinned', async () => {
+    const spawnImpl = vi.fn(async () => STUB_TASK_RESULT);
+    const events: Array<{ selected_provider: string; selected_via: string }> = [];
+
+    const providers: CookProvidersConfig = {
+      strategy: { kind: 'pinned', provider: 'anthropic' },
+      fallbacks: [],
+      retryBudget: 3,
+      timeBudgetMs: 30_000,
+    };
+
+    await runSpawnWithFallback({
+      providers,
+      spawnArgs: STUB_SPAWN_ARGS,
+      spawnFn: spawnImpl as never,
+      taskBrief: STUB_TASK_BRIEF,
+      subSessionId: 'sub-pinned',
+      onSelectionEvent: (ev) => events.push(ev),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].selected_via).toBe('pinned');
+    expect(events[0].selected_provider).toBe('anthropic');
+  });
+
+  it('(b) onSelectionEvent fires with rate-card metadata for cost-optimized-rate-card', async () => {
+    const spawnImpl = vi.fn(async () => STUB_TASK_RESULT);
+    const events: Array<{
+      selected_via: string;
+      dimension?: string;
+      rate_card_source?: string;
+      rate_card_age_ms?: number;
+    }> = [];
+
+    const fixtureCard = {
+      schema_version: 1 as const,
+      source: 'embedded' as const,
+      generated_at: '2026-05-14T00:00:00Z',
+      entries: [
+        {
+          provider: 'anthropic',
+          model: 'claude-opus-4-7',
+          input_per_1k: 0.015,
+          output_per_1k: 0.075,
+          updated_at: '2026-05-14T00:00:00Z',
+        },
+      ],
+    };
+
+    const providers: CookProvidersConfig = {
+      strategy: {
+        kind: 'cost-optimized-rate-card',
+        providers: ['anthropic'],
+        rateCard: fixtureCard,
+        dimension: 'input',
+      },
+      fallbacks: [],
+      retryBudget: 3,
+      timeBudgetMs: 30_000,
+    };
+
+    await runSpawnWithFallback({
+      providers,
+      spawnArgs: STUB_SPAWN_ARGS,
+      spawnFn: spawnImpl as never,
+      taskBrief: STUB_TASK_BRIEF,
+      subSessionId: 'sub-rate-card',
+      onSelectionEvent: (ev) => events.push(ev),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].selected_via).toBe('cost-optimized-rate-card');
+    expect(events[0].dimension).toBe('input');
+    expect(events[0].rate_card_source).toBe('embedded');
+    // rate_card_age_ms is re-derived from the card's updated_at timestamps
+    // (cook layer computes it — the orchestration layer has no clock).
+    expect(typeof events[0].rate_card_age_ms).toBe('number');
+    expect(events[0].rate_card_age_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it('(c) onProviderEvent fires on chain hop — the cook callsite dual-emits cook.provider_fallback', async () => {
+    // The cook.ts callsite wires onProviderEvent to BOTH a stderr write AND
+    // emitCookEvent('cook.provider_fallback', ...). runSpawnWithFallback only
+    // owns the onProviderEvent invocation; assert it fires with the shape the
+    // cook callsite maps 1:1 onto the cook.provider_fallback JSONL event.
+    const spawnImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Pi adapter auto_retry_503 — provider returned 503'))
+      .mockResolvedValueOnce(STUB_TASK_RESULT);
+    const fallbackEvents: ProviderFallbackEvent[] = [];
+
+    const providers: CookProvidersConfig = {
+      strategy: { kind: 'pinned', provider: 'anthropic' },
+      fallbacks: ['openai'],
+      retryBudget: 3,
+      timeBudgetMs: 30_000,
+    };
+
+    await runSpawnWithFallback({
+      providers,
+      spawnArgs: STUB_SPAWN_ARGS,
+      spawnFn: spawnImpl as never,
+      taskBrief: STUB_TASK_BRIEF,
+      subSessionId: 'sub-fallback',
+      onProviderEvent: (ev) => fallbackEvents.push(ev),
+    });
+
+    // One chain hop → exactly one fallback event the cook callsite will
+    // dual-emit (stderr + cook.provider_fallback JSONL).
+    expect(fallbackEvents).toHaveLength(1);
+    expect(fallbackEvents[0]).toMatchObject({
+      from: 'anthropic',
+      to: 'openai',
+      reason: '503',
+      attempt: 2,
+    });
+    // The cook.provider_fallback event the callsite emits maps these fields
+    // 1:1 — from/to/reason/attempt are exactly the cook event's payload.
+  });
+});
+
 describe('Plan 06-02 T3 — classifyError', () => {
   it('maps auto_retry_503 markers to "503"', () => {
     expect(classifyError(new Error('Pi adapter auto_retry_503'))).toBe('503');
