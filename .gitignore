@@ -163,3 +163,6 @@ scripts/lib/*
 !scripts/.port-rewrites.json
 # Phase 06 plan 06-05 T2: reproducible bulk-sed bats-fixture rename.
 !scripts/bulk-sed-bats-rename.sh
+# Phase 04 plan 04-01 T1: SWT-owned cook command contract test
+# (renamed from the never-carved-out scripts/verify-vibe.sh).
+!scripts/verify-cook.sh
