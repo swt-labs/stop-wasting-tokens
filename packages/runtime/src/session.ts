@@ -137,6 +137,14 @@ function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptio
   // the session log with no consumer.
   void opts.enableResultProtocol;
   void opts.taskId;
+  // Phase 2 — `provider` / `model` / `resolvedCredential` are consumed by
+  // `createSession` BEFORE `buildSwtSessionFromPi` runs (the AuthStorage
+  // injection happens at the `createAgentSession` call). The builder itself
+  // never touches them — `void`-ed here for consistency with the precedent
+  // above.
+  void opts.provider;
+  void opts.model;
+  void opts.resolvedCredential;
 
   let disposed = false;
 
@@ -178,6 +186,13 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   // wire through once the Pi extension-loader path lands.
   void opts.enableResultProtocol;
   void opts.taskId;
+  // Phase 2 — `provider` / `model` / `resolvedCredential` are intentionally
+  // inert on the mock path: it constructs NO AuthStorage, touches NO Pi,
+  // injects NOTHING (Risk 5 mock-path-preservation). `void`-ed mirroring
+  // the precedent above.
+  void opts.provider;
+  void opts.model;
+  void opts.resolvedCredential;
 
   let disposed = false;
 
