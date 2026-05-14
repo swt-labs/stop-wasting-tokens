@@ -265,6 +265,79 @@ describe('@swt-labs/orchestration — swt:spawnAgent (Plan 01-01 T04)', () => {
   });
 
   /**
+   * Plan 02-03 T3 — Phase 2 credential threading through the recording-
+   * factory seam (Risk 5).
+   *
+   * The recording factory receives the fully-resolved `SpawnAgentSessionConfig`
+   * and asserts on it directly — it NEVER calls the real `createSession`. So
+   * adding `provider`/`model`/`resolvedCredential` to the config is
+   * structurally immune to breaking the seam: the recording factory just
+   * sees a wider config object. These cases prove the new fields flow from
+   * `SpawnAgentOptions` → `resolveSpawnAgentConfig` → the recorded config,
+   * and that absent ⇒ `undefined` (the pre-Phase-2 shape).
+   */
+  describe('Phase 2 credential threading (Plan 02-03 T3 — recording-factory seam)', () => {
+    it('captures provider + resolvedCredential on the recorded SpawnAgentSessionConfig', async () => {
+      const recording = makeRecordingFactory();
+      await spawnAgent({
+        ...baseOpts('dev'),
+        provider: 'openai',
+        resolvedCredential: { authMode: 'api_key', secret: 'sk-test-abc' },
+        sessionFactory: recording.factory,
+      });
+      expect(recording.configs.length).toBe(1);
+      const captured = recording.configs[0];
+      expect(captured?.provider).toBe('openai');
+      expect(captured?.resolvedCredential).toEqual({
+        authMode: 'api_key',
+        secret: 'sk-test-abc',
+      });
+    });
+
+    it('records resolvedCredential + provider as `undefined` when omitted (pre-Phase-2 shape)', async () => {
+      const recording = makeRecordingFactory();
+      await spawnAgent({ ...baseOpts('dev'), sessionFactory: recording.factory });
+      expect(recording.configs.length).toBe(1);
+      const captured = recording.configs[0];
+      expect(captured?.resolvedCredential).toBeUndefined();
+      expect(captured?.provider).toBeUndefined();
+    });
+
+    it('recording factory is structurally immune — called exactly once, never reaches real createSession', async () => {
+      // The recording factory is the ONLY factory invoked (it is injected
+      // via `sessionFactory?`). It pushes the config and returns a mock
+      // SwtSession — `defaultSpawnSessionFactory` (which is the only path
+      // that touches the real `createSession`) is never reached. The wider
+      // Phase 2 config (provider/model/resolvedCredential) flows through
+      // the same seam unchanged.
+      const recording = makeRecordingFactory();
+      await spawnAgent({
+        ...baseOpts('dev'),
+        provider: 'openai',
+        resolvedCredential: { authMode: 'api_key', secret: 'sk-test-immune' },
+        sessionFactory: recording.factory,
+      });
+      expect(recording.configs.length).toBe(1);
+      // The secret rode through the seam onto the recorded config — proof
+      // the channel works — but no real Pi / AuthStorage was constructed.
+      expect(recording.configs[0]?.resolvedCredential?.secret).toBe('sk-test-immune');
+    });
+
+    it('model stays `undefined` when not supplied (Risk 8 — Phase 2 never sets it)', async () => {
+      const recording = makeRecordingFactory();
+      await spawnAgent({
+        ...baseOpts('dev'),
+        provider: 'openai',
+        resolvedCredential: { authMode: 'api_key', secret: 'sk-test-no-model' },
+        // model intentionally omitted
+        sessionFactory: recording.factory,
+      });
+      expect(recording.configs.length).toBe(1);
+      expect(recording.configs[0]?.model).toBeUndefined();
+    });
+  });
+
+  /**
    * Plan 01-01 T2 — per-provider overlay append (G-R1).
    *
    * Two assertions:
