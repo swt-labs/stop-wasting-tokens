@@ -21,7 +21,6 @@ printf '%s\t%s\n' \
   issue-157-migration          testing/verify-issue-157-migration-contract.sh \
   plugin-root-resolution       testing/verify-plugin-root-resolution.sh \
   hook-event-name              testing/verify-hook-event-name.sh \
-  github-fix-workflow-contract testing/verify-github-fix-workflow-contract.sh \
   plan-filename-convention     testing/verify-plan-filename-convention.sh \
   skill-activation             testing/verify-skill-activation.sh \
   permission-mode-contract     testing/verify-permission-mode-contract.sh \
@@ -55,11 +54,10 @@ printf '%s\t%s\n' \
   discussion-engine-contract   testing/verify-discussion-engine-contract.sh \
   debug-session-contract       testing/verify-debug-session-contract.sh \
   todo-pickup-contract         testing/verify-todo-pickup-contract.sh \
-  debug-target-docs            testing/verify-debug-target-docs.sh \
   askuserquestion-contract     testing/verify-askuserquestion-contract.sh \
   research-storage-contract    testing/verify-research-storage-contract.sh \
   readme-config-reference      testing/verify-readme-config-reference.sh \
   config-defaults-sync         testing/verify-config-defaults-sync.sh \
   roadmap-checklist-parser     testing/verify-roadmap-checklist-parser-contract.sh \
   caveman-contract             testing/verify-caveman-contract.sh \
-  verify-vibe                  scripts/verify-vibe.sh
+  verify-cook                  scripts/verify-cook.sh
