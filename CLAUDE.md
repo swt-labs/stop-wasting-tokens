@@ -5,7 +5,7 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** `05-multi-provider-vendor-selection-auth` — Multi-Provider Vendor Selection + Auth (archived 2026-05-14, 4 phases, 15 plans, 67 commits). Dashboard vendor-select panel + API-key + OAuth login, OS-keychain credentials, end-to-end spawn wiring. The 67 milestone commits + 2 docs commits sit on `main`, UNPUSHED — `git push` + version bump + `npm publish` remain user-driven. Open Phase G backlog (8 items + 4 G-M4 follow-ups) still lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
+**Last shipped:** `06-dashboard-options-menu` — Dashboard Options Menu (archived 2026-05-14, 3 phases, 3 plans, 13 commits). Top-bar "Options ▾" dropdown: clickable command actions + per-project settings. The 13 commits sit on `main` on top of the prior `05-multi-provider-vendor-selection-auth` milestone — **all UNPUSHED** (origin/main is at `7409637`); `git push` + version bump + `npm publish` remain user-driven. Open Phase G backlog (8 items + 4 G-M4 follow-ups) still lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
 **Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
 
 ## Commands
