@@ -2530,3 +2530,87 @@
 .provider-auth-banner {
   white-space: normal;
 }
+
+/* ── Phase 4: provider-auth OAuth login flow sub-section ──
+ * Additive only — plan 04-03 un-stubs the OAuth radio + adds the
+ * "Login with OAuth" button + the OAuth flow sub-section (auth-URL display,
+ * manual-code paste box, complete/error states). Reuses the Phase 3
+ * provider-auth-* classes (the paste box's <input> reuses
+ * .provider-auth-key-input; its button + the Done/Dismiss buttons reuse
+ * .provider-auth-save-btn) and the tools-panel-error class for the error
+ * state. No global rule changes, no overrides of existing classes.
+ */
+
+/* The "no OAuth subsystem for this provider" hint next to the OAuth radio —
+ * shown when the selected provider is not one pi-ai ships OAuth for. */
+.provider-auth-oauth-unavailable {
+  font-size: 10px;
+  font-style: italic;
+  color: rgba(255, 176, 0, 0.7);
+}
+
+/* The "Login with OAuth" button — mirrors .provider-auth-save-btn. */
+.provider-auth-login-btn {
+  background: rgba(0, 255, 65, 0.18);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.provider-auth-login-btn:hover:not([disabled]) {
+  background: rgba(0, 255, 65, 0.28);
+}
+
+.provider-auth-login-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The OAuth flow sub-section container — a subtle separator from the
+ * auth-mode controls above. */
+.provider-auth-oauth-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 255, 65, 0.15);
+}
+
+/* A progress / status line — small, muted; mirrors .provider-auth-status-*. */
+.provider-auth-oauth-status {
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.7);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* The auth-URL link — the dashboard's link colour; break-all so a long
+ * provider URL wraps inside the narrow panel. */
+.provider-auth-oauth-url {
+  color: var(--terminal-green);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.provider-auth-oauth-url:hover {
+  color: rgba(0, 255, 65, 0.8);
+}
+
+/* The manual-code paste row — the <input> + the 'Submit code' button,
+ * mirroring the api_key input + Save layout. */
+.provider-auth-oauth-code-box {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.provider-auth-oauth-code-box .provider-auth-key-input {
+  flex: 1;
+}
