@@ -210,7 +210,7 @@ describe('createSession — real Pi adapter (M3 PR-S)', () => {
       },
       snapshot: () => ({
         records: [],
-        totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost_usd: 0 },
       }),
       subscribe: () => () => undefined,
     };
