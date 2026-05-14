@@ -38,13 +38,15 @@ if ! echo "$HELP_OUTPUT" | grep -q 'swt — stop-wasting-tokens'; then
   echo "Output was: $HELP_OUTPUT" >&2
   exit 1
 fi
-for cmd in vibe dashboard status doctor detect-phase update; do
+# `cook` is the v3 orchestrator verb (renamed from `vibe` in Phase G — this
+# script was missed in that rename).
+for cmd in cook dashboard status doctor detect-phase update; do
   if ! echo "$HELP_OUTPUT" | grep -qE "^  ${cmd}( |$)"; then
     echo "✗ swt help missing expected command: ${cmd}" >&2
     exit 1
   fi
 done
-echo "  ✓ swt help lists vibe / dashboard / status / doctor / detect-phase / update"
+echo "  ✓ swt help lists cook / dashboard / status / doctor / detect-phase / update"
 
 # 4. detect-phase round-trips
 #    (real command — emits a phase-detect dump even outside an SWT project)
