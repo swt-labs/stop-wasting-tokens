@@ -19,6 +19,7 @@
     "@swt-labs/core": "workspace:*",
     "@swt-labs/shared": "workspace:*",
     "@napi-rs/keyring": "1.3.0",
+    "@earendil-works/pi-ai": "^0.74.0",
     "@earendil-works/pi-coding-agent": "^0.74.0"
   },
   "peerDependencies": {
