@@ -268,3 +268,25 @@ export type {
   ResolveCredentialStoreOptions,
   ResolvedCredentialStore,
 } from './credentials/index.js';
+
+// Plan 04-02 (Phase 4): OAuth login flow — the pi-ai OAuth subsystem driver
+// (runOAuthLoginFlow bridges pi-ai's OAuthLoginCallbacks onto SWT emitter
+// callbacks) + the keychain OAuthCredentials storage helpers
+// (storeOAuthCredentials / readOAuthCredentials persist the serialized blob
+// under swt:<provider>:oauth via Phase 1's CredentialStore). getOAuthProvider
+// is re-exported from @earendil-works/pi-ai/oauth so the dashboard's
+// /api/provider-auth/oauth/* routes (plan 04-02) can run their up-front
+// supported-provider check through the @swt-labs/runtime edge — no pi-ai
+// dependency on the dashboard. Consumed by 04-04's SWT-owns-refresh module too.
+export {
+  runOAuthLoginFlow,
+  storeOAuthCredentials,
+  readOAuthCredentials,
+  getOAuthProvider,
+} from './credentials/oauth/index.js';
+export type {
+  OAuthLoginFlowOptions,
+  OAuthLoginFlowHandle,
+  OAuthCredentials,
+  OAuthProviderInterface,
+} from './credentials/oauth/index.js';
