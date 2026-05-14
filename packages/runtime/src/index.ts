@@ -123,6 +123,22 @@ export {
   type RateCardSourceOptions,
 } from './budget/rate-card-source.js';
 
+// Phase 3 / Plan 03-01 (G-R4): Pre-spawn cost projector. Pure arithmetic +
+// schema module (no IO, no clock) — turns a resolved system + task prompt
+// plus the per-provider rate card into a USD projection BEFORE a spawn runs.
+// R1 char-heuristic token estimation (zero npm dep), R2 maxTurns-bounded
+// worst-case gating number, R5 cold-default rate-card pricing. Consumed by
+// plan 03-03's `BudgetGate.project()` and wired at the cook callsite by plan
+// 03-04 via `@swt-labs/cli`.
+export {
+  projectSpawnCost,
+  estimateTokens,
+  CHARS_PER_TOKEN,
+  type SpawnProjectionInput,
+  type CostProjection,
+  type ProjectSpawnCostOptions,
+} from './budget/cost-projector.js';
+
 // PR-09: result-protocol + journal extensions (ADR-002 Accepted).
 // The closure-captured `pi.appendEntry` pattern is encoded in `PiExtensionAPI`
 // (see `extensions/pi-types.ts`) — `PiExtensionContext` intentionally has NO
