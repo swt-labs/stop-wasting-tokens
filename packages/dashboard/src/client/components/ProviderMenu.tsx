@@ -16,10 +16,9 @@
  * tools-column slot.
  */
 
-import { type Component } from 'solid-js';
+import { type Component, type JSX } from 'solid-js';
 
 import { Popover } from './Popover.js';
-import { ProviderAuthPanel, type ProviderAuthPanelProps } from './ProviderAuthPanel.js';
 
 export interface ProviderMenuProps {
   /** Open/close-controlled by the parent — ProviderMenu does NOT read the store. */
@@ -27,11 +26,14 @@ export interface ProviderMenuProps {
   /** Called when the popover requests dismissal (Esc, click-outside). */
   onClose: () => void;
   /**
-   * The full `ProviderAuthPanel` prop set, threaded straight through. The
-   * panel is the same props-controlled component the tools column hosted —
-   * this dropdown is purely an exposure change.
+   * The `<ProviderAuthPanel>` element, mounted as the dropdown body. Passed
+   * as a JSX slot (rather than a flat props object) so the panel's reactive
+   * store bindings survive the hand-off — exactly the slot idiom OptionsMenu
+   * uses for `commandsSection` / `settingsSection`. The panel is the same
+   * props-controlled component the tools column hosted; this dropdown is
+   * purely an exposure change.
    */
-  panelProps: ProviderAuthPanelProps;
+  children: JSX.Element;
 }
 
 export const ProviderMenu: Component<ProviderMenuProps> = (props) => {
@@ -43,7 +45,7 @@ export const ProviderMenu: Component<ProviderMenuProps> = (props) => {
       ariaLabel="Provider"
       class="provider-menu"
     >
-      <ProviderAuthPanel {...props.panelProps} />
+      {props.children}
     </Popover>
   );
 };

@@ -4,6 +4,7 @@ import { Show, createMemo, createSignal, For, type Component, type JSX } from 's
 import type { ConnectionState } from '../state/dashboard-store.js';
 
 import { OptionsMenu } from './OptionsMenu.js';
+import { ProviderMenu } from './ProviderMenu.js';
 
 export interface TopBarProps {
   project: ProjectSummary | null;
@@ -36,6 +37,23 @@ export interface TopBarProps {
    * not pass it, OptionsMenu falls back to its Phase-1 'Coming soon' skeleton.
    */
   settingsSection?: JSX.Element;
+  /**
+   * The "Provider ▾" dropdown's store-backed open state. Optional + mirrors
+   * the `optionsMenuOpen` trio: when omitted, TopBar drives the dropdown off
+   * a local signal so it works end-to-end with zero App.tsx edit.
+   */
+  providerMenuOpen?: boolean;
+  /** Store-backed toggle for the Provider dropdown; local-signal fallback when omitted. */
+  onToggleProviderMenu?: () => void;
+  /** Store-backed close for the Provider dropdown; local-signal fallback when omitted. */
+  onCloseProviderMenu?: () => void;
+  /**
+   * The `<ProviderAuthPanel>` element mounted into the "Provider ▾" dropdown
+   * body — passed as a JSX slot so the panel's reactive store bindings
+   * survive the hand-off (same idiom as `commandsSection` / `settingsSection`).
+   * Optional: when omitted the "Provider ▾" trigger is not rendered at all.
+   */
+  providerSection?: JSX.Element;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -162,6 +180,23 @@ export const TopBar: Component<TopBarProps> = (props) => {
     triggerRef?.focus(); // focus-return to the trigger (R5)
   };
 
+  // The "Provider ▾" dropdown — mirrors the Options-menu block above
+  // exactly. The three props are OPTIONAL so TopBar drives the dropdown off
+  // a local signal when App.tsx omits them; `providerTriggerRef` is held so
+  // `closeProviderMenu` can return focus to the trigger button.
+  let providerTriggerRef: HTMLButtonElement | undefined;
+  const [localProviderOpen, setLocalProviderOpen] = createSignal(false);
+  const providerMenuOpen = (): boolean => props.providerMenuOpen ?? localProviderOpen();
+  const toggleProviderMenu = (): void => {
+    if (props.onToggleProviderMenu) props.onToggleProviderMenu();
+    else setLocalProviderOpen((v) => !v);
+  };
+  const closeProviderMenu = (): void => {
+    if (props.onCloseProviderMenu) props.onCloseProviderMenu();
+    else setLocalProviderOpen(false);
+    providerTriggerRef?.focus(); // focus-return to the trigger
+  };
+
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     const selectedVerb = verb();
@@ -256,6 +291,23 @@ export const TopBar: Component<TopBarProps> = (props) => {
         <span class="connection-pill" data-state={props.connection}>
           {PILL_LABEL[props.connection]}
         </span>
+        <Show when={props.providerSection}>
+          <div class="provider-menu-wrapper">
+            <button
+              type="button"
+              class="provider-menu-trigger"
+              ref={providerTriggerRef}
+              aria-haspopup="menu"
+              aria-expanded={providerMenuOpen()}
+              onClick={() => toggleProviderMenu()}
+            >
+              Provider ▾
+            </button>
+            <ProviderMenu open={providerMenuOpen()} onClose={closeProviderMenu}>
+              {props.providerSection}
+            </ProviderMenu>
+          </div>
+        </Show>
         <div class="options-menu-wrapper">
           <button
             type="button"

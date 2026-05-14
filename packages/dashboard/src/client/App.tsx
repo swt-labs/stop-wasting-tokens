@@ -105,6 +105,23 @@ export const App: Component = () => {
         optionsMenuOpen={state.optionsMenuOpen}
         onToggleOptionsMenu={actions.toggleOptionsMenu}
         onCloseOptionsMenu={actions.closeOptionsMenu}
+        providerMenuOpen={state.providerMenuOpen}
+        onToggleProviderMenu={actions.toggleProviderMenu}
+        onCloseProviderMenu={actions.closeProviderMenu}
+        providerSection={
+          <ProviderAuthPanel
+            data={state.tools.providerAuth.data}
+            loading={state.tools.providerAuth.loading}
+            error={state.tools.providerAuth.error}
+            lastFetched={state.tools.providerAuth.lastFetched}
+            onRefresh={() => void actions.refreshToolsCell('providerAuth')}
+            onSave={(body) => actions.applyProviderAuthUpdate(body)}
+            oauthFlow={state.oauthFlow}
+            onStartOAuth={(provider) => actions.startOAuthFlow(provider)}
+            onSubmitOAuthCode={(code) => actions.submitOAuthCode(code)}
+            onDismissOAuthFlow={() => actions.dismissOAuthFlow()}
+          />
+        }
         commandsSection={
           <CommandsSection
             verbs={state.tools.commands.data?.verbs ?? []}
