@@ -87,6 +87,7 @@ import {
   createBudgetGate,
   createRateCardSource,
   projectSpawnCost,
+  resolveCredentialStore,
   type AskUserResponse,
   type BudgetGate,
   type BudgetProjectionResult,
@@ -94,7 +95,12 @@ import {
 } from '@swt-labs/runtime';
 import type { CookEvent } from '@swt-labs/shared';
 
-import { parseAuthConfig, DEFAULT_AUTH_CONFIG, type AuthConfig } from './auth-config.js';
+import {
+  parseAuthConfig,
+  DEFAULT_AUTH_CONFIG,
+  type AuthConfig,
+  type AuthMode,
+} from './auth-config.js';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
@@ -2083,6 +2089,64 @@ export function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy
           : {}),
       };
     }
+  }
+}
+
+/**
+ * Plan 02-04 (Phase 2 / Selection → Spawn Wiring) — resolve the OS-keychain
+ * credential for `provider` from the per-project `auth` config block, at
+ * spawn time.
+ *
+ * Graceful degrade is the spine of this helper: it returns `undefined`
+ * (NOT an error) whenever a credential cannot be resolved — no `auth` entry
+ * for the provider, no keychain entry, or a headless host where Phase 1's
+ * env-fallback found no `<PROVIDER>_API_KEY`. An `undefined` return means the
+ * spawn proceeds byte-identical to pre-Phase-2 (Pi falls through to its own
+ * `auth.json` + env-var resolution). The credential VALUE is NEVER logged,
+ * NEVER written anywhere — it is returned in-memory and threaded straight
+ * into `spawnArgs`.
+ *
+ * Risk 3 — `credentialRef` is the global `swt:<provider>:<authMode>` namespace.
+ * When `auth.<provider>.credentialRef` is omitted, `CredentialStore.get` does
+ * the `encodeAccount(provider, mode)` derivation internally — so the
+ * omitted-`credentialRef` case is just `store.get(provider, entry.mode)`.
+ * Phase 2 resolves the credential the `auth` entry's `mode` points at; the
+ * common case (and the only one a minimal `auth` block produces) is the
+ * derived default. A non-default `credentialRef` pointing at a DIFFERENT
+ * provider/authMode pair is a Phase 3+ concern — Phase 2's contract is "the
+ * helper resolves the secret for the configured `mode`".
+ *
+ * Exported (not module-private) so `cook-auth-wiring.test.ts` can unit-test
+ * the resolve / graceful-degrade branches directly with the keychain mocked
+ * — mirroring the other `cook.ts` internals (`runSpawnWithFallback`,
+ * `evaluateQaGate`, `loadCookConfig`) exported for the same reason.
+ */
+export async function resolveSpawnCredential(
+  provider: string,
+  authConfig: AuthConfig,
+): Promise<
+  { provider: string; resolvedCredential: { authMode: AuthMode; secret: string } } | undefined
+> {
+  const entry = authConfig[provider];
+  if (entry === undefined) return undefined; // no auth block for this provider — degrade
+
+  try {
+    // `resolveCredentialStore()` is Phase 1's Phase-2 entry point: it probes
+    // the OS keychain and returns a keychain-backed store when available, the
+    // read-only env-var fallback otherwise (headless hosts). Neither the probe
+    // nor `store.get` throws — but the try/catch is the belt-and-braces net.
+    const { store } = await resolveCredentialStore();
+    // `store.get(provider, mode)` does the `encodeAccount(provider, mode)`
+    // derivation internally — so the omitted-`credentialRef` case (the common
+    // Phase 2 case) needs nothing more than the provider + mode.
+    const secret = await store.get(provider, entry.mode);
+    if (secret === undefined || secret.length === 0) return undefined; // keychain miss — degrade
+    return { provider, resolvedCredential: { authMode: entry.mode, secret } };
+  } catch {
+    // resolveCredentialStore / store.get should not throw (Phase 1's probe
+    // never throws; the env-fallback's get never throws) — but if anything
+    // unexpected does, degrade gracefully rather than failing the cook turn.
+    return undefined;
   }
 }
 
