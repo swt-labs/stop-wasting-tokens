@@ -412,32 +412,13 @@ export const App: Component = () => {
                 </Resizable.Panel>
                 <Resizable.Handle
                   class="resizable-handle resizable-handle-v"
-                  aria-label="Resize update / provider-auth"
+                  aria-label="Resize update / user-notes"
                 />
+                {/* ProviderAuthPanel was the 5th tools-column slot; it now
+                    lives in the TopBar "Provider ▾" dropdown (no
+                    duplication). The tools column is back to 5 panels. */}
                 <Resizable.Panel
                   initialSize={initialLayout.tools[4]}
-                  minSize={0.1}
-                  class="resizable-panel"
-                >
-                  <ProviderAuthPanel
-                    data={state.tools.providerAuth.data}
-                    loading={state.tools.providerAuth.loading}
-                    error={state.tools.providerAuth.error}
-                    lastFetched={state.tools.providerAuth.lastFetched}
-                    onRefresh={() => void actions.refreshToolsCell('providerAuth')}
-                    onSave={(body) => actions.applyProviderAuthUpdate(body)}
-                    oauthFlow={state.oauthFlow}
-                    onStartOAuth={(provider) => actions.startOAuthFlow(provider)}
-                    onSubmitOAuthCode={(code) => actions.submitOAuthCode(code)}
-                    onDismissOAuthFlow={() => actions.dismissOAuthFlow()}
-                  />
-                </Resizable.Panel>
-                <Resizable.Handle
-                  class="resizable-handle resizable-handle-v"
-                  aria-label="Resize provider-auth / user-notes"
-                />
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[5]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
