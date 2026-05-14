@@ -327,6 +327,49 @@ const CookWorktreeIsolationWarningEvent = z.object({
   parallel_plans: z.number().int().nonnegative(),
 });
 
+// Plan 02-04 (Phase 2 / G-R3) — provider-router telemetry on the cook events
+// JSONL channel. `cook.provider_selected` fires once per spawn after the
+// router resolves the primary provider; `selected_via` records which strategy
+// variant picked it (the 'tier-routed-compound:fallback-strategy' composition
+// hint distinguishes a map-hit from a fallbackStrategy delegation per R3).
+// The optional rate-card / dimension / tier fields are populated only for the
+// strategy variants that carry them. Per R5 — pure addition to the union;
+// the dashboard reducer's unknown-type-no-op behaviour makes it safe.
+const CookProviderSelectedEvent = z.object({
+  type: z.literal('cook.provider_selected'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  sub_session_id: z.string().min(1),
+  selected_provider: z.string().min(1),
+  selected_via: z.enum([
+    'pinned',
+    'round-robin',
+    'tier-routed',
+    'cost-optimized',
+    'tier-routed-compound',
+    'cost-optimized-rate-card',
+    'tier-routed-compound:fallback-strategy',
+  ]),
+  tier: z.string().optional(),
+  rate_card_age_ms: z.number().int().nonnegative().optional(),
+  rate_card_source: z.enum(['embedded', 'project-override', 'fetched']).optional(),
+  dimension: z.enum(['input', 'output', 'blended']).optional(),
+});
+
+// Plan 02-04 (Phase 2 / G-R3) — promotes the existing stderr-only
+// `provider.fallback_fired` to a JSONL event (dual-emit; stderr stays for
+// human visibility). Fires on every fallback-chain hop.
+const CookProviderFallbackEvent = z.object({
+  type: z.literal('cook.provider_fallback'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  sub_session_id: z.string().min(1),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  reason: z.enum(['503', '429', '500', 'other']),
+  attempt: z.number().int().positive(),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -355,6 +398,8 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookBudgetExceededEvent,
   CookBudgetResumeEvent,
   CookWorktreeIsolationWarningEvent,
+  CookProviderSelectedEvent,
+  CookProviderFallbackEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -400,6 +445,8 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.budget_exceeded',
   'cook.budget_resume',
   'cook.worktree_isolation_warning',
+  'cook.provider_selected',
+  'cook.provider_fallback',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
@@ -409,6 +456,11 @@ export type CookEvent = Extract<SnapshotEvent, { type: `cook.${string}` }>;
 export type CookMode = z.infer<typeof CookModeSchema>;
 export type CookEventAgentRole = z.infer<typeof CookAgentRoleSchema>;
 export type CookUsage = z.infer<typeof CookUsageSchema>;
+// Plan 02-04 (Phase 2 / G-R3) — inferred TS types for the provider-router
+// telemetry events; the cook.ts emitter + (future) dashboard reducer narrow
+// on these.
+export type CookProviderSelectedEvent = z.infer<typeof CookProviderSelectedEvent>;
+export type CookProviderFallbackEvent = z.infer<typeof CookProviderFallbackEvent>;
 export {
   CookModeSchema,
   CookAgentRoleSchema,
@@ -427,4 +479,6 @@ export {
   CookTaskCompleteEvent as CookTaskCompleteEventSchema,
   CookTaskFailEvent as CookTaskFailEventSchema,
   CookResumeEvent as CookResumeEventSchema,
+  CookProviderSelectedEvent as CookProviderSelectedEventSchema,
+  CookProviderFallbackEvent as CookProviderFallbackEventSchema,
 };

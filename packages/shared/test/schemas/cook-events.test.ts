@@ -49,6 +49,12 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       // phase carries 2+ parallel plans (Phase 4 Wave 2 staging-race
       // mitigation signal).
       'cook.worktree_isolation_warning',
+      // Plan 02-04 (Phase 2 / G-R3) — provider-router telemetry:
+      // cook.provider_selected fires per spawn with the strategy provenance;
+      // cook.provider_fallback dual-emits the stderr-only fallback transition
+      // onto the JSONL channel.
+      'cook.provider_selected',
+      'cook.provider_fallback',
     ]);
   });
 
@@ -212,6 +218,103 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       mode: 'execute',
     };
     expect(ev.type.startsWith('cook.')).toBe(true);
+  });
+
+  it('cook.provider_selected parses with required + strategy-specific optional fields', () => {
+    // Minimal pinned spawn — only the required fields.
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_selected',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        selected_provider: 'anthropic',
+        selected_via: 'pinned',
+      }).success,
+    ).toBe(true);
+
+    // cost-optimized-rate-card carries dimension + rate_card_* metadata.
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_selected',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        selected_provider: 'openrouter',
+        selected_via: 'cost-optimized-rate-card',
+        dimension: 'input',
+        rate_card_source: 'embedded',
+        rate_card_age_ms: 86_400_000,
+      }).success,
+    ).toBe(true);
+
+    // tier-routed-compound:fallback-strategy composition hint is accepted.
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_selected',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        selected_provider: 'openai',
+        selected_via: 'tier-routed-compound:fallback-strategy',
+        tier: 'standard-fast',
+      }).success,
+    ).toBe(true);
+
+    // Unknown selected_via value is rejected.
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_selected',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        selected_provider: 'anthropic',
+        selected_via: 'magic',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('cook.provider_fallback parses with from/to/reason/attempt', () => {
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_fallback',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        from: 'anthropic',
+        to: 'openai',
+        reason: '503',
+        attempt: 2,
+      }).success,
+    ).toBe(true);
+
+    // attempt must be a positive integer.
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_fallback',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        from: 'anthropic',
+        to: 'openai',
+        reason: '503',
+        attempt: 0,
+      }).success,
+    ).toBe(false);
+
+    // reason must be one of the recognised classifications.
+    expect(
+      SnapshotEventSchema.safeParse({
+        type: 'cook.provider_fallback',
+        ts: TS,
+        session_id: SID,
+        sub_session_id: SUB,
+        from: 'anthropic',
+        to: 'openai',
+        reason: '418',
+        attempt: 1,
+      }).success,
+    ).toBe(false);
   });
 
   it('cook.askUser_* discriminators do NOT exist (use prompt.request/response)', () => {
