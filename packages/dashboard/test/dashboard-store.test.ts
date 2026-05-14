@@ -4,6 +4,7 @@ import type {
   DetectPhaseReport,
   DoctorReport,
   InitResponse,
+  ProviderAuthSnapshot,
   Snapshot,
   UpdateReport,
 } from '@swt-labs/shared';
@@ -25,6 +26,8 @@ const fetchUpdateMock = vi.fn();
 const fetchCommandsMock = vi.fn();
 const postConfigMock = vi.fn();
 const postUpdateApplyMock = vi.fn();
+const fetchProviderAuthMock = vi.fn();
+const postProviderAuthMock = vi.fn();
 
 vi.mock('../src/client/services/api.js', () => ({
   fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
@@ -41,6 +44,8 @@ vi.mock('../src/client/services/api.js', () => ({
   fetchCommands: (...args: unknown[]) => fetchCommandsMock(...args),
   postConfig: (...args: unknown[]) => postConfigMock(...args),
   postUpdateApply: (...args: unknown[]) => postUpdateApplyMock(...args),
+  fetchProviderAuth: (...args: unknown[]) => fetchProviderAuthMock(...args),
+  postProviderAuth: (...args: unknown[]) => postProviderAuthMock(...args),
 }));
 
 vi.mock('../src/client/services/sse.js', () => ({
@@ -80,6 +85,8 @@ beforeEach(() => {
   fetchCommandsMock.mockReset();
   postConfigMock.mockReset();
   postUpdateApplyMock.mockReset();
+  fetchProviderAuthMock.mockReset();
+  postProviderAuthMock.mockReset();
   openSseConnectionMock.mockReturnValue({ close: () => {} });
 });
 
@@ -569,8 +576,37 @@ function makeUpdateReport(): UpdateReport {
   };
 }
 
+function makeProviderAuthSnapshot(
+  overrides: Partial<ProviderAuthSnapshot> = {},
+): ProviderAuthSnapshot {
+  return {
+    selected_provider: 'anthropic',
+    strategy_kind: 'pinned',
+    keychain_available: true,
+    keychain_reason: null,
+    statuses: [
+      {
+        provider: 'anthropic',
+        configured: true,
+        mode: 'api_key',
+        source: 'keychain',
+        label: 'Keychain',
+      },
+      {
+        provider: 'openai',
+        configured: false,
+        mode: null,
+        source: null,
+        label: null,
+      },
+    ],
+    generated_at: '2026-05-14T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
 describe('tools sub-state', () => {
-  it('initializes all five cells empty (config, doctor, detectPhase, update, commands)', async () => {
+  it('initializes all six cells empty (config, doctor, detectPhase, update, commands, providerAuth)', async () => {
     await createRoot(async (dispose) => {
       const [state] = createDashboardStore();
       expect(state.tools.config.data).toBeNull();
@@ -581,11 +617,15 @@ describe('tools sub-state', () => {
       expect(state.tools.detectPhase.data).toBeNull();
       expect(state.tools.update.data).toBeNull();
       expect(state.tools.commands.data).toBeNull();
+      expect(state.tools.providerAuth.data).toBeNull();
+      expect(state.tools.providerAuth.loading).toBe(false);
+      expect(state.tools.providerAuth.error).toBeNull();
+      expect(state.tools.providerAuth.lastFetched).toBeNull();
       dispose();
     });
   });
 
-  it('bootstrap on initialized snapshot triggers refreshTools (all 5 cells fetch)', async () => {
+  it('bootstrap on initialized snapshot triggers refreshTools (all 6 cells fetch)', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
@@ -593,6 +633,7 @@ describe('tools sub-state', () => {
       fetchDoctorMock.mockResolvedValue(makeDoctorReport());
       fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
       fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
       fetchCommandsMock.mockResolvedValue({
         verbs: [
           {
@@ -614,8 +655,10 @@ describe('tools sub-state', () => {
       expect(fetchDetectPhaseMock).toHaveBeenCalledTimes(1);
       expect(fetchUpdateMock).toHaveBeenCalledTimes(1);
       expect(fetchCommandsMock).toHaveBeenCalledTimes(1);
+      expect(fetchProviderAuthMock).toHaveBeenCalledTimes(1);
       expect(state.tools.config.data).not.toBeNull();
       expect(state.tools.commands.data?.verbs).toHaveLength(1);
+      expect(state.tools.providerAuth.data).not.toBeNull();
       expect(state.tools.config.lastFetched).toBeTypeOf('string');
       actions.shutdown();
       dispose();
@@ -647,6 +690,7 @@ describe('tools sub-state', () => {
       expect(fetchDoctorMock).not.toHaveBeenCalled();
       expect(fetchDetectPhaseMock).not.toHaveBeenCalled();
       expect(fetchUpdateMock).not.toHaveBeenCalled();
+      expect(fetchProviderAuthMock).not.toHaveBeenCalled();
       expect(state.tools.config.data).not.toBeNull();
       expect(state.tools.config.loading).toBe(false);
       dispose();
@@ -661,6 +705,7 @@ describe('tools sub-state', () => {
       fetchDoctorMock.mockRejectedValue(new Error('codex missing'));
       fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
       fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
       await actions.bootstrap();
       await Promise.resolve();
       await Promise.resolve();
@@ -670,6 +715,7 @@ describe('tools sub-state', () => {
       expect(state.tools.doctor.data).toBeNull();
       expect(state.tools.detectPhase.data).not.toBeNull();
       expect(state.tools.update.data).not.toBeNull();
+      expect(state.tools.providerAuth.data).not.toBeNull();
       actions.shutdown();
       dispose();
     });
@@ -813,6 +859,131 @@ describe('applyConfigUpdate', () => {
         expect(result.error).toMatch(/invalid_config_schema/);
       }
       expect(state.tools.config.error).toMatch(/invalid_config_schema/);
+      dispose();
+    });
+  });
+});
+
+/* ── Phase 3: providerAuth tools-cell + SSE refetch ─────────────────── */
+
+describe('providerAuth tools-cell', () => {
+  it("refreshToolsCell('providerAuth') populates the cell from fetchProviderAuth", async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      const snap = makeProviderAuthSnapshot();
+      fetchProviderAuthMock.mockResolvedValue(snap);
+      await actions.refreshToolsCell('providerAuth');
+      expect(fetchProviderAuthMock).toHaveBeenCalledTimes(1);
+      // Only the providerAuth fetcher fired — the others are untouched.
+      expect(fetchConfigMock).not.toHaveBeenCalled();
+      expect(fetchDoctorMock).not.toHaveBeenCalled();
+      expect(state.tools.providerAuth.data).toEqual(snap);
+      expect(state.tools.providerAuth.loading).toBe(false);
+      expect(state.tools.providerAuth.error).toBeNull();
+      expect(state.tools.providerAuth.lastFetched).toBeTypeOf('string');
+      dispose();
+    });
+  });
+
+  it('refreshTools() includes providerAuth in its parallel batch', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      // refreshTools short-circuits unless the snapshot is initialized —
+      // seed it via snapshot.replace the same way other refreshTools paths do.
+      actions.applyEvent({
+        type: 'snapshot.replace',
+        snapshot: makeSnapshot({ is_initialized: true }),
+      });
+      fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+      fetchDoctorMock.mockResolvedValue(makeDoctorReport());
+      fetchDetectPhaseMock.mockResolvedValue(makeDetectPhaseReport());
+      fetchUpdateMock.mockResolvedValue(makeUpdateReport());
+      fetchCommandsMock.mockResolvedValue({
+        verbs: [],
+        generated_at: '2026-05-10T12:00:00.000Z',
+      });
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
+      await actions.refreshTools();
+      expect(fetchProviderAuthMock).toHaveBeenCalledTimes(1);
+      expect(state.tools.providerAuth.data).not.toBeNull();
+      dispose();
+    });
+  });
+
+  it('applyProviderAuthUpdate on success optimistically updates the cell from response.snapshot', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      const snap = makeProviderAuthSnapshot({ selected_provider: 'openai' });
+      postProviderAuthMock.mockResolvedValue({
+        ok: true,
+        snapshot: snap,
+        generated_at: '2026-05-14T13:00:00.000Z',
+      });
+      const result = await actions.applyProviderAuthUpdate({
+        provider: 'openai',
+        authMode: 'api_key',
+        apiKey: 'sk-x',
+      });
+      expect(result).toEqual({ ok: true });
+      expect(postProviderAuthMock).toHaveBeenCalledTimes(1);
+      expect(state.tools.providerAuth.data).toEqual(snap);
+      expect(state.tools.providerAuth.loading).toBe(false);
+      expect(state.tools.providerAuth.error).toBeNull();
+      expect(state.tools.providerAuth.lastFetched).toBe('2026-05-14T13:00:00.000Z');
+      dispose();
+    });
+  });
+
+  it('applyProviderAuthUpdate on POST failure sets the cell error, pushes to errors[], returns {error}', async () => {
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      postProviderAuthMock.mockRejectedValue(new Error('keychain_unavailable: no Secret Service'));
+      const result = await actions.applyProviderAuthUpdate({
+        provider: 'anthropic',
+        authMode: 'api_key',
+        apiKey: 'sk-y',
+      });
+      expect('error' in result).toBe(true);
+      if ('error' in result) {
+        expect(result.error).toMatch(/keychain_unavailable/);
+      }
+      expect(state.tools.providerAuth.error).toMatch(/keychain_unavailable/);
+      expect(state.tools.providerAuth.loading).toBe(false);
+      expect(state.errors.at(-1)?.message).toMatch(/keychain_unavailable/);
+      dispose();
+    });
+  });
+
+  it("state.changed with changed:['provider-auth'] refetches the providerAuth cell", async () => {
+    await createRoot(async (dispose) => {
+      const [, actions] = createDashboardStore();
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
+      // The schema enum doesn't include 'provider-auth' yet — cast through
+      // unknown to exercise the store's forward-compatible string check.
+      actions.applyEvent({
+        type: 'state.changed',
+        changed: ['provider-auth'],
+      } as unknown as Parameters<typeof actions.applyEvent>[0]);
+      await Promise.resolve();
+      expect(fetchProviderAuthMock).toHaveBeenCalledTimes(1);
+      dispose();
+    });
+  });
+
+  it("state.changed with changed:['config'] refetches BOTH config AND providerAuth", async () => {
+    await createRoot(async (dispose) => {
+      const [, actions] = createDashboardStore();
+      fetchConfigMock.mockResolvedValue(makeConfigSnapshot());
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
+      actions.applyEvent({
+        type: 'state.changed',
+        changed: ['config'],
+      });
+      await Promise.resolve();
+      // The existing config refetch is not regressed...
+      expect(fetchConfigMock).toHaveBeenCalledTimes(1);
+      // ...and the combined condition also refetches providerAuth.
+      expect(fetchProviderAuthMock).toHaveBeenCalledTimes(1);
       dispose();
     });
   });
