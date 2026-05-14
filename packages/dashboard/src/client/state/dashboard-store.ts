@@ -176,6 +176,12 @@ export interface DashboardState {
   vibeSession: VibeSessionState | null;
   vibeStarting: boolean;
   vibeReplying: boolean;
+  /**
+   * Phase 1 (Dashboard Options Menu) — whether the TopBar "Options ▾" dropdown
+   * is open. Pure client UI state: no SSE event, no tools-cell, no polling.
+   * The canonical home so later phases / other components can observe it.
+   */
+  optionsMenuOpen: boolean;
   errors: DashboardErrorEntry[];
   tools: ToolsState;
   /**
@@ -257,6 +263,12 @@ export interface DashboardActions {
   submitOAuthCode: (code: string) => Promise<{ ok: true } | { error: string }>;
   /** Plan 04-03 (Phase 4): clear the `oauthFlow` signal back to `null`. */
   dismissOAuthFlow: () => void;
+  /** Phase 1 — open the TopBar Options dropdown. */
+  openOptionsMenu: () => void;
+  /** Phase 1 — close the TopBar Options dropdown. */
+  closeOptionsMenu: () => void;
+  /** Phase 1 — toggle the TopBar Options dropdown. */
+  toggleOptionsMenu: () => void;
   /**
    * v2.3 Phase 03: trigger `npm i -g stop-wasting-tokens@latest` server-side.
    * On success, refreshes the Update cell. Elevation case (EACCES) returns
@@ -316,6 +328,7 @@ export function createDashboardStore(
     vibeSession: null,
     vibeStarting: false,
     vibeReplying: false,
+    optionsMenuOpen: false,
     errors: [],
     tools: {
       config: emptyToolsCell<ConfigSnapshot>(),
@@ -881,6 +894,22 @@ export function createDashboardStore(
     setState('uatModal', null);
   };
 
+  /* ── Phase 1 (Dashboard Options Menu) — TopBar dropdown open/close ──
+   * Pure client UI state. No SSE event, no tools-cell, no polling, and
+   * `shutdown()` does not touch it — the document listeners live in
+   * `OptionsMenu`'s own `onCleanup`, not at the store level.
+   */
+
+  const openOptionsMenu = (): void => {
+    setState('optionsMenuOpen', true);
+  };
+  const closeOptionsMenu = (): void => {
+    setState('optionsMenuOpen', false);
+  };
+  const toggleOptionsMenu = (): void => {
+    setState('optionsMenuOpen', !state.optionsMenuOpen);
+  };
+
   const submitUatCheckpoint = async (result: 'pass' | 'fail', note?: string): Promise<void> => {
     const modal = state.uatModal;
     if (!modal) return;
@@ -1272,6 +1301,9 @@ export function createDashboardStore(
       startOAuthFlow,
       submitOAuthCode,
       dismissOAuthFlow,
+      openOptionsMenu,
+      closeOptionsMenu,
+      toggleOptionsMenu,
       applyUpdate,
       pushError,
       shutdown,
