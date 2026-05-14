@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# KNOWN-FAILING: see PHASE_G_ROADMAP G-M4-FOLLOWUP-2 — vendored hook scripts
+# (file-guard.sh / session-start.sh / session-stop.sh / prompt-preflight.sh) read
+# the pre-rename VBW_* workspace vars while lib/swt-config-root.sh exports SWT_*;
+# the gitignored-vendored-script fix is escalated to Phase G. The drift portion of
+# this test (the v3 dispatcher payload shape in the start_active_agent_session /
+# run_sidechain_agent_hook helpers) IS reconciled by plan 04-04.
+
 # verify-delegation-guard.sh — Tests for orchestrator delegation guard in file-guard.sh
 #
 # Verifies that the guard:
@@ -139,12 +146,17 @@ write_live_execute_state() {
 run_sidechain_agent_hook() {
   local hook_script="$1"
   local input
-  input=$(jq -n '{agent_type:"swt:swt-dev", pid:"12345"}')
+  # v3 dispatcher payload shape (commit 6dbee8d): agent-start.sh / agent-stop.sh
+  # consume `.sessionId` / `.role` / `.installRoot`, not the legacy
+  # `{agent_type, pid}` shape. pid is threaded via $SWT_AGENT_PID.
+  input=$(jq -n --arg iroot "$ROOT" \
+    '{sessionId:"sidechain-session", role:"dev", installRoot:$iroot}')
 
   (
     cd "$SIDECHAIN"
     unset VBW_CONFIG_ROOT VBW_PLANNING_DIR
-    CLAUDE_CONFIG_DIR="$TMPDIR_BASE/claude" \
+    SWT_AGENT_PID="12345" \
+      CLAUDE_CONFIG_DIR="$TMPDIR_BASE/claude" \
       CLAUDE_PLUGIN_ROOT="$ROOT" \
       bash "$HOOK_WRAPPER" "$hook_script" <<< "$input"
   )

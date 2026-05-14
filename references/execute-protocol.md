@@ -30,7 +30,7 @@ if [ -z "$SWT_INSTALL_ROOT" ] && [ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" 
   SWT_INSTALL_ROOT="${SESSION_LINK}"
 fi
 if [ -z "$SWT_INSTALL_ROOT" ]; then
-  ANY_LINK=$(command find -H /tmp -maxdepth 1 -name '.swt-plugin-root-link-*' -print 2>/dev/null | LC_ALL=C sort | while IFS= read -r link; do
+  ANY_LINK=$(command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*' -print 2>/dev/null | LC_ALL=C sort | while IFS= read -r link; do
     if [ -f "$link/scripts/hook-wrapper.sh" ]; then
       printf '%s\n' "$link"
       break

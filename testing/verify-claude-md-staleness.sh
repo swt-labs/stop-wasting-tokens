@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# KNOWN-FAILING: see PHASE_G_ROADMAP G-M4-FOLLOWUP-1 — Tests 4 & 8 fail because the
+# vendored scripts/check-claude-md-staleness.sh resolves the installed version only
+# from .claude-plugin/plugin.json / VERSION (neither exists in SWT v3 — the version
+# lives in package.json). The gitignored-vendored-script fix is escalated to Phase G.
+# The drift portion of this test (Test 7's ## VBW Rules -> ## SWT Rules fixture) IS
+# reconciled by plan 04-04.
+
 # verify-claude-md-staleness.sh — Tests for CLAUDE.md VBW section staleness detection
 #
 # Tests:
@@ -40,6 +47,12 @@ fail() {
 }
 
 current_version() {
+  # NOTE (G-M4-FOLLOWUP-1): this MUST mirror check-claude-md-staleness.sh's
+  # version-resolution chain. v3's published version lives in the root
+  # package.json, but the staleness detector only checks .claude-plugin/plugin.json
+  # and VERSION (neither exists in SWT v3). When the detector is fixed to read
+  # package.json (see PHASE_G_ROADMAP G-M4-FOLLOWUP-1), add the matching
+  # `elif [ -f "$ROOT/package.json" ]` branch here so Test 5 stays consistent.
   local ver=""
   if [ -f "$ROOT/.claude-plugin/plugin.json" ]; then
     ver=$(jq -r '.version // ""' "$ROOT/.claude-plugin/plugin.json" 2>/dev/null) || ver=""
