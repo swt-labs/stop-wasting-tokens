@@ -1,13 +1,15 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import { resolveCredentialStore } from '@swt-labs/runtime';
 import {
   PROVIDER_VOCABULARY,
   ProviderAuthSnapshotSchema,
+  ProviderAuthUpdateBodySchema,
   type ProviderAuthMode,
   type ProviderAuthSnapshot,
   type ProviderAuthStatus,
+  type ProviderAuthUpdateResponse,
 } from '@swt-labs/shared';
 import type { Hono } from 'hono';
 
@@ -217,9 +219,7 @@ async function buildSnapshot(cwd: string): Promise<ProviderAuthSnapshot> {
  * token middleware (already wired on `/api/*`) covers both routes.
  */
 export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus): void {
-  // `bus` is consumed by the POST handler (added in 03-02-T3) to publish a
-  // `state.changed` SSE event after a successful credential/config write.
-  void bus;
+  const cfgPath = join(cwd, PLANNING_DIR, CONFIG_FILENAME);
 
   /**
    * GET /api/provider-auth — the secret-free provider-auth snapshot.
@@ -244,5 +244,188 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
       return c.json({ error: 'provider_auth_read_failed', detail: message }, 500);
     }
     return c.json(snapshot);
+  });
+
+  /**
+   * POST /api/provider-auth — the credential-WRITE route.
+   *
+   * RISK 7 — gated by BOTH:
+   *   1. the per-boot `Bearer` token, already enforced by the `requireToken`
+   *      middleware on every `/api/*` request (wired in `server/index.ts` —
+   *      NOT re-implemented here); AND
+   *   2. an explicit `X-SWT-Credential-Write: confirm` request header THIS
+   *      handler checks — if absent or not exactly `'confirm'`, the route
+   *      returns 403 BEFORE touching the body, the keychain, or the config.
+   *
+   * `config.ts:88-91` deliberately declined `DashboardPermissionGate` for
+   * plain config edits because that gate is keyed to active vibe-session
+   * agent-mediated approvals — meaningless for a direct user button-click,
+   * and a credential-write is still a direct user action, not an agent
+   * action. But `config.ts`'s "localhost + user-initiated is enough"
+   * reasoning was written for a NON-secret file; a credential-WRITE route is
+   * a higher bar (research §6 — an attacker on the loopback port holding the
+   * token could otherwise swap in their own key). So this handler adds the
+   * `X-SWT-Credential-Write` header as a cheap confused-deputy / CSRF-style
+   * mitigation — a drive-by or cross-origin request with the token still
+   * won't carry the custom header. It is deliberately still NOT the full
+   * `DashboardPermissionGate`. The loopback-only binding stays the primary
+   * defense.
+   *
+   * Handling order: header gate -> body validation -> provider-vocabulary
+   * check -> `oauth` -> clean 501 (Phase 4 territory; writes nothing) ->
+   * keychain write (api_key path; 409 on keychain-unavailable, BEFORE the
+   * config write so a keychain failure leaves config.json untouched) ->
+   * atomic config write (preserving every other key) -> `state.changed` SSE
+   * publish -> respond with a freshly-built, secret-free snapshot.
+   */
+  app.post('/api/provider-auth', async (c) => {
+    // 1. Confirmation-header gate (Risk 7). Checked BEFORE the body, the
+    //    keychain, and the config — nothing happens without it.
+    const confirm = c.req.header('x-swt-credential-write');
+    if (confirm !== 'confirm') {
+      return c.json(
+        {
+          error: 'credential_write_confirmation_required',
+          detail:
+            'POST /api/provider-auth requires the X-SWT-Credential-Write: confirm header.',
+        },
+        403,
+      );
+    }
+
+    // 2. Body validation against the 03-01 shared schema (`.strict()`).
+    const raw: unknown = await c.req.json().catch(() => null);
+    const parsed = ProviderAuthUpdateBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json(
+        { error: 'invalid_provider_auth_body', detail: parsed.error.flatten() },
+        400,
+      );
+    }
+    const { provider, authMode } = parsed.data;
+
+    // 3. Provider must be in the canonical vocabulary.
+    if (!(PROVIDER_VOCABULARY as readonly string[]).includes(provider)) {
+      return c.json({ error: 'unknown_provider', detail: provider }, 400);
+    }
+
+    // 4. `oauth` is Phase 4 territory — refuse cleanly, write NOTHING.
+    if (authMode === 'oauth') {
+      return c.json(
+        {
+          error: 'oauth_not_yet_supported',
+          detail: 'OAuth login lands in a future release.',
+        },
+        501,
+      );
+    }
+
+    // 5/6. Keychain write — `api_key` path. With an `apiKey`: write it to the
+    // keychain. Without one (re-selection keeping the existing entry): skip
+    // the keychain write entirely. CRUCIAL: the keychain write happens BEFORE
+    // the config write, so a keychain failure leaves config.json untouched.
+    if (parsed.data.apiKey !== undefined) {
+      const { store } = await resolveCredentialStore();
+      // The secret lives in this local `const` for exactly the duration of
+      // the one `store.set()` call below. It is NEVER logged, NEVER put in a
+      // response or an error message, and NEVER written to config.json.
+      const apiKey = parsed.data.apiKey;
+      try {
+        await store.set(provider, 'api_key', apiKey);
+      } catch (err) {
+        // Phase 1's env-fallback backend's `set` rejects with a clear
+        // "Keychain unavailable on this host — ..." message when the OS
+        // keychain is unavailable (headless / CI / SSH). Surface it as 409;
+        // config.json is left untouched.
+        const message = err instanceof Error ? err.message : String(err);
+        return c.json({ error: 'keychain_unavailable', detail: message }, 409);
+      }
+    }
+
+    // 7. Config write — atomic, preserving every other key (mirrors
+    //    config.ts: read current, mutate a copy, `mkdir -p` + `writeFile`).
+    let config: Record<string, unknown>;
+    try {
+      const current = await readFile(cfgPath, 'utf8');
+      const parsedCurrent: unknown = JSON.parse(current);
+      config =
+        typeof parsedCurrent === 'object' && parsedCurrent !== null
+          ? { ...(parsedCurrent as Record<string, unknown>) }
+          : {};
+    } catch (err) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { code?: string }).code === 'ENOENT'
+      ) {
+        // Greenfield daemon — no config.json yet. Start from an empty object;
+        // `mkdir -p` below creates `.swt-planning/` on demand.
+        config = {};
+      } else {
+        const message = err instanceof Error ? err.message : String(err);
+        return c.json({ error: 'provider_auth_write_failed', detail: message }, 500);
+      }
+    }
+
+    const prevProviders =
+      typeof config['providers'] === 'object' && config['providers'] !== null
+        ? (config['providers'] as Record<string, unknown>)
+        : {};
+    const prevAuth =
+      typeof config['auth'] === 'object' && config['auth'] !== null
+        ? (config['auth'] as Record<string, unknown>)
+        : {};
+    config['providers'] = {
+      ...prevProviders,
+      strategy: { kind: 'pinned', provider },
+    };
+    config['auth'] = {
+      ...prevAuth,
+      // The global `swt:<provider>:<authMode>` credentialRef NAME — Phase 2
+      // Risk 3's fixed naming. ONLY the name is persisted; never the secret.
+      [provider]: { mode: 'api_key', credentialRef: `swt:${provider}:api_key` },
+    };
+
+    try {
+      await mkdir(dirname(cfgPath), { recursive: true });
+      await writeFile(cfgPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: 'provider_auth_write_failed', detail: message }, 500);
+    }
+
+    // 8. Publish `state.changed` so the panel + other tabs refetch.
+    //    NOTE: the `changed` enum in `@swt-labs/shared`'s `StateChangedEvent`
+    //    is `['phase','agents','artifacts','cost','config']` — it does not
+    //    include a `'provider-auth'` member, and this plan must not change
+    //    `packages/shared/**`. `['config']` is a schema-valid subset that
+    //    still triggers a refetch (the panel reads config-derived state),
+    //    mirroring exactly what `config.ts` publishes.
+    if (bus !== undefined) {
+      bus.publish({
+        type: 'state.changed',
+        ts: new Date().toISOString(),
+        changed: ['config'],
+        snapshot: {},
+      });
+    }
+
+    // 9. Respond with a freshly-built snapshot — secret-free by 03-01's
+    //    `ProviderAuthSnapshotSchema` construction. The `apiKey` never
+    //    appears here.
+    let snapshot: ProviderAuthSnapshot;
+    try {
+      snapshot = await buildSnapshot(cwd);
+      ProviderAuthSnapshotSchema.parse(snapshot);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: 'provider_auth_read_failed', detail: message }, 500);
+    }
+    const response: ProviderAuthUpdateResponse = {
+      ok: true,
+      snapshot,
+      generated_at: new Date().toISOString(),
+    };
+    return c.json(response);
   });
 }
