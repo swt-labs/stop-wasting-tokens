@@ -33,6 +33,15 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # The regression suite includes `migration-boot-clean.test.ts`, which
+      # boots the built `dist/cli.mjs`. Without a build step the test throws
+      # "dist/cli.mjs not found". `--max-old-space-size=4096` matches the
+      # release workflow — tsup bundling OOMs on the default heap.
+      - name: Build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm build
+
       - name: Run regression suite
         run: pnpm test:regression
 
