@@ -202,6 +202,9 @@ EOF
 
 test_fix_refreshes_exact_canonical_sections() {
   make_project
+  # v3 canonical section heading is `## SWT Rules` (not the pre-rename
+  # `## VBW Rules`). The staleness detector + refresher key off the v3 heading;
+  # a fixture that uses the old heading would never be matched/replaced in place.
   cat > CLAUDE.md <<'EOF'
 # Custom File
 
@@ -209,7 +212,7 @@ test_fix_refreshes_exact_canonical_sections() {
 
 OLD ACTIVE CONTEXT
 
-## VBW Rules
+## SWT Rules
 
 OLD MANAGED RULES
 
@@ -221,7 +224,7 @@ EOF
   bash "$SCRIPT" --fix >/dev/null 2>&1 || true
 
   if grep -q 'OLD MANAGED RULES\|OLD ACTIVE CONTEXT\|OLD ISOLATION' CLAUDE.md; then
-    fail "7: old canonical VBW content should be replaced in place"
+    fail "7: old canonical SWT content should be replaced in place"
     return
   fi
 
@@ -230,8 +233,9 @@ EOF
     return
   fi
 
-  if ! grep -q 'Always use VBW commands' CLAUDE.md; then
-    fail "7: refreshed VBW Rules content missing"
+  # v3 refresher emits "**Always use SWT commands**" (was "Always use VBW commands").
+  if ! grep -q 'Always use SWT commands' CLAUDE.md; then
+    fail "7: refreshed SWT Rules content missing"
     return
   fi
 
@@ -240,7 +244,7 @@ EOF
     return
   fi
 
-  pass "7: --fix refreshes exact canonical VBW sections in place"
+  pass "7: --fix refreshes exact canonical SWT sections in place"
 }
 
 test_fix_writes_version_marker() {

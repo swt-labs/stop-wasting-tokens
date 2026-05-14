@@ -111,8 +111,16 @@ start_active_agent_session() {
   local pid="$4"
   local input
 
-  input=$(jq -n --arg sid "$session_id" --arg agent_type "vbw-$role" --arg pid "$pid" '{session_id:$sid,agent_type:$agent_type,pid:$pid}')
-  VBW_PLANNING_DIR="$project_dir/.swt-planning" bash "$ROOT/scripts/agent-start.sh" <<< "$input" >/dev/null 2>&1 || true
+  # v3 dispatcher payload shape (commit 6dbee8d — agent-start.sh rewritten against
+  # the Phase 1 dispatcher HookContext). The legacy VBW shape
+  # `{session_id, agent_type, pid}` is no longer consumed — agent-start.sh reads
+  # `.sessionId` / `.role` / `.installRoot` (with $SWT_SESSION_ID / $VBW_AGENT_ROLE
+  # env fallbacks). `pid` is threaded via $SWT_AGENT_PID since the dispatcher
+  # payload no longer carries it.
+  input=$(jq -n --arg sid "$session_id" --arg role "$role" --arg iroot "$ROOT" \
+    '{sessionId:$sid,role:$role,installRoot:$iroot}')
+  SWT_AGENT_PID="$pid" VBW_PLANNING_DIR="$project_dir/.swt-planning" \
+    bash "$ROOT/scripts/agent-start.sh" <<< "$input" >/dev/null 2>&1 || true
 }
 
 setup_sidechain_project() {

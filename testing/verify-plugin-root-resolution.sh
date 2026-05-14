@@ -7,24 +7,27 @@ set -euo pipefail
 # references) but NOT in the Bash tool's shell environment or !` backtick subprocesses.
 # Model-executed bash commands that reference ${CLAUDE_PLUGIN_ROOT} expand to empty.
 #
-# Fix: Each command file resolves the plugin root ONCE at load time, creates a
-# per-session symlink at a deterministic path:
-#   /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}
-# Resolution order for the symlink steps is:
-#   1. exact current-session symlink path (SESSION_LINK)
-#   2. generic symlink discovery via `find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'`
-# Subsequent load-time references construct the same deterministic session path
-# independently via echo — no shared mutable temp file is involved.
+# v3 reality (commit d15070b — REQ-25 "remove CC-era preamble heredocs from 21
+# command files"): SWT v3 command files NO LONGER carry the CC-era per-command
+# resolver preamble (the LINK=/SESSION_LINK/REAL_R + ensure-plugin-root-link.sh
+# heredoc block). Instead each command's Context section declares the plugin root
+# once via `Plugin root: ${SWT_INSTALL_ROOT}` — Claude Code resolves ${SWT_INSTALL_ROOT}
+# from the process env at load time (the same mechanism that powers @ file refs).
+# Commands then either substitute a stored `{plugin-root}` token into script
+# invocations, or read the deterministic session symlink
+# `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}` directly. The full
+# resolve-and-validate fallback chain (cache local/, versioned dirs, exact-session
+# symlink, find-based symlink discovery, process-tree --plugin-dir) now lives in
+# ONE place: references/execute-protocol.md, loaded once per Execute run.
 #
 # Safe contexts (all refs must be in one of these):
 #   - echo /tmp/.swt-install-root-link-... (deterministic path construction — standard reader)
-#   - LINK="/tmp/.swt-install-root-link-*" (canonical no-space symlink in preamble)
+#   - LINK="/tmp/.swt-install-root-link-*" (canonical no-space symlink reference)
 #   - !`...${CLAUDE_PLUGIN_ROOT:-...}...` (resolve line with fallback)
 #   - @${CLAUDE_PLUGIN_ROOT}/...         (file inclusion at load time)
-#   - Plugin root: ...                   (preamble resolve+write line)
+#   - Plugin root: ...                   (Context-section resolve line)
 #   - Runtime resolver guard line in execute-protocol.md:
-#       if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/hook-wrapper.sh" ]
-#       VBW_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
+#       if [ -n "${SWT_INSTALL_ROOT:-}" ] && [ -f "${SWT_INSTALL_ROOT}/scripts/hook-wrapper.sh" ]
 #   - ${CLAUDE_PLUGIN_ROOT:+...}          (conditional-if-set expansion — safe, only expands when set)
 #   - (CLAUDE_PLUGIN_ROOT ...)            (literal text mention in diagnostic output, not a var ref)
 #
@@ -268,14 +271,16 @@ else
 fi
 
 # Check 7: execute-protocol.md resolver policy checks
+# v3 (commit d15070b / 06-05 bulk-sed): the resolver variables were renamed
+# CLAUDE_PLUGIN_ROOT/VBW_CACHE_ROOT/VBW_PLUGIN_ROOT -> SWT_INSTALL_ROOT/SWT_CACHE_ROOT.
 for needle in \
-  'if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/hook-wrapper.sh" ]; then' \
-  '[ -f "${VBW_CACHE_ROOT}/local/scripts/hook-wrapper.sh" ]' \
+  'if [ -n "${SWT_INSTALL_ROOT:-}" ] && [ -f "${SWT_INSTALL_ROOT}/scripts/hook-wrapper.sh" ]; then' \
+  '[ -f "${SWT_CACHE_ROOT}/local/scripts/hook-wrapper.sh" ]' \
   "grep -E '^[0-9]+(\\.[0-9]+)*$'" \
   'sort -t. -k1,1n -k2,2n -k3,3n' \
-  'FALLBACK_DIR=$(find "${VBW_CACHE_ROOT}" -maxdepth 1 -mindepth 1 2>/dev/null | awk -F/ '\''{print $NF}'\'' | sort | tail -1)' \
+  'FALLBACK_DIR=$(find "${SWT_CACHE_ROOT}" -maxdepth 1 -mindepth 1 2>/dev/null | awk -F/ '\''{print $NF}'\'' | sort | tail -1)' \
   'ps axww -o args=' \
-  'if [ -z "$VBW_PLUGIN_ROOT" ] || [ ! -d "$VBW_PLUGIN_ROOT" ]; then' \
+  'if [ -z "$SWT_INSTALL_ROOT" ] || [ ! -d "$SWT_INSTALL_ROOT" ]; then' \
   'exit 1'
 do
   if grep -Fq "$needle" "$EXECUTE_PROTOCOL"; then
@@ -314,7 +319,8 @@ for file in "$COMMANDS_DIR"/*.md; do
 done
 
 # Check 9: execute-protocol.md uses canonical pwd -P resolution with safe fallback
-if grep -q 'cd "$VBW_PLUGIN_ROOT" 2>/dev/null && pwd -P' "$EXECUTE_PROTOCOL"; then
+# v3: VBW_PLUGIN_ROOT -> SWT_INSTALL_ROOT (commit d15070b / 06-05 bulk-sed).
+if grep -q 'cd "$SWT_INSTALL_ROOT" 2>/dev/null && pwd -P' "$EXECUTE_PROTOCOL"; then
   pass "execute-protocol uses canonical pwd -P resolution"
 else
   fail "execute-protocol missing canonical pwd -P resolution"
@@ -322,28 +328,38 @@ fi
 
 # Check 10: execute-protocol.md preserves original value on cd failure
 if grep -q 'pwd -P) || true' "$EXECUTE_PROTOCOL"; then
-  fail "execute-protocol uses || true fallback (blanks VBW_PLUGIN_ROOT on cd failure)"
-elif grep -q 'pwd -P || echo "\$VBW_PLUGIN_ROOT"' "$EXECUTE_PROTOCOL"; then
-  pass "execute-protocol preserves VBW_PLUGIN_ROOT on cd failure"
+  fail "execute-protocol uses || true fallback (blanks SWT_INSTALL_ROOT on cd failure)"
+elif grep -q 'pwd -P || echo "\$SWT_INSTALL_ROOT"' "$EXECUTE_PROTOCOL"; then
+  pass "execute-protocol preserves SWT_INSTALL_ROOT on cd failure"
 else
   fail "execute-protocol missing safe fallback for canonicalization failure"
 fi
 
-# Check 11: targeted command preambles use SWT_SESSION_ID:-default session key
-# todo.md and list-todos.md intentionally have no shell preamble (fix for #201) — skip from preamble checks
+# Check 11: targeted commands declare the plugin root via `${SWT_INSTALL_ROOT}`
+# in their Context section.
+#
+# v3 reality (commit d15070b — REQ-25): the CC-era per-command resolver preamble
+# (LINK=/SESSION_LINK/REAL_R + ensure-plugin-root-link.sh heredoc) was removed from
+# all 21 command files. The v3 plugin-root contract is: each command's Context
+# section carries a `Plugin root: ${SWT_INSTALL_ROOT}` line — Claude Code resolves
+# ${SWT_INSTALL_ROOT} from the process env at load time. The full resolve-and-validate
+# fallback chain (exact-session symlink, find-based discovery, etc.) lives in ONE
+# place now: references/execute-protocol.md (verified by Checks 7/9/10/13c below).
+# todo.md and list-todos.md intentionally have no shell preamble (fix for #201) and
+# are validated by the dedicated todo-resolver contract in Phase 3c.
 TARGET_COMMANDS=(
   config.md debug.md discuss.md doctor.md fix.md help.md init.md map.md qa.md
-  report.md research.md resume.md rtk.md skills.md status.md update.md verify.md vibe.md whats-new.md
+  report.md research.md resume.md rtk.md skills.md status.md update.md verify.md cook.md whats-new.md
 )
 for rel in "${TARGET_COMMANDS[@]}"; do
   file="$COMMANDS_DIR/$rel"
   [ -f "$file" ] || continue
   is_tracked_repo_file "$file" || continue
   base="$(basename "$rel" .md)"
-  if grep -q 'SESSION_KEY="${SWT_SESSION_ID:-default}"' "$file"; then
-    pass "$base: preamble uses SWT_SESSION_ID:-default session key"
+  if grep -qF 'Plugin root: `${SWT_INSTALL_ROOT}`' "$file"; then
+    pass "$base: Context section declares plugin root via \${SWT_INSTALL_ROOT}"
   else
-    fail "$base: missing SWT_SESSION_ID:-default session key in preamble"
+    fail "$base: missing \`Plugin root: \${SWT_INSTALL_ROOT}\` declaration in Context section"
   fi
 done
 
@@ -355,31 +371,16 @@ else
   fail "$sha1_session_count SHA1 session key derivation(s) still present in commands"
 fi
 
-# Check 13: All command preambles include exact current-session symlink fallback
-for rel in "${TARGET_COMMANDS[@]}"; do
-  file="$COMMANDS_DIR/$rel"
-  [ -f "$file" ] || continue
-  is_tracked_repo_file "$file" || continue
-  base="$(basename "$rel" .md)"
-  if grep -qF '[ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" ]' "$file"; then
-    pass "$base: preamble includes exact current-session symlink fallback"
-  else
-    fail "$base: preamble missing exact current-session symlink fallback"
-  fi
-done
-
-# Check 13b: All command preambles include generic find-based symlink fallback
-for rel in "${TARGET_COMMANDS[@]}"; do
-  file="$COMMANDS_DIR/$rel"
-  [ -f "$file" ] || continue
-  is_tracked_repo_file "$file" || continue
-  base="$(basename "$rel" .md)"
-  if grep -qF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$file"; then
-    pass "$base: preamble includes find-based symlink fallback"
-  else
-    fail "$base: preamble missing find-based symlink fallback"
-  fi
-done
+# Checks 13/13b (REMOVED — v3 reality, commit d15070b / REQ-25):
+# The CC-era per-command resolver preamble — which embedded the exact-current-session
+# symlink fallback (`[ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" ]`) and the
+# generic find-based symlink fallback (`command find -H /tmp ... '.swt-install-root-link-*'`)
+# in EVERY command file — was deliberately removed from all 21 command files when
+# REQ-25 collapsed plugin-root resolution down to a single `${SWT_INSTALL_ROOT}`
+# Context-section declaration (Check 11) plus the one canonical fallback chain in
+# references/execute-protocol.md. Asserting that per-command preamble structure
+# against v3 command files is obsolete; the fallback chain is now verified exactly
+# once, against execute-protocol.md, by Check 13c immediately below.
 
 # Check 13c: execute-protocol.md includes exact-session and find-based fallback
 if grep -qF '[ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" ]' "$EXECUTE_PROTOCOL"; then
@@ -677,43 +678,45 @@ fi
 
 echo "All behavioral resolution checks passed."
 
-# --- Phase 5: phase-detect self-healing regression checks ---
+# --- Phase 5: phase-detect reader regression checks ---
 echo ""
-echo "=== Phase-Detect Self-Healing Regression Checks ==="
+echo "=== Phase-Detect Reader Regression Checks ==="
 
 PASS=0
 FAIL=0
 
-PHASE_DETECT_COMMANDS=(vibe.md verify.md status.md resume.md qa.md discuss.md)
+# v3 reality (commit d15070b — REQ-25): the CC-era per-command phase-detect
+# self-healing scaffolding — the `_refresh_phase_detect()` helper, the embedded
+# SESSION_LINK / find-based symlink fallback, the `ensure-plugin-root-link.sh`
+# session-link repair, and the race-prone wait-for-link loop — was removed from
+# all command files. v3 phase-detect-consuming commands either receive a
+# pre-computed `${SWT_PHASE_DETECT_OUTPUT}` block injected at orchestrator entry
+# (cook.md) or invoke `phase-detect.sh` via the resolved `{plugin-root}` token.
+# The two regression contracts that still hold in v3 and are worth guarding:
+#   18 — phase-detect-consuming commands actually reference the phase-detect surface
+#   19 — no command reintroduces the race-prone wait-for-link fallback
+PHASE_DETECT_COMMANDS=(cook.md verify.md status.md resume.md qa.md)
 
-# Check 18: targeted commands define a self-healing refresh helper in
-# phase-detect readers, except vibe.md which now uses guarded live reads with
-# temp-file fallback to avoid stale same-session cache reuse.
+# Check 18: phase-detect-consuming commands reference the phase-detect surface.
+# cook.md consumes the pre-computed ${SWT_PHASE_DETECT_OUTPUT} block; the others
+# invoke phase-detect.sh through the resolved {plugin-root} token.
 for rel in "${PHASE_DETECT_COMMANDS[@]}"; do
   file="$COMMANDS_DIR/$rel"
   base="$(basename "$rel" .md)"
-  if [ "$rel" = "vibe.md" ]; then
-    live_count=$(grep -cF 'bash "$L/scripts/phase-detect.sh"' "$file" || true)
-    if [ "${live_count:-0}" -ge 3 ]; then
-      pass "$base: phase-detect reader uses guarded live reads"
+  if [ "$rel" = "cook.md" ]; then
+    if grep -qF '${SWT_PHASE_DETECT_OUTPUT}' "$file"; then
+      pass "$base: consumes pre-computed \${SWT_PHASE_DETECT_OUTPUT} block"
     else
-      fail "$base: missing guarded live phase-detect reads"
+      fail "$base: missing pre-computed \${SWT_PHASE_DETECT_OUTPUT} block"
     fi
-  elif grep -q '_refresh_phase_detect()' "$file"; then
-    pass "$base: phase-detect reader defines _refresh_phase_detect()"
+  elif grep -qF 'phase-detect.sh' "$file"; then
+    pass "$base: references the phase-detect.sh surface"
   else
-    fail "$base: missing _refresh_phase_detect() self-healing helper"
+    fail "$base: missing phase-detect.sh reference"
   fi
 done
 
-vibe_link_repair_count=$(grep -cF 'bash "$REAL_R/scripts/ensure-plugin-root-link.sh" "$L" "$REAL_R"' "$COMMANDS_DIR/vibe.md" || true)
-if [ "${vibe_link_repair_count:-0}" -ge 3 ]; then
-  pass "vibe.md: guarded readers repair the session link before live refresh"
-else
-  fail "vibe.md: expected guarded readers to repair the session link before live refresh"
-fi
-
-# Check 19: targeted commands no longer use link-order-dependent wait-loop fallback
+# Check 19: no command reintroduces the link-order-dependent wait-loop fallback.
 # Old race-prone form (same line or adjacent lines):
 #   if [ -z "$PD" ] || [ "$PD" = "phase_detect_error=true" ] || [ -L "$L" ]; then
 #     i=0; while [ ! -L "$L" ] && [ $i -lt 20 ]; do ...
@@ -740,30 +743,6 @@ for rel in "${PHASE_DETECT_COMMANDS[@]}"; do
   fi
 done
 
-# Check 20: helper-based readers include the exact-session and find-based fallback
-# steps. vibe.md has no helper and is validated via its preamble.
-for rel in "${PHASE_DETECT_COMMANDS[@]}"; do
-  file="$COMMANDS_DIR/$rel"
-  base="$(basename "$rel" .md)"
-  if [ "$rel" = "vibe.md" ]; then
-    if grep -qF '[ -f "${SESSION_LINK}/scripts/hook-wrapper.sh" ]' "$file" \
-      && grep -qF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$file"; then
-      pass "$base: preamble includes exact-session and find-based fallback"
-    else
-      fail "$base: missing exact-session or find-based fallback in preamble"
-    fi
-    continue
-  fi
-  func_count=$(grep -c '_refresh_phase_detect()' "$file" || true)
-  session_link_count=$(grep -cF '[ -f "$SESSION_LINK/scripts/hook-wrapper.sh" ]' "$file" || true)
-  find_fallback_count=$(grep -cF "command find -H /tmp -maxdepth 1 -name '.swt-install-root-link-*'" "$file" || true)
-  if [ "$session_link_count" -ge "$func_count" ] && [ "$find_fallback_count" -ge "$func_count" ]; then
-    pass "$base: _refresh_phase_detect() includes exact-session and find-based fallback"
-  else
-    fail "$base: _refresh_phase_detect() missing exact-session or find-based fallback ($session_link_count session checks, $find_fallback_count find fallbacks for $func_count functions)"
-  fi
-done
-
 echo ""
 echo "==============================="
 echo "TOTAL: $PASS PASS, $FAIL FAIL"
@@ -773,5 +752,5 @@ if [ "$FAIL" -gt 0 ]; then
   exit 1
 fi
 
-echo "All phase-detect self-healing regression checks passed."
+echo "All phase-detect reader regression checks passed."
 exit 0
