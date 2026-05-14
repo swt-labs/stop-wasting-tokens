@@ -21,9 +21,8 @@
  *   (4) component smoke + a compile-time prop-shape assertion.
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { CommandResponse, CommandSpec } from '@swt-labs/shared';
+import { describe, expect, it } from 'vitest';
 
 import {
   CommandsSection,
@@ -127,7 +126,7 @@ describe('classifyVerbAction', () => {
 
 /* (2) groupVerbsByCategory — stable display order, omit-empty, no-drop. */
 describe('groupVerbsByCategory', () => {
-  it("orders groups core, interactive, stub regardless of input order", () => {
+  it('orders groups core, interactive, stub regardless of input order', () => {
     const verbs: CommandSpec[] = [
       makeSpec({ name: 'plan', category: 'stub' }),
       makeSpec({ name: 'doctor', category: 'core' }),

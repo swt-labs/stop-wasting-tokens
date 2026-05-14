@@ -16,10 +16,7 @@
  */
 
 import { getOAuthProvider } from '@earendil-works/pi-ai/oauth';
-import type {
-  OAuthCredentials,
-  OAuthLoginCallbacks,
-} from '@earendil-works/pi-ai/oauth';
+import type { OAuthCredentials, OAuthLoginCallbacks } from '@earendil-works/pi-ai/oauth';
 
 /** The set of SWT-side hooks the caller (the `/oauth/start` route) supplies —
  *  `runOAuthLoginFlow` bridges `pi-ai`'s `OAuthLoginCallbacks` onto these. */
@@ -70,15 +67,10 @@ export interface OAuthLoginFlowHandle {
  * `onComplete` / `onError` callbacks fire later as `login()`'s promise
  * settles (the flow is long-running — a browser round-trip).
  */
-export function runOAuthLoginFlow(
-  opts: OAuthLoginFlowOptions,
-): OAuthLoginFlowHandle {
+export function runOAuthLoginFlow(opts: OAuthLoginFlowOptions): OAuthLoginFlowHandle {
   const oauthProvider = getOAuthProvider(opts.provider);
   if (oauthProvider === undefined) {
-    opts.onError(
-      'oauth_provider_unsupported',
-      `No OAuth provider for '${opts.provider}'`,
-    );
+    opts.onError('oauth_provider_unsupported', `No OAuth provider for '${opts.provider}'`);
     // The flow never started — `submitManualCode` has nothing to feed.
     return { submitManualCode: () => {} };
   }
@@ -131,10 +123,7 @@ export function runOAuthLoginFlow(
       // rejecting) is caught here and surfaced via `onError`.
       await opts.onComplete(credentials);
     } catch (err) {
-      opts.onError(
-        'oauth_login_failed',
-        err instanceof Error ? err.message : String(err),
-      );
+      opts.onError('oauth_login_failed', err instanceof Error ? err.message : String(err));
     }
   })();
 

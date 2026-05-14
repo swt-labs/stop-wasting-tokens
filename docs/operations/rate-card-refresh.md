@@ -45,13 +45,13 @@ Spot-check the changes:
 
 ## Maintenance cadence
 
-| Provider | Programmatic source | Cadence |
-| --- | --- | --- |
-| openrouter | Yes — `openrouter.ai/api/v1/models` | Each script run |
-| anthropic | No (manual paste) | Quarterly or on announcement |
-| openai | No (manual paste) | Quarterly or on announcement |
-| google | No (manual paste) | Quarterly or on announcement |
-| bedrock | Not yet supported (deferred to G-T1) | — |
+| Provider   | Programmatic source                  | Cadence                      |
+| ---------- | ------------------------------------ | ---------------------------- |
+| openrouter | Yes — `openrouter.ai/api/v1/models`  | Each script run              |
+| anthropic  | No (manual paste)                    | Quarterly or on announcement |
+| openai     | No (manual paste)                    | Quarterly or on announcement |
+| google     | No (manual paste)                    | Quarterly or on announcement |
+| bedrock    | Not yet supported (deferred to G-T1) | —                            |
 
 ## Cross-references
 

@@ -12,30 +12,41 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, Agent, TeamCreate,
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 Store the plugin root path output above as `{plugin-root}` for use in script invocations below. Replace `{plugin-root}` with the literal `Plugin root` value from Context whenever a step below references a script or reference file.
 
 Existing mapping:
+
 ```text
 !`ls .swt-planning/codebase/ 2>/dev/null || echo "No codebase mapping found"`
 ```
+
 META.md:
+
 ```
 !`cat .swt-planning/codebase/META.md 2>/dev/null || echo "No META.md found"`
 ```
+
 Project files:
+
 ```text
 !`ls package.json pyproject.toml Cargo.toml go.mod Gemfile build.gradle pom.xml 2>/dev/null || echo "No standard project files found"`
 ```
+
 Git HEAD:
+
 ```text
 !`git rev-parse HEAD 2>/dev/null || echo "no-git"`
 ```
+
 Agent Teams:
+
 ```text
 !`echo "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-0}"`
 ```
@@ -58,28 +69,30 @@ Agent Teams:
 
 ### Step 1.5: Size codebase and select tier
 
-Count source files (Glob), excluding: .swt-planning/, node_modules/, .git/, vendor/, dist/, build/, target/, .next/, __pycache__/, .venv/, coverage/. If --package, scope to that dir. Store SOURCE_FILE_COUNT.
+Count source files (Glob), excluding: .swt-planning/, node_modules/, .git/, vendor/, dist/, build/, target/, .next/, **pycache**/, .venv/, coverage/. If --package, scope to that dir. Store SOURCE_FILE_COUNT.
 
-| Tier | Files | Strategy | Scouts |
-|------|-------|----------|--------|
-| solo | <200 | Orchestrator maps inline | 0 |
-| duo | 200-1000 | 2 scouts, combined domains | 2 |
-| quad | 1000+ | Full 4-scout team | 4 |
+| Tier | Files    | Strategy                   | Scouts |
+| ---- | -------- | -------------------------- | ------ |
+| solo | <200     | Orchestrator maps inline   | 0      |
+| duo  | 200-1000 | 2 scouts, combined domains | 2      |
+| quad | 1000+    | Full 4-scout team          | 4      |
 
 Overrides: --tier flag forces tier. Agent Teams not enabled → force solo (`⚠ Agent Teams not enabled — using solo mode`). `prefer_teams='never'` in config → force solo (`⚠ prefer_teams=never — using solo mode`).
 Display: `◆ Sizing: {SOURCE_FILE_COUNT} source files → {tier} mode`
 
 Read `prefer_teams` before applying tier:
+
 ```bash
 PREFER_TEAMS=$(bash "{plugin-root}/scripts/normalize-prefer-teams.sh" .swt-planning/config.json 2>/dev/null || echo "auto")
 ```
+
 If `PREFER_TEAMS` is `never`, force solo regardless of file count or --tier flag.
 
 ### Step 2: Detect monorepo
 
 **JS/Node patterns:** Check lerna.json, pnpm-workspace.yaml, packages/ or apps/ with sub-package.json, root workspaces field.
 
-**Multi-component detection:** Count distinct build system roots at different paths. Build system markers: package.json, Cargo.toml, go.mod, pyproject.toml, build.gradle, pom.xml, *.xcodeproj, Podfile, pubspec.yaml. If 2+ markers found at different directory levels (not just root), treat as monorepo.
+**Multi-component detection:** Count distinct build system roots at different paths. Build system markers: package.json, Cargo.toml, go.mod, pyproject.toml, build.gradle, pom.xml, \*.xcodeproj, Podfile, pubspec.yaml. If 2+ markers found at different directory levels (not just root), treat as monorepo.
 
 If monorepo + --package: scope to that package.
 
@@ -99,6 +112,7 @@ Display ✓ per domain. After all 7 docs written, skip Step 3.5, go to Step 4.
 **Step 3-duo:** **Pre-TeamCreate cleanup:** `bash "{plugin-root}/scripts/clean-stale-teams.sh" 2>/dev/null || true`. Create team via TeamCreate: `team_name="swt-map-duo"`, `description="Codebase Map (duo)"` with 2 Scouts via TaskCreate. **Set `subagent_type: "swt:swt-scout"` on each Scout TaskCreate.** Do not pass `isolation`, `cwd`, `working_dir`, `workingDirectory`, or `workdir` on any TaskCreate.
 
 Scout A (Tech + Architecture): analyze tech stack, deps, architecture, structure. Write findings directly to the output paths. Include in prompt:
+
 ```
 <output_paths>
 .swt-planning/codebase/STACK.md
@@ -107,9 +121,11 @@ Scout A (Tech + Architecture): analyze tech stack, deps, architecture, structure
 .swt-planning/codebase/STRUCTURE.md
 </output_paths>
 ```
+
 Mode: {MAPPING_MODE}. After writing all 4 files, send a `scout_findings` message (domain: "tech-and-architecture") with `cross_cutting` findings only (file contents already written). Schema ref: `{plugin-root}/references/handoff-schemas.md`
 
 Scout B (Quality + Concerns): analyze quality, conventions, testing, debt, risks. Write findings directly to the output paths. Include in prompt:
+
 ```
 <output_paths>
 .swt-planning/codebase/CONVENTIONS.md
@@ -117,6 +133,7 @@ Scout B (Quality + Concerns): analyze quality, conventions, testing, debt, risks
 .swt-planning/codebase/CONCERNS.md
 </output_paths>
 ```
+
 Mode: {MAPPING_MODE}. After writing all 3 files, send a `scout_findings` message (domain: "quality-and-concerns") with `cross_cutting` findings only. Schema ref: `{plugin-root}/references/handoff-schemas.md`
 
 **Scout model (effort-gated):** Fast/Turbo: `Model: haiku`. Thorough/Balanced: inherit session model.
@@ -126,6 +143,7 @@ Mode: {MAPPING_MODE}. After writing all 3 files, send a `scout_findings` message
 If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning each duo-mode Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
 
 **Payload prefix (duo mode):** Use this as the FIRST lines of each Scout task body:
+
 ```text
 <skill_activation>
 Call Skill('{relevant-skill-1}').
@@ -136,7 +154,9 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
 </skill_follow_up_files>
 ```
+
 When no installed skills apply, use this prefix instead:
+
 ```text
 <skill_no_activation>
 Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
@@ -151,6 +171,7 @@ Wait for all findings. Proceed to Step 3.5.
 ---
 
 **Step 3-quad:** **Pre-TeamCreate cleanup:** `bash "{plugin-root}/scripts/clean-stale-teams.sh" 2>/dev/null || true`. Create team via TeamCreate: `team_name="swt-map-quad"`, `description="Codebase Map (quad)"` with 4 Scouts via TaskCreate. **Set `subagent_type: "swt:swt-scout"` on each Scout TaskCreate.** Do not pass `isolation`, `cwd`, `working_dir`, `workingDirectory`, or `workdir` on any TaskCreate. Each Scout writes its domain files directly via `<output_paths>`, then sends a `scout_findings` message with `cross_cutting` findings only (file contents already written). Schema ref: `{plugin-root}/references/handoff-schemas.md`
+
 - Scout 1 (Tech Stack): `<output_paths>` = `.swt-planning/codebase/STACK.md`, `.swt-planning/codebase/DEPENDENCIES.md`
 - Scout 2 (Architecture): `<output_paths>` = `.swt-planning/codebase/ARCHITECTURE.md`, `.swt-planning/codebase/STRUCTURE.md`
 - Scout 3 (Quality): `<output_paths>` = `.swt-planning/codebase/CONVENTIONS.md`, `.swt-planning/codebase/TESTING.md`
@@ -159,6 +180,7 @@ Wait for all findings. Proceed to Step 3.5.
 Security: PreToolUse hook handles enforcement. **Scout model:** same as duo. **Scout turn budget:** same as duo (pass `maxTurns: ${SCOUT_MAX_TURNS}` when non-empty, omit when empty). **Skill pre-evaluation:** Before composing Scout task descriptions, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for codebase mapping, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The spawned prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning each quad-mode Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block. **MCP tools:** If code-analysis MCP tools are available (architecture extraction, dependency graphs, call hierarchy, symbol search), note the specific tools in each Scout's task prompt so Scouts can leverage them alongside Glob/Read/Grep.
 
 **Payload prefix (quad mode):** Use this as the FIRST lines of each Scout task body:
+
 ```text
 <skill_activation>
 Call Skill('{relevant-skill-1}').
@@ -169,7 +191,9 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
 </skill_follow_up_files>
 ```
+
 When no installed skills apply, use this prefix instead:
+
 ```text
 <skill_no_activation>
 Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
@@ -179,11 +203,11 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 
 **Scout communication (effort-gated):**
 
-| Effort | Messages |
-|--------|----------|
+| Effort   | Messages                                                                   |
+| -------- | -------------------------------------------------------------------------- |
 | Thorough | Cross-cutting findings + contradiction flags for INDEX.md Validation Notes |
-| Balanced | Cross-cutting findings only |
-| Fast | Blockers only |
+| Balanced | Cross-cutting findings only                                                |
+| Fast     | Blockers only                                                              |
 
 Use targeted `message` not `broadcast`. Wait for all findings. Display ✓ per scout.
 
@@ -194,6 +218,7 @@ Use targeted `message` not `broadcast`. Wait for all findings. Display ✓ per s
 ### Step 4: Synthesize INDEX.md and PATTERNS.md
 
 Read all 7 docs. Produce:
+
 - **INDEX.md:** Cross-referenced index with key findings + "Validation Notes" for contradictions
 - **PATTERNS.md:** Recurring patterns: architectural, naming, quality, concern, dependency
 

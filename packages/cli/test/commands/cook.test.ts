@@ -35,11 +35,10 @@
  * tests assert on captured args + injected return values.
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_AUTH_CONFIG } from '../../src/commands/auth-config.js';
 import {
@@ -61,9 +60,7 @@ const TEST_SESSION_ID = 'cook-test-session-id';
  * possible (planning exists, project exists, no phases). Overrides let
  * each test tilt the fixture into a specific routing-table cell.
  */
-function makePhaseDetect(
-  overrides: Partial<PhaseDetectResult> = {},
-): PhaseDetectResult {
+function makePhaseDetect(overrides: Partial<PhaseDetectResult> = {}): PhaseDetectResult {
   return {
     jq_available: true,
     planning_dir_exists: true,
@@ -210,7 +207,7 @@ function buildHarness(opts: HarnessOpts = {}) {
     const r = askResponses[askIdx];
     askIdx += 1;
     if (r !== undefined) return r;
-    return { selectedOption: 'Yes', freeform: null } as AskUserResponse;
+    return { selectedOption: 'Yes', freeform: null };
   });
 
   const spawnResult: TaskResult = {
@@ -226,7 +223,9 @@ function buildHarness(opts: HarnessOpts = {}) {
 
   const detectPhaseImpl = vi.fn(async () => state);
 
-  const execSyncImpl = vi.fn(opts.execSyncImpl ?? ((_cmd: string, _opts: unknown) => '' as unknown as Buffer));
+  const execSyncImpl = vi.fn(
+    opts.execSyncImpl ?? ((_cmd: string, _opts: unknown) => '' as unknown as Buffer),
+  );
 
   const readFileSyncImpl = vi.fn(
     (_p: import('node:fs').PathOrFileDescriptor, _enc?: unknown) => STUB_COOK_MD,
@@ -240,12 +239,12 @@ function buildHarness(opts: HarnessOpts = {}) {
   });
 
   const handler = makeCookHandler({
-    detectPhaseImpl: detectPhaseImpl as never,
-    askUserImpl: askUserImpl as never,
-    spawnOrchestratorSessionImpl: spawnImpl as never,
+    detectPhaseImpl: detectPhaseImpl,
+    askUserImpl: askUserImpl,
+    spawnOrchestratorSessionImpl: spawnImpl,
     execSyncImpl: execSyncImpl as never,
     readFileSyncImpl: readFileSyncImpl as never,
-    existsSyncImpl: existsSyncImpl as never,
+    existsSyncImpl: existsSyncImpl,
   });
 
   // For tests that need a non-default config, the harness exposes a setter
@@ -290,10 +289,7 @@ function buildHarness(opts: HarnessOpts = {}) {
     positionals: readonly string[] = [],
     flags: Record<string, string | boolean | undefined> = {},
   ) {
-    return handler(
-      { verb: 'cook', positionals, flags },
-      io,
-    );
+    return handler({ verb: 'cook', positionals, flags }, io);
   }
 
   return {
@@ -505,8 +501,8 @@ describe('@swt-labs/cli — cookHandler flag-detection path (Plan 03-02 T5 / D.3
   });
 });
 
-describe("@swt-labs/cli — cookHandler natural-language path (Plan 03-02 T5 / D.4)", () => {
-  it("D.4 — \"let's plan the next phase\" enters askUser confirmation; accept → Plan mode", async () => {
+describe('@swt-labs/cli — cookHandler natural-language path (Plan 03-02 T5 / D.4)', () => {
+  it('D.4 — "let\'s plan the next phase" enters askUser confirmation; accept → Plan mode', async () => {
     const h = buildHarness({
       state: makePhaseDetect(),
       askResponses: [{ selectedOption: 'Yes', freeform: null }],

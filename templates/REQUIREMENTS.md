@@ -23,13 +23,16 @@ Defined: {date} | Core value: {one-liner}
 -->
 
 ### {Category}
+
 - [ ] **REQ-01**: {requirement} {(optional: "domain standard" | "addresses common pitfall: X" | "typical approach: Y")}
 - [ ] **REQ-02**: {requirement}
 
 ### {Category}
+
 - [ ] **REQ-03**: {requirement}
 
 ## v2 Requirements
+
 - [ ] **REQ-XX**: {future-requirement}
 
 ## Out of Scope

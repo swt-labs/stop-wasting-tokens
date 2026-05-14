@@ -35,8 +35,9 @@ import { spawnAgent } from '@swt-labs/orchestration';
 import type { TaskResult } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 import type { CommandHandler, CommandIO } from '../router.js';
+
+import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 interface MapSlice {
   /** Short numeric id 1..4 used in logs + the prompt. */
@@ -56,18 +57,12 @@ export const MAP_SLICES: ReadonlyArray<MapSlice> = [
   {
     id: 2,
     title: 'Architecture',
-    outputPaths: [
-      '.swt-planning/codebase/ARCHITECTURE.md',
-      '.swt-planning/codebase/STRUCTURE.md',
-    ],
+    outputPaths: ['.swt-planning/codebase/ARCHITECTURE.md', '.swt-planning/codebase/STRUCTURE.md'],
   },
   {
     id: 3,
     title: 'Quality',
-    outputPaths: [
-      '.swt-planning/codebase/CONVENTIONS.md',
-      '.swt-planning/codebase/TESTING.md',
-    ],
+    outputPaths: ['.swt-planning/codebase/CONVENTIONS.md', '.swt-planning/codebase/TESTING.md'],
   },
   {
     id: 4,

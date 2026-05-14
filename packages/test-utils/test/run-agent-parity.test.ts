@@ -38,10 +38,10 @@ describe('runAgentParity — harness shape', () => {
     delete process.env['SWT_PLANNING_ROOT'];
   });
 
-  function setupFixture(opts: {
-    readonly fixture: string;
-    readonly withBaseline: boolean;
-  }): { goldenRoot: string; cassettePath: string } {
+  function setupFixture(opts: { readonly fixture: string; readonly withBaseline: boolean }): {
+    goldenRoot: string;
+    cassettePath: string;
+  } {
     const goldenRoot = join(scratch, 'golden');
     const fixtureRoot = join(goldenRoot, opts.fixture);
     mkdirSync(join(fixtureRoot, 'spec'), { recursive: true });

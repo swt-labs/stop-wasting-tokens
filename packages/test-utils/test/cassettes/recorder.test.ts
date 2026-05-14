@@ -9,9 +9,9 @@
  * `CassetteHeaderSchema` + `CassetteInteractionSchema`.
  */
 
-import { createServer, type Server } from 'node:http';
-import { AddressInfo } from 'node:net';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 

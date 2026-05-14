@@ -75,20 +75,20 @@ describe('@swt-labs/runtime — createEnvFallbackBackend (Plan 01-02)', () => {
 
   it('setSecret rejects with a clear "Keychain unavailable" error naming the env var', async () => {
     const backend = createEnvFallbackBackend();
-    await expect(
-      backend.setSecret(encodeAccount('openai', 'api_key'), 'x'),
-    ).rejects.toThrow(/Keychain unavailable/);
+    await expect(backend.setSecret(encodeAccount('openai', 'api_key'), 'x')).rejects.toThrow(
+      /Keychain unavailable/,
+    );
     // The message must name the exact env var the operator should set.
-    await expect(
-      backend.setSecret(encodeAccount('openai', 'api_key'), 'x'),
-    ).rejects.toThrow(/OPENAI_API_KEY/);
+    await expect(backend.setSecret(encodeAccount('openai', 'api_key'), 'x')).rejects.toThrow(
+      /OPENAI_API_KEY/,
+    );
   });
 
   it('deleteSecret rejects with the same clear "Keychain unavailable" error', async () => {
     const backend = createEnvFallbackBackend();
-    await expect(
-      backend.deleteSecret(encodeAccount('openai', 'api_key')),
-    ).rejects.toThrow(/Keychain unavailable/);
+    await expect(backend.deleteSecret(encodeAccount('openai', 'api_key'))).rejects.toThrow(
+      /Keychain unavailable/,
+    );
   });
 
   it('listAccounts includes a provider with a stubbed key and omits an unset one', async () => {

@@ -18,12 +18,13 @@
  * Plan 05-05 PARITY-REPORT.md tracks this readiness explicitly.
  */
 
-import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRequire } from 'node:module';
+
+import { describe, expect, it } from 'vitest';
 
 import { TpacReportSchema } from '../../packages/shared/src/schemas/tpac-report.js';
 
@@ -102,11 +103,7 @@ const SPEC_DIR = join(FIXTURE_ROOT, 'spec');
 const CASSETTES_READY = existsSync(FULL_MILESTONE_CASSETTE);
 const FIXTURE_READY = hasPrePopulatedPhase(SPEC_DIR);
 const CLI_BIN = resolveCliBin();
-const READY =
-  CASSETTES_READY &&
-  FIXTURE_READY &&
-  CLI_BIN !== null &&
-  existsSync(CLI_BIN);
+const READY = CASSETTES_READY && FIXTURE_READY && CLI_BIN !== null && existsSync(CLI_BIN);
 void hasJsonlCassettes;
 
 describe.skipIf(!READY)('swt bench → TpacReport JSON output (plan 05-04 T4)', () => {
@@ -129,10 +126,7 @@ describe.skipIf(!READY)('swt bench → TpacReport JSON output (plan 05-04 T4)', 
       });
       const raw = readFileSync(outPath, 'utf-8');
       const parsed = TpacReportSchema.safeParse(JSON.parse(raw));
-      expect(
-        parsed.success,
-        parsed.success ? '' : JSON.stringify(parsed.error?.issues),
-      ).toBe(true);
+      expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error?.issues)).toBe(true);
       if (parsed.success) {
         expect(parsed.data.schema_version).toBe(1);
         expect(parsed.data.criteria_satisfied).toBeGreaterThanOrEqual(1);

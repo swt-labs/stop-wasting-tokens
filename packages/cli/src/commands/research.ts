@@ -16,8 +16,9 @@ import { resolve } from 'node:path';
 import { spawnAgent } from '@swt-labs/orchestration';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 import type { CommandHandler, CommandIO } from '../router.js';
+
+import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 export interface ResearchHandlerDeps {
   readonly spawnAgentImpl?: typeof spawnAgent;

@@ -11,9 +11,8 @@
  *   - Each spawn gets a distinct per-slice session id
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-
 import type { TaskResult } from '@swt-labs/shared';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildSlicePrompt, MAP_SLICES, makeMapHandler } from '../../src/commands/map.js';
 import { buildRegistry } from '../../src/main.js';
@@ -50,7 +49,12 @@ function defaultResult(): TaskResult {
 }
 
 function buildMapHarness(opts: HarnessOpts = {}) {
-  const perScout = opts.perScout ?? [defaultResult(), defaultResult(), defaultResult(), defaultResult()];
+  const perScout = opts.perScout ?? [
+    defaultResult(),
+    defaultResult(),
+    defaultResult(),
+    defaultResult(),
+  ];
 
   let callIdx = 0;
   // Concurrency-tracking deferred mock: increments `inFlight` on start,
@@ -80,7 +84,7 @@ function buildMapHarness(opts: HarnessOpts = {}) {
   const readFileSyncImpl = vi.fn((_p: unknown, _enc?: unknown) => STUB_MAP_MD);
 
   const handler = makeMapHandler({
-    spawnAgentImpl: spawnAgentImpl as never,
+    spawnAgentImpl: spawnAgentImpl,
     readFileSyncImpl: readFileSyncImpl as never,
   });
 

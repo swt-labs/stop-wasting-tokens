@@ -17,7 +17,10 @@ import { join } from 'node:path';
 import type { MeterUpdate } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createFileMeterAdapter, type FileMeterAdapter } from '../../src/meters/file-meter-adapter.js';
+import {
+  createFileMeterAdapter,
+  type FileMeterAdapter,
+} from '../../src/meters/file-meter-adapter.js';
 import type { SessionMetrics } from '../../src/meters/token-meter.js';
 
 let dir: string;
@@ -44,7 +47,7 @@ async function waitFor<T>(
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const v = pred();
-    if (v) return v as T;
+    if (v) return v;
     await new Promise((r) => setTimeout(r, pollMs));
   }
   throw new Error(`waitFor: predicate did not become truthy within ${timeoutMs}ms`);
@@ -64,7 +67,10 @@ afterEach(async () => {
 
 describe('createFileMeterAdapter — delta math', () => {
   it('emits cost_usd DELTA (not absolute) when a session file is overwritten', async () => {
-    writeSession('a', { cost_usd: 1.0, tokens: { in: 100, out: 50, cache_creation: 0, cache_read: 0 } });
+    writeSession('a', {
+      cost_usd: 1.0,
+      tokens: { in: 100, out: 50, cache_creation: 0, cache_read: 0 },
+    });
 
     adapter = createFileMeterAdapter({ metricsDir: dir, clock: () => 'T1' });
     const events: MeterUpdate[] = [];
@@ -73,7 +79,10 @@ describe('createFileMeterAdapter — delta math', () => {
     // Allow chokidar to register the pre-existing file as baseline.
     await new Promise((r) => setTimeout(r, 250));
 
-    writeSession('a', { cost_usd: 1.5, tokens: { in: 150, out: 75, cache_creation: 0, cache_read: 0 } });
+    writeSession('a', {
+      cost_usd: 1.5,
+      tokens: { in: 150, out: 75, cache_creation: 0, cache_read: 0 },
+    });
 
     const evt = await waitFor(() => (events.length > 0 ? events[0] : undefined));
     expect(evt.type).toBe('METER_UPDATED');
@@ -117,7 +126,17 @@ describe('createFileMeterAdapter — parse-error tolerance', () => {
 
     const filePath = join(dir, 'session-z.json');
     // First write a valid baseline so the adapter has something to delta from.
-    fs.writeFileSync(filePath, JSON.stringify({ session_id: 'z', cost_usd: 0.5, tokens: { in: 0, out: 0, cache_creation: 0, cache_read: 0 }, agent_results: 0, cache_hit_ratio: 0, last_updated: 't' }));
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({
+        session_id: 'z',
+        cost_usd: 0.5,
+        tokens: { in: 0, out: 0, cache_creation: 0, cache_read: 0 },
+        agent_results: 0,
+        cache_hit_ratio: 0,
+        last_updated: 't',
+      }),
+    );
     await new Promise((r) => setTimeout(r, 250));
 
     // Now write a garbage partial — the adapter must NOT throw or emit.
@@ -129,7 +148,17 @@ describe('createFileMeterAdapter — parse-error tolerance', () => {
     expect(warnings.join('\n')).toMatch(/parse error/);
 
     // Subsequent valid write fires correctly.
-    fs.writeFileSync(filePath, JSON.stringify({ session_id: 'z', cost_usd: 0.9, tokens: { in: 0, out: 0, cache_creation: 0, cache_read: 0 }, agent_results: 0, cache_hit_ratio: 0, last_updated: 't2' }));
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({
+        session_id: 'z',
+        cost_usd: 0.9,
+        tokens: { in: 0, out: 0, cache_creation: 0, cache_read: 0 },
+        agent_results: 0,
+        cache_hit_ratio: 0,
+        last_updated: 't2',
+      }),
+    );
     await waitFor(() => events.length >= 1);
     expect(events[0]?.record.cost_usd).toBeCloseTo(0.4, 6);
   });

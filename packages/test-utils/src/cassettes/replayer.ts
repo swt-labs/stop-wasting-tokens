@@ -13,13 +13,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 
-import {
-  Agent,
-  Dispatcher,
-  getGlobalDispatcher,
-  setGlobalDispatcher,
-} from 'undici';
+import type { Dispatcher } from 'undici';
+import { Agent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
 
+import { CassetteSeqError, RequestNotInCassetteError } from './errors.js';
 import {
   CassetteHeaderSchema,
   CassetteInteractionSchema,
@@ -27,7 +24,6 @@ import {
   type CassetteInteraction,
 } from './format.js';
 import { hashRequest, normalizeRequest } from './normalize.js';
-import { CassetteSeqError, RequestNotInCassetteError } from './errors.js';
 
 export interface ReplayHandle {
   /** Tear down the interceptor; restores the previous undici dispatcher. */
@@ -275,10 +271,7 @@ export function installReplay(path: string, opts: InstallReplayOptions = {}): Re
             const interaction = interactionsByHash.get(requestedHash);
 
             if (!interaction) {
-              const excerpt =
-                typeof bodyValue === 'string'
-                  ? bodyValue
-                  : JSON.stringify(bodyValue);
+              const excerpt = typeof bodyValue === 'string' ? bodyValue : JSON.stringify(bodyValue);
               const err = new RequestNotInCassetteError(requestedHash, excerpt, recordedHashes);
               handler.onError?.(err);
               return;
@@ -355,9 +348,7 @@ export function installReplay(path: string, opts: InstallReplayOptions = {}): Re
  * empty. Callers MUST call `uninstall()` on the returned handle when
  * the test ends (typically via the parent harness's `disposeRun`).
  */
-export function installReplayFromEnv(
-  opts: InstallReplayOptions = {},
-): ReplayHandle | null {
+export function installReplayFromEnv(opts: InstallReplayOptions = {}): ReplayHandle | null {
   const path = process.env['SWT_CASSETTE_PATH'];
   if (path === undefined || path.length === 0) return null;
   return installReplay(path, opts);

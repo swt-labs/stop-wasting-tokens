@@ -31,33 +31,33 @@ Type `swt` in a project directory:
 
 API routes registered by the daemon:
 
-| Route | Purpose |
-|---|---|
-| `GET /api/health` | Liveness ping with started-at timestamp |
-| `GET /api/events` | SSE stream (snapshot deltas + cook events + prompt events) |
-| `GET /api/snapshot` | Current snapshot (used on initial mount + reconnect) |
-| `POST /api/init` | Run `swt init` from the InitScreen flow |
-| `POST /api/command` | Execute an allowed `swt <verb>` from the TopBar command bar |
-| `GET /api/commands` | List of allowed verbs |
-| `POST /api/cook/start` | Spawn a new `swt cook` session (detached) |
-| `POST /api/cook/:sessionId/control` | Write a pending signal (pause/resume/cancel) |
-| `POST /api/prompts/publish` | Orchestrator publishes a `prompt.request` |
-| `POST /api/prompts/:id/respond` | SPA submits a `prompt.response` |
-| `GET /api/prompts/pending` | Replay unresolved prompts on reconnect |
-| `POST /api/uat/:phase/checkpoint` | Append a `### P{NN}-T{NN}` block to the phase's UAT.md |
-| `GET /api/artifact` | Render a `.swt-planning/` markdown artifact (HTML or raw) |
-| `GET /api/artifact-history` | Git history for an artifact path |
-| `GET /api/artifact-diff` | Diff an artifact against a specific commit |
-| `GET /api/budget/sse` | Budget gate SSE stream (Phase 5 wires the live meter) |
-| `GET /api/cache-hits/sse` | Anthropic cache-hit ratio from `.metrics/` |
-| `GET /api/provider-cost/sse` | Per-provider cost panel (Phase 5 wires the live meter) |
-| `GET /api/tpac` | TPAC report history (Phase 5) |
-| `GET /api/worktrees/sse` | Parallel-task worktree status |
-| `GET /api/doctor` | Prereq + version checks |
-| `GET /api/detect-phase` | Phase auto-detection JSON |
-| `GET /api/config` | Read/write `config.json` |
-| `GET /api/update` | npm-registry version check |
-| `POST /api/vibe` | **LEGACY shim** — re-dispatches to `/api/cook/start` for v2-client compat. Removed in v3.1.0. |
+| Route                               | Purpose                                                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /api/health`                   | Liveness ping with started-at timestamp                                                       |
+| `GET /api/events`                   | SSE stream (snapshot deltas + cook events + prompt events)                                    |
+| `GET /api/snapshot`                 | Current snapshot (used on initial mount + reconnect)                                          |
+| `POST /api/init`                    | Run `swt init` from the InitScreen flow                                                       |
+| `POST /api/command`                 | Execute an allowed `swt <verb>` from the TopBar command bar                                   |
+| `GET /api/commands`                 | List of allowed verbs                                                                         |
+| `POST /api/cook/start`              | Spawn a new `swt cook` session (detached)                                                     |
+| `POST /api/cook/:sessionId/control` | Write a pending signal (pause/resume/cancel)                                                  |
+| `POST /api/prompts/publish`         | Orchestrator publishes a `prompt.request`                                                     |
+| `POST /api/prompts/:id/respond`     | SPA submits a `prompt.response`                                                               |
+| `GET /api/prompts/pending`          | Replay unresolved prompts on reconnect                                                        |
+| `POST /api/uat/:phase/checkpoint`   | Append a `### P{NN}-T{NN}` block to the phase's UAT.md                                        |
+| `GET /api/artifact`                 | Render a `.swt-planning/` markdown artifact (HTML or raw)                                     |
+| `GET /api/artifact-history`         | Git history for an artifact path                                                              |
+| `GET /api/artifact-diff`            | Diff an artifact against a specific commit                                                    |
+| `GET /api/budget/sse`               | Budget gate SSE stream (Phase 5 wires the live meter)                                         |
+| `GET /api/cache-hits/sse`           | Anthropic cache-hit ratio from `.metrics/`                                                    |
+| `GET /api/provider-cost/sse`        | Per-provider cost panel (Phase 5 wires the live meter)                                        |
+| `GET /api/tpac`                     | TPAC report history (Phase 5)                                                                 |
+| `GET /api/worktrees/sse`            | Parallel-task worktree status                                                                 |
+| `GET /api/doctor`                   | Prereq + version checks                                                                       |
+| `GET /api/detect-phase`             | Phase auto-detection JSON                                                                     |
+| `GET /api/config`                   | Read/write `config.json`                                                                      |
+| `GET /api/update`                   | npm-registry version check                                                                    |
+| `POST /api/vibe`                    | **LEGACY shim** — re-dispatches to `/api/cook/start` for v2-client compat. Removed in v3.1.0. |
 
 ## Limitations (Phase 4 scope)
 

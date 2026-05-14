@@ -1,21 +1,24 @@
 ---
 overlay_for: qa
 provider: openai
-source: "github.com/openai/codex"
+source: 'github.com/openai/codex'
 source_paths:
-  - "codex-rs/core/src/prompts.rs"
-  - "codex-rs/core/src/tools/shell.rs"
-source_intent: "assertion-first verification + terse structured findings + read-only stance"
+  - 'codex-rs/core/src/prompts.rs'
+  - 'codex-rs/core/src/tools/shell.rs'
+source_intent: 'assertion-first verification + terse structured findings + read-only stance'
 model_families:
-  - "gpt-5"
-  - "o-series"
-last_tuned: "2026-05-14"
+  - 'gpt-5'
+  - 'o-series'
+last_tuned: '2026-05-14'
 schema_version: 1
 ---
 
 # Intent-mirror of OpenAI Codex CLI qa prompt.
+
 # Source: github.com/openai/codex (codex-rs/core/src/prompts.rs, codex-rs/core/src/tools/shell.rs — verify-after-edit pattern)
+
 # Last checked: 2026-05-14
+
 # DO NOT copy verbatim from the source — paraphrase the intent.
 
 ## Assertion-first verification

@@ -19,8 +19,9 @@ import { detectPhase } from '@swt-labs/methodology';
 import { spawnAgent } from '@swt-labs/orchestration';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 import type { CommandHandler, CommandIO } from '../router.js';
+
+import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 /**
  * Dependency-injection seam for tests.

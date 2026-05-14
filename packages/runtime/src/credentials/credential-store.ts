@@ -25,12 +25,7 @@
  */
 
 import { SWT_KEYCHAIN_SERVICE, decodeAccount, encodeAccount } from './namespace.js';
-import type {
-  AuthMode,
-  CredentialRef,
-  CredentialStore,
-  CredentialStoreOptions,
-} from './types.js';
+import type { AuthMode, CredentialRef, CredentialStore, CredentialStoreOptions } from './types.js';
 
 /**
  * Build a {@link CredentialStore} over an injected {@link CredentialBackend}.

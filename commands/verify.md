@@ -4,7 +4,7 @@ category: monitoring
 hidden: true
 disable-model-invocation: true
 description: Run human acceptance testing on completed phase work. Presents CHECKPOINT prompts one at a time.
-argument-hint: "[phase-number] [--resume]"
+argument-hint: '[phase-number] [--resume]'
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, LSP
 ---
 
@@ -13,14 +13,17 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, LSP
 ## Context
 
 Working directory:
+
 ```bash
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 Store the plugin root path output above as `{plugin-root}` for use in script invocations below. Replace `{plugin-root}` with the literal `Plugin root` value from Context whenever a step below references a script or reference file.
 
 Current state:
+
 ```bash
 !`head -40 .swt-planning/STATE.md 2>/dev/null || echo "No state found"`
 ```
@@ -28,11 +31,13 @@ Current state:
 Config: Pre-injected by SessionStart hook.
 
 Phase directories:
+
 ```bash
 !`ls .swt-planning/phases/ 2>/dev/null || echo "No phases directory"`
 ```
 
 Phase state:
+
 ```
 ${SWT_PHASE_DETECT_OUTPUT}
 ```
@@ -83,6 +88,7 @@ QA verification summary (pre-extracted from VERIFICATION.md):
   - Found: announce "Auto-detected Phase {NN} ({slug})". All verified: STOP "All phases have UAT results. Specify: `swt verify {NN}`"
 - No SUMMARY.md in target phase dir: STOP "Phase {NN} has no completed plans. Run swt cook first."
 - **QA gate (NON-NEGOTIABLE unless `--skip-qa`):** Before entering UAT Steps, check whether QA has passed for the target phase. Use `qa_status` from Phase state only when the target phase is the same as the auto-detected `verify_target_slug` / first-unverified phase. If the user specified an explicit phase number that differs from the auto-detected target, ignore the pre-computed `qa_status` and compute the gate from that explicit phase's own VERIFICATION.md + QA remediation state.
+
   ```bash
   PDIR=".swt-planning/phases/{target-slug}"
   PHASE_NUM=$(echo "{target-slug}" | sed 's/^\([0-9]*\).*/\1/')
@@ -99,6 +105,7 @@ QA verification summary (pre-extracted from VERIFICATION.md):
     esac
   fi
   ```
+
   - If `QA_REM_STAGE` is `plan`, `execute`, or `verify`: STOP "Phase {NN} has active QA remediation (round {round}, stage {stage}). Run `swt cook` to continue QA remediation before UAT."
   - If `QA_REM_STAGE=done`: refresh `VERIF_FILE` before reading `result:` or running stale-QA checks:
     ```bash
@@ -122,12 +129,15 @@ QA verification summary (pre-extracted from VERIFICATION.md):
     fi
     ```
   - Before trusting any PASS artifact, re-run the deterministic QA gate for the target phase:
+
     ```bash
     QA_GATE_ROUTING=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "$PDIR" 2>/dev/null | awk -F= '/^qa_gate_routing=/{print $2; exit}')
     ```
+
     - `PROCEED_TO_UAT`: continue to the freshness checks below.
     - `REMEDIATION_REQUIRED`: STOP "Phase {NN} QA gate still requires remediation (including unresolved tracked known issues, if any). Run `swt cook` to continue QA remediation before UAT."
     - `QA_RERUN_REQUIRED` or empty output: STOP "Phase {NN} QA verification is not authoritative yet. Run `swt qa {NN}` or `swt cook` to re-run QA before UAT, or use `swt verify --skip-qa` to bypass."
+
   - If VERIFICATION.md exists, read its frontmatter `result:` field:
     - `PASS`: before proceeding, run the same stale-QA checks as phase-detect for this target phase: (1) if product-code working tree is dirty (`git status --porcelain --untracked-files=normal -- . ':!.swt-planning' ':!CLAUDE.md'` non-empty) → STOP and rerun QA via `swt cook`; (2) if `verified_at_commit` exists and differs from current product-code `git log -1 --format='%H' -- . ':!.swt-planning' ':!CLAUDE.md'` → STOP and rerun QA; (3) if `verified_at_commit` is absent (brownfield file), compare VERIFICATION.md mtime to the latest product-code commit timestamp and STOP if the commit is newer. Only proceed to UAT when the PASS is both gate-authoritative and fresh for the target phase.
     - `FAIL` or `PARTIAL`: STOP "Phase {NN} QA result is {result}. Run `swt cook` to continue QA remediation, or use `swt verify --skip-qa` to bypass."
@@ -158,6 +168,7 @@ eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" get-or-latest .swt-p
 The helper exports `active_session`, `session_id`, `session_file`, and `session_status`; use `session_status` for routing after `eval`.
 
 **Routing decision:**
+
 - If `$ARGUMENTS` contains an explicit phase number AND no `--session` flag → skip debug-session routing, use standard phase UAT flow below.
 - If `active_session != none` AND exported `session_status` is `uat_pending` or `uat_failed` AND (`phase_count=0` OR `$ARGUMENTS` contains `--session`) → enter debug-session UAT mode (below). If `phase_count > 0` and no `--session` flag, skip debug-session routing — standard phase UAT takes priority.
 - Otherwise → skip debug-session routing, continue to standard phase UAT Steps.
@@ -166,13 +177,15 @@ The helper exports `active_session`, `session_id`, `session_file`, and `session_
 When routed here, skip the standard phase-resolution Steps entirely. Instead:
 
 1. Read the debug session's UAT context:
+
    ```bash
-  UAT_CONTEXT=$(bash "{plugin-root}/scripts/compile-debug-session-context.sh" "$session_file" uat)
+   UAT_CONTEXT=$(bash "{plugin-root}/scripts/compile-debug-session-context.sh" "$session_file" uat)
    ```
 
 2. Increment the UAT round:
+
    ```bash
-  eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" increment-uat .swt-planning)"
+   eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" increment-uat .swt-planning)"
    ```
 
 3. Generate 1-3 UAT checkpoints from the session context. These must require HUMAN judgment:
@@ -183,6 +196,7 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
 4. Present checkpoints one at a time using the same CHECKPOINT + AskUserQuestion pattern from Step 5 below. Apply the same response mapping rules (Step 6) and issue handling (Step 7).
 
 5. After all checkpoints, persist the UAT round to the session file:
+
    ```bash
    UAT_RESULT_JSON=$(cat <<'ENDJSON'
    {
@@ -198,7 +212,7 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
    }
    ENDJSON
    )
-  echo "$UAT_RESULT_JSON" | bash "{plugin-root}/scripts/write-debug-session.sh" "$session_file"
+   echo "$UAT_RESULT_JSON" | bash "{plugin-root}/scripts/write-debug-session.sh" "$session_file"
    ```
 
 6. Update session status based on results:
@@ -206,6 +220,7 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
    - Any issues found → `bash .../debug-session-state.sh set-status .swt-planning uat_failed`
 
 7. Present debug-session UAT result:
+
    ```text
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    Debug UAT: Round {uat_round}
@@ -217,11 +232,12 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
      Issues:   {N}
 
    ```
+
    - If COMPLETE: `➜ Debug session complete. The fix is verified.`
    - If ISSUES: `➜ Next: swt debug --resume -- Address UAT issues`
 
    STOP after presenting. Do not continue to the standard phase UAT steps.
-</debug_session_uat>
+   </debug_session_uat>
 
 ## Steps
 
@@ -302,6 +318,7 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
 **Check `verify_scope` in the pre-computed verify context block.** Two modes:
 
 **Re-verification mode** (`verify_scope=remediation round=RR`): The context contains ONLY plans from the latest remediation round. These plans fixed issues found in a previous UAT session. Frame test scenarios to verify the remediation worked:
+
 - Each plan's `must_haves` reference the original UAT issues that were remediated
 - Generate 1-3 tests per plan focused on: "The original issue was {must_have description}. Verify the fix resolves it."
 - Tests should confirm the specific bug/issue is no longer present, not re-test the entire phase
@@ -310,6 +327,7 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
 **Full-scope mode** (`verify_scope=full`): Standard verification of all phase plans. Use the rules below as-is.
 
 **Summary deviation review prefill (NON-NEGOTIABLE):** Before generating plan checkpoints, inspect the parsed `SUMMARY_DEVIATION:` records from the verify context.
+
 - For each record, create one `D{NN}` checkpoint at the top of the UAT `## Tests` section, before any generated `P...` or `PR...` tests. Number these as `D01`, `D02`, etc. in the stable order they appear in the verify context.
 - These are review checkpoints, not pre-recorded failures. Their `**Result:**` field starts empty. Do NOT mark them as `issue` unless the human explicitly rejects the deviation or describes a real bug.
 - Include deterministic identity metadata so later accepted deviations can be suppressed:
@@ -323,25 +341,29 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
 - If there are no `SUMMARY_DEVIATION:` records, do not create any prefilled deviation checkpoints.
 
 For each plan in the pre-computed verify context block:
+
 - Use the pre-computed `what_was_built`, `files_modified`, and `must_haves` data. Do NOT read SUMMARY.md or PLAN.md files.
 - Generate 1-3 test scenarios that require HUMAN judgment — things only a person can verify
 - Minimum 1 test per plan, even for pure refactors (use "verify nothing broke" regression test)
 - Full-scope test IDs follow the format: `P{plan}-T{NN}` (e.g., P01-T1, P01-T2, P02-T1). Re-verification test IDs follow the format `PR{RR}-T{NN}`.
 
 **UAT tests must be things only a human can judge.** Good examples:
+
 - Open the app and navigate to screen X — does it display Y correctly?
 - Perform user workflow A → B → C — does the result look right?
 - Check that the UI reflects the change — is the label/value/layout correct?
 
 **NEVER generate tests that ask the user to run automated checks.** These belong in the QA phase, not UAT:
+
 - ✗ Run a test suite or individual test (xcodebuild test, pytest, bats, jest, etc.)
 - ✗ Run a CLI command and check its exit code or output
 - ✗ Execute a script and verify it passes
 - ✗ Run a linter, type-checker, or build command
 
-If a plan only contains backend/test/script changes with no user-facing behavior, generate a scenario that asks the human to verify the *effect* is visible (e.g., "confirm the migration preview no longer shows phantom entries") rather than asking them to run the tests themselves.
+If a plan only contains backend/test/script changes with no user-facing behavior, generate a scenario that asks the human to verify the _effect_ is visible (e.g., "confirm the migration preview no longer shows phantom entries") rather than asking them to run the tests themselves.
 
 **What belongs in UAT (ask the user):**
+
 - Visual/UI correctness ("Does the migration preview show the correct symbols?")
 - Domain-specific data validation ("Does the reconciliation output match your expected portfolio?")
 - UX flows and usability ("Navigate to Settings > Import, does the flow feel right?")
@@ -349,6 +371,7 @@ If a plan only contains backend/test/script changes with no user-facing behavior
 - Subjective quality ("Does the chart render clearly at different screen sizes?")
 
 **What does NOT belong in UAT (the agent or QA already handles these):**
+
 - Running test suites — QA runs these during execution. Do NOT ask the user to run tests.
 - Checking command output, exit codes, or build success
 - Grepping files for expected content
@@ -360,6 +383,7 @@ If a plan only contains backend/test/script changes with no user-facing behavior
 If a plan's work is purely internal (refactor, test infrastructure, script changes) with no user-facing behavior, generate a single lightweight checkpoint asking the user to confirm the app still works as expected from their perspective, rather than asking them to run automated checks.
 
 Write the initial UAT file at `{phase-dir}/{uat_path}` (using the pre-computed `uat_path` from Step 1) using the `templates/UAT.md` format. If the parent directory doesn't exist (e.g., `remediation/uat/round-01/`), create it first.
+
 - Populate YAML frontmatter: phase, plan_count, status=in_progress, started=today, total_tests
 - Write prefilled `D{NN}` summary-deviation review entries first, then generated plan checkpoint entries. All entries start with Result fields empty (no placeholder values).
 
@@ -387,18 +411,19 @@ Then call the `AskUserQuestion` tool (this MUST be a tool_use call, NOT text out
 
 ```yaml
 question: "Scenario: {scenario description}\n\nExpected: {expected result}\n\nDoes the behavior match this checkpoint?"
-header: "UAT"
+header: 'UAT'
 multiSelect: false
 options:
-  - label: "Pass"
-    description: "Behavior matches expected result"
-  - label: "Skip"
-    description: "Cannot test right now — skip this checkpoint"
+  - label: 'Pass'
+    description: 'Behavior matches expected result'
+  - label: 'Skip'
+    description: 'Cannot test right now — skip this checkpoint'
 ```
 
 The tool automatically provides a freeform "Other" option for the user to describe issues.
 
 **Summary-deviation checkpoint prompt:** When the current checkpoint is a prefilled `D{NN}` summary-deviation review, present the deviation text and source metadata instead of a product scenario.
+
 - The CHECKPOINT display must be self-contained: include a compact `Deviation: {text}` line from the entry's `**Deviation:**` field and `Source: {source_path} ({source_plan})` from `**Source Summary:**` and `**Source Plan:**`. Include `Deviation Signature: {signature}` only when it helps distinguish similar deviations.
 - The AskUserQuestion `question` value MUST also be self-contained. Include the same compact `Deviation: {text}` and `Source: {source_path} ({source_plan})` lines in the tool question, then ask: `Accept this documented deviation as non-blocking for this phase?`
 - The generic artifact expectation, `Expected: Human confirms whether this documented deviation is acceptable for this phase.`, is not enough by itself. It must not be the only visible AskUserQuestion question for a prefilled `D{NN}` summary-deviation checkpoint.
@@ -428,6 +453,7 @@ Map the AskUserQuestion response:
 **Freeform text (via "Other"):** Apply case-insensitive matching in this order after normalization.
 
 **Normalization (required first):**
+
 - Trim surrounding whitespace.
 - Lowercase.
 - Treat curly apostrophes as straight apostrophes (`can’t` == `can't`).
@@ -447,10 +473,12 @@ Map the AskUserQuestion response:
 **Observation extraction guard:** Only create a discovered issue when text after a separator includes a defect/issue signal (e.g., broken, bug, error, wrong, missing, not working, fails, crash, exception, regression, problem, still). The word "still" is a defect signal because in UAT context it means an expected fix was not applied (e.g., "X still shows Y" = the behavior persists unchanged = issue). **Exception:** "still" followed by a positive word (works, working, fine, good, correct, properly, functioning, responsive, loads, launches, runs, ok, okay, passes, functions, operates, running) is temporal (meaning "continues to work"), NOT a defect signal — do NOT create a discovered issue. Examples: "pass, it still works fine" → pass (no discovered issue); "pass, but it still shows the old value" → pass + discovered issue. If trailing text is neutral/positive only (e.g., "pass: looks great"), do NOT create a discovered issue.
 
 **Dual-intent tie-break (pass + skip in one response):**
+
 - If the response explicitly defers the **current checkpoint** (e.g., "skip this checkpoint", "skip for now", "can't test right now"), classify checkpoint outcome as **skip**.
 - Otherwise, use the first intent word left-to-right as fallback.
 
 Evaluate in this order:
+
 - **Skip-intent with issue observation:** If the text contains a skip-intent whole word (skip, skipped, next, n/a, na, later, defer) AND contains post-separator text with an issue signal, then: record the test as **skipped** AND capture the post-separator observation text as a discovered issue (Step 7a). Separators: but, however, also, although, though, comma, semicolon, period, dash, colon, em dash, newline. Example: "skip, but the sidebar is completely broken" → skipped + discovered issue.
 - **Skip-intent only:** If skip-intent is present but no issue observation in post-separator text → record as skipped.
 - **Pass-intent with issue observation:** If the text contains pass-intent as whole words/phrases (pass, passed, looks good, works, correct, confirmed, yes, good, fine, ok, okay, not bad, can't complain, cant complain, cannot complain), is not negated by the expanded negation guard, and has post-separator issue text, then: record the test as **passed** AND capture the post-separator observation text as a discovered issue (Step 7a). Example: "pass, but I noticed the stats section still shows for positions with no covered calls" → passed + discovered issue.
@@ -494,16 +522,17 @@ Expected persisted `Description`: "Import preview does not satisfy the checkpoin
 
 </examples>
 
-| Keywords | Severity |
-| --- | --- |
+| Keywords                                             | Severity |
+| ---------------------------------------------------- | -------- |
 | crash, broken, error, doesn't work, fails, exception | critical |
-| wrong, incorrect, missing, not working, bug | major |
-| minor, cosmetic, nitpick, small, typo, polish | minor |
-| (no keyword match) | major |
+| wrong, incorrect, missing, not working, bug          | major    |
+| minor, cosmetic, nitpick, small, typo, polish        | minor    |
+| (no keyword match)                                   | major    |
 
 Record: synthesized description, inferred severity.
 
 Display:
+
 ```text
 Issue recorded (severity: {level}). Final next-step routing shown at UAT summary.
 ```
@@ -515,6 +544,7 @@ When a user passes or skips a test but also mentions a separate bug, issue, or o
 Assign a discovered-issue ID: `D{NN}` (D01, D02, ...) — sequential across the UAT session. Before appending any discovered issue, scan the current UAT file at `{phase-dir}/{uat_path}` in both initial and resumed sessions for existing `D[0-9]+` headings. Include prefilled summary-deviation review entries and discovered issues already appended earlier in the same session; those IDs are reserved. Allocate the next zero-padded `D{NN}` from highest existing + 1, or `D01` when none exist. Example: if prefilled `D01` and `D02` already exist, the next discovered issue is `D03`. Never renumber existing `D{NN}` entries.
 
 Infer severity using the same keyword table from Step 7. Infer category from context:
+
 - If the user identifies a specific view/screen/component: use that as the description prefix
 - If vague: use the checkpoint context and user observation to synthesize a concise remediation-ready description instead of persisting filler or transient attachment placeholders
 
@@ -537,6 +567,7 @@ Append a new test entry to the UAT.md `## Tests` section:
 Increment `total_tests` and `issues` in frontmatter. This ensures discovered issues flow into UAT remediation alongside test failures.
 
 Display:
+
 ```text
 Discovered issue D{NN} recorded (severity: {level}).
 ```
@@ -545,15 +576,18 @@ Discovered issue D{NN} recorded (severity: {level}).
 
 - Update the UAT file at `{phase-dir}/{uat_path}` with the result for this test. The `**Result:**` value MUST be exactly `pass`, `skip`, or `issue` (lowercase). Map user responses: Pass→`pass`, Skip→`skip`, any issue/fail/problem→`issue`. Never write FAIL, PARTIAL, or any other value.
 - When the response accepts and tracks a prefilled summary-deviation checkpoint (`Track Todo` or the summary-deviation todo-intent freeform path), run todo promotion after writing the UAT file and before accepted-deviation registry sync:
+
   ```bash
   TODO_META=$(bash "{plugin-root}/scripts/track-uat-deviations.sh" todo-from-uat "{phase-dir}" "{phase-dir}/{uat_path}" "{test-id}" 2>/dev/null || true)
   TODO_STATUS=$(printf '%s\n' "$TODO_META" | awk -F= '/^todo_status=/{print $2; exit}')
   TODO_REF=$(printf '%s\n' "$TODO_META" | awk -F= '/^todo_ref=/{print $2; exit}')
   ```
+
   - If `TODO_STATUS=added` and `TODO_REF` is non-empty, write or update the checkpoint line to `**Tracking:** accepted deviation added to todos (ref:{TODO_REF})`.
   - If `TODO_STATUS=already_tracked` and `TODO_REF` is non-empty, write or update the checkpoint line to `**Tracking:** accepted deviation already tracked in todos (ref:{TODO_REF})`.
   - If `TODO_STATUS` is `no_state_file`, `missing_metadata`, `not_accepted`, empty, or any other value, keep `**Result:** pass` and write `**Tracking:** accepted deviation todo tracking unavailable ({TODO_STATUS:-helper_failed})`. The human acceptance controls whether the deviation blocks the phase; helper failure only affects follow-up tracking.
   - Never invent a todo ref. Only use `TODO_REF` emitted by the helper.
+
 - When the response accepts a prefilled summary-deviation checkpoint (`D{NN}` with `**Deviation Signature:** ...` and `**Disposition:** accepted-process-exception`), run the accepted-deviation registry helper after any todo tracking update:
   ```bash
   bash "{plugin-root}/scripts/track-uat-deviations.sh" record-from-uat "{phase-dir}" "{phase-dir}/{uat_path}"
@@ -590,15 +624,18 @@ Discovered issue D{NN} recorded (severity: {level}).
 ```
 
 **Discovered Issues in summary:** If any discovered issues (`D{NN}` entries) were recorded during the session, list them after the result box so the user sees them at a glance:
+
 ```text
   Discovered Issues:
     ⚠ D01: {short-title} (severity: {level})
     ⚠ D02: {short-title} (severity: {level})
 ```
+
 These are already recorded in the UAT.md and will flow into remediation alongside test failures. If no discovered issues: omit the section.
 
 **Remediation lifecycle advance (ONLY when `verify_scope=remediation` — skip entirely for first-time UAT):**
 First, verify that UAT remediation state actually exists before running any lifecycle commands. If no state file exists (neither new-format nor legacy location), this is a first-time UAT — do NOT call `needs-round` or any remediation state command:
+
 ```bash
 _uat_state_file="{phase-dir}/remediation/uat/.uat-remediation-stage"
 _uat_legacy_remed_file="{phase-dir}/remediation/.uat-remediation-stage"
@@ -606,13 +643,16 @@ _uat_legacy_file="{phase-dir}/.uat-remediation-stage"
 _uat_state_exists=false
 { [ -f "$_uat_state_file" ] || [ -f "$_uat_legacy_remed_file" ] || [ -f "$_uat_legacy_file" ]; } && _uat_state_exists=true
 ```
+
 **If `_uat_state_exists=false`:** Skip this entire block — this is a first-time UAT, not a re-verification after remediation.
 **If `_uat_state_exists=true` AND `verify_scope=remediation`:**
+
 - If `status=issues_found`: Handle based on calling context:
 
   **Orchestrated mode** (called from vibe.md — you are executing inside vibe.md's Verify mode): Do NOT call `needs-round`. The caller will advance state after checking the round cap. Emit this signal for the calling orchestrator: `remediation_continue=true issues={N}` (where `{N}` is the issue count from finalization above).
 
   **Standalone mode** (running via `swt verify` directly — not called from vibe.md): Check the shared UAT remediation round-cap contract before mutating state:
+
   ```bash
   _current_round=$(bash "{plugin-root}/scripts/uat-remediation-state.sh" current-round "{phase-dir}")
   _cap_decision=$(bash "{plugin-root}/scripts/resolve-uat-remediation-round-limit.sh" --next-round-decision .swt-planning/config.json "${_current_round}" 2>/dev/null)
@@ -620,6 +660,7 @@ _uat_state_exists=false
   _max_rounds=$(printf '%s\n' "$_cap_decision" | awk -F= '/^max_rounds=/{print $2; exit}')
   _cap_reached=$(printf '%s\n' "$_cap_decision" | awk -F= '/^cap_reached=/{print $2; exit}')
   ```
+
   - If `_cap_reached` is empty or `_cap_decision` is empty: the round-cap helper failed or returned malformed output. Display: "⚠ Could not determine UAT remediation round cap. Run `swt verify` to retry." STOP. Do NOT call `needs-round` — no state mutation on error paths.
   - If `_cap_reached=true`, display:
     ```text
@@ -635,7 +676,9 @@ _uat_state_exists=false
     bash "{plugin-root}/scripts/uat-remediation-state.sh" needs-round "{phase-dir}"
     ```
     This increments the round counter, creates the next round directory, and resets stage to `research`. Do NOT emit the `remediation_continue` signal — standalone verify has no caller to receive it.
+
 - If `status=complete`: Remediation verified successfully. Mark remediation as verified (do NOT delete the state file — `current_uat()` needs it to locate the round-dir UAT):
+
   ```bash
   # Mark remediation as verified — preserves round/layout so current_uat() can still find the active round-scoped UAT
   _state_file="{phase-dir}/remediation/uat/.uat-remediation-stage"
@@ -673,6 +716,7 @@ _uat_state_exists=false
     - `Suggest swt fix to address recorded issues.`
 
 **Planning artifact boundary commit (conditional):**
+
 ```bash
 PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
 if [ -f "$PG_SCRIPT" ]; then
@@ -681,6 +725,7 @@ else
   echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
 fi
 ```
+
 - `planning_tracking=commit`: commits `.swt-planning/` + `CLAUDE.md` when changed (includes UAT report)
 - `planning_tracking=manual|ignore`: no-op
 - `auto_push=always`: push happens inside the boundary commit command when upstream exists

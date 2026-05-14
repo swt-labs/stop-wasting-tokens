@@ -107,13 +107,7 @@ describe('canSubmit', () => {
 
 describe('ACTION_VERBS', () => {
   it('lists exactly the 5 action verbs', () => {
-    expect(ACTION_VERBS.map((v) => v.value)).toEqual([
-      'cook',
-      'research',
-      'qa',
-      'verify',
-      'map',
-    ]);
+    expect(ACTION_VERBS.map((v) => v.value)).toEqual(['cook', 'research', 'qa', 'verify', 'map']);
   });
 
   it('leads with cook (the default selection)', () => {

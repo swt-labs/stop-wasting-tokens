@@ -149,9 +149,7 @@ describe('cook event reducer', () => {
         duration_ms: 12,
       });
       expect(state.activeAgents.get('sub-X')?.current_tool).toBeUndefined();
-      expect(
-        state.activeAgents.get('sub-X')?.current_tool_input_excerpt,
-      ).toBeUndefined();
+      expect(state.activeAgents.get('sub-X')?.current_tool_input_excerpt).toBeUndefined();
       dispose();
     });
   });
@@ -399,9 +397,7 @@ describe('cook event reducer', () => {
             started_at: '2026-05-13T09:59:00Z',
           },
         ],
-      } as unknown as Parameters<typeof actions.applyEvent>[0] extends infer T
-        ? T
-        : never;
+      } as unknown as Parameters<typeof actions.applyEvent>[0] extends infer T ? T : never;
       actions.applyEvent({ type: 'snapshot.replace', snapshot: snap as never });
       expect(state.activeAgents.size).toBe(1);
       expect(state.activeAgents.get('sub-A')?.role).toBe('dev');

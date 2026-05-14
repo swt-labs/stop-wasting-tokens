@@ -36,7 +36,7 @@ function collectKeys(schema: z.ZodTypeAny, acc: string[] = []): string[] {
       const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
       for (const [key, child] of Object.entries(shape)) {
         acc.push(key);
-        collectKeys(child as z.ZodTypeAny, acc);
+        collectKeys(child, acc);
       }
       return acc;
     }
@@ -81,9 +81,9 @@ describe('@swt-labs/shared — OAuth route wire schemas (Plan 04-01)', () => {
 
   describe('OAuthManualCodeBodySchema', () => {
     it("parses { flow_id: 'f1', code: 'abc123' }", () => {
-      expect(
-        OAuthManualCodeBodySchema.safeParse({ flow_id: 'f1', code: 'abc123' }).success,
-      ).toBe(true);
+      expect(OAuthManualCodeBodySchema.safeParse({ flow_id: 'f1', code: 'abc123' }).success).toBe(
+        true,
+      );
     });
 
     it('rejects a body missing code', () => {
@@ -128,15 +128,15 @@ describe('@swt-labs/shared — OAuth route wire schemas (Plan 04-01)', () => {
 
   describe('OAuthManualCodeResponseSchema', () => {
     it("parses { ok: true, flow_id: 'f1' }", () => {
-      expect(
-        OAuthManualCodeResponseSchema.safeParse({ ok: true, flow_id: 'f1' }).success,
-      ).toBe(true);
+      expect(OAuthManualCodeResponseSchema.safeParse({ ok: true, flow_id: 'f1' }).success).toBe(
+        true,
+      );
     });
 
-    it('rejects { ok: false, flow_id: \'f1\' } (ok is z.literal(true))', () => {
-      expect(
-        OAuthManualCodeResponseSchema.safeParse({ ok: false, flow_id: 'f1' }).success,
-      ).toBe(false);
+    it("rejects { ok: false, flow_id: 'f1' } (ok is z.literal(true))", () => {
+      expect(OAuthManualCodeResponseSchema.safeParse({ ok: false, flow_id: 'f1' }).success).toBe(
+        false,
+      );
     });
   });
 

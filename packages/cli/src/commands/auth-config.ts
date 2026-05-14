@@ -125,10 +125,7 @@ export function parseAuthConfig(raw: unknown): AuthConfig {
       typeof credentialRefRaw === 'string' && credentialRefRaw.trim().length > 0
         ? credentialRefRaw
         : undefined;
-    out[provider] =
-      credentialRef !== undefined
-        ? { mode, credentialRef }
-        : { mode };
+    out[provider] = credentialRef !== undefined ? { mode, credentialRef } : { mode };
   }
   return out;
 }

@@ -24,8 +24,9 @@
  * in `rate-card-source.test.ts`.
  */
 
-import { describe, expect, test } from 'vitest';
 import type { RateCard } from '@swt-labs/shared';
+import { describe, expect, test } from 'vitest';
+
 import {
   CHARS_PER_TOKEN,
   DEFAULT_OUTPUT_TOKENS_PER_TURN,
@@ -90,8 +91,7 @@ describe('projectSpawnCost — token projection', () => {
     // 400 chars -> 100 tok; 200 chars -> 50 tok; sum = 150.
     expect(projection.projected_input_tokens).toBe(150);
     expect(projection.projected_input_tokens).toBe(
-      estimateTokens(BASE_INPUT.systemPrompt) +
-        estimateTokens(BASE_INPUT.taskPrompt),
+      estimateTokens(BASE_INPUT.systemPrompt) + estimateTokens(BASE_INPUT.taskPrompt),
     );
   });
 
@@ -107,10 +107,7 @@ describe('projectSpawnCost — token projection', () => {
   });
 
   test('maxTurns: 0 yields 0 output tokens + a finite input-only cost', () => {
-    const projection = projectSpawnCost(
-      { ...BASE_INPUT, maxTurns: 0 },
-      FIXTURE_CARD,
-    );
+    const projection = projectSpawnCost({ ...BASE_INPUT, maxTurns: 0 }, FIXTURE_CARD);
     expect(projection.projected_output_tokens).toBe(0);
     expect(Number.isFinite(projection.projected_cost_usd)).toBe(true);
     expect(projection.projected_cost_usd).toBeGreaterThan(0);
@@ -121,28 +118,20 @@ describe('projectSpawnCost — rate-card pricing', () => {
   test('provider hit resolves the anthropic entry; cold cost matches the formula', () => {
     const projection = projectSpawnCost(BASE_INPUT, FIXTURE_CARD);
     // Cold: (150/1000)*0.015 + (8000/1000)*0.075 = 0.00225 + 0.6 = 0.60225
-    const expectedCold =
-      (150 / 1000) * 0.015 + (8000 / 1000) * 0.075;
+    const expectedCold = (150 / 1000) * 0.015 + (8000 / 1000) * 0.075;
     expect(projection.projected_cost_usd).toBeCloseTo(expectedCold, 10);
     expect(projection.confidence).toBe('medium');
     expect(projection.rate_card_source).toBe('embedded');
   });
 
   test('provider miss falls back to the first anthropic entry + low confidence', () => {
-    const projection = projectSpawnCost(
-      { ...BASE_INPUT, provider: 'ollama' },
-      FIXTURE_CARD,
-    );
+    const projection = projectSpawnCost({ ...BASE_INPUT, provider: 'ollama' }, FIXTURE_CARD);
     expect(projection.confidence).toBe('low');
     // Fallback prices against the anthropic entry — same cold cost as a hit.
     const expectedCold = (150 / 1000) * 0.015 + (8000 / 1000) * 0.075;
     expect(projection.projected_cost_usd).toBeCloseTo(expectedCold, 10);
-    expect(
-      projection.assumptions.some((a) => a.includes('not in rate card')),
-    ).toBe(true);
-    expect(
-      projection.assumptions.some((a) => a.includes("provider 'ollama'")),
-    ).toBe(true);
+    expect(projection.assumptions.some((a) => a.includes('not in rate card'))).toBe(true);
+    expect(projection.assumptions.some((a) => a.includes("provider 'ollama'"))).toBe(true);
   });
 
   test('cold vs warm — warm < cold for an entry WITH cache_read_per_1k', () => {
@@ -153,9 +142,7 @@ describe('projectSpawnCost — rate-card pricing', () => {
       assumeWarmPrefix: true,
     });
     expect(warm.projected_cost_usd).toBeLessThan(cold.projected_cost_usd);
-    expect(
-      warm.assumptions.some((a) => a.includes('warm prefix assumed')),
-    ).toBe(true);
+    expect(warm.assumptions.some((a) => a.includes('warm prefix assumed'))).toBe(true);
   });
 
   test('cold vs warm — warm === cold for an entry WITHOUT cache fields', () => {
@@ -187,8 +174,6 @@ describe('projectSpawnCost — assumptions honesty surface', () => {
       expect(assumption.length).toBeLessThanOrEqual(80);
     }
     // The always-present notes come first.
-    expect(projection.assumptions[0]).toBe(
-      'input estimated via char/4 heuristic',
-    );
+    expect(projection.assumptions[0]).toBe('input estimated via char/4 heuristic');
   });
 });

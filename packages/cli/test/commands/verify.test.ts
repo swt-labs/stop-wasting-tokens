@@ -10,10 +10,9 @@
  *   - Returns EXIT.SUCCESS when the loop completes
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-
-import type { AskUserResponse } from '@swt-labs/runtime';
 import type { PhaseDetectResult } from '@swt-labs/methodology';
+import type { AskUserResponse } from '@swt-labs/runtime';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   extractFromVerification,
@@ -69,7 +68,7 @@ function buildVerifyHarness(opts: HarnessOpts = {}) {
   const askUserImpl = vi.fn(async () => {
     const r = askResponses[askIdx];
     askIdx += 1;
-    return r ?? ({ selectedOption: 'Pass', freeform: null } as AskUserResponse);
+    return r ?? { selectedOption: 'Pass', freeform: null };
   });
 
   const detectPhaseImpl = vi.fn(
@@ -122,20 +121,23 @@ function buildVerifyHarness(opts: HarnessOpts = {}) {
       data: string | NodeJS.ArrayBufferView,
       _enc?: unknown,
     ) => {
-      writtenFiles.set(String(p), typeof data === 'string' ? data : Buffer.from(data).toString('utf8'));
+      writtenFiles.set(
+        String(p),
+        typeof data === 'string' ? data : Buffer.from(data).toString('utf8'),
+      );
     },
   );
   const mkdirSyncImpl = vi.fn(() => undefined as never);
   const execSyncImpl = vi.fn(() => '' as unknown as Buffer);
 
   const handler = makeVerifyHandler({
-    askUserImpl: askUserImpl as never,
-    detectPhaseImpl: detectPhaseImpl as never,
-    existsSyncImpl: existsSyncImpl as never,
-    readdirSyncImpl: readdirSyncImpl as never,
+    askUserImpl: askUserImpl,
+    detectPhaseImpl: detectPhaseImpl,
+    existsSyncImpl: existsSyncImpl,
+    readdirSyncImpl: readdirSyncImpl,
     readFileSyncImpl: readFileSyncImpl as never,
-    writeFileSyncImpl: writeFileSyncImpl as never,
-    mkdirSyncImpl: mkdirSyncImpl as never,
+    writeFileSyncImpl: writeFileSyncImpl,
+    mkdirSyncImpl: mkdirSyncImpl,
     execSyncImpl: execSyncImpl as never,
   });
 
@@ -277,10 +279,7 @@ describe('@swt-labs/cli — verifyHandler integration (Plan 03-03 T2)', () => {
     // are NOT comments. Removing block comments + line comments before
     // grep is the standard way to do this in TS source-level tests.
     const fs = await import('node:fs');
-    const src = fs.readFileSync(
-      new URL('../../src/commands/verify.ts', import.meta.url),
-      'utf8',
-    );
+    const src = fs.readFileSync(new URL('../../src/commands/verify.ts', import.meta.url), 'utf8');
     // Strip /* ... */ block comments and // line comments before testing.
     const codeOnly = src
       .replace(/\/\*[\s\S]*?\*\//g, '')

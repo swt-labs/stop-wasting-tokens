@@ -50,11 +50,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { runVibe, type RunVibeResult } from '@swt-labs/methodology';
-import {
-  computeTpac,
-  countSatisfiedCriteria,
-  liftMeterSnapshot,
-} from '@swt-labs/orchestration';
+import { computeTpac, countSatisfiedCriteria, liftMeterSnapshot } from '@swt-labs/orchestration';
 import type { MeterSnapshot, TpacReport } from '@swt-labs/shared';
 
 import { installReplay, type ReplayHandle } from './cassettes/replayer.js';

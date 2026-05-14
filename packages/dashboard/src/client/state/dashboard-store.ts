@@ -477,8 +477,7 @@ export function createDashboardStore(
           tokens_in: existing.tokens_in + evt.usage.input_tokens,
           tokens_out: existing.tokens_out + evt.usage.output_tokens,
           cache_read: existing.cache_read + (evt.usage.cache_read_input_tokens ?? 0),
-          cache_creation:
-            existing.cache_creation + (evt.usage.cache_creation_input_tokens ?? 0),
+          cache_creation: existing.cache_creation + (evt.usage.cache_creation_input_tokens ?? 0),
           cost_usd: existing.cost_usd + (evt.usage.cost_usd ?? 0),
           elapsed_ms: Math.max(
             0,
@@ -553,9 +552,7 @@ export function createDashboardStore(
    * NONE of the branches reads or stores a token — 04-01's `oauth.*` events
    * are token-free by construction; the `oauthFlow` signal mirrors that.
    */
-  const handleOAuthEvent = (
-    evt: Extract<SnapshotEvent, { type: `oauth.${string}` }>,
-  ): void => {
+  const handleOAuthEvent = (evt: Extract<SnapshotEvent, { type: `oauth.${string}` }>): void => {
     const flow = state.oauthFlow;
     switch (evt.type) {
       case 'oauth.auth_url': {
@@ -1244,7 +1241,7 @@ export function createDashboardStore(
       // but updating here keeps the UI snappy and survives momentary SSE
       // disconnects. The response snapshot is secret-free by 03-01's schema.
       setState('tools', 'providerAuth', {
-        data: response.snapshot as never,
+        data: response.snapshot,
         loading: false,
         error: null,
         lastFetched: response.generated_at,
@@ -1267,9 +1264,7 @@ export function createDashboardStore(
    * passed straight to `postOAuthCode` and never stored on the store.
    */
 
-  const startOAuthFlow = async (
-    provider: string,
-  ): Promise<{ ok: true } | { error: string }> => {
+  const startOAuthFlow = async (provider: string): Promise<{ ok: true } | { error: string }> => {
     // Provisional entry — the real `flowId` arrives in the
     // `postOAuthStart` response; until then `oauth.*` events for this
     // provider are correlated through the still-`starting` status.
@@ -1285,9 +1280,7 @@ export function createDashboardStore(
     });
     try {
       const response = await postOAuthStart(provider);
-      setState('oauthFlow', (prev) =>
-        prev ? { ...prev, flowId: response.flow_id } : prev,
-      );
+      setState('oauthFlow', (prev) => (prev ? { ...prev, flowId: response.flow_id } : prev));
       return { ok: true };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1301,9 +1294,7 @@ export function createDashboardStore(
     }
   };
 
-  const submitOAuthCode = async (
-    code: string,
-  ): Promise<{ ok: true } | { error: string }> => {
+  const submitOAuthCode = async (code: string): Promise<{ ok: true } | { error: string }> => {
     const flow = state.oauthFlow;
     if (!flow || flow.flowId.length === 0) return { error: 'no_active_oauth_flow' };
     try {
@@ -1333,9 +1324,7 @@ export function createDashboardStore(
    * optimistic update IS the cell's source of truth until the next manual
    * ↻ refresh.
    */
-  const saveUserNotes = async (
-    notes: string,
-  ): Promise<{ ok: true } | { error: string }> => {
+  const saveUserNotes = async (notes: string): Promise<{ ok: true } | { error: string }> => {
     setState('tools', 'userNotes', 'loading', true);
     setState('tools', 'userNotes', 'error', null);
     try {
@@ -1345,7 +1334,7 @@ export function createDashboardStore(
           notes,
           exists: true,
           generated_at: response.generated_at,
-        } as never,
+        },
         loading: false,
         error: null,
         lastFetched: response.generated_at,

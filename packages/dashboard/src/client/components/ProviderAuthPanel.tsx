@@ -52,15 +52,7 @@
  */
 
 import { PROVIDER_VOCABULARY } from '@swt-labs/shared';
-import {
-  For,
-  Match,
-  Show,
-  Switch,
-  createSignal,
-  type Component,
-  type JSX,
-} from 'solid-js';
+import { For, Match, Show, Switch, createSignal, type Component, type JSX } from 'solid-js';
 
 import type {
   ProviderAuthSnapshot,
@@ -143,14 +135,9 @@ export function findProviderStatus(
  * REPLACEMENT key; otherwise show the `sk-...` hint. Never contains a
  * secret — `ProviderAuthSnapshot` has none.
  */
-export function keyInputPlaceholder(
-  data: ProviderAuthSnapshot | null,
-  provider: string,
-): string {
+export function keyInputPlaceholder(data: ProviderAuthSnapshot | null, provider: string): string {
   const status = findProviderStatus(data, provider);
-  return status?.configured === true
-    ? '••••• configured — enter a new key to replace'
-    : 'sk-...';
+  return status?.configured === true ? '••••• configured — enter a new key to replace' : 'sk-...';
 }
 
 /**
@@ -197,10 +184,7 @@ export function isOAuthProvider(provider: string): boolean {
  * keychain write, so the Risk-4 read-only headless mode applies just as it
  * does to the API-key path). Pure — exported for the panel's tests.
  */
-export function isOAuthRadioDisabled(
-  data: ProviderAuthSnapshot | null,
-  provider: string,
-): boolean {
+export function isOAuthRadioDisabled(data: ProviderAuthSnapshot | null, provider: string): boolean {
   return data?.keychain_available === false || !isOAuthProvider(provider);
 }
 
@@ -362,10 +346,7 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
           <label
             class="provider-auth-radio"
             classList={{
-              'provider-auth-radio-disabled': isOAuthRadioDisabled(
-                props.data,
-                selectedProvider(),
-              ),
+              'provider-auth-radio-disabled': isOAuthRadioDisabled(props.data, selectedProvider()),
             }}
           >
             <input
@@ -457,9 +438,7 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
               <Match when={flow.status === 'starting'}>
                 <p class="provider-auth-oauth-status">Starting OAuth login…</p>
               </Match>
-              <Match
-                when={flow.status === 'awaiting_browser' || flow.status === 'awaiting_code'}
-              >
+              <Match when={flow.status === 'awaiting_browser' || flow.status === 'awaiting_code'}>
                 <p class="provider-auth-oauth-status">
                   Open this URL to authorize:{' '}
                   <a
@@ -479,8 +458,8 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
                 </Show>
                 <Show when={flow.status === 'awaiting_browser'}>
                   <p class="provider-auth-oauth-status">
-                    The browser callback will complete automatically — or paste the code
-                    below if prompted.
+                    The browser callback will complete automatically — or paste the code below if
+                    prompted.
                   </p>
                 </Show>
                 <Show when={flow.status === 'awaiting_code'}>
@@ -500,9 +479,7 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
                       class="provider-auth-save-btn"
                       onClick={(): void => {
                         void (async (): Promise<void> => {
-                          const result = await props.onSubmitOAuthCode?.(
-                            codeInput().trim(),
-                          );
+                          const result = await props.onSubmitOAuthCode?.(codeInput().trim());
                           // Write-only-input discipline: clear the pasted
                           // code on a successful submit so it is not retained.
                           if (result && 'ok' in result) setCodeInput('');

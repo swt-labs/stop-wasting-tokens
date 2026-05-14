@@ -65,28 +65,31 @@ All runtime script invocations below assume `SWT_INSTALL_ROOT` is set.
 2. Check existing SUMMARY.md files — a plan is progression-complete for Execute dependency routing only when its SUMMARY has `status: complete|partial`. Strict phase/build completion still requires `complete|completed`. A SUMMARY with `status: pending` or no status field is NOT progression-complete.
 3. `git log --oneline -20` for committed tasks (crash recovery).
 4. Build remaining plans list. If `--plan=NN`, filter to that plan.
-4b. **Worktree isolation (REQ-WORKTREE):** If `worktree_isolation` is not `"off"` in config, worktrees remain per-plan but are created/refreshed just in time when a plan becomes runnable. Do **not** create every remaining plan worktree up front; a dependent serialized plan must start from a branch that includes prerequisite output.
+   4b. **Worktree isolation (REQ-WORKTREE):** If `worktree_isolation` is not `"off"` in config, worktrees remain per-plan but are created/refreshed just in time when a plan becomes runnable. Do **not** create every remaining plan worktree up front; a dependent serialized plan must start from a branch that includes prerequisite output.
    ```bash
    WORKTREE_ISOLATION=$(jq -r '.worktree_isolation // "off"' .swt-planning/config.json 2>/dev/null || echo "off")
    ```
-  For each plan when it becomes runnable in Step 3:
-  - Merge or otherwise make completed prerequisite worktree output visible before creating the dependent plan's worktree.
-  - Create/refresh worktree: `WPATH=$(bash "${SWT_INSTALL_ROOT}/scripts/worktree-create.sh" {phase} {plan} 2>/dev/null || echo "")`. If `WPATH` is empty, log warning and continue without worktree for this plan.
-  - If `WPATH` is non-empty: update that plan's `worktree_path` in `.execution-state.json`, regenerate `WTARGET=$(bash "${SWT_INSTALL_ROOT}/scripts/worktree-target.sh" "$WPATH" 2>/dev/null || echo "{}")`, and register `bash "${SWT_INSTALL_ROOT}/scripts/worktree-agent-map.sh" set "dev-{plan}" "$WPATH" {phase} {plan} 2>/dev/null || true` before spawning Dev.
-  - After merge/cleanup for that plan, clear `bash "${SWT_INSTALL_ROOT}/scripts/worktree-agent-map.sh" clear "dev-{plan}" 2>/dev/null || true`.
-   When `worktree_isolation="off"`: skip this step silently.
+   For each plan when it becomes runnable in Step 3:
+
+- Merge or otherwise make completed prerequisite worktree output visible before creating the dependent plan's worktree.
+- Create/refresh worktree: `WPATH=$(bash "${SWT_INSTALL_ROOT}/scripts/worktree-create.sh" {phase} {plan} 2>/dev/null || echo "")`. If `WPATH` is empty, log warning and continue without worktree for this plan.
+- If `WPATH` is non-empty: update that plan's `worktree_path` in `.execution-state.json`, regenerate `WTARGET=$(bash "${SWT_INSTALL_ROOT}/scripts/worktree-target.sh" "$WPATH" 2>/dev/null || echo "{}")`, and register `bash "${SWT_INSTALL_ROOT}/scripts/worktree-agent-map.sh" set "dev-{plan}" "$WPATH" {phase} {plan} 2>/dev/null || true` before spawning Dev.
+- After merge/cleanup for that plan, clear `bash "${SWT_INSTALL_ROOT}/scripts/worktree-agent-map.sh" clear "dev-{plan}" 2>/dev/null || true`.
+  When `worktree_isolation="off"`: skip this step silently.
+
 5. Partially-complete plans: note resume-from task number.
 6. **Crash recovery:** If `.swt-planning/.execution-state.json` exists with `"status": "running"`, update plan statuses to match current SUMMARY.md state.
    - **Event Recovery (REQ-17):** If `event_recovery=true` in config, attempt event-sourced recovery first:
-  `RECOVERED=$(bash "${SWT_INSTALL_ROOT}/scripts/recover-state.sh" {phase} 2>/dev/null || echo "{}")`
+     `RECOVERED=$(bash "${SWT_INSTALL_ROOT}/scripts/recover-state.sh" {phase} 2>/dev/null || echo "{}")`
      If non-empty and has `plans` array, use recovered state as the baseline instead of the stale execution-state.json. This provides more accurate status when execution-state.json was not written (crash before flush).
-6b. **Generate correlation_id:** Generate a UUID for this phase execution:
+     6b. **Generate correlation_id:** Generate a UUID for this phase execution:
    - If `.swt-planning/.execution-state.json` already exists and has `correlation_id` (crash-resume):
      preserve it: `CORRELATION_ID=$(jq -r '.correlation_id // ""' .swt-planning/.execution-state.json 2>/dev/null || echo "")`
    - Otherwise generate fresh:
      `CORRELATION_ID=$(uuidgen 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "$(date -u +%s)-${RANDOM}${RANDOM}")`
 
 7. **Write execution state** to `.swt-planning/.execution-state.json`:
+
 ```json
 {
   "phase": N, "phase_name": "{slug}", "status": "running",
@@ -96,43 +99,49 @@ All runtime script invocations below assume `SWT_INSTALL_ROOT` is set.
   "plans": [{"id": "NN-MM", "title": "...", "wave": W, "status": "pending|complete|partial|failed"}]
 }
 ```
+
 Set plan status from verified SUMMARY.md frontmatter: `complete|completed` → `"complete"`, `partial` → `"partial"`, `failed` → `"failed"`, others → `"pending"`. `phase_effort` preserves the configured phase effort; `effort` may be temporarily changed to `turbo` or internal `direct` for segment-local guard visibility and restored before the next non-direct segment.
 
 **Task list hygiene (crash-resume):** When resuming execution (`.execution-state.json` already existed), plans that are already `"complete"` were finished in a prior session. Immediately mark those plans as completed in your task list — do NOT leave them as not-started or in-progress. Only pending plans should be active in your task list.
 
 7b. **Export correlation_id:** Set `VBW_CORRELATION_ID={CORRELATION_ID}` in the execution environment
-    so log-event.sh can fall back to it if .execution-state.json is temporarily unavailable.
-    Log a confirmation: `◆ Correlation ID: {CORRELATION_ID}`
+so log-event.sh can fall back to it if .execution-state.json is temporarily unavailable.
+Log a confirmation: `◆ Correlation ID: {CORRELATION_ID}`
 
 8. **Event Log (REQ-16, graduated, always-on):**
-  - Log phase start: `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" phase_start {phase} 2>/dev/null || true`
+
+- Log phase start: `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" phase_start {phase} 2>/dev/null || true`
 
 9. **Snapshot Resume (REQ-18):** If `snapshot_resume=true` in config:
    - On crash recovery (execution-state.json exists with `"status": "running"`): attempt restore:
-  `SNAPSHOT=$(bash "${SWT_INSTALL_ROOT}/scripts/snapshot-resume.sh" restore {phase} {preferred-role} 2>/dev/null || echo "")`
+     `SNAPSHOT=$(bash "${SWT_INSTALL_ROOT}/scripts/snapshot-resume.sh" restore {phase} {preferred-role} 2>/dev/null || echo "")`
    - If snapshot found, log: `✓ Snapshot found: ${SNAPSHOT}` — use snapshot's `recent_commits` to cross-reference git log for more reliable resume-from detection.
 
 10. **Schema Validation (REQ-17, graduated, always-on):**
-   - Validate each PLAN.md frontmatter before execution:
-     `VALID=$(bash "${SWT_INSTALL_ROOT}/scripts/validate-schema.sh" plan {plan_path} 2>/dev/null || echo "valid")`
-   - If `invalid`: log warning `⚠ Plan {NN-MM} schema: ${VALID}` — continue execution (advisory only).
-   - Log to metrics: `bash "${SWT_INSTALL_ROOT}/scripts/collect-metrics.sh" schema_check {phase} {plan} result=$VALID 2>/dev/null || true`
+
+- Validate each PLAN.md frontmatter before execution:
+  `VALID=$(bash "${SWT_INSTALL_ROOT}/scripts/validate-schema.sh" plan {plan_path} 2>/dev/null || echo "valid")`
+- If `invalid`: log warning `⚠ Plan {NN-MM} schema: ${VALID}` — continue execution (advisory only).
+- Log to metrics: `bash "${SWT_INSTALL_ROOT}/scripts/collect-metrics.sh" schema_check {phase} {plan} result=$VALID 2>/dev/null || true`
 
 11. **Cross-phase deps (PWR-04):** For each plan with `cross_phase_deps`:
-   - Verify referenced plan's SUMMARY.md exists with `status: complete`
-   - If artifact path specified, verify file exists
-   - Unsatisfied → STOP: "Cross-phase dependency not met. Plan {id} depends on Phase {P}, Plan {plan} ({reason}). Status: {failed|missing|not built}. Fix: Run swt cook {P}"
-   - All satisfied: `✓ Cross-phase dependencies verified`
-   - No cross_phase_deps: skip silently
+
+- Verify referenced plan's SUMMARY.md exists with `status: complete`
+- If artifact path specified, verify file exists
+- Unsatisfied → STOP: "Cross-phase dependency not met. Plan {id} depends on Phase {P}, Plan {plan} ({reason}). Status: {failed|missing|not built}. Fix: Run swt cook {P}"
+- All satisfied: `✓ Cross-phase dependencies verified`
+- No cross_phase_deps: skip silently
 
 ### Step 3: Resolve Execute routing and run segments
 
 **Smart Routing (REQ-15):** If `smart_routing=true` in config, build a transient route map before selecting team/subagent mode:
+
 ```bash
 ROUTE_MAP=.swt-planning/.cache/execute-route-map.json
 mkdir -p .swt-planning/.cache
 printf '{"plans":{}}\n' > "$ROUTE_MAP"
 ```
+
 - For each remaining plan, assess risk before team selection:
   ```bash
   RISK=$(bash "${SWT_INSTALL_ROOT}/scripts/assess-plan-risk.sh" {plan_path} 2>/dev/null || echo "medium")
@@ -146,6 +155,7 @@ printf '{"plans":{}}\n' > "$ROUTE_MAP"
 - On script error: leave the plan unlisted in the route map; missing entries default to delegate.
 
 **Dependency-aware routing helper:** After `.execution-state.json` and the optional route map exist, resolve routing before writing `.delegated-workflow.json`:
+
 ```bash
 ROUTE_ARGS=()
 [ -f .swt-planning/.cache/execute-route-map.json ] && ROUTE_ARGS=(--route-map .swt-planning/.cache/execute-route-map.json)
@@ -156,16 +166,19 @@ ROUTING=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-execute-delegation-mode.sh" 
   "${ROUTE_ARGS[@]}" \
   --segments)
 ```
+
 The helper canonicalizes `prefer_teams` with `normalize-prefer-teams.sh`, computes remaining dependency waves from the execution state and plan frontmatter, and emits compact JSON (`delegation_mode`, `requested_mode`, `reason`, `max_parallel_width`, `delegate_count`, route-specific plan IDs, and ordered `segments`).
 If the helper exits non-zero or returns `reason=invalid_dependency_graph`, stop before spawning agents and surface the diagnostic. Valid serial graphs are not errors: `prefer_teams=auto` with `max_parallel_width <= 1` uses serialized Dev subagents.
 
 Team request policy from helper output:
+
 - `prefer_teams='always'`: request team mode for delegate-eligible work regardless of dependency width; it does not override phase-level turbo, smart-routed turbo, or explicit internal-direct segments.
 - `prefer_teams='auto'`: request team mode only when dependency analysis finds real parallel delegate work (`max_parallel_width > 1`).
 - `prefer_teams='never'`: request explicit non-team mode.
 - Unknown normalized values preserve the raw value, use `delegation_mode=subagent`, and report `unknown_prefer_teams:<value>`.
 
 Determine whether **real team semantics** are available in the live tool set before spawning anything:
+
 - Real team semantics are available when either:
   1. `TeamCreate` + teammate task spawning are available, **or**
   2. the live teammate spawn tool accepts both `team_name` and per-teammate `name` parameters (for example `Agent(...)` with `team_name:` and `name:`)
@@ -217,6 +230,7 @@ After each segment completes, verify each plan's SUMMARY.md through Step 3c and 
 
 **Delegation directive (all except Turbo):**
 You are the team LEAD. NEVER implement tasks yourself.
+
 - Delegate ALL implementation to Dev teammates via TaskCreate
 - NEVER Write/Edit files in a plan's `files_modified` — only state files: STATE.md, ROADMAP.md, .execution-state.json, SUMMARY.md
 - If Dev fails: guidance via SendMessage, not takeover. If all Devs unavailable: create new Dev.
@@ -232,6 +246,7 @@ You are the team LEAD. NEVER implement tasks yourself.
   - When neither bypass applies, the write is treated as an orchestrator action and blocked. Planning/state artifacts (`.swt-planning/*`, `STATE.md`, `SUMMARY.md`, etc.) remain exempt.
 
 **Monorepo Routing (REQ-17):** If `monorepo_routing=true` in config:
+
 - Before context compilation, detect relevant package paths:
   `PACKAGES=$(bash "${SWT_INSTALL_ROOT}/scripts/route-monorepo.sh" {phase_dir} 2>/dev/null || echo "[]")`
 - If non-empty array (not `[]`): pass package paths to context compilation for scoped file inclusion.
@@ -239,6 +254,7 @@ You are the team LEAD. NEVER implement tasks yourself.
 - If empty or error: proceed with default (full repo) context compilation.
 
 **Control Plane Coordination (REQ-05):** If `${SWT_INSTALL_ROOT}/scripts/control-plane.sh` exists:
+
 - **Once per plan (before first task):** Run the `full` action to generate contract and compile context:
   ```bash
   CP_RESULT=$(bash "${SWT_INSTALL_ROOT}/scripts/control-plane.sh" full {phase} {plan} 1 \
@@ -266,20 +282,23 @@ The existing individual script call sections (V3 Contract-Lite, V2 Hard Gates, C
 `bash "${SWT_INSTALL_ROOT}/scripts/compile-context.sh" {phase} dev {phases_dir} {plan_path}`
 This produces `{phase-dir}/.context-dev.md` with phase goal and conventions.
 The plan_path argument is passed for context. **Research resolution:** For a specific plan `{NN}-{MM}-PLAN.md`, resolve research in this order:
+
 1. Per-plan research: `{phase-dir}/{NN}-{MM}-RESEARCH.md` (if the plan has its own research)
 2. Phase-wide research: resolve via `bash "${SWT_INSTALL_ROOT}/scripts/resolve-artifact-path.sh" phase-research "{phase-dir}"` → `{phase-dir}/{NN}-RESEARCH.md`
 3. Wildcard fallback: first `*-RESEARCH.md` in the phase directory
 
 Include the first match in the Dev task prompt alongside the compiled context. Phase-wide research (`{NN}-RESEARCH.md`) is the default — Plan mode creates it before Lead plans. Per-plan research (`{NN}-{MM}-RESEARCH.md`) is used only for plan-specific research added after initial planning. Skill activation uses a plan-driven architecture:
+
 - **Orchestrator skill selection:** When composing subagent task descriptions, the orchestrator uses a two-pass rubric. **Pass 1:** derive technical domains from the task text plus structured metadata already available — logs, error text, related files, prior detail context, and any bounded sparse-input enrichment. When the input is sparse but names a concrete symbol, service, type, or file, reuse existing detail metadata first; if that is absent, resolve at most 1-3 likely files or framework markers before final preselection. SwiftData markers such as `import SwiftData`, `@Model`, `ModelContext`, `ModelContainer`, `FetchDescriptor`, `VersionedSchema`, `SchemaMigrationPlan`, or `PersistentModel` are sufficient evidence to select `swiftdata`. Do NOT add `core-data` as a generic persistence fallback unless the actual evidence instead shows Core Data APIs such as `import CoreData`, `NSManagedObject`, `NSPersistentContainer`, `NSFetchRequest`, or `NSManagedObjectContext`. **Pass 2:** select all materially helpful direct matches plus only the narrowly adjacent support skills surfaced by those domains — not just the single most direct skill. Every spawned prompt that performs this evaluation must begin with exactly one explicit outcome block: `<skill_activation>` when one or more skills are preselected at orchestration time, or `<skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. The orchestrator also states the skill evaluation outcome in its visible response before spawning the agent, giving the user visibility into which skills were preselected or why none were. If bounded enrichment influenced the decision, the orchestrator cites that explicitly in the visible outcome and reason text.
 - **Lead (planning time):** Wires the final skill set into plans via `skills_used` frontmatter and `@`-references to SKILL.md files, including materially helpful adjacent/supporting domain skills surfaced during research or error analysis.
 - **Spawned agents (Lead/Dev/QA/Scout/Docs/Debugger/Architect):** Treat `<skill_activation>` and `<skill_no_activation>` as explicit orchestrator starting state, not as a ceiling. Call preselected skills first, honor any plan `skills_used`, then run one bounded completeness pass over `<available_skills>` to add any missing adjacent/domain skills surfaced by the prompt or context. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. When a `<skill_follow_up_files>` block is present, treat it as the authoritative resolved path list for the preselected skills and read those exact paths before any other skill-related exploration.
 - **Ad-hoc paths (`swt fix`, `swt debug`, `swt research`):** Debugger/Dev/Scout still evaluate installed skills directly because no plan exists, but they follow the same additive model: start with any orchestrator preselection, apply the same bounded sparse-input enrichment rule when the task names a concrete symbol/service/type/file but lacks richer metadata, then add materially helpful adjacent/domain skills discovered from the active task context.
 - **Architect (scoping time):** Evaluates installed skills in system context. Activates relevant skills before producing requirements and roadmap artifacts.
-- **Runtime skill hooks preserved:** `skill-hook-dispatch.sh` dispatches skill-defined PostToolUse/PreToolUse hooks at runtime. This is separate from skill *activation* and is unaffected by the plan-driven model.
-If compilation fails, proceed without it — Dev reads files directly.
+- **Runtime skill hooks preserved:** `skill-hook-dispatch.sh` dispatches skill-defined PostToolUse/PreToolUse hooks at runtime. This is separate from skill _activation_ and is unaffected by the plan-driven model.
+  If compilation fails, proceed without it — Dev reads files directly.
 
 **V2 Token Budgets (REQ-12):** If control-plane.sh `compile` or `full` action was used and included token budget enforcement, skip this step. Otherwise:
+
 - After context compilation, enforce per-role token budgets. Pass the contract path and task number for per-task budget computation:
   ```bash
   bash "${SWT_INSTALL_ROOT}/scripts/token-budget.sh" dev {phase-dir}/.context-dev.md {contract_path} {task_number} > {phase-dir}/.context-dev.md.tmp && mv {phase-dir}/.context-dev.md.tmp {phase-dir}/.context-dev.md
@@ -308,8 +327,8 @@ If a plan task contains validation requirements such as "MUST be done before any
    - Empty filtered results (`[]`, no matches) are contradictory when the task expected specific data — do not treat empty as success unless the task explicitly defines empty as the expected outcome.
 4. **Operator fallback:** If automated respawn after a blocker is not possible, surface a message to the user: "Validation gate failed for task {N}. Restart `swt cook` from current plan state to retry."
 
-
 **Model resolution:** Resolve models for Dev and QA agents:
+
 ```bash
 DEV_MODEL=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-agent-model.sh" dev .swt-planning/config.json "${SWT_INSTALL_ROOT}/config/model-profiles.json")
 if [ $? -ne 0 ]; then echo "$DEV_MODEL" >&2; exit 1; fi
@@ -327,8 +346,9 @@ if [ $? -ne 0 ]; then echo "$QA_MAX_TURNS" >&2; exit 1; fi
 For each runnable plan in the current segment, create the teammate task using the live teammate spawn tool (for example `TaskCreate` or `Agent`). In non-team mode, spawn exactly one Dev and wait for its result before spawning the next runnable plan. In true team mode, every spawn/TaskCreate after the marker is set must include the selected `TEAM_NAME` and teammate `name`.
 
 **Spawn-shape rule (applies to both non-team and true-team spawns):** On every live teammate spawn call, whether the live tool is `Agent` or `TaskCreate`, never set Claude-side `isolation:"worktree"` or pass a `cwd` pointing into `.claude/worktrees/...` or `.swt-worktrees/...`. `agent-spawn-guard.sh` validates these isolation/cwd fields before it branches on delegation mode, so the rule is enforced for true-team spawns identically to non-team ones — passing them produces a hard `cross-worktree spawn` rejection in either mode. Prepared SWT worktree targeting means the `Working directory:` and `Worktree targeting:` lines in the task description, derived from `.execution-state.json` `worktree_path` and `scripts/worktree-target.sh`; it is not an `isolation` or `cwd` field on the spawn call. Claude-side `isolation:"worktree"` can create unmanaged `.claude/worktrees/agent-*` sidechains with different tool/artifact assumptions; SWT's current isolation uses its own `.swt-worktrees` git worktrees. In addition, non-team spawns must omit `team_name` and `run_in_background`; `name` is optional label-only metadata and must never be used for routing, lifecycle state, or team semantics. In true team mode, every spawn/TaskCreate after the marker is set must include the selected `TEAM_NAME` and teammate `name`.
+
 ```yaml
-subject: "Execute {NN-MM}: {plan-title}"
+subject: 'Execute {NN-MM}: {plan-title}'
 description: |
   <!-- When skills apply: -->
   <skill_activation>Call Skill('{relevant-skill-1}'). Call Skill('{relevant-skill-2}').</skill_activation>
@@ -345,7 +365,7 @@ description: |
   If `.swt-planning/codebase/META.md` exists, read CONVENTIONS.md, PATTERNS.md, STRUCTURE.md, and DEPENDENCIES.md (whichever exist) from `.swt-planning/codebase/` to bootstrap codebase understanding before executing.
   {If resuming: "Resume from Task {NN}. Tasks 1-{NN-1} already committed."}
   {If autonomous: false: "This plan has checkpoints -- pause for user input."}
-activeForm: "Executing {NN-MM}"
+activeForm: 'Executing {NN-MM}'
 ```
 
 **TaskCompleted advisory scope:** Commit verification is advisory and only applies to canonical execute-task subjects (`Execute {NN-MM}: {plan-title}`). Manual, research, setup, and other non-execute tasks are allowed to complete without commit matching.
@@ -363,6 +383,7 @@ Just before spawning a runnable plan with `worktree_isolation` enabled, create o
 **Blocked agent notification (mandatory):** When a Dev teammate completes a plan (task marked completed + SUMMARY.md verified), check if any other tasks have `blockedBy` containing that completed task's ID. For each newly-unblocked task, send its assigned Dev a message: "Blocking task {id} complete. Your task is now unblocked — proceed with execution." This ensures blocked agents resume without manual intervention.
 
 **Validation Gates (REQ-13, REQ-14):** If `validation_gates=true` in config:
+
 - **Per plan:** Assess risk and resolve gate policy:
   ```bash
   RISK=$(bash "${SWT_INSTALL_ROOT}/scripts/assess-plan-risk.sh" {plan_path} 2>/dev/null || echo "medium")
@@ -377,11 +398,11 @@ Just before spawning a runnable plan with `worktree_isolation` enabled, create o
 When `validation_gates=true`: use `approval_required` from gate policy above.
 When `validation_gates=false` (default): use static table:
 
-| Autonomy | Approval active at |
-|----------|-------------------|
-| cautious | Thorough + Balanced |
-| standard | Thorough only |
-| confident/pure-vibe | OFF |
+| Autonomy            | Approval active at  |
+| ------------------- | ------------------- |
+| cautious            | Thorough + Balanced |
+| standard            | Thorough only       |
+| confident/pure-vibe | OFF                 |
 
 When active: spawn Devs with `plan_mode_required`. Dev reads PLAN.md, proposes approach, waits for lead approval. Lead approves/rejects via plan_approval_response.
 When off: Devs begin immediately.
@@ -392,22 +413,24 @@ When `validation_gates=false` (default): use static table:
 
 Schema ref: `${SWT_INSTALL_ROOT}/references/handoff-schemas.md`
 
-| Effort | Messages sent |
-|--------|--------------|
+| Effort   | Messages sent                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------ |
 | Thorough | blockers (blocker_report), findings (scout_findings), progress (execution_update), contracts (plan_contract) |
-| Balanced | blockers (blocker_report), progress (execution_update) |
-| Fast | blockers only (blocker_report) |
-| Turbo | N/A (no team) |
+| Balanced | blockers (blocker_report), progress (execution_update)                                                       |
+| Fast     | blockers only (blocker_report)                                                                               |
+| Turbo    | N/A (no team)                                                                                                |
 
 Use targeted `message` not `broadcast`. Reserve broadcast for critical blocking issues only.
 
 **Typed Protocol (REQ-04, REQ-05, graduated, always-on):**
+
 - **On message receive** (from any teammate): validate before processing:
   `VALID=$(echo "$MESSAGE_JSON" | bash "${SWT_INSTALL_ROOT}/scripts/validate-message.sh" 2>/dev/null || echo '{"valid":true}')`
   If `valid=false`: log rejection, send error back to sender with `errors` array. Do not process the message.
 - **On message send** (before sending): agents should construct messages using full V2 envelope (id, type, phase, task, author_role, timestamp, schema_version, payload, confidence). Reference `${SWT_INSTALL_ROOT}/references/handoff-schemas.md` for schema details.
 
 **Execution state updates:**
+
 - Task completion: update plan status in .execution-state.json (`"complete"`, `"partial"`, or `"failed"` from verified SUMMARY.md status)
 - Wave transition: update `"wave"` when first wave N+1 task starts
 - Use `jq` for atomic updates
@@ -415,6 +438,7 @@ Use targeted `message` not `broadcast`. Reserve broadcast for critical blocking 
 Hooks handle continuous verification: PostToolUse validates SUMMARY.md, TaskCompleted emits advisory execute-task commit checks, TeammateIdle runs quality gate.
 
 **Event Log — plan lifecycle (REQ-16, graduated, always-on):**
+
 - At plan start: `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" plan_start {phase} {plan} 2>/dev/null || true`
 - At agent spawn: `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" agent_spawn {phase} {plan} role=dev model=$DEV_MODEL 2>/dev/null || true`
 - At agent shutdown: `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" agent_shutdown {phase} {plan} role=dev 2>/dev/null || true`
@@ -425,6 +449,7 @@ Hooks handle continuous verification: PostToolUse validates SUMMARY.md, TaskComp
 **Full Event Types (REQ-09, REQ-10, graduated, always-on):** Emit all 13 event types at correct lifecycle points.
 
 > **Naming convention:** Event types (`shutdown_sent`/`shutdown_received`) log _what happened_ — the orchestrator sent or received a message. Message types (`shutdown_request`/`shutdown_response`) define _what was communicated_ — the typed payload in SendMessage. Events are emitted by `log-event.sh`; messages are validated by `validate-message.sh`.
+
 - `phase_planned`: at plan completion (after Lead writes PLAN.md): `log-event.sh phase_planned {phase}`
 - `task_created`: when task is defined in plan: `log-event.sh task_created {phase} {plan} task_id={id}`
 - `task_claimed`: when Dev starts a task: `log-event.sh task_claimed {phase} {plan} task_id={id} role=dev`
@@ -440,17 +465,20 @@ Hooks handle continuous verification: PostToolUse validates SUMMARY.md, TaskComp
 - `shutdown_received`: when orchestrator has collected all shutdown_response messages: `log-event.sh shutdown_received {phase} team={team_name} approved={count} rejected={count}`
 
 **Snapshot — per-plan checkpoint (REQ-18):** If `snapshot_resume=true` in config:
+
 - After each plan completes (SUMMARY.md verified):
   `bash "${SWT_INSTALL_ROOT}/scripts/snapshot-resume.sh" save {phase} .swt-planning/.execution-state.json {agent-role} {trigger} 2>/dev/null || true`
 - This captures execution state + recent git context for crash recovery. The optional `{agent-role}` and `{trigger}` arguments add metadata to the snapshot for role-filtered restore.
 
 **Metrics instrumentation (REQ-09):** If `metrics=true` in config:
+
 - At phase start: `bash "${SWT_INSTALL_ROOT}/scripts/collect-metrics.sh" execute_phase_start {phase} plan_count={N} effort={effort}`
 - At each plan completion: `bash "${SWT_INSTALL_ROOT}/scripts/collect-metrics.sh" execute_plan_complete {phase} {plan} task_count={N} commit_count={N}`
 - At phase end: `bash "${SWT_INSTALL_ROOT}/scripts/collect-metrics.sh" execute_phase_complete {phase} plans_completed={N} total_tasks={N} total_commits={N} deviations={N}`
-All metrics calls should be `2>/dev/null || true` — never block execution.
+  All metrics calls should be `2>/dev/null || true` — never block execution.
 
 **V3 Contract-Lite (REQ-10, graduated):**
+
 - **Once per plan (before first task):** Generate contract sidecar:
   `bash "${SWT_INSTALL_ROOT}/scripts/generate-contract.sh" {plan_path} 2>/dev/null || true`
   This produces `.swt-planning/.contracts/{phase}-{plan}.json` with allowed_paths and must_haves.
@@ -462,10 +490,11 @@ All metrics calls should be `2>/dev/null || true` — never block execution.
 - Violations are advisory only (logged to metrics, not blocking).
 
 **V2 Hard Gates (REQ-02, REQ-03, graduated):**
+
 - **Pre-task gate sequence (before each task starts):**
   1. `contract_compliance` gate: `bash "${SWT_INSTALL_ROOT}/scripts/hard-gate.sh" contract_compliance {phase} {plan} {task} {contract_path}`
   2. **Lease acquisition** (V2 control plane): acquire exclusive file lease before protected_file check:
-    `bash "${SWT_INSTALL_ROOT}/scripts/lease-lock.sh" acquire {task_id} --ttl=300 {claimed_files...}`
+     `bash "${SWT_INSTALL_ROOT}/scripts/lease-lock.sh" acquire {task_id} --ttl=300 {claimed_files...}`
      - Lease conflict → auto-repair attempt (wait + re-acquire), then escalate blocker if unresolved.
   3. `protected_file` gate: `bash "${SWT_INSTALL_ROOT}/scripts/hard-gate.sh" protected_file {phase} {plan} {task} {contract_path}`
   - If any gate fails (exit 2): attempt auto-repair:
@@ -476,7 +505,7 @@ All metrics calls should be `2>/dev/null || true` — never block execution.
   1. `required_checks` gate: `bash "${SWT_INSTALL_ROOT}/scripts/hard-gate.sh" required_checks {phase} {plan} {task} {contract_path}`
   2. `commit_hygiene` gate: `bash "${SWT_INSTALL_ROOT}/scripts/hard-gate.sh" commit_hygiene {phase} {plan} {task} {contract_path}`
   3. **Lease release**: release file lease after task completes:
-    `bash "${SWT_INSTALL_ROOT}/scripts/lease-lock.sh" release {task_id}`
+     `bash "${SWT_INSTALL_ROOT}/scripts/lease-lock.sh" release {task_id}`
   - Gate failures trigger auto-repair with same flow as pre-task.
 - **Post-plan gate (after all tasks complete, before marking plan done):**
   1. `artifact_persistence` gate: `bash "${SWT_INSTALL_ROOT}/scripts/hard-gate.sh" artifact_persistence {phase} {plan} {task} {contract_path}`
@@ -485,6 +514,7 @@ All metrics calls should be `2>/dev/null || true` — never block execution.
 - **Fallback:** If hard-gate.sh or auto-repair.sh errors (not a gate fail, but a script error), log to metrics and continue (fail-open on script errors, hard-stop only on gate verdicts).
 
 **Lease Locks (REQ-17):** If `lease_locks=true` in config:
+
 - Use `lease-lock.sh` for all lock operations:
   - Acquire: `bash "${SWT_INSTALL_ROOT}/scripts/lease-lock.sh" acquire {task_id} --ttl=300 {claimed_files...} 2>/dev/null || true`
   - Release: `bash "${SWT_INSTALL_ROOT}/scripts/lease-lock.sh" release {task_id} 2>/dev/null || true`
@@ -497,9 +527,11 @@ All metrics calls should be `2>/dev/null || true` — never block execution.
 **If `two_phase_completion=true` in config:**
 
 After each task commit (and after post-task gates pass), run two-phase completion:
+
 ```bash
 RESULT=$(bash "${SWT_INSTALL_ROOT}/scripts/two-phase-complete.sh" {task_id} {phase} {plan} {contract_path} {evidence...})
 ```
+
 - If `result=confirmed`: proceed to next task.
 - If `result=rejected`: treat as gate failure — attempt auto-repair (re-run checks), then escalate blocker if still failing.
 - Artifact registration: after each file write during task execution, register the artifact:
@@ -513,13 +545,16 @@ RESULT=$(bash "${SWT_INSTALL_ROOT}/scripts/two-phase-complete.sh" {task_id} {pha
 **This is a hard gate. Do NOT proceed to QA or mark a plan terminal in .execution-state.json without verifying its SUMMARY.md.**
 
 When a Dev teammate reports plan completion (task marked completed):
+
 1. **Check:** Verify `{phase_dir}/{plan_id}-SUMMARY.md` exists and contains commit hashes, task statuses, and files modified.
 2. **Status validation:** Verify SUMMARY.md frontmatter `status` is one of `complete|partial|failed`. Never accept `pending`, `draft`, or other non-terminal values. The `file-guard.sh` PreToolUse hook blocks SUMMARY writes with non-terminal status values. **Exception:** Remediation round summaries (`R{RR}-SUMMARY.md`) are exempt from this guard — they use an incremental lifecycle where the first Dev creates the file with `status: in-progress`, subsequent Devs append task sections, and the Lead finalizes the frontmatter to a terminal status after all tasks complete.
 3. **If missing or incomplete:** Send the Dev a message: "Write {plan_id}-SUMMARY.md using the template at templates/SUMMARY.md. Include commit hashes, tasks completed, files modified, and any deviations." Wait for confirmation before proceeding.
 4. **If Dev is unavailable:** Write it yourself from `git log --oneline` and the PLAN.md.
 5. **Schema Validation — SUMMARY.md (REQ-17, graduated, always-on):**
-  - Validate SUMMARY.md frontmatter: `VALID=$(bash "${SWT_INSTALL_ROOT}/scripts/validate-schema.sh" summary {summary_path} 2>/dev/null || echo "valid")`
-   - If `invalid`: log warning `⚠ Summary {plan_id} schema: ${VALID}` — advisory only.
+
+- Validate SUMMARY.md frontmatter: `VALID=$(bash "${SWT_INSTALL_ROOT}/scripts/validate-schema.sh" summary {summary_path} 2>/dev/null || echo "valid")`
+- If `invalid`: log warning `⚠ Summary {plan_id} schema: ${VALID}` — advisory only.
+
 6. **Only after SUMMARY.md is verified with terminal status:** Canonicalize and write the verified status to `.execution-state.json`: `complete|completed` → `"complete"`, `partial` → `"partial"`, `failed` → `"failed"`. Only `complete|partial` satisfy Execute dependencies; `failed` is terminal but does not unlock dependents.
 
 **SUMMARY.md timing rule:** A SUMMARY.md represents completed execution. Never create a SUMMARY.md as a placeholder or stub before execution begins. Do not write SUMMARY.md with `status: pending` or any non-terminal status. **Exception:** Remediation round summaries (`R{RR}-SUMMARY.md`) are built incrementally across multiple Dev agents — the first Dev creates the file with `status: in-progress` and subsequent Devs append task sections. The Lead finalizes the frontmatter after all tasks complete.
@@ -529,6 +564,7 @@ When a Dev teammate reports plan completion (task marked completed):
 If `--skip-qa` or turbo: "○ QA verification skipped ({reason})"
 
 **Auto-skip for certain agents:** Check if the current agent type is in `qa_skip_agents` config array (default: `["docs"]`):
+
 ```bash
 AGENT_TYPE=$(jq -r '.current_agent_type // "dev"' .swt-planning/config.json 2>/dev/null)
 QA_SKIP_AGENTS=$(jq -r '.qa_skip_agents // []' .swt-planning/config.json 2>/dev/null)
@@ -537,12 +573,15 @@ if echo "$QA_SKIP_AGENTS" | jq -e --arg agent "$AGENT_TYPE" 'contains([$agent])'
   # Skip to Step 4.5 (UAT)
 fi
 ```
+
 When the agent type is in the skip list, QA is skipped automatically without needing `--skip-qa` flag. Docs-only changes don't need formal QA.
 
 **After QA persists VERIFICATION.md (and only after that), run the verification threshold gate:**
+
 ```bash
 bash "${SWT_INSTALL_ROOT}/scripts/hard-gate.sh" verification_threshold {phase} {plan} {task} {contract_path}
 ```
+
 If this gate fails, treat it as a QA/verification failure and stop before UAT.
 
 **Dev-surfaced issues collection (before spawning QA):**
@@ -658,6 +697,7 @@ done
 ```
 
 If `DEV_ISSUES` is non-empty, include it in the QA task description:
+
 ```
 Dev-surfaced issues (include in VERIFICATION.md):
 ${DEV_ISSUES}
@@ -680,7 +720,7 @@ If execution completed but the session ended before QA actually started, standal
 When `validation_gates=false` (default): map effort to tier: turbo=skip (already handled), fast=quick, balanced=standard, thorough=deep. Override: if >15 requirements or last phase before ship, force Deep.
 
 **Control Plane QA context:** If `${SWT_INSTALL_ROOT}/scripts/control-plane.sh` exists:
-  `bash "${SWT_INSTALL_ROOT}/scripts/control-plane.sh" compile {phase} 0 0 --role=qa --phase-dir={phase-dir} 2>/dev/null || true`
+`bash "${SWT_INSTALL_ROOT}/scripts/control-plane.sh" compile {phase} 0 0 --role=qa --phase-dir={phase-dir} 2>/dev/null || true`
 Otherwise, fall through to direct compile-context.sh call below.
 
 **Context compilation:** If `config_context_compiler=true`, before spawning QA run:
@@ -691,12 +731,13 @@ If compilation fails, proceed without it.
 Display: `◆ Spawning QA agent (${QA_MODEL})...`
 
 Resolve the VERIFICATION filename before spawning QA:
+
 ```bash
 VERIF_NAME=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-artifact-path.sh" verification "{phase-dir}")
 VERIF_BASE="${VERIF_NAME%.md}"
 ```
 
-**Per-wave QA (Thorough/Balanced, QA_TIMING=per-wave):** After each wave completes, spawn QA concurrently with next wave's Dev work. QA receives only completed wave's PLAN.md + SUMMARY.md + "Phase context: {phase-dir}/.context-qa.md (if compiled). Model: ${QA_MODEL}. Your verification tier is {tier}. If `.swt-planning/codebase/META.md` exists, read TESTING.md, CONCERNS.md, and ARCHITECTURE.md (whichever exist) from `.swt-planning/codebase/` to bootstrap codebase understanding before verifying. Run {5-10|15-25|30+} checks per the tier definitions in your agent protocol." Include the output path in the task description so QA persists directly: "Persist your VERIFICATION.md by piping qa_verdict JSON through write-verification.sh. Output path: {phase-dir}/${VERIF_BASE}-wave{W}.md. Plugin root: ${SWT_INSTALL_ROOT}." After final wave, spawn integration QA covering all plans + cross-plan integration with output path `{phase-dir}/${VERIF_NAME}`. QA calls `write-verification.sh` directly — the orchestrator does NOT persist. If QA reports a `write-verification.sh` failure, surface the error to the user — do NOT fall back to manual VERIFICATION.md writes.
+**Per-wave QA (Thorough/Balanced, QA_TIMING=per-wave):** After each wave completes, spawn QA concurrently with next wave's Dev work. QA receives only completed wave's PLAN.md + SUMMARY.md + "Phase context: {phase-dir}/.context-qa.md (if compiled). Model: ${QA_MODEL}. Your verification tier is {tier}. If `.swt-planning/codebase/META.md` exists, read TESTING.md, CONCERNS.md, and ARCHITECTURE.md (whichever exist) from `.swt-planning/codebase/` to bootstrap codebase understanding before verifying. Run {5-10|15-25|30+} checks per the tier definitions in your agent protocol." Include the output path in the task description so QA persists directly: "Persist your VERIFICATION.md by piping qa_verdict JSON through write-verification.sh. Output path: {phase-dir}/${VERIF_BASE}-wave{W}.md. Plugin root: ${SWT_INSTALL_ROOT}." After final wave, spawn integration QA covering all plans + cross-plan integration with output path `{phase-dir}/${VERIF_NAME}`. QA calls `write-verification.sh`directly — the orchestrator does NOT persist. If QA reports a`write-verification.sh` failure, surface the error to the user — do NOT fall back to manual VERIFICATION.md writes.
 
 **Post-build QA (Fast, QA_TIMING=post-build):** Spawn QA after ALL plans complete. Include in task description: "Phase context: {phase-dir}/.context-qa.md (if compiled). Model: ${QA_MODEL}. Your verification tier is {tier}. If `.swt-planning/codebase/META.md` exists, read TESTING.md, CONCERNS.md, and ARCHITECTURE.md (whichever exist) from `.swt-planning/codebase/` to bootstrap codebase understanding before verifying. Run {5-10|15-25|30+} checks per the tier definitions in your agent protocol. Persist your VERIFICATION.md by piping qa_verdict JSON through write-verification.sh. Output path: {phase-dir}/${VERIF_NAME}. Plugin root: ${SWT_INSTALL_ROOT}." QA calls `write-verification.sh` directly — the orchestrator does NOT persist. If QA reports a `write-verification.sh` failure, surface the error to the user — do NOT fall back to manual VERIFICATION.md writes.
 
@@ -706,22 +747,28 @@ VERIF_BASE="${VERIF_NAME%.md}"
 ### Step 4.1: QA Result Gating (NON-NEGOTIABLE)
 
 After QA writes its VERIFICATION artifact, sync tracked known issues from that artifact before reading the gate:
+
 ```bash
 bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{verification-output-path}" 2>/dev/null || true
 ```
+
 After sync, auto-promote surviving known issues to `STATE.md ## Todos`:
+
 ```bash
 bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
 ```
+
 - Phase-level VERIFICATION writes merge new pre-existing issues into the existing registry without clearing the execution-time backlog.
 - Round-scoped `R{RR}-VERIFICATION.md` writes are authoritative for unresolved known issues and may prune or clear `{phase-dir}/known-issues.json`.
 
 After QA completes (subagent returns or teammate sends `qa_verdict`), run the deterministic gate:
+
 ```bash
 bash "${SWT_INSTALL_ROOT}/scripts/qa-result-gate.sh" "{phase-dir}"
 ```
 
 **Follow `qa_gate_routing` output literally — no exceptions, no judgment, no rationalization. Do NOT evaluate whether failures are justified, acceptable, or minor. The gate script has already made the decision:**
+
 - **`qa_gate_routing=PROCEED_TO_UAT`:** Display `◆ QA: PASS` — proceed to Step 4.5 (UAT)
 - **`qa_gate_routing=REMEDIATION_REQUIRED`:** Display `◆ QA: ${qa_gate_result} (${qa_gate_fail_count} FAIL)` — enter QA remediation loop below. If `qa_gate_known_issues_override=true`, the contract verification passed but `{qa_gate_known_issue_count}` unresolved tracked known issues remain in `{phase-dir}/known-issues.json`.
 - **`qa_gate_routing=QA_RERUN_REQUIRED`:** Display `⚠ QA result invalid (writer=${qa_gate_writer}, result=${qa_gate_result}). Re-running QA.` — re-spawn QA agent immediately (no plan→execute cycle). Max 2 retries. If `qa_gate_deviation_override=true`, tell QA: "Previous QA run found PASS but SUMMARY.md files contain ${qa_gate_deviation_count} deviations that were not reflected as FAIL checks. Each deviation MUST become a FAIL check — do not rationalize deviations as acceptable." If `qa_gate_plan_coverage` is present, tell QA: "Previous QA run only verified ${qa_gate_plans_verified_count}/${qa_gate_plan_count} plans. Every plan in the phase must be verified — include all plan IDs in plans_verified." If QA still fails to produce a valid result, STOP and escalate: "QA failed to produce a valid VERIFICATION.md after {N} attempts. Manual intervention needed."
@@ -731,126 +778,132 @@ bash "${SWT_INSTALL_ROOT}/scripts/qa-result-gate.sh" "{phase-dir}"
 This loop runs inline during execution — no second `swt cook` call needed. If the session ends mid-loop, phase-detect will detect the `.qa-remediation-stage` state file and route to `needs_qa_remediation` on the next `swt cook` call.
 
 1. **Init state:**
+
    ```bash
    bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" init "{phase-dir}"
    ```
-  Parse output: `stage`, `round`, `round_dir`, `source_verification_path`, `source_fail_count`, `known_issues_path`, `known_issues_count`, `input_mode`, `verification_path`
-  <qa_remediation_artifact_contract>
-  `round_dir`, `source_verification_path`, `known_issues_path`, and `verification_path` from `qa-remediation-state.sh` metadata are authoritative host-repository paths. Claude Code may run subagents from `.claude/worktrees/agent-*` sidechain CWDs; pass these exact paths to Lead, Dev, and QA prompts and never rewrite them relative to the current CWD. Rewriting those paths relative to sidechain CWDs can write or read remediation artifacts from the wrong location and break resume or verification.
-  </qa_remediation_artifact_contract>
-  <qa_remediation_spawn_contract>
-  QA remediation uses plain sequential subagent calls. Do not use TeamCreate. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Use remediation metadata paths in prompts; SWT worktree targeting is task prompt/state metadata, not a spawn isolation or cwd handoff.
-  </qa_remediation_spawn_contract>
-  <qa_remediation_no_tool_circuit_breaker>
-  After any QA remediation Lead, Dev, or QA subagent returns, inspect returned text before artifact validation, deterministic gates, or state advancement. If it says tools, shell/Bash, filesystem, edits, or API-session access are unavailable, treat that as a platform/tool provisioning failure: STOP without advancing `.qa-remediation-stage`, report the failed role and stage/task, and do not retry the same prompt.
-  </qa_remediation_no_tool_circuit_breaker>
+
+   Parse output: `stage`, `round`, `round_dir`, `source_verification_path`, `source_fail_count`, `known_issues_path`, `known_issues_count`, `input_mode`, `verification_path`
+   <qa_remediation_artifact_contract>
+   `round_dir`, `source_verification_path`, `known_issues_path`, and `verification_path` from `qa-remediation-state.sh` metadata are authoritative host-repository paths. Claude Code may run subagents from `.claude/worktrees/agent-*` sidechain CWDs; pass these exact paths to Lead, Dev, and QA prompts and never rewrite them relative to the current CWD. Rewriting those paths relative to sidechain CWDs can write or read remediation artifacts from the wrong location and break resume or verification.
+   </qa_remediation_artifact_contract>
+   <qa_remediation_spawn_contract>
+   QA remediation uses plain sequential subagent calls. Do not use TeamCreate. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Use remediation metadata paths in prompts; SWT worktree targeting is task prompt/state metadata, not a spawn isolation or cwd handoff.
+   </qa_remediation_spawn_contract>
+   <qa_remediation_no_tool_circuit_breaker>
+   After any QA remediation Lead, Dev, or QA subagent returns, inspect returned text before artifact validation, deterministic gates, or state advancement. If it says tools, shell/Bash, filesystem, edits, or API-session access are unavailable, treat that as a platform/tool provisioning failure: STOP without advancing `.qa-remediation-stage`, report the failed role and stage/task, and do not retry the same prompt.
+   </qa_remediation_no_tool_circuit_breaker>
 
 2. **Loop (until PROCEED_TO_UAT or user intervention):**
 
    **stage=plan:** Create `R{RR}-PLAN.md` in `{round_dir}`:
-  - Read `source_verification_path` from `qa-remediation-state.sh get` metadata for failed checks when `source_fail_count>0`
-  - Read `known_issues_path` when `known_issues_count>0` — this is the phase-scoped unresolved known-issues backlog that must clear before UAT
-     - Round 01 uses the phase-level VERIFICATION (`{NN}-VERIFICATION.md` or brownfield `VERIFICATION.md`)
-     - Round 02+ first checks the previous round's `R{RR}-VERIFICATION.md`. If that artifact still contains FAIL checks, use it. If it passed QA but the deterministic gate still required another remediation round, carry forward the nearest earlier verification artifact in the remediation chain that still contains the unresolved FAILs.
-    - If `source_verification_path` is empty and `known_issues_count=0`, STOP and restore the earlier verification artifact that should have carried the unresolved FAILs before planning. Do NOT silently continue when the previous round verification is missing or when the carried-forward phase-level source artifact no longer exists.
-   - **Deviation Classification (NON-NEGOTIABLE):** For each FAIL check in the source VERIFICATION.md, classify as exactly one of:
-      - **`code-fix`**: The code/config must change to match the plan. The remediation plan MUST include tasks that modify the executable/config/test artifacts that actually implement the fix — not just planning or documentation files.
-      - **`plan-amendment`**: The deviation was a valid improvement over the original plan. The remediation plan MUST include a task to update the original PLAN.md with the actual approach and rationale, marking the deviation as resolved-by-amendment.
-      - **`process-exception`**: Genuinely non-fixable retroactive issue (e.g., cannot un-batch a historical commit without risky rebase). The remediation plan must include the exception classification with explicit reasoning why it is non-fixable.
-   - **The plan MUST include at least one `code-fix` or `plan-amendment` task if ANY FAIL check is classifiable as such.** A plan that classifies all FAIL checks as `process-exception` when code-fix or plan-amendment alternatives exist is itself a defect. Documentation-only changes to SUMMARY.md deviations arrays are NOT a valid resolution for code/architecture deviations.
-   - Include `fail_classifications:` YAML array in R{RR}-PLAN.md frontmatter.
-     - `code-fix` / `process-exception` entries: `{id: "FAIL-ID", type: "code-fix|process-exception", rationale: "..."}`
-     - `plan-amendment` entries MUST also identify the original plan being amended: `{id: "FAIL-ID", type: "plan-amendment", rationale: "...", source_plan: "01-01-PLAN.md"}`. `source_plan` must reference an original plan in the current phase only — never a sibling phase, archived milestone, or remediation plan.
-    - Always include `known_issues_input:` and `known_issue_resolutions:` in R{RR}-PLAN.md frontmatter. When `known_issues_count=0` or `input_mode=verification`, set both to empty arrays (`known_issues_input: []` and `known_issue_resolutions: []`) rather than omitting them.
-    - When `input_mode=known-issues` or `input_mode=both`, populate `known_issues_input:` with every carried known issue from `known_issues_path` using the canonical `{test,file,error}` JSON object-string shape already used for tracked issues.
-    - When `input_mode=known-issues` or `input_mode=both`, populate `known_issue_resolutions:` with a matching entry for every carried known issue using `{test,file,error,disposition,rationale}` JSON object strings. Valid `disposition` values are `resolved`, `accepted-process-exception`, and `unresolved`.
-     - `resolved` = this round fixes the issue and QA should no longer return it in `pre_existing_issues`
-     - `accepted-process-exception` = QA must verify the issue is real but non-blocking for this phase, omit it from `pre_existing_issues`, and leave it visible via the summary/STATE backlog instead of reopening the round forever
-     - `unresolved` = the issue remains blocking and the next round must continue to carry it
-    - Do NOT omit the `known_issues_input` or `known_issue_resolutions` keys. Do NOT omit a carried known issue from either array. The deterministic gate treats missing coverage as a failed remediation round even if QA writes `PASS`.
-   - Scope the plan to those failures: what to fix, which files, acceptance criteria
-  - The orchestrator coordinates the remediation loop and spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.md` (QA identified problems, Lead determines fixes).
-  - Resolve Lead settings before composing the Lead task:
-    ```bash
-    if ! AGENT_SETTINGS=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-agent-settings.sh" lead .swt-planning/config.json "${SWT_INSTALL_ROOT}/config/model-profiles.json" "{effort}"); then
-      echo "$AGENT_SETTINGS" >&2
-      exit 1
-    fi
-    eval "$AGENT_SETTINGS"
-    LEAD_MODEL="$RESOLVED_MODEL"
-    LEAD_MAX_TURNS="$RESOLVED_MAX_TURNS"
-    ```
-  - Spawn Lead as a plain sequential work-unit subagent with `subagent_type: "swt:swt-lead"` and `model: "${LEAD_MODEL}"`. If `LEAD_MAX_TURNS` is non-empty, include `maxTurns: ${LEAD_MAX_TURNS}`. If `LEAD_MAX_TURNS` is empty, omit `maxTurns` because the resolved profile is unlimited. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
-  - Lead prompt MUST include the authoritative `round_dir`, `source_verification_path`, `known_issues_path`, and output path `{round_dir}/R{RR}-PLAN.md`; the failed-check and known-issue inputs above; the deviation-classification and known-issue-resolution requirements above; and `Read the remediation plan template at /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/templates/REMEDIATION-PLAN.md and follow its structure exactly.`
-  - After Lead returns, apply the QA remediation no-tool circuit breaker before normalizing plan filenames, validating the generated plan, or advancing state. If Lead reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same Lead prompt.
-  - Normalize plan filenames before validation:
-    ```bash
-    NORM_SCRIPT="${SWT_INSTALL_ROOT}/scripts/normalize-plan-filenames.sh"
-    if [ -f "$NORM_SCRIPT" ]; then
-      bash "$NORM_SCRIPT" "{round_dir}"
-    fi
-    ```
-  - Validate the exact QA remediation plan artifact before advancing:
-    ```bash
-    bash "${SWT_INSTALL_ROOT}/scripts/validate-uat-remediation-artifact.sh" plan "{round_dir}/R{RR}-PLAN.md"
-    ```
-    If validation fails, display the validator error and STOP without advancing `.qa-remediation-stage`. Do not search for an alternate PLAN.md.
-  - After plan validation passes, advance state: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" advance "{phase-dir}"`
 
-   **stage=execute:** Spawn a Dev subagent per `R{RR}-PLAN.md`:
-   - **Always subagent — NO team creation for QA remediation (NON-NEGOTIABLE)**
-   - Set `subagent_type: "swt:swt-dev"` and `model: "${DEV_MODEL}"`
-   - Dev fixes code, commits, writes `R{RR}-SUMMARY.md` in `{round_dir}` using `templates/REMEDIATION-SUMMARY.md` (NOT `templates/SUMMARY.md`)
-     - The remediation summary frontmatter MUST include aggregated `commit_hashes`, `files_modified`, and `deviations`
-     - `files_modified` is required even for documentation-only rounds so `qa-result-gate.sh` can deterministically distinguish metadata-only remediation from real code changes
-     - When `input_mode=known-issues` or `input_mode=both`, the remediation summary frontmatter MUST also include `known_issue_outcomes` with one `{test,file,error,disposition,rationale}` JSON object string per carried known issue. Keys and `disposition` values must match `R{RR}-PLAN.md` `known_issue_resolutions`; do not silently drop accepted non-blocking issues.
-    - After Dev returns, apply the QA remediation no-tool circuit breaker before checking the summary or advancing state. If Dev reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same Dev prompt.
-    - After Dev completes without a no-tool provisioning failure, advance state: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" advance "{phase-dir}"`
+- Read `source_verification_path` from `qa-remediation-state.sh get` metadata for failed checks when `source_fail_count>0`
+- Read `known_issues_path` when `known_issues_count>0` — this is the phase-scoped unresolved known-issues backlog that must clear before UAT
+  - Round 01 uses the phase-level VERIFICATION (`{NN}-VERIFICATION.md` or brownfield `VERIFICATION.md`)
+  - Round 02+ first checks the previous round's `R{RR}-VERIFICATION.md`. If that artifact still contains FAIL checks, use it. If it passed QA but the deterministic gate still required another remediation round, carry forward the nearest earlier verification artifact in the remediation chain that still contains the unresolved FAILs.
+  - If `source_verification_path` is empty and `known_issues_count=0`, STOP and restore the earlier verification artifact that should have carried the unresolved FAILs before planning. Do NOT silently continue when the previous round verification is missing or when the carried-forward phase-level source artifact no longer exists.
+- **Deviation Classification (NON-NEGOTIABLE):** For each FAIL check in the source VERIFICATION.md, classify as exactly one of:
+  - **`code-fix`**: The code/config must change to match the plan. The remediation plan MUST include tasks that modify the executable/config/test artifacts that actually implement the fix — not just planning or documentation files.
+  - **`plan-amendment`**: The deviation was a valid improvement over the original plan. The remediation plan MUST include a task to update the original PLAN.md with the actual approach and rationale, marking the deviation as resolved-by-amendment.
+  - **`process-exception`**: Genuinely non-fixable retroactive issue (e.g., cannot un-batch a historical commit without risky rebase). The remediation plan must include the exception classification with explicit reasoning why it is non-fixable.
+- **The plan MUST include at least one `code-fix` or `plan-amendment` task if ANY FAIL check is classifiable as such.** A plan that classifies all FAIL checks as `process-exception` when code-fix or plan-amendment alternatives exist is itself a defect. Documentation-only changes to SUMMARY.md deviations arrays are NOT a valid resolution for code/architecture deviations.
+- Include `fail_classifications:` YAML array in R{RR}-PLAN.md frontmatter.
+  - `code-fix` / `process-exception` entries: `{id: "FAIL-ID", type: "code-fix|process-exception", rationale: "..."}`
+  - `plan-amendment` entries MUST also identify the original plan being amended: `{id: "FAIL-ID", type: "plan-amendment", rationale: "...", source_plan: "01-01-PLAN.md"}`. `source_plan` must reference an original plan in the current phase only — never a sibling phase, archived milestone, or remediation plan.
+- Always include `known_issues_input:` and `known_issue_resolutions:` in R{RR}-PLAN.md frontmatter. When `known_issues_count=0` or `input_mode=verification`, set both to empty arrays (`known_issues_input: []` and `known_issue_resolutions: []`) rather than omitting them.
+- When `input_mode=known-issues` or `input_mode=both`, populate `known_issues_input:` with every carried known issue from `known_issues_path` using the canonical `{test,file,error}` JSON object-string shape already used for tracked issues.
+- When `input_mode=known-issues` or `input_mode=both`, populate `known_issue_resolutions:` with a matching entry for every carried known issue using `{test,file,error,disposition,rationale}` JSON object strings. Valid `disposition` values are `resolved`, `accepted-process-exception`, and `unresolved`.
+- `resolved` = this round fixes the issue and QA should no longer return it in `pre_existing_issues`
+- `accepted-process-exception` = QA must verify the issue is real but non-blocking for this phase, omit it from `pre_existing_issues`, and leave it visible via the summary/STATE backlog instead of reopening the round forever
+- `unresolved` = the issue remains blocking and the next round must continue to carry it
+- Do NOT omit the `known_issues_input` or `known_issue_resolutions` keys. Do NOT omit a carried known issue from either array. The deterministic gate treats missing coverage as a failed remediation round even if QA writes `PASS`.
+- Scope the plan to those failures: what to fix, which files, acceptance criteria
+- The orchestrator coordinates the remediation loop and spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.md` (QA identified problems, Lead determines fixes).
+- Resolve Lead settings before composing the Lead task:
+  ```bash
+  if ! AGENT_SETTINGS=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-agent-settings.sh" lead .swt-planning/config.json "${SWT_INSTALL_ROOT}/config/model-profiles.json" "{effort}"); then
+    echo "$AGENT_SETTINGS" >&2
+    exit 1
+  fi
+  eval "$AGENT_SETTINGS"
+  LEAD_MODEL="$RESOLVED_MODEL"
+  LEAD_MAX_TURNS="$RESOLVED_MAX_TURNS"
+  ```
+- Spawn Lead as a plain sequential work-unit subagent with `subagent_type: "swt:swt-lead"` and `model: "${LEAD_MODEL}"`. If `LEAD_MAX_TURNS` is non-empty, include `maxTurns: ${LEAD_MAX_TURNS}`. If `LEAD_MAX_TURNS` is empty, omit `maxTurns` because the resolved profile is unlimited. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
+- Lead prompt MUST include the authoritative `round_dir`, `source_verification_path`, `known_issues_path`, and output path `{round_dir}/R{RR}-PLAN.md`; the failed-check and known-issue inputs above; the deviation-classification and known-issue-resolution requirements above; and `Read the remediation plan template at /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/templates/REMEDIATION-PLAN.md and follow its structure exactly.`
+- After Lead returns, apply the QA remediation no-tool circuit breaker before normalizing plan filenames, validating the generated plan, or advancing state. If Lead reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same Lead prompt.
+- Normalize plan filenames before validation:
+  ```bash
+  NORM_SCRIPT="${SWT_INSTALL_ROOT}/scripts/normalize-plan-filenames.sh"
+  if [ -f "$NORM_SCRIPT" ]; then
+    bash "$NORM_SCRIPT" "{round_dir}"
+  fi
+  ```
+- Validate the exact QA remediation plan artifact before advancing:
+  ```bash
+  bash "${SWT_INSTALL_ROOT}/scripts/validate-uat-remediation-artifact.sh" plan "{round_dir}/R{RR}-PLAN.md"
+  ```
+  If validation fails, display the validator error and STOP without advancing `.qa-remediation-stage`. Do not search for an alternate PLAN.md.
+- After plan validation passes, advance state: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" advance "{phase-dir}"`
 
-   **stage=verify:** Re-run QA:
-   - Run `compile-verify-context.sh --remediation-only {phase-dir}` to get compounded verification history plus the current round's plan/summary context only
-   - Spawn QA agent as subagent — writes to `{verification_path}` (from `qa-remediation-state.sh` metadata)
-     - Output path: `{round_dir}/R{RR}-VERIFICATION.md` — phase-level VERIFICATION.md stays frozen
-    - After QA returns, apply the QA remediation no-tool circuit breaker before syncing known issues or running the deterministic gate. If QA reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same QA prompt.
-     - After QA persists `{verification_path}`, immediately sync tracked known issues from that round artifact:
-       ```bash
-       bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{verification_path}" 2>/dev/null || true
-       ```
-     - After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
-       ```bash
-       bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
-       ```
-    - If `compile-verify-context.sh` emits a `KNOWN ISSUES` block, include in QA's task description: "Tracked phase known issues are not informational in remediation rounds. Re-check every carried known issue from `known_issues_input` / `known_issue_resolutions`. Return only still-blocking issues in `pre_existing_issues`. If a carried issue is verified as an `accepted-process-exception`, omit it from `pre_existing_issues`, confirm that the accepted non-blocking disposition is credible for this phase, and rely on the matching `known_issue_outcomes` entry to preserve visibility after the blocking registry clears. A clean remediation QA run must return an empty `pre_existing_issues` array for all resolved or accepted non-blocking carried issues so `{phase-dir}/known-issues.json` can clear."
-     - Include the compiled verify context output in QA's task description
-      - **Include in QA task description:** "In addition to verifying the remediation plan's own must_haves, you MUST re-verify each original FAIL from the VERIFICATION HISTORY section. For each FAIL_ID: if classified as code-fix, verify the code now matches the plan; if classified as plan-amendment, verify the original PLAN.md has been updated with the actual approach and rationale; if classified as process-exception, verify the exception is documented with non-fixable justification and that the justification is credible for this FAIL; if code-fix or plan-amendment still appears viable, keep the FAIL open. Any original FAIL that has not been addressed by one of these three paths is still a FAIL."
-      - The deterministic gate validates structural evidence only. QA must decide whether a `process-exception` is *actually* justified during this re-verification step — documentation alone is insufficient when the original FAIL still appears fixable via code or plan amendment.
-   - After QA returns, run the deterministic gate:
-     ```bash
-     bash "${SWT_INSTALL_ROOT}/scripts/qa-result-gate.sh" "{phase-dir}"
-     ```
-     **Follow `qa_gate_routing` output literally — no exceptions, no judgment, no rationalization. Do NOT evaluate whether failures are justified, acceptable, or minor. The gate script has already made the decision:**
-     - **`qa_gate_routing=PROCEED_TO_UAT`:** Advance to done: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" advance "{phase-dir}"`, display `◆ QA remediation: PASS (round {RR})`, break loop, proceed to Step 4.5
-    - **`qa_gate_routing=REMEDIATION_REQUIRED`:** Start new round: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" needs-round "{phase-dir}"`, display `◆ QA remediation round {RR}: ${qa_gate_result}`, continue loop. If `qa_gate_known_issues_override=true`, unresolved tracked known issues remain in `{phase-dir}/known-issues.json`.
-     - **`qa_gate_routing=QA_RERUN_REQUIRED`:** Re-spawn QA immediately (max 2 retries per round). If `qa_gate_deviation_override=true`, tell QA: "Previous QA run found PASS but SUMMARY.md files contain ${qa_gate_deviation_count} deviations that were not reflected as FAIL checks. Each deviation MUST become a FAIL check — do not rationalize deviations as acceptable." If `qa_gate_plan_coverage` is present, tell QA: "Previous QA run only verified ${qa_gate_plans_verified_count}/${qa_gate_plan_count} plans. Every plan in the phase must be verified — include all plan IDs in plans_verified." If still invalid, treat as REMEDIATION_REQUIRED.
-      - **When `qa_gate_metadata_only_override=true`** (routing will be `REMEDIATION_REQUIRED`): Display `⚠ QA remediation round made no implementation changes — only planning/documentation updates. The round still depends on a code-fix path (or omitted fail_classifications), so the original failures cannot be considered resolved without code changes. ${qa_gate_phase_deviation_count} phase deviations remain recorded.` This override is the deterministic safety net for rounds that still depend on code changes. Pure plan-amendment rounds can pass when the original plan was actually updated, and pure process-exception rounds still need planning/remediation-artifact evidence — delivered docs/README changes alone do not count. The next round's `stage=plan` MUST classify each FAIL as code-fix, plan-amendment, or process-exception per the Deviation Classification rules above.
-      - **When `qa_gate_process_exception_evidence_missing=true`** (routing will be `REMEDIATION_REQUIRED`): Display `⚠ QA remediation round has a clean verification result, but the gate cannot find recorded remediation-artifact evidence. Record an existing remediation RNN-PLAN.md/RNN-SUMMARY.md or a valid original phase PLAN.md before treating the process-exception as resolved.` Continue with a new remediation round.
-      - **When `qa_gate_round_change_evidence_empty=true`** (routing will be `REMEDIATION_REQUIRED`): This flag only fires when the round includes `code-fix` classifications. Display `⚠ QA remediation round recorded no change evidence — both files_modified and commit_hashes were empty. A PASS without any recorded changed files or commits cannot resolve prior FAILs.` The next round must produce real code/plan changes or capture justified remediation evidence instead of an empty summary.
-      - **When `qa_gate_round_change_evidence_unavailable=true`** (routing will be `REMEDIATION_REQUIRED`): This flag only fires when the round includes `code-fix` classifications. Pure `plan-amendment` and `process-exception` rounds are validated by their own evidence paths (source-plan coverage and process-exception artifact evidence respectively) rather than by code change evidence. Display `⚠ QA remediation round recorded change evidence that could not be verified as current-round work. Either the recorded files did not match any committed or current round-local remediation-artifact changes after the source verification commit, or the referenced commit_hashes could not be proven to belong to this round, so the actual changed files could not be trusted.` Restore explicit files_modified entries and/or round-local commit evidence anchored to the remediation round before treating the failures as resolved.
+  **stage=execute:** Spawn a Dev subagent per `R{RR}-PLAN.md`:
+
+- **Always subagent — NO team creation for QA remediation (NON-NEGOTIABLE)**
+- Set `subagent_type: "swt:swt-dev"` and `model: "${DEV_MODEL}"`
+- Dev fixes code, commits, writes `R{RR}-SUMMARY.md` in `{round_dir}` using `templates/REMEDIATION-SUMMARY.md` (NOT `templates/SUMMARY.md`)
+  - The remediation summary frontmatter MUST include aggregated `commit_hashes`, `files_modified`, and `deviations`
+  - `files_modified` is required even for documentation-only rounds so `qa-result-gate.sh` can deterministically distinguish metadata-only remediation from real code changes
+  - When `input_mode=known-issues` or `input_mode=both`, the remediation summary frontmatter MUST also include `known_issue_outcomes` with one `{test,file,error,disposition,rationale}` JSON object string per carried known issue. Keys and `disposition` values must match `R{RR}-PLAN.md` `known_issue_resolutions`; do not silently drop accepted non-blocking issues.
+- After Dev returns, apply the QA remediation no-tool circuit breaker before checking the summary or advancing state. If Dev reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same Dev prompt.
+- After Dev completes without a no-tool provisioning failure, advance state: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" advance "{phase-dir}"`
+
+**stage=verify:** Re-run QA:
+
+- Run `compile-verify-context.sh --remediation-only {phase-dir}` to get compounded verification history plus the current round's plan/summary context only
+- Spawn QA agent as subagent — writes to `{verification_path}` (from `qa-remediation-state.sh` metadata)
+  - Output path: `{round_dir}/R{RR}-VERIFICATION.md` — phase-level VERIFICATION.md stays frozen
+- After QA returns, apply the QA remediation no-tool circuit breaker before syncing known issues or running the deterministic gate. If QA reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same QA prompt.
+- After QA persists `{verification_path}`, immediately sync tracked known issues from that round artifact:
+  ```bash
+  bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{verification_path}" 2>/dev/null || true
+  ```
+- After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
+  ```bash
+  bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
+  ```
+- If `compile-verify-context.sh` emits a `KNOWN ISSUES` block, include in QA's task description: "Tracked phase known issues are not informational in remediation rounds. Re-check every carried known issue from `known_issues_input` / `known_issue_resolutions`. Return only still-blocking issues in `pre_existing_issues`. If a carried issue is verified as an `accepted-process-exception`, omit it from `pre_existing_issues`, confirm that the accepted non-blocking disposition is credible for this phase, and rely on the matching `known_issue_outcomes` entry to preserve visibility after the blocking registry clears. A clean remediation QA run must return an empty `pre_existing_issues` array for all resolved or accepted non-blocking carried issues so `{phase-dir}/known-issues.json` can clear."
+- Include the compiled verify context output in QA's task description
+- **Include in QA task description:** "In addition to verifying the remediation plan's own must_haves, you MUST re-verify each original FAIL from the VERIFICATION HISTORY section. For each FAIL_ID: if classified as code-fix, verify the code now matches the plan; if classified as plan-amendment, verify the original PLAN.md has been updated with the actual approach and rationale; if classified as process-exception, verify the exception is documented with non-fixable justification and that the justification is credible for this FAIL; if code-fix or plan-amendment still appears viable, keep the FAIL open. Any original FAIL that has not been addressed by one of these three paths is still a FAIL."
+- The deterministic gate validates structural evidence only. QA must decide whether a `process-exception` is _actually_ justified during this re-verification step — documentation alone is insufficient when the original FAIL still appears fixable via code or plan amendment.
+- After QA returns, run the deterministic gate:
+  ```bash
+  bash "${SWT_INSTALL_ROOT}/scripts/qa-result-gate.sh" "{phase-dir}"
+  ```
+  **Follow `qa_gate_routing` output literally — no exceptions, no judgment, no rationalization. Do NOT evaluate whether failures are justified, acceptable, or minor. The gate script has already made the decision:**
+  - **`qa_gate_routing=PROCEED_TO_UAT`:** Advance to done: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" advance "{phase-dir}"`, display `◆ QA remediation: PASS (round {RR})`, break loop, proceed to Step 4.5
+- **`qa_gate_routing=REMEDIATION_REQUIRED`:** Start new round: `bash "${SWT_INSTALL_ROOT}/scripts/qa-remediation-state.sh" needs-round "{phase-dir}"`, display `◆ QA remediation round {RR}: ${qa_gate_result}`, continue loop. If `qa_gate_known_issues_override=true`, unresolved tracked known issues remain in `{phase-dir}/known-issues.json`.
+- **`qa_gate_routing=QA_RERUN_REQUIRED`:** Re-spawn QA immediately (max 2 retries per round). If `qa_gate_deviation_override=true`, tell QA: "Previous QA run found PASS but SUMMARY.md files contain ${qa_gate_deviation_count} deviations that were not reflected as FAIL checks. Each deviation MUST become a FAIL check — do not rationalize deviations as acceptable." If `qa_gate_plan_coverage` is present, tell QA: "Previous QA run only verified ${qa_gate_plans_verified_count}/${qa_gate_plan_count} plans. Every plan in the phase must be verified — include all plan IDs in plans_verified." If still invalid, treat as REMEDIATION_REQUIRED.
+- **When `qa_gate_metadata_only_override=true`** (routing will be `REMEDIATION_REQUIRED`): Display `⚠ QA remediation round made no implementation changes — only planning/documentation updates. The round still depends on a code-fix path (or omitted fail_classifications), so the original failures cannot be considered resolved without code changes. ${qa_gate_phase_deviation_count} phase deviations remain recorded.` This override is the deterministic safety net for rounds that still depend on code changes. Pure plan-amendment rounds can pass when the original plan was actually updated, and pure process-exception rounds still need planning/remediation-artifact evidence — delivered docs/README changes alone do not count. The next round's `stage=plan` MUST classify each FAIL as code-fix, plan-amendment, or process-exception per the Deviation Classification rules above.
+- **When `qa_gate_process_exception_evidence_missing=true`** (routing will be `REMEDIATION_REQUIRED`): Display `⚠ QA remediation round has a clean verification result, but the gate cannot find recorded remediation-artifact evidence. Record an existing remediation RNN-PLAN.md/RNN-SUMMARY.md or a valid original phase PLAN.md before treating the process-exception as resolved.` Continue with a new remediation round.
+- **When `qa_gate_round_change_evidence_empty=true`** (routing will be `REMEDIATION_REQUIRED`): This flag only fires when the round includes `code-fix` classifications. Display `⚠ QA remediation round recorded no change evidence — both files_modified and commit_hashes were empty. A PASS without any recorded changed files or commits cannot resolve prior FAILs.` The next round must produce real code/plan changes or capture justified remediation evidence instead of an empty summary.
+- **When `qa_gate_round_change_evidence_unavailable=true`** (routing will be `REMEDIATION_REQUIRED`): This flag only fires when the round includes `code-fix` classifications. Pure `plan-amendment` and `process-exception` rounds are validated by their own evidence paths (source-plan coverage and process-exception artifact evidence respectively) rather than by code change evidence. Display `⚠ QA remediation round recorded change evidence that could not be verified as current-round work. Either the recorded files did not match any committed or current round-local remediation-artifact changes after the source verification commit, or the referenced commit_hashes could not be proven to belong to this round, so the actual changed files could not be trusted.` Restore explicit files_modified entries and/or round-local commit evidence anchored to the remediation round before treating the failures as resolved.
 
 ### Step 4.5: Human acceptance testing (UAT)
 
 **Autonomy gate:**
 
-| Autonomy | UAT active |
-| -------- | ---------- |
-| cautious | YES |
-| standard | YES |
-| confident | OFF |
-| pure-vibe | OFF |
+| Autonomy  | UAT active |
+| --------- | ---------- |
+| cautious  | YES        |
+| standard  | YES        |
+| confident | OFF        |
+| pure-vibe | OFF        |
 
 **Override:** If `auto_uat` is `true` in config, UAT is always active regardless of autonomy level.
 
 Read autonomy and auto_uat from config:
+
 ```bash
 AUTONOMY=$(jq -r '.autonomy // "standard"' .swt-planning/config.json)
 AUTO_UAT=$(jq -r '.auto_uat // false' .swt-planning/config.json)
@@ -861,145 +914,159 @@ If `AUTO_UAT` is not `true` and autonomy is confident or pure-vibe: display "○
 **UAT execution:**
 
 Resolve the UAT filename before proceeding:
+
 ```bash
 UAT_NAME=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-artifact-path.sh" uat "{phase-dir}")
 ```
 
 1. Check if `{phase-dir}/${UAT_NAME}` already exists with `status: complete`. If so: "○ UAT already complete" and proceed to Step 5.
 2. Generate test scenarios from the compiled UAT verification context:
-  ```bash
-  UAT_VERIFY_CONTEXT=$(bash "${SWT_INSTALL_ROOT}/scripts/compile-verify-context-for-uat.sh" "{phase-dir}" 2>/dev/null || true)
-  ```
-  Treat this compact context as the authoritative UAT input. It includes merged PLAN/SUMMARY details, remediation scope, the correct `uat_path`, and any unsuppressed `SUMMARY_DEVIATION:` records. Do not independently re-read individual SUMMARY.md files to build UAT scope.
-  - Parse `verify_scope=full` vs `verify_scope=remediation round=RR` from the compiled context.
-  - Parse `uat_path=` and write the UAT file there. For full scope this is usually `${UAT_NAME}`; for remediation it is the round-scoped UAT path.
-  - Parse each `SUMMARY_DEVIATION:` record (`signature`, `source_plan`, `source_path`, `text`). These records are already filtered against `{phase-dir}/remediation/uat/accepted-deviations.json`; do not re-prefill accepted records.
 
-  **Summary deviation review prefill (NON-NEGOTIABLE):** Before generated plan checkpoints, create one `D{NN}` review checkpoint for each `SUMMARY_DEVIATION:` record, in the same stable order.
-  - These are review checkpoints, not blocking issues. Start `**Result:**` empty and leave `issues: 0` in the initial frontmatter unless the human later rejects a deviation.
-  - Write them before any generated `P...` or `PR...` checkpoints.
-  - Include identity metadata exactly in the entry: `**Source:** Summary deviation review`, `**Deviation Signature:** {signature}`, `**Source Plan:** {source_plan}`, `**Source Summary:** {source_path}`, and `**Deviation:** {text}`.
-  - Use `**Expected:** Human confirms whether this documented deviation is acceptable for this phase.`
-  - Include the `D{NN}` entries in `total_tests`; they remain incomplete until the human answers.
+```bash
+UAT_VERIFY_CONTEXT=$(bash "${SWT_INSTALL_ROOT}/scripts/compile-verify-context-for-uat.sh" "{phase-dir}" 2>/dev/null || true)
+```
 
-  Generate plan/remediation scenarios from the compiled context:
-  - Use each context record's built work, files modified, and must_haves
-   - Generate 1-3 test scenarios per plan requiring HUMAN judgment — things only a person can verify
-   - Minimum 1 test per plan. Test IDs: `P{plan}-T{NN}`
-  - In remediation re-verification mode, use remediation checkpoint IDs `PR{RR}-T{NN}` (for example, `PR03-T01`) and focus on whether the original UAT issue was fixed.
+Treat this compact context as the authoritative UAT input. It includes merged PLAN/SUMMARY details, remediation scope, the correct `uat_path`, and any unsuppressed `SUMMARY_DEVIATION:` records. Do not independently re-read individual SUMMARY.md files to build UAT scope.
 
-   **UAT tests must require human judgment.** Good examples:
-   - Open the app and navigate to screen X — does it display Y correctly?
-   - Perform user workflow A → B → C — does the result look right?
-   - Check that the UI reflects the change — is the label/value/layout correct?
+- Parse `verify_scope=full` vs `verify_scope=remediation round=RR` from the compiled context.
+- Parse `uat_path=` and write the UAT file there. For full scope this is usually `${UAT_NAME}`; for remediation it is the round-scoped UAT path.
+- Parse each `SUMMARY_DEVIATION:` record (`signature`, `source_plan`, `source_path`, `text`). These records are already filtered against `{phase-dir}/remediation/uat/accepted-deviations.json`; do not re-prefill accepted records.
 
-   **NEVER generate tests that can be performed programmatically.** These belong in QA (Step 4), not UAT:
-   - ✗ Grep/search files for expected content or missing imports
-   - ✗ Verify file existence, deletion, or structure
-   - ✗ Run a test suite or individual test (xcodebuild test, pytest, bats, jest, etc.)
-   - ✗ Run a CLI command and check its exit code or output
-   - ✗ Execute a script and verify it passes
-   - ✗ Run a linter, type-checker, or build command
+**Summary deviation review prefill (NON-NEGOTIABLE):** Before generated plan checkpoints, create one `D{NN}` review checkpoint for each `SUMMARY_DEVIATION:` record, in the same stable order.
 
-   **What belongs in UAT (ask the user):**
-   - Visual/UI correctness
-   - Domain-specific data validation
-   - UX flows and usability
-   - Behavior that requires the running app or hardware
-   - Subjective quality
+- These are review checkpoints, not blocking issues. Start `**Result:**` empty and leave `issues: 0` in the initial frontmatter unless the human later rejects a deviation.
+- Write them before any generated `P...` or `PR...` checkpoints.
+- Include identity metadata exactly in the entry: `**Source:** Summary deviation review`, `**Deviation Signature:** {signature}`, `**Source Plan:** {source_plan}`, `**Source Summary:** {source_path}`, and `**Deviation:** {text}`.
+- Use `**Expected:** Human confirms whether this documented deviation is acceptable for this phase.`
+- Include the `D{NN}` entries in `total_tests`; they remain incomplete until the human answers.
 
-   **What does NOT belong in UAT (the agent or QA already handles these):**
-   - Running test suites — QA runs these during execution. Do NOT ask the user to run tests.
-   - Checking command output, exit codes, or build success
-   - Grepping files for expected content
-   - Verifying file existence or structure
-   - Any check that can be performed programmatically via Bash, Grep, or Glob
+Generate plan/remediation scenarios from the compiled context:
 
-   **Skill-aware exclusion:** If any active skill, tool, or MCP server gives the model UI automation capabilities (e.g., describe-UI, tap/click simulation, accessibility inspection, screenshot capture, DOM querying), then UI interactions that can be verified programmatically via those capabilities also belong in QA, not UAT. Only include scenarios that require true human judgment — subjective quality, visual design assessment, domain-specific data correctness, or hardware-dependent behavior that available tooling cannot automate.
+- Use each context record's built work, files modified, and must_haves
+- Generate 1-3 test scenarios per plan requiring HUMAN judgment — things only a person can verify
+- Minimum 1 test per plan. Test IDs: `P{plan}-T{NN}`
+- In remediation re-verification mode, use remediation checkpoint IDs `PR{RR}-T{NN}` (for example, `PR03-T01`) and focus on whether the original UAT issue was fixed.
 
-   If a plan's work is purely internal (refactor, test infrastructure, script changes) with no user-facing behavior, generate a single lightweight checkpoint asking the user to confirm the app still works as expected from their perspective, rather than asking them to run automated checks.
+  **UAT tests must require human judgment.** Good examples:
 
-  - Write initial UAT file at `{phase-dir}/{uat_path}` with all tests (prefilled `D{NN}` review checkpoints first, then generated `P...` or `PR...` checkpoints; all Result fields empty)
+- Open the app and navigate to screen X — does it display Y correctly?
+- Perform user workflow A → B → C — does the result look right?
+- Check that the UI reflects the change — is the label/value/layout correct?
+
+**NEVER generate tests that can be performed programmatically.** These belong in QA (Step 4), not UAT:
+
+- ✗ Grep/search files for expected content or missing imports
+- ✗ Verify file existence, deletion, or structure
+- ✗ Run a test suite or individual test (xcodebuild test, pytest, bats, jest, etc.)
+- ✗ Run a CLI command and check its exit code or output
+- ✗ Execute a script and verify it passes
+- ✗ Run a linter, type-checker, or build command
+
+**What belongs in UAT (ask the user):**
+
+- Visual/UI correctness
+- Domain-specific data validation
+- UX flows and usability
+- Behavior that requires the running app or hardware
+- Subjective quality
+
+**What does NOT belong in UAT (the agent or QA already handles these):**
+
+- Running test suites — QA runs these during execution. Do NOT ask the user to run tests.
+- Checking command output, exit codes, or build success
+- Grepping files for expected content
+- Verifying file existence or structure
+- Any check that can be performed programmatically via Bash, Grep, or Glob
+
+**Skill-aware exclusion:** If any active skill, tool, or MCP server gives the model UI automation capabilities (e.g., describe-UI, tap/click simulation, accessibility inspection, screenshot capture, DOM querying), then UI interactions that can be verified programmatically via those capabilities also belong in QA, not UAT. Only include scenarios that require true human judgment — subjective quality, visual design assessment, domain-specific data correctness, or hardware-dependent behavior that available tooling cannot automate.
+
+If a plan's work is purely internal (refactor, test infrastructure, script changes) with no user-facing behavior, generate a single lightweight checkpoint asking the user to confirm the app still works as expected from their perspective, rather than asking them to run automated checks.
+
+- Write initial UAT file at `{phase-dir}/{uat_path}` with all tests (prefilled `D{NN}` review checkpoints first, then generated `P...` or `PR...` checkpoints; all Result fields empty)
+
 3. **CHECKPOINT loop — present ONE test at a time, wait for user response:**
 
    **This is a conversational loop. Do NOT present all tests at once. Do NOT end the session after presenting a test. Do NOT proceed to Step 5 until all tests are complete.**
 
    For the FIRST test without a result, display a CHECKPOINT followed by AskUserQuestion:
 
-    ```text
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    CHECKPOINT {NN}/{total} — {plan-id}: {plan-title}
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ```text
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CHECKPOINT {NN}/{total} — {plan-id}: {plan-title}
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    {scenario description}
-    ```
+   {scenario description}
+   ```
 
-    Then use AskUserQuestion. Keep the modal question self-contained because it may cover the surrounding checkpoint prose:
+   Then use AskUserQuestion. Keep the modal question self-contained because it may cover the surrounding checkpoint prose:
 
-    ```yaml
-    question: "Scenario: {scenario description}\n\nExpected: {expected result}\n\nDoes the behavior match this checkpoint?"
-    header: "UAT"
-    multiSelect: false
-    options:
-      - label: "Pass"
-        description: "Behavior matches expected result"
-      - label: "Skip"
-        description: "Cannot test right now — skip this checkpoint"
-    ```
+   ```yaml
+   question: "Scenario: {scenario description}\n\nExpected: {expected result}\n\nDoes the behavior match this checkpoint?"
+   header: 'UAT'
+   multiSelect: false
+   options:
+     - label: 'Pass'
+       description: 'Behavior matches expected result'
+     - label: 'Skip'
+       description: 'Cannot test right now — skip this checkpoint'
+   ```
 
    The tool automatically provides a freeform "Other" option for the user to describe issues.
 
-  **Summary-deviation checkpoint prompt:** If the current checkpoint is a prefilled `D{NN}` summary-deviation review, show the deviation text and source metadata instead of a product scenario.
-  - The CHECKPOINT display must be self-contained: include a compact `Deviation: {text}` line from the entry's `**Deviation:**` field and `Source: {source_path} ({source_plan})` from `**Source Summary:**` and `**Source Plan:**`. Include `Deviation Signature: {signature}` only when it helps distinguish similar deviations.
-  - The AskUserQuestion `question` value MUST also be self-contained. Include the same compact `Deviation: {text}` and `Source: {source_path} ({source_plan})` lines in the tool question, then ask: `Accept this documented deviation as non-blocking for this phase?`
-  - The generic artifact expectation, `Expected: Human confirms whether this documented deviation is acceptable for this phase.`, is not enough by itself. It must not be the only visible AskUserQuestion question for a prefilled `D{NN}` summary-deviation checkpoint.
-  - Use three visible option labels for this checkpoint type only:
-    - `Pass` → `Accept this deviation as non-blocking for this phase`
-    - `Track Todo` → `Accept this deviation and add a SWT todo`
-    - `Skip` → `Leave this deviation unaccepted for now`
-  - This stays within the AskUserQuestion four-option limit. Normal product checkpoints keep only `Pass` and `Skip`.
-  - Freeform/Other → record the response as a UAT issue if it explains why the deviation is unacceptable or reveals a product defect, except for high-confidence todo intent handled below.
+   **Summary-deviation checkpoint prompt:** If the current checkpoint is a prefilled `D{NN}` summary-deviation review, show the deviation text and source metadata instead of a product scenario.
 
-   **STOP HERE.** Wait for the AskUserQuestion response. Do NOT continue to the next test or to Step 5.
+- The CHECKPOINT display must be self-contained: include a compact `Deviation: {text}` line from the entry's `**Deviation:**` field and `Source: {source_path} ({source_plan})` from `**Source Summary:**` and `**Source Plan:**`. Include `Deviation Signature: {signature}` only when it helps distinguish similar deviations.
+- The AskUserQuestion `question` value MUST also be self-contained. Include the same compact `Deviation: {text}` and `Source: {source_path} ({source_plan})` lines in the tool question, then ask: `Accept this documented deviation as non-blocking for this phase?`
+- The generic artifact expectation, `Expected: Human confirms whether this documented deviation is acceptable for this phase.`, is not enough by itself. It must not be the only visible AskUserQuestion question for a prefilled `D{NN}` summary-deviation checkpoint.
+- Use three visible option labels for this checkpoint type only:
+  - `Pass` → `Accept this deviation as non-blocking for this phase`
+  - `Track Todo` → `Accept this deviation and add a SWT todo`
+  - `Skip` → `Leave this deviation unaccepted for now`
+- This stays within the AskUserQuestion four-option limit. Normal product checkpoints keep only `Pass` and `Skip`.
+- Freeform/Other → record the response as a UAT issue if it explains why the deviation is unacceptable or reveals a product defect, except for high-confidence todo intent handled below.
 
-   **After the user responds:**
+  **STOP HERE.** Wait for the AskUserQuestion response. Do NOT continue to the next test or to Step 5.
 
-   Map the AskUserQuestion response:
+  **After the user responds:**
 
-  - **"Pass" selected:** record pass. For a prefilled summary-deviation `D{NN}` checkpoint, also write `**Disposition:** accepted-process-exception` and preserve its deviation metadata. Plain `Pass` accepts the deviation without adding a todo.
-  - **"Track Todo" selected:** for a prefilled summary-deviation `D{NN}` checkpoint only, record `**Result:** pass`, write `**Disposition:** accepted-process-exception`, preserve deviation metadata, and mark the checkpoint as accepted-and-tracked for the persistence step. Do not introduce a new `Result` value.
-  - **"Skip" selected:** record skip. For a prefilled summary-deviation `D{NN}` checkpoint, also write `**Disposition:** skipped-by-user` and do not record acceptance.
-  - **Freeform text (via "Other"):** Apply case-insensitive, trimmed string matching:
-    - For a prefilled summary-deviation `D{NN}` checkpoint, normalize before intent matching: trim, lowercase, treat curly apostrophes as straight apostrophes (`can’t` == `can't`), treat em/en dashes as separators, and canonicalize contractions (`can't`/`cant` → `cannot`, `don't`/`dont` → `do not`, `won't`/`wont` → `will not`). Then apply marker-first ordering: explicit rejection/blocking/acceptance-refusal markers (`unacceptable`, `reject`, `blocking`, `blocker`, `do not continue`, `cannot continue`, `will not continue`, `do not proceed`, `cannot proceed`, `not ok`, `not okay`, `cannot accept`, `do not accept`, `will not accept`, `unable to accept`, `refuse to accept`, `not acceptable`) record `Result: issue` and `Disposition: rejected-by-user` even when todo words are also present; `not ok` and `not okay` are equivalent because `ok` and `okay` are equivalent pass-intent words elsewhere. Examples: `can't continue, track this` and `can’t continue, track this` both canonicalize to `cannot continue, track this`; `not ok, track this` remains rejected; `can't accept this, track this` and `can’t accept this, track this` both canonicalize to `cannot accept this, track this`; and `not acceptable, add to todo` remains a rejected UAT issue. Only otherwise should high-confidence todo intent (`swt todo`, `todo`, `to-do`, `add to todo`, `add to to-do`, `track this`, `track it`, `backlog`, or `follow up later`) map to the accepted-and-tracked path.
-     - **Skip words** (skip, skipped, next, n/a, na, later, defer): record skip
-     - **Anything else**: classify the response as an issue, synthesize the persisted `Description` using the issue capture rules below, and infer severity from keywords (crash/broken/error=critical, wrong/missing/bug=major, minor/cosmetic/nitpick=minor, default=major). For a prefilled summary-deviation `D{NN}` checkpoint, also write `**Disposition:** rejected-by-user`.
-   - **Issue description capture:** Whenever a response is recorded as an issue, synthesize an actionable persisted `Description` from the checkpoint expectation, the current user response, and any visible attachment/image content available in the current conversation turn.
-     - Correct typos, remove filler/hedging, preserve user intent, identify the violated expectation, and state the observed actual behavior.
-     - If the user includes or references an image/attachment and the content is visible and interpretable, inspect it immediately and fold relevant facts into durable text in `Description`.
-     - If an image/attachment is not visible or not interpretable, do not persist `image attached`, `(Image attached)`, `screenshot attached`, `attachment attached`, or similar placeholders as evidence. Record the limitation only if it matters to remediation.
-     - Never persist raw screenshots, raw attachment blobs, or base64 data in the UAT artifact.
-     - Do not add a required raw-response field; keep the existing `Description` and `Severity` issue shape for downstream extraction.
-     - Do not invent facts that are not present in the checkpoint, user response, or visible attachment/image evidence.
-     - Preserve the human-only UAT boundary: synthesize issue text only from current UAT evidence; do not debug, inspect project files, run commands, or implement fixes during UAT capture.
-   - If a pass/skip response includes a separate defect observation unrelated to the current checkpoint, append it as a discovered UAT issue. Before choosing the ID, scan the current UAT file at `{phase-dir}/{uat_path}` in both initial and resumed sessions for existing `D[0-9]+` headings, including prefilled summary-deviation review entries and issues appended earlier in the same session; allocate highest existing + 1 (`D03` after prefilled `D01`/`D02`) and never renumber existing entries.
-   - Update `{phase-dir}/{uat_path}` immediately (persist to disk)
-  - If the response accepts and tracks a prefilled summary-deviation checkpoint (`Track Todo` or high-confidence todo-intent freeform), run `bash "${SWT_INSTALL_ROOT}/scripts/track-uat-deviations.sh" todo-from-uat "{phase-dir}" "{phase-dir}/{uat_path}" "{test-id}"` after writing the UAT file. Use only the helper-emitted `todo_ref` to write or update `**Tracking:** accepted deviation added to todos (ref:{todo_ref})` or `**Tracking:** accepted deviation already tracked in todos (ref:{todo_ref})`. If the helper reports `no_state_file`, `missing_metadata`, `not_accepted`, empty output, or any other failure status, keep the UAT `Result: pass` and write `**Tracking:** accepted deviation todo tracking unavailable ({status})` rather than claiming a todo was added.
-  - If the response accepts a prefilled summary-deviation checkpoint, run `bash "${SWT_INSTALL_ROOT}/scripts/track-uat-deviations.sh" record-from-uat "{phase-dir}" "{phase-dir}/{uat_path}"` after any todo tracking update. The helper is idempotent; never hand-edit `accepted-deviations.json`.
-   - Display progress: `✓ {completed}/{total} tests`
-   - If more tests remain: present the NEXT test using the same CHECKPOINT format with AskUserQuestion, then **STOP and wait again**
-   - If all tests done: go to step 4
+Map the AskUserQuestion response:
+
+- **"Pass" selected:** record pass. For a prefilled summary-deviation `D{NN}` checkpoint, also write `**Disposition:** accepted-process-exception` and preserve its deviation metadata. Plain `Pass` accepts the deviation without adding a todo.
+- **"Track Todo" selected:** for a prefilled summary-deviation `D{NN}` checkpoint only, record `**Result:** pass`, write `**Disposition:** accepted-process-exception`, preserve deviation metadata, and mark the checkpoint as accepted-and-tracked for the persistence step. Do not introduce a new `Result` value.
+- **"Skip" selected:** record skip. For a prefilled summary-deviation `D{NN}` checkpoint, also write `**Disposition:** skipped-by-user` and do not record acceptance.
+- **Freeform text (via "Other"):** Apply case-insensitive, trimmed string matching:
+  - For a prefilled summary-deviation `D{NN}` checkpoint, normalize before intent matching: trim, lowercase, treat curly apostrophes as straight apostrophes (`can’t` == `can't`), treat em/en dashes as separators, and canonicalize contractions (`can't`/`cant` → `cannot`, `don't`/`dont` → `do not`, `won't`/`wont` → `will not`). Then apply marker-first ordering: explicit rejection/blocking/acceptance-refusal markers (`unacceptable`, `reject`, `blocking`, `blocker`, `do not continue`, `cannot continue`, `will not continue`, `do not proceed`, `cannot proceed`, `not ok`, `not okay`, `cannot accept`, `do not accept`, `will not accept`, `unable to accept`, `refuse to accept`, `not acceptable`) record `Result: issue` and `Disposition: rejected-by-user` even when todo words are also present; `not ok` and `not okay` are equivalent because `ok` and `okay` are equivalent pass-intent words elsewhere. Examples: `can't continue, track this` and `can’t continue, track this` both canonicalize to `cannot continue, track this`; `not ok, track this` remains rejected; `can't accept this, track this` and `can’t accept this, track this` both canonicalize to `cannot accept this, track this`; and `not acceptable, add to todo` remains a rejected UAT issue. Only otherwise should high-confidence todo intent (`swt todo`, `todo`, `to-do`, `add to todo`, `add to to-do`, `track this`, `track it`, `backlog`, or `follow up later`) map to the accepted-and-tracked path.
+  - **Skip words** (skip, skipped, next, n/a, na, later, defer): record skip
+  - **Anything else**: classify the response as an issue, synthesize the persisted `Description` using the issue capture rules below, and infer severity from keywords (crash/broken/error=critical, wrong/missing/bug=major, minor/cosmetic/nitpick=minor, default=major). For a prefilled summary-deviation `D{NN}` checkpoint, also write `**Disposition:** rejected-by-user`.
+- **Issue description capture:** Whenever a response is recorded as an issue, synthesize an actionable persisted `Description` from the checkpoint expectation, the current user response, and any visible attachment/image content available in the current conversation turn.
+  - Correct typos, remove filler/hedging, preserve user intent, identify the violated expectation, and state the observed actual behavior.
+  - If the user includes or references an image/attachment and the content is visible and interpretable, inspect it immediately and fold relevant facts into durable text in `Description`.
+  - If an image/attachment is not visible or not interpretable, do not persist `image attached`, `(Image attached)`, `screenshot attached`, `attachment attached`, or similar placeholders as evidence. Record the limitation only if it matters to remediation.
+  - Never persist raw screenshots, raw attachment blobs, or base64 data in the UAT artifact.
+  - Do not add a required raw-response field; keep the existing `Description` and `Severity` issue shape for downstream extraction.
+  - Do not invent facts that are not present in the checkpoint, user response, or visible attachment/image evidence.
+  - Preserve the human-only UAT boundary: synthesize issue text only from current UAT evidence; do not debug, inspect project files, run commands, or implement fixes during UAT capture.
+- If a pass/skip response includes a separate defect observation unrelated to the current checkpoint, append it as a discovered UAT issue. Before choosing the ID, scan the current UAT file at `{phase-dir}/{uat_path}` in both initial and resumed sessions for existing `D[0-9]+` headings, including prefilled summary-deviation review entries and issues appended earlier in the same session; allocate highest existing + 1 (`D03` after prefilled `D01`/`D02`) and never renumber existing entries.
+- Update `{phase-dir}/{uat_path}` immediately (persist to disk)
+- If the response accepts and tracks a prefilled summary-deviation checkpoint (`Track Todo` or high-confidence todo-intent freeform), run `bash "${SWT_INSTALL_ROOT}/scripts/track-uat-deviations.sh" todo-from-uat "{phase-dir}" "{phase-dir}/{uat_path}" "{test-id}"` after writing the UAT file. Use only the helper-emitted `todo_ref` to write or update `**Tracking:** accepted deviation added to todos (ref:{todo_ref})` or `**Tracking:** accepted deviation already tracked in todos (ref:{todo_ref})`. If the helper reports `no_state_file`, `missing_metadata`, `not_accepted`, empty output, or any other failure status, keep the UAT `Result: pass` and write `**Tracking:** accepted deviation todo tracking unavailable ({status})` rather than claiming a todo was added.
+- If the response accepts a prefilled summary-deviation checkpoint, run `bash "${SWT_INSTALL_ROOT}/scripts/track-uat-deviations.sh" record-from-uat "{phase-dir}" "{phase-dir}/{uat_path}"` after any todo tracking update. The helper is idempotent; never hand-edit `accepted-deviations.json`.
+- Display progress: `✓ {completed}/{total} tests`
+- If more tests remain: present the NEXT test using the same CHECKPOINT format with AskUserQuestion, then **STOP and wait again**
+- If all tests done: go to step 4
 
 4. After all tests complete:
    - Update UAT.md frontmatter (status, completed date, final counts)
-  - Run `bash "${SWT_INSTALL_ROOT}/scripts/track-uat-deviations.sh" record-from-uat "{phase-dir}" "{phase-dir}/{uat_path}"` after finalization so accepted summary-deviation signatures are available to suppress future duplicate prefill.
-   - If no issues: proceed to Step 5
-   - If issues found: display issue summary, suggest `swt fix`, STOP (do not proceed to Step 5)
+
+- Run `bash "${SWT_INSTALL_ROOT}/scripts/track-uat-deviations.sh" record-from-uat "{phase-dir}" "{phase-dir}/{uat_path}"` after finalization so accepted summary-deviation signatures are available to suppress future duplicate prefill.
+- If no issues: proceed to Step 5
+- If issues found: display issue summary, suggest `swt fix`, STOP (do not proceed to Step 5)
 
 **Inline execution (NON-NEGOTIABLE):** The orchestrator runs the CHECKPOINT loop directly in the main conversation — this is NOT a subagent operation. Do NOT spawn a QA agent, Dev agent, or any subagent for UAT. Do NOT use TaskCreate to delegate UAT. The AskUserQuestion tool is only available to the orchestrator — subagents cannot interact with the user, so delegating UAT to a subagent bypasses user input entirely. The orchestrator must wait for user input at each checkpoint.
 
 ### Step 5: Update state and present summary
 
 **HARD GATE — Shutdown before ANY output or state updates:** Run team shutdown only when the persisted/helper-resolved runtime state says `delegation_mode=team` and a real `TEAM_NAME` exists. If the helper selected `subagent`, turbo, internal `direct`, no delegate-eligible plans, or team-tooling-unavailable fallback, skip SendMessage/TeamDelete and clear the marker. For actual team mode, shut down the team BEFORE updating state, presenting results, or asking the user anything. This is blocking and non-negotiable:
+
 1. Send `shutdown_request` via SendMessage to EVERY active teammate in `TEAM_NAME` (excluding yourself — the orchestrator controls the sequence, not the lead agent) — do not skip any. The SendMessage JSON body must include at minimum: `{"type": "shutdown_request", "id": "<unique-id>", "reason": "phase_complete", "team_name": "<TEAM_NAME>"}` (this is a simplified form — the full V2 envelope nests these under `payload` with `id` at envelope level, but agents are instructed to match on `"type":"shutdown_request"` regardless of structure). Agents echo the `id` back as `request_id` in their `shutdown_response`. Teammates respond by calling SendMessage with `type: "shutdown_response"`.
 2. Log event: `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" shutdown_sent {phase} team={team_name} targets={count} 2>/dev/null || true`
 3. Wait for each `shutdown_response` with `approved: true` (delivered as a SendMessage tool call from the teammate, NOT as plain text). If a teammate responds in plain text instead of calling SendMessage, re-send the `shutdown_request`. If a teammate rejects, re-request immediately (max 3 attempts per teammate — if still rejected after 3 attempts, log a warning and proceed with TeamDelete).
@@ -1010,9 +1077,10 @@ UAT_NAME=$(bash "${SWT_INSTALL_ROOT}/scripts/resolve-artifact-path.sh" uat "{pha
    bash "${SWT_INSTALL_ROOT}/scripts/clean-stale-teams.sh" 2>/dev/null || true
    ```
 7. Only THEN proceed to state updates and user-facing output below
-Failure to shut down an actual team leaves agents running in the background, consuming API credits (visible as hanging panes in tmux, invisible but still costly without tmux). If no actual team was created: skip shutdown sequence. **Recovery:** If shutdown stalls or agents linger after TeamDelete, do NOT manually `rm -rf ~/.claude/teams` — use `swt doctor --cleanup` which runs `doctor-cleanup.sh` and `clean-stale-teams.sh` with safe atomic cleanup. These scripts detect stale teams, orphan processes, and dangling PIDs. `clean-stale-teams.sh` immediately removes SWT team directories missing `config.json` (orphaned residuals) without waiting for the 2-hour stale threshold.
+   Failure to shut down an actual team leaves agents running in the background, consuming API credits (visible as hanging panes in tmux, invisible but still costly without tmux). If no actual team was created: skip shutdown sequence. **Recovery:** If shutdown stalls or agents linger after TeamDelete, do NOT manually `rm -rf ~/.claude/teams` — use `swt doctor --cleanup` which runs `doctor-cleanup.sh` and `clean-stale-teams.sh` with safe atomic cleanup. These scripts detect stale teams, orphan processes, and dangling PIDs. `clean-stale-teams.sh` immediately removes SWT team directories missing `config.json` (orphaned residuals) without waiting for the 2-hour stale threshold.
 
 Regardless of whether a real team was created, clear the execute delegation marker before state updates:
+
 ```bash
 bash "${SWT_INSTALL_ROOT}/scripts/delegated-workflow.sh" clear 2>/dev/null || true
 ```
@@ -1021,25 +1089,29 @@ bash "${SWT_INSTALL_ROOT}/scripts/delegated-workflow.sh" clear 2>/dev/null || tr
 
 **Worktree merge and cleanup (post-TeamDelete):** If `worktree_isolation` is not `"off"` in config:
 For each plan that has a `worktree_path` entry in execution-state.json (completed or failed):
+
 1. **Copy SUMMARY.md** from worktree to phase dir (ensure it is present in the main working tree before merge changes branch context):
    `cp "{worktree_path}/.swt-planning/phases/{phase-dir}/{plan_id}-SUMMARY.md" ".swt-planning/phases/{phase-dir}/{plan_id}-SUMMARY.md" 2>/dev/null || true`
 2. **Merge worktree branch:**
-  `MERGE_RESULT=$(bash "${SWT_INSTALL_ROOT}/scripts/worktree-merge.sh" {phase} {plan} 2>/dev/null || echo "conflict")`
+   `MERGE_RESULT=$(bash "${SWT_INSTALL_ROOT}/scripts/worktree-merge.sh" {phase} {plan} 2>/dev/null || echo "conflict")`
 3. **If `MERGE_RESULT=clean`:**
-  - `bash "${SWT_INSTALL_ROOT}/scripts/worktree-cleanup.sh" {phase} {plan} 2>/dev/null || true`
-  - `bash "${SWT_INSTALL_ROOT}/scripts/worktree-agent-map.sh" clear "dev-{plan}" 2>/dev/null || true`
+
+- `bash "${SWT_INSTALL_ROOT}/scripts/worktree-cleanup.sh" {phase} {plan} 2>/dev/null || true`
+- `bash "${SWT_INSTALL_ROOT}/scripts/worktree-agent-map.sh" clear "dev-{plan}" 2>/dev/null || true`
+
 4. **If `MERGE_RESULT=conflict`:**
    - Log deviation in `{plan_id}-SUMMARY.md`: append "DEVIATION: worktree merge conflict — manual resolution required before cleanup."
    - Display: `⚠ Worktree merge conflict for plan {plan_id}. Resolve conflicts in {worktree_path}, then run: git worktree remove {worktree_path} --force`
    - Skip worktree-cleanup.sh — leave worktree in place for manual resolution.
-All worktree operations are fail-open: script errors are suppressed (2>/dev/null || true). Merge failures are surfaced as warnings, not blockers.
-When `worktree_isolation="off"`: skip this block silently.
+     All worktree operations are fail-open: script errors are suppressed (2>/dev/null || true). Merge failures are surfaced as warnings, not blockers.
+     When `worktree_isolation="off"`: skip this block silently.
 
 **Post-shutdown verification:** After TeamDelete for an actual `delegation_mode=team` run, there must be ZERO active teammates. If the Pure-Vibe loop or auto-chain will re-enter Plan mode next, confirm no prior agents linger before spawning new ones. For serialized subagent, turbo, direct, or fallback runs, rely on completed subagent/direct execution plus the cleared delegation marker; do not send team shutdown messages without a real `TEAM_NAME`.
 
 **Control Plane cleanup:** Lock and token state cleanup already handled by existing Lease Lock and Token Budget cleanup blocks.
 
 **Rolling Summary (REQ-03):** If `rolling_summary=true` in config:
+
 - After TeamDelete when an actual team was fully shut down, before phase_end event log:
   ```bash
   bash "${SWT_INSTALL_ROOT}/scripts/compile-rolling-summary.sh" \
@@ -1050,9 +1122,11 @@ When `worktree_isolation="off"`: skip this block silently.
 - When `rolling_summary=false` (default): skip this step silently.
 
 **Event Log — phase end (REQ-16, graduated, always-on):**
+
 - `bash "${SWT_INSTALL_ROOT}/scripts/log-event.sh" phase_end {phase} plans_completed={N} total_tasks={N} 2>/dev/null || true`
 
 **Observability Report (REQ-14):** After phase completion, if `metrics=true`:
+
 - Generate observability report: `bash "${SWT_INSTALL_ROOT}/scripts/metrics-report.sh" {phase}`
 - The report aggregates 7 V2 metrics: task latency, tokens/task, gate failure rate, lease conflicts, resume success, regression escape, fallback %.
 - Display summary table in phase completion output.
@@ -1063,6 +1137,7 @@ When `worktree_isolation="off"`: skip this block silently.
 **Update ROADMAP.md:** mark completed plans.
 
 **Advisory state-consistency verification:** After state updates, run:
+
 ```bash
 VERIFY_SCRIPT="${SWT_INSTALL_ROOT}/scripts/verify-state-consistency.sh"
 if [ -f "$VERIFY_SCRIPT" ]; then
@@ -1072,11 +1147,13 @@ if [ -f "$VERIFY_SCRIPT" ]; then
   fi
 fi
 ```
+
 If the captured output's `verdict` is `"fail"`, the warning above surfaces the `failed_checks` in the phase completion output. This is non-blocking — the reactive state updater handles most drift, but crashes, compaction, or manual edits can cause silent misalignment that propagates to the next phase. This catch-net surfaces those issues early. If the script is unavailable or errors, continue normally.
 
 **Caveman commit messages (conditional):** If `caveman_commit` is `true` in config, write commit messages using the rules in `references/caveman-commit.md`. The conventional commit format (`type(scope): description`) still applies — caveman language applies to the description text only.
 
 **Planning artifact boundary commit (conditional):**
+
 ```bash
 PG_SCRIPT="${SWT_INSTALL_ROOT}/scripts/planning-git.sh"
 if [ -f "$PG_SCRIPT" ]; then
@@ -1085,11 +1162,13 @@ else
   echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
 fi
 ```
+
 - `planning_tracking=commit`: commits `.swt-planning/` + `CLAUDE.md` when changed
 - `planning_tracking=manual|ignore`: no-op
 - `auto_push=always`: push happens inside the boundary commit command when upstream exists
 
 **After-phase push (conditional):**
+
 ```bash
 PG_SCRIPT="${SWT_INSTALL_ROOT}/scripts/planning-git.sh"
 if [ -f "$PG_SCRIPT" ]; then
@@ -1098,10 +1177,12 @@ else
   echo "SWT: planning-git.sh unavailable; skipping planning git push-after-phase" >&2
 fi
 ```
+
 - `auto_push=after_phase`: pushes once after phase completion (if upstream exists)
 - other modes: no-op
 
 Display per @${SWT_INSTALL_ROOT}/references/swt-brand-essentials.md:
+
 ```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Phase {NN}: {name} -- Built
@@ -1119,12 +1200,14 @@ Phase {NN}: {name} -- Built
 **"What happened" (NRW-02):** If config `plain_summary` is true (default), append 2-4 plain-English sentences between QA and Next Up. No jargon. Source from SUMMARY.md files + QA result. If false, skip.
 
 **Discovered Issues:** If any Dev or QA agent reported pre-existing failures, out-of-scope bugs, or issues unrelated to this phase's work, collect and de-duplicate them by test name and file (when the same test+file pair appears with different error messages, keep the first error message encountered), then list them in the summary output between "What happened" and Next Up. To keep context size manageable, cap the displayed list at 20 entries; if more exist, show the first 20 and append `... and {N} more`. Format each bullet as `⚠ testName (path/to/file): error message`:
+
 ```text
   Discovered Issues:
     ⚠ {issue-1}
     ⚠ {issue-2}
   Registry: {phase-dir}/known-issues.json
 ```
+
 This display is supplemental to the phase registry. The orchestrator should already have synced these issues into `{phase-dir}/known-issues.json` and auto-promoted surviving entries to `STATE.md ## Todos` via `promote-todos` before rendering this summary. The display block is informational only — do not enter an interactive loop here. If no discovered issues: omit the section entirely. After displaying discovered issues, STOP. Do not take further action.
 
 Run `bash "${SWT_INSTALL_ROOT}/scripts/suggest-next.sh" execute {qa-result}` and display output.

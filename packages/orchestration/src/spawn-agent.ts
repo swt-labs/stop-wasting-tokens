@@ -364,12 +364,9 @@ export function resolveSpawnAgentConfig(
   }
   // Pi-native SDLC role narrowing (excludes 'orchestrator', includes 'docs'
   // after plan 01-01 T02's SDLCRole widening).
-  const sdlcRole = opts.role as SDLCRole;
+  const sdlcRole = opts.role;
 
-  const systemPrompt = readRolePrompt(
-    resolve(opts.installRoot, 'agents'),
-    `swt-${opts.role}.md`,
-  );
+  const systemPrompt = readRolePrompt(resolve(opts.installRoot, 'agents'), `swt-${opts.role}.md`);
 
   // Phase G / Phase 1 / G-R1 — append the per-provider overlay if one
   // exists at `<installRoot>/provider_overlays/<role>-<provider>.md`.
@@ -562,9 +559,7 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
  * scripts themselves are still discovered + dispatched at runtime; a
  * broken hooks.json simply means SubagentStart/Stop become no-ops.
  */
-function resolveHookRegistrations(
-  opts: SpawnAgentOptions,
-): ReadonlyArray<HookRegistration> {
+function resolveHookRegistrations(opts: SpawnAgentOptions): ReadonlyArray<HookRegistration> {
   if (opts.hookRegistrations !== undefined) return opts.hookRegistrations;
   const configPath = resolve(opts.installRoot, 'config', 'hooks.json');
   if (!existsSync(configPath)) return [];

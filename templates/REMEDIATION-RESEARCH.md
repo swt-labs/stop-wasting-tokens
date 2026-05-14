@@ -1,10 +1,10 @@
 ---
-phase: {NN} # bare integer, no quotes
-round: {RR} # remediation round number, bare integer
-title: {research-title}
+phase: { NN } # bare integer, no quotes
+round: { RR } # remediation round number, bare integer
+title: { research-title }
 type: remediation-research
-confidence: {high|medium|low}
-date: {YYYY-MM-DD}
+confidence: { high|medium|low }
+date: { YYYY-MM-DD }
 ---
 
 # Phase {phase_number}: {phase_name} — Remediation Research (Round {RR})

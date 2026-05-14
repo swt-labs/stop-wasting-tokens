@@ -10,12 +10,15 @@ Calibration: {builder | architect}
 ## Decomposition Decisions
 
 ### Phase Count & Grouping
+
 {Why N phases? What logical grouping led to this breakdown?}
 
 ### Phase Ordering
+
 {Why this sequence? Dependencies between phases? What must come first and why?}
 
 ### Scope Coverage
+
 {What the milestone covers vs what was explicitly excluded}
 
 ## Requirement Mapping

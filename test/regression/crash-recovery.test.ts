@@ -74,10 +74,7 @@ function eventsFilePath(): string {
 }
 
 function writeJournal(lines: ReadonlyArray<Record<string, unknown>>): void {
-  fs.writeFileSync(
-    eventsFilePath(),
-    lines.map((l) => JSON.stringify(l)).join('\n') + '\n',
-  );
+  fs.writeFileSync(eventsFilePath(), lines.map((l) => JSON.stringify(l)).join('\n') + '\n');
 }
 
 const deadPidChecker = (): 'dead' => 'dead';

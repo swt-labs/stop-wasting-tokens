@@ -6,11 +6,11 @@ Operator-facing reference for the `worktree_isolation` config flag (Plan 06-03, 
 
 `worktree_isolation` lives in `.swt-planning/config.json`. Three values:
 
-| Value     | Behavior                                                                                                                                                                                                       |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `'off'`   | **Default (v3.0).** Orchestrator + every teammate share the project's main working tree. Concurrent `git add` calls from parallel teammates race on the shared staging-area index.                              |
-| `'on'`    | Each `swt cook` invocation runs in its own git worktree at `.swt-planning/parallel/wt-<taskId>/`. The orchestrator's index is ringfenced — no concurrent `git add` race against any other cook turn or process. |
-| `'auto'`  | Equivalent to `'on'` when the active phase carries 2+ parallel plans; equivalent to `'off'` otherwise. Lets the orchestrator decide instead of pinning a global default.                                        |
+| Value    | Behavior                                                                                                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'off'`  | **Default (v3.0).** Orchestrator + every teammate share the project's main working tree. Concurrent `git add` calls from parallel teammates race on the shared staging-area index.                              |
+| `'on'`   | Each `swt cook` invocation runs in its own git worktree at `.swt-planning/parallel/wt-<taskId>/`. The orchestrator's index is ringfenced — no concurrent `git add` race against any other cook turn or process. |
+| `'auto'` | Equivalent to `'on'` when the active phase carries 2+ parallel plans; equivalent to `'off'` otherwise. Lets the orchestrator decide instead of pinning a global default.                                        |
 
 When the flag is `'off'` AND the active phase carries 2+ parallel plans, `swt cook` emits a one-time stderr warning + a `cook.worktree_isolation_warning` event on the JSONL channel at runMode start. Operators see a clear opt-in signal before the race window opens.
 

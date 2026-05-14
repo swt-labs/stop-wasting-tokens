@@ -1,9 +1,9 @@
 ---
-phase: {NN} # bare integer, no quotes
-title: {research-title}
+phase: { NN } # bare integer, no quotes
+title: { research-title }
 type: research
-confidence: {high|medium|low}
-date: {YYYY-MM-DD}
+confidence: { high|medium|low }
+date: { YYYY-MM-DD }
 ---
 
 # Phase {phase_number}: {phase_name} — Research

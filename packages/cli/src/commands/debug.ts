@@ -13,10 +13,11 @@
  * in the cook routing FSM.
  */
 
-import { cookHandler } from './cook.js';
 import type { ParsedArgv } from '../argv.js';
-import type { CommandHandler, CommandIO } from '../router.js';
 import type { ExitCode } from '../exit-codes.js';
+import type { CommandHandler, CommandIO } from '../router.js';
+
+import { cookHandler } from './cook.js';
 
 export const debugHandler: CommandHandler = (
   parsed: ParsedArgv,

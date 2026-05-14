@@ -43,10 +43,10 @@
  * is not invoked here.
  */
 
-import {existsSync, readFileSync} from 'node:fs';
-import {join, resolve} from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
-import {describe, expect, it, test} from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 
 import {
   readProviderOverlay,
@@ -94,85 +94,82 @@ const TIER_2_ACTIVE = HAS_BASELINE && HAS_CASSETTE;
 
 // ── Tier 1 — wiring correctness (always active) ────────────────────────
 describe('OpenAI overlay — Tier 1 (wiring correctness)', () => {
-  test.each([
-    ['dev'],
-    ['debugger'],
-    ['qa'],
-  ])('%s overlay resolves to non-empty body via readProviderOverlay', (role) => {
-    const body = readProviderOverlay(REPO_ROOT, role, 'openai');
-    expect(body).toBeDefined();
-    // Each authored overlay body is hundreds of bytes — guard against
-    // accidental truncation / empty-file regression.
-    expect(body!.length).toBeGreaterThan(50);
-    // Frontmatter must be stripped — body must NOT start with `---`.
-    expect(body!.startsWith('---')).toBe(false);
-    // Intent-mirror header marker is present (authoring discipline landed).
-    expect(body).toMatch(/Intent-mirror of OpenAI Codex CLI/);
-  });
+  test.each([['dev'], ['debugger'], ['qa']])(
+    '%s overlay resolves to non-empty body via readProviderOverlay',
+    (role) => {
+      const body = readProviderOverlay(REPO_ROOT, role, 'openai');
+      expect(body).toBeDefined();
+      // Each authored overlay body is hundreds of bytes — guard against
+      // accidental truncation / empty-file regression.
+      expect(body!.length).toBeGreaterThan(50);
+      // Frontmatter must be stripped — body must NOT start with `---`.
+      expect(body!.startsWith('---')).toBe(false);
+      // Intent-mirror header marker is present (authoring discipline landed).
+      expect(body).toMatch(/Intent-mirror of OpenAI Codex CLI/);
+    },
+  );
 
-  test.each([
-    ['dev'],
-    ['debugger'],
-    ['qa'],
-  ])('%s overlay appends to role prompt with \\n\\n---\\n\\n separator (R1)', (role) => {
-    // Drive resolveSpawnAgentConfig directly against the actual repo.
-    // SpawnAgentOptions REQUIRES sessionId, cwd, installRoot, prompt;
-    // model / maxTurns / taskId are optional; sessionFactory / hookEventBus
-    // are also optional (defaults are fine — we never invoke the factory
-    // because resolveSpawnAgentConfig is the resolution-only entry point).
-    const overlayBody = readProviderOverlay(REPO_ROOT, role, 'openai');
-    expect(overlayBody).toBeDefined();
+  test.each([['dev'], ['debugger'], ['qa']])(
+    '%s overlay appends to role prompt with \\n\\n---\\n\\n separator (R1)',
+    (role) => {
+      // Drive resolveSpawnAgentConfig directly against the actual repo.
+      // SpawnAgentOptions REQUIRES sessionId, cwd, installRoot, prompt;
+      // model / maxTurns / taskId are optional; sessionFactory / hookEventBus
+      // are also optional (defaults are fine — we never invoke the factory
+      // because resolveSpawnAgentConfig is the resolution-only entry point).
+      const overlayBody = readProviderOverlay(REPO_ROOT, role, 'openai');
+      expect(overlayBody).toBeDefined();
 
-    const config = resolveSpawnAgentConfig({
-      role: role as 'dev' | 'debugger' | 'qa',
-      prompt: 'test-prompt — never executed; resolveSpawnAgentConfig is pure',
-      cwd: REPO_ROOT,
-      sessionId: '00000000-0000-0000-0000-000000000000',
-      installRoot: REPO_ROOT,
-      provider: 'openai',
-    });
+      const config = resolveSpawnAgentConfig({
+        role: role as 'dev' | 'debugger' | 'qa',
+        prompt: 'test-prompt — never executed; resolveSpawnAgentConfig is pure',
+        cwd: REPO_ROOT,
+        sessionId: '00000000-0000-0000-0000-000000000000',
+        installRoot: REPO_ROOT,
+        provider: 'openai',
+      });
 
-    // R1 — APPEND-AFTER with `\n\n---\n\n` separator.
-    expect(config.systemPrompt).toMatch(/\n\n---\n\n/);
-    // The overlay body MUST be the suffix of systemPrompt.
-    expect(config.systemPrompt.endsWith(overlayBody!)).toBe(true);
-    // R4 — vendor-neutrality regression guard: the same role without a
-    // provider returns the role prompt only (no overlay).
-    const noOverlay = resolveSpawnAgentConfig({
-      role: role as 'dev' | 'debugger' | 'qa',
-      prompt: 'test-prompt',
-      cwd: REPO_ROOT,
-      sessionId: '00000000-0000-0000-0000-000000000000',
-      installRoot: REPO_ROOT,
-      // provider omitted — vendor-neutrality fast path
-    });
-    expect(noOverlay.systemPrompt.includes(overlayBody!)).toBe(false);
-    // systemPrompt with overlay is strictly longer than without.
-    expect(config.systemPrompt.length).toBeGreaterThan(noOverlay.systemPrompt.length);
-  });
+      // R1 — APPEND-AFTER with `\n\n---\n\n` separator.
+      expect(config.systemPrompt).toMatch(/\n\n---\n\n/);
+      // The overlay body MUST be the suffix of systemPrompt.
+      expect(config.systemPrompt.endsWith(overlayBody!)).toBe(true);
+      // R4 — vendor-neutrality regression guard: the same role without a
+      // provider returns the role prompt only (no overlay).
+      const noOverlay = resolveSpawnAgentConfig({
+        role: role as 'dev' | 'debugger' | 'qa',
+        prompt: 'test-prompt',
+        cwd: REPO_ROOT,
+        sessionId: '00000000-0000-0000-0000-000000000000',
+        installRoot: REPO_ROOT,
+        // provider omitted — vendor-neutrality fast path
+      });
+      expect(noOverlay.systemPrompt.includes(overlayBody!)).toBe(false);
+      // systemPrompt with overlay is strictly longer than without.
+      expect(config.systemPrompt.length).toBeGreaterThan(noOverlay.systemPrompt.length);
+    },
+  );
 });
 
 // ── Tier 2 — quality measurement (gated on real cassettes per R5) ──────
 describe.skipIf(!TIER_2_ACTIVE)('OpenAI overlay — Tier 2 (quality measurement)', () => {
-  test.each([
-    ['dev'],
-    ['debugger'],
-    ['qa'],
-  ])('%s — TpacReport.tokens_per_criterion improves with overlay on', async (_role) => {
-    // TODO(G-M2): implement once real cassettes + non-placeholder
-    // baseline are recorded. See file header for the assertion shape.
-    // Pattern:
-    //   import {runAgentParity} from '../../../packages/test-utils/src/run-agent-parity.js';
-    //   const off = await runAgentParity({role, fixture: 'ref-fastapi',
-    //                                     cassettePath: CASSETTE_<role>});
-    //   const on  = await runAgentParity({role, fixture: 'ref-fastapi',
-    //                                     cassettePath: CASSETTE_<role>,
-    //                                     provider: 'openai'});
-    //   expect(on.tpacReport.tokens_per_criterion)
-    //     .toBeLessThanOrEqual(off.tpacReport.tokens_per_criterion);
-    // Aggregated at suite level: at least 2 of 3 roles must improve.
-    expect.fail('Tier 2 not yet implemented — pending G-M2 real cassettes + baseline');
-  });
+  test.each([['dev'], ['debugger'], ['qa']])(
+    '%s — TpacReport.tokens_per_criterion improves with overlay on',
+    async (_role) => {
+      // TODO(G-M2): implement once real cassettes + non-placeholder
+      // baseline are recorded. See file header for the assertion shape.
+      // Pattern:
+      //   import {runAgentParity} from '../../../packages/test-utils/src/run-agent-parity.js';
+      //   const off = await runAgentParity({role, fixture: 'ref-fastapi',
+      //                                     cassettePath: CASSETTE_<role>});
+      //   const on  = await runAgentParity({role, fixture: 'ref-fastapi',
+      //                                     cassettePath: CASSETTE_<role>,
+      //                                     provider: 'openai'});
+      //   expect(on.tpacReport.tokens_per_criterion)
+      //     .toBeLessThanOrEqual(off.tpacReport.tokens_per_criterion);
+      // Aggregated at suite level: at least 2 of 3 roles must improve.
+      expect.fail('Tier 2 not yet implemented — pending G-M2 real cassettes + baseline');
+    },
+  );
 });
 
 // Placeholder describe to surface the skip-reason in the regression suite

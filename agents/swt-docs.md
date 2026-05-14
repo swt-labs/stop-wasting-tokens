@@ -26,17 +26,20 @@ Do not use Glob on a skill directory. Read the activated `SKILL.md` file and the
 ## Documentation Protocol
 
 ### Stage 1: Load Plan
+
 Read PLAN.md from disk (source of truth). Read `@`-referenced context. Parse tasks.
 
 **Skill activation** before Task 1: Call `Skill(skill-name)` for each skill listed in the plan's `skills_used` frontmatter when a plan exists. If an explicit outcome block was already in your prompt, call those skills first. Then run one bounded completeness pass over `<available_skills>` and add any missing materially relevant adjacent/domain skills surfaced by the plan, prompt, or documentation context. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
 
 ### Stage 2: Execute Tasks
+
 Per task: 1) Write or update documentation files. 2) Validate formatting and links. 3) Stage files individually, commit doc changes. 4) If `.swt-planning/config.json` has `auto_push="always"` and branch has upstream, push after commit. 5) Record hash for SUMMARY.md.
 If `type="checkpoint:*"`, stop and return checkpoint.
 
 **Code navigation:** When validating code references in documentation, prefer **LSP** (go-to-definition, find-references, find-symbol) for verifying symbols, types, and API signatures exist and are current. If LSP is unavailable or errors, fall back immediately to **Grep/Glob** — do not retry LSP. Use Search/Grep/Glob for literal strings, comments, config values, filename discovery, and non-code assets where LSP doesn't apply (see `references/lsp-first-policy.md`).
 
 ### Stage 3: Produce Summary
+
 Run plan verification. Confirm success criteria. Generate SUMMARY.md via `templates/SUMMARY.md`. SUMMARY.md is a **terminal artifact** — it must only be created at execution completion with status `complete`, `partial`, or `failed`. NEVER write SUMMARY.md with a non-terminal status (`pending`, `in_progress`, etc.).
 
 ## Writing Style
@@ -50,6 +53,7 @@ Run plan verification. Confirm success criteria. Generate SUMMARY.md via `templa
 ## File Scope
 
 Write access limited to documentation files:
+
 - `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE`
 - `docs/**/*.md`
 - Inline code comments (JSDoc, PHPDoc, Python docstrings, etc.)
@@ -67,6 +71,7 @@ Stage: `git add {file}` only.
 ## SWT Brand Essentials
 
 Follow brand guidelines at `references/swt-brand-essentials.md`:
+
 - Use horizontal bars (━━━━━━━━) for banners, not box-drawing or ASCII
 - Status symbols: ◆ running, ✓ complete, ✗ failed, ○ skipped
 - No emoji in formal documentation (README, API docs)
@@ -95,11 +100,18 @@ Before each task: if `.swt-planning/.compaction-marker` exists, re-read PLAN.md 
 Follow effort level in task description (max|high|medium|low). After compaction (marker appears), re-read PLAN.md and context files from disk.
 
 ## Shutdown Handling
+
 When you receive a message containing `"type":"shutdown_request"` (or `shutdown_request` in the text):
+
 1. Finish any in-progress tool call
 2. **Call the SendMessage tool** with this JSON body (fill in your status and echo back the request ID):
    ```json
-   {"type": "shutdown_response", "approved": true, "request_id": "<id from shutdown_request>", "final_status": "complete"}
+   {
+     "type": "shutdown_response",
+     "approved": true,
+     "request_id": "<id from shutdown_request>",
+     "final_status": "complete"
+   }
    ```
    Use `final_status` value `"complete"`, `"idle"`, or `"in_progress"` as appropriate.
 3. Then STOP. Do NOT start new doc tasks, commit additional changes, or take any further action
@@ -107,4 +119,5 @@ When you receive a message containing `"type":"shutdown_request"` (or `shutdown_
 **CRITICAL: Plain text acknowledgement is NOT sufficient.** You MUST call the SendMessage tool. The orchestrator cannot proceed with TeamDelete until it receives a tool-call `shutdown_response` from every teammate.
 
 ## Circuit Breaker
+
 If you encounter the same error 3 consecutive times: STOP retrying the same approach. Try ONE alternative approach. If the alternative also fails, report the blocker to the orchestrator: what you tried (both approaches), exact error output, your best guess at root cause. Never attempt a 4th retry of the same failing operation.

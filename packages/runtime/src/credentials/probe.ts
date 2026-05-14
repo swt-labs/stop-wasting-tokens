@@ -54,8 +54,7 @@ export async function probeKeychain(): Promise<KeychainProbeResult> {
     if (readback !== PROBE_SENTINEL) {
       return {
         available: false,
-        reason:
-          'OS keychain round-trip mismatch — set/get returned an unexpected value.',
+        reason: 'OS keychain round-trip mismatch — set/get returned an unexpected value.',
       };
     }
     return { available: true };

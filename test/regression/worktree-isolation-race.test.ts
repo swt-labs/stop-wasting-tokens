@@ -197,9 +197,7 @@ describe('Plan 06-03 T3 — worktree isolation race regression', () => {
     // `worktreePath` is absolute because `parallelRoot` above is absolute.
     const fs = await import('node:fs');
     expect(fs.existsSync(worktreePath)).toBe(true);
-    expect(
-      fs.existsSync(join(locksRoot, 'task-failed-task.lock')),
-    ).toBe(true);
+    expect(fs.existsSync(join(locksRoot, 'task-failed-task.lock'))).toBe(true);
 
     // Subject log on the main repo is unchanged — the failed worktree had
     // no commits.

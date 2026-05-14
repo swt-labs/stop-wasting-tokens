@@ -12,11 +12,14 @@ allowed-tools: Read, Bash, Glob, Grep, WebFetch, AskUserQuestion, LSP
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 Stack detection:
+
 ```
 !`L="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}"; i=0; while [ ! -L "$L" ] && [ $i -lt 20 ]; do sleep 0.1; i=$((i+1)); done; bash "$L/scripts/detect-stack.sh" "$(pwd)" 2>/dev/null || echo '{"error":"detect-stack.sh failed"}'`
 ```
@@ -41,6 +44,7 @@ From Context JSON: display installed skills (`installed.global[]` + `installed.p
 ### Step 3: Curated suggestions
 
 From `suggestions[]` in Context JSON (recommended but not installed). Display in single-line box with `(curated)` tag.
+
 - suggestions non-empty: show them
 - empty + stack detected: "✓ All recommended skills already installed."
 - no stack + no suggestions + find-skills available: suggest example searches
@@ -81,6 +85,7 @@ Combine curated + registry, deduplicate, rank (curated first).
   - Present it as a numbered list in the AskUserQuestion text (do NOT use `options` array — this list is larger than the 2–4 structured-choice sweet spot, so numeric/freeform input is intentional here rather than a faux bounded chooser).
 
 Question text:
+
 ```
 Available skills for installation:
 1. {skill-name} — {brief description}
@@ -92,6 +97,7 @@ Type numbers to install (comma-separated), or 'skip' to continue:
 ```
 
 Parse the user's freeform response using these rules:
+
 - Accept comma-separated digits corresponding to the numbered items (e.g., `1,3` or `2, 4, 5`).
 - Accept the word `skip` (case-insensitive) to proceed without installing.
 - Trim whitespace around each token. Ignore empty tokens from trailing commas.
@@ -104,6 +110,7 @@ If the user typed `skip`, STOP here after displaying `○ No skills selected for
 ### Step 5b: Choose installation scope
 
 AskUserQuestion (single select) — "Where should these skills be installed?":
+
 - **Project (Recommended)** — "Installed to `./.claude/skills/`, scoped to this project only."
 - **Global** — "Installed to `<global_skills_dir>/`, available in all projects." (Use the `global_skills_dir` value from the Stack detection Context JSON as the display path.)
 

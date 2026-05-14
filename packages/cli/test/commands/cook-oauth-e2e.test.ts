@@ -108,12 +108,9 @@ type FakeOAuthProvider = {
 };
 let fakeOAuthProvider: FakeOAuthProvider | undefined;
 
-vi.mock(
-  '../../../runtime/node_modules/@earendil-works/pi-ai/dist/oauth.js',
-  () => ({
-    getOAuthProvider: vi.fn(() => fakeOAuthProvider),
-  }),
-);
+vi.mock('../../../runtime/node_modules/@earendil-works/pi-ai/dist/oauth.js', () => ({
+  getOAuthProvider: vi.fn(() => fakeOAuthProvider),
+}));
 
 // ── Substrate mock 3: Pi's agent-session SDK ─────────────────────────────
 // Captures the createAgentSession call + every AuthStorage.set so the test
@@ -125,47 +122,43 @@ const createAgentSessionCalls: Array<{ hasAuthStorage: boolean }> = [];
 const authStorages: FakeAuthStorage[] = [];
 const inMemoryBackends: object[] = [];
 
-vi.mock(
-  '../../../runtime/node_modules/@earendil-works/pi-coding-agent/dist/index.js',
-  () => {
-    class FakeInMemoryAuthStorageBackend {
-      constructor() {
-        inMemoryBackends.push(this);
-      }
+vi.mock('../../../runtime/node_modules/@earendil-works/pi-coding-agent/dist/index.js', () => {
+  class FakeInMemoryAuthStorageBackend {
+    constructor() {
+      inMemoryBackends.push(this);
     }
-    class FakeAuthStorageClass implements FakeAuthStorage {
-      readonly set = vi.fn();
-      static fromStorage(_backend: unknown): FakeAuthStorageClass {
-        const instance = new FakeAuthStorageClass();
-        authStorages.push(instance);
-        return instance;
-      }
+  }
+  class FakeAuthStorageClass implements FakeAuthStorage {
+    readonly set = vi.fn();
+    static fromStorage(_backend: unknown): FakeAuthStorageClass {
+      const instance = new FakeAuthStorageClass();
+      authStorages.push(instance);
+      return instance;
     }
-    return {
-      SessionManager: {
-        inMemory: (_cwd?: string) => ({ __flavor: 'inMemory' as const }),
-        create: (_cwd: string) => ({ __flavor: 'create' as const }),
-      },
-      AuthStorage: FakeAuthStorageClass,
-      InMemoryAuthStorageBackend: FakeInMemoryAuthStorageBackend,
-      createAgentSession: async (opts: { authStorage?: FakeAuthStorage }) => {
-        createAgentSessionCalls.push({
-          hasAuthStorage:
-            'authStorage' in opts && opts.authStorage !== undefined,
-        });
-        return {
-          session: {
-            sessionId: `pi-session-${createAgentSessionCalls.length}`,
-            prompt: vi.fn(async () => {}),
-            subscribe: vi.fn(() => () => undefined),
-            dispose: vi.fn(),
-          },
-          extensionsResult: { extensions: [], diagnostics: [] },
-        };
-      },
-    };
-  },
-);
+  }
+  return {
+    SessionManager: {
+      inMemory: (_cwd?: string) => ({ __flavor: 'inMemory' as const }),
+      create: (_cwd: string) => ({ __flavor: 'create' as const }),
+    },
+    AuthStorage: FakeAuthStorageClass,
+    InMemoryAuthStorageBackend: FakeInMemoryAuthStorageBackend,
+    createAgentSession: async (opts: { authStorage?: FakeAuthStorage }) => {
+      createAgentSessionCalls.push({
+        hasAuthStorage: 'authStorage' in opts && opts.authStorage !== undefined,
+      });
+      return {
+        session: {
+          sessionId: `pi-session-${createAgentSessionCalls.length}`,
+          prompt: vi.fn(async () => {}),
+          subscribe: vi.fn(() => () => undefined),
+          dispose: vi.fn(),
+        },
+        extensionsResult: { extensions: [], diagnostics: [] },
+      };
+    },
+  };
+});
 
 // Imported AFTER the `vi.mock`s are registered (vitest hoists `vi.mock`).
 const { resolveSpawnCredential } = await import('../../src/commands/cook.js');
@@ -263,11 +256,7 @@ describe('Plan 04-04 — end-to-end OAuth-spawn integration (the "actually works
 
     expect(fakeOAuthProvider.refreshToken).toHaveBeenCalledWith(staleBlob);
     // The SWT-owns-refresh write-back fired with the REFRESHED blob.
-    expect(storeSetMock).toHaveBeenCalledWith(
-      'anthropic',
-      'oauth',
-      JSON.stringify(refreshedBlob),
-    );
+    expect(storeSetMock).toHaveBeenCalledWith('anthropic', 'oauth', JSON.stringify(refreshedBlob));
     // The resolved secret carries the REFRESHED blob (not the stale one).
     expect(resolved?.resolvedCredential.secret).toBe(JSON.stringify(refreshedBlob));
 

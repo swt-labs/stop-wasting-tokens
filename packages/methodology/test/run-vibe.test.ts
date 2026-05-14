@@ -12,10 +12,11 @@
  *   5. `swtBin` override + `SWT_CLI_BIN` env override both resolve.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runVibe } from '../src/run-vibe.js';
 

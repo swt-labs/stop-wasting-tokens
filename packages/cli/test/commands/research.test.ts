@@ -11,9 +11,8 @@
  *   - Returns EXIT.RUNTIME_ERROR on TaskResult.status === 'failed'
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-
 import type { TaskResult } from '@swt-labs/shared';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { makeResearchHandler } from '../../src/commands/research.js';
 import { buildRegistry } from '../../src/main.js';
@@ -57,7 +56,7 @@ function buildResearchHarness(opts: HarnessOpts = {}) {
   const readFileSyncImpl = vi.fn((_p: unknown, _enc?: unknown) => STUB_RESEARCH_MD);
 
   const handler = makeResearchHandler({
-    spawnAgentImpl: spawnAgentImpl as never,
+    spawnAgentImpl: spawnAgentImpl,
     readFileSyncImpl: readFileSyncImpl as never,
   });
 

@@ -159,12 +159,7 @@ describe('e2e: cook control surface (start → events JSONL → tailer → bus �
     });
     expect(res.status).toBeGreaterThanOrEqual(400);
     // No signal file should exist for unknown actions.
-    const signalFile = path.join(
-      projectRoot,
-      '.swt-planning',
-      '.cook-controls',
-      `${sid}.pending`,
-    );
+    const signalFile = path.join(projectRoot, '.swt-planning', '.cook-controls', `${sid}.pending`);
     expect(() => readFileSync(signalFile, 'utf8')).toThrow();
   });
 });

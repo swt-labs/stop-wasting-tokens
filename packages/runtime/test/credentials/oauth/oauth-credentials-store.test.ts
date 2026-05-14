@@ -19,9 +19,8 @@
  *  5. both helpers pass 'oauth' (never 'api_key') as the authMode.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
 import type { OAuthCredentials } from '@earendil-works/pi-ai/oauth';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /** A controllable fake `CredentialStore` — `set` / `get` are `vi.fn()`s so
  *  the test asserts the exact `(provider, authMode, secret)` triple. */
@@ -53,7 +52,7 @@ describe('@swt-labs/runtime — OAuth credentials keychain storage (Plan 04-02)'
     vi.restoreAllMocks();
   });
 
-  it('storeOAuthCredentials JSON-stringifies the blob into store.set(provider, \'oauth\', ...)', async () => {
+  it("storeOAuthCredentials JSON-stringifies the blob into store.set(provider, 'oauth', ...)", async () => {
     const { storeOAuthCredentials } = await loadModule();
     const blob: OAuthCredentials = { refresh: 'r', access: 'a', expires: 123 };
 
@@ -65,7 +64,7 @@ describe('@swt-labs/runtime — OAuth credentials keychain storage (Plan 04-02)'
     expect(mode).toBe('oauth');
     // The stored string is the JSON serialization — it round-trips back to
     // the original blob.
-    expect(JSON.parse(stored as string)).toEqual(blob);
+    expect(JSON.parse(stored)).toEqual(blob);
   });
 
   it('readOAuthCredentials parses the stored JSON string back into an OAuthCredentials object', async () => {

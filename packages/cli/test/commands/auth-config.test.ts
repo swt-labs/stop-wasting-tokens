@@ -23,10 +23,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  parseAuthConfig,
-  DEFAULT_AUTH_CONFIG,
-} from '../../src/commands/auth-config.js';
+import { parseAuthConfig, DEFAULT_AUTH_CONFIG } from '../../src/commands/auth-config.js';
 
 describe('parseAuthConfig', () => {
   it('returns DEFAULT_AUTH_CONFIG ({}) for malformed / non-object input', () => {
@@ -82,9 +79,9 @@ describe('parseAuthConfig', () => {
   it('omits a wrong-shape credentialRef while keeping mode', () => {
     const badRefs: readonly unknown[] = ['', '   ', 123, null, {}, [], true];
     for (const credentialRef of badRefs) {
-      expect(
-        parseAuthConfig({ openai: { mode: 'api_key', credentialRef } }),
-      ).toEqual({ openai: { mode: 'api_key' } });
+      expect(parseAuthConfig({ openai: { mode: 'api_key', credentialRef } })).toEqual({
+        openai: { mode: 'api_key' },
+      });
     }
   });
 

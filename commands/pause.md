@@ -12,6 +12,7 @@ allowed-tools: Read, Write
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```

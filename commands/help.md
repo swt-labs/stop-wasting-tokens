@@ -30,6 +30,7 @@ Display the output above verbatim. Do not reformat, summarize, or add commentary
 ### With arg: Display specific command details
 
 Read `{plugin-root}/commands/{name}.md` (strip `vbw:` prefix if present). Display:
+
 - **Name** and **description** from frontmatter
 - **Category** from frontmatter
 - **Usage:** `swt {name} {argument-hint}`

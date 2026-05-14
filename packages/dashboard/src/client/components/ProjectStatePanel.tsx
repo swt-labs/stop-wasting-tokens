@@ -36,22 +36,18 @@ export const ProjectStatePanel: Component<ProjectStatePanelProps> = (props) => {
             <Show
               when={
                 props.project!.codebase_profile!.languages &&
-                props.project!.codebase_profile!.languages!.length > 0
+                props.project!.codebase_profile!.languages.length > 0
               }
             >
               <li>
                 <span class="label">Languages</span>
-                <span class="value">
-                  {props.project!.codebase_profile!.languages!.join(', ')}
-                </span>
+                <span class="value">{props.project!.codebase_profile!.languages!.join(', ')}</span>
               </li>
             </Show>
             <Show when={props.project!.codebase_profile!.loc !== undefined}>
               <li>
                 <span class="label">LOC</span>
-                <span class="value">
-                  {props.project!.codebase_profile!.loc!.toLocaleString()}
-                </span>
+                <span class="value">{props.project!.codebase_profile!.loc!.toLocaleString()}</span>
               </li>
             </Show>
           </ul>
@@ -69,9 +65,7 @@ export const ProjectStatePanel: Component<ProjectStatePanelProps> = (props) => {
             </Show>
           </div>
         </div>
-        <Show
-          when={props.milestone!.todos && props.milestone!.todos!.length > 0}
-        >
+        <Show when={props.milestone!.todos && props.milestone!.todos.length > 0}>
           <details class="project-state-todos">
             <summary>Todos ({props.milestone!.todos!.length})</summary>
             <ul>
@@ -88,9 +82,7 @@ export const ProjectStatePanel: Component<ProjectStatePanelProps> = (props) => {
             </ul>
           </details>
         </Show>
-        <Show
-          when={props.milestone!.blockers && props.milestone!.blockers!.length > 0}
-        >
+        <Show when={props.milestone!.blockers && props.milestone!.blockers.length > 0}>
           <details class="project-state-blockers" open>
             <summary>Blockers ({props.milestone!.blockers!.length})</summary>
             <ul>

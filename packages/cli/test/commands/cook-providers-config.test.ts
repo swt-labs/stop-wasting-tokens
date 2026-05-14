@@ -19,10 +19,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  toRouterStrategy,
-  type CookProviderStrategy,
-} from '../../src/commands/cook.js';
+import { toRouterStrategy, type CookProviderStrategy } from '../../src/commands/cook.js';
 
 // Frozen fixture rate card — minimal shape, just enough to satisfy the
 // RateCard-typed field of the new strategy variant.

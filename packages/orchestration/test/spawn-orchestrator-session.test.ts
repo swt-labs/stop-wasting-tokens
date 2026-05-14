@@ -26,10 +26,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { describe, expect, it, vi } from 'vitest';
-
 import type { SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
 import type { PiExtensionAPI, PiToolDefinition } from '@swt-labs/runtime';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   readProviderOverlay,
@@ -134,7 +133,7 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
     const registered: PiToolDefinition[] = [];
     const fakePi: PiExtensionAPI = {
       registerTool: (def) => {
-        registered.push(def as unknown as PiToolDefinition);
+        registered.push(def);
       },
       on: () => undefined,
       appendEntry: () => undefined,
@@ -202,9 +201,11 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
     expect(result.status).toBe('success');
     expect(recording.configs.length).toBe(1);
     expect(recording.configs[0]?.role).toBe('orchestrator');
-    expect(
-      recording.configs[0]?.extensions.map((e) => e.name).sort(),
-    ).toEqual(['journal', 'resultProtocol', 'swtAskUser']);
+    expect(recording.configs[0]?.extensions.map((e) => e.name).sort()).toEqual([
+      'journal',
+      'resultProtocol',
+      'swtAskUser',
+    ]);
   });
 
   it("C.9 — maxTurns defaults to 100 (orchestrator's default in config/defaults.json)", () => {
@@ -302,14 +303,12 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
     // The askUserImpl override lets tests intercept the askUser primitive
     // inside the registered swt_ask_user tool. Smoke-test the seam.
     const fakeAskUser = vi.fn(async () => ({ selectedOption: 'go', freeform: null }));
-    const config = resolveOrchestratorSessionConfig(
-      baseOpts({ askUserImpl: fakeAskUser as never }),
-    );
+    const config = resolveOrchestratorSessionConfig(baseOpts({ askUserImpl: fakeAskUser }));
     const askUserExt = config.extensions.find((e) => e.name === 'swtAskUser');
     const registered: PiToolDefinition[] = [];
     const fakePi: PiExtensionAPI = {
       registerTool: (def) => {
-        registered.push(def as unknown as PiToolDefinition);
+        registered.push(def);
       },
       on: () => undefined,
       appendEntry: () => undefined,

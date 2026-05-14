@@ -1,11 +1,4 @@
-import {
-  For,
-  Show,
-  createMemo,
-  createResource,
-  createSignal,
-  type Component,
-} from 'solid-js';
+import { For, Show, createMemo, createResource, createSignal, type Component } from 'solid-js';
 
 import {
   fetchArtifactDiff,
@@ -111,14 +104,14 @@ export const ArtifactPreview: Component<ArtifactPreviewProps> = (props) => {
     if (!sel || !sha || tab() !== 'history') return null;
     return { phase: sel.phase, name: sel.name, sha };
   });
-  const [diff] = createResource<
-    string,
-    { phase: string; name: string; sha: string } | null
-  >(diffSource, async (target) => {
-    if (!target) return '';
-    const fetch = props.fetchDiff ?? fetchArtifactDiff;
-    return fetch(target.phase, target.name, target.sha);
-  });
+  const [diff] = createResource<string, { phase: string; name: string; sha: string } | null>(
+    diffSource,
+    async (target) => {
+      if (!target) return '';
+      const fetch = props.fetchDiff ?? fetchArtifactDiff;
+      return fetch(target.phase, target.name, target.sha);
+    },
+  );
 
   return (
     <section class="panel preview-panel" aria-label="Artifact preview">
@@ -222,7 +215,9 @@ export const ArtifactPreview: Component<ArtifactPreviewProps> = (props) => {
             >
               <Show
                 when={(history() ?? []).length > 0}
-                fallback={<div class="preview-panel-empty">No commits found for this artifact.</div>}
+                fallback={
+                  <div class="preview-panel-empty">No commits found for this artifact.</div>
+                }
               >
                 <ul class="preview-history-list" role="list">
                   <For each={history()}>

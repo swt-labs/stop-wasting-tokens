@@ -28,13 +28,12 @@
  *   (j) refresh button                        → "ProviderAuthPanel props ..."
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
 import {
   PROVIDER_VOCABULARY,
   type ProviderAuthSnapshot,
   type ProviderAuthUpdateBody,
 } from '@swt-labs/shared';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ProviderAuthPanel,

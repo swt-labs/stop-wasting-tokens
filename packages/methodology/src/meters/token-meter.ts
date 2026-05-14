@@ -162,10 +162,7 @@ export function readSessionMetrics(
   }
 }
 
-export function readPhaseMetrics(
-  phaseSlug: string,
-  planningRoot?: string,
-): SessionMetrics | null {
+export function readPhaseMetrics(phaseSlug: string, planningRoot?: string): SessionMetrics | null {
   const file = path.join(resolveMetricsDir(planningRoot), `phase-${phaseSlug}.json`);
   if (!fs.existsSync(file)) return null;
   try {

@@ -1,22 +1,25 @@
 ---
 overlay_for: dev
 provider: openai
-source: "github.com/openai/codex"
+source: 'github.com/openai/codex'
 source_paths:
-  - "codex-rs/core/src/prompts.rs"
-  - "codex-rs/core/src/tools/apply_patch.rs"
-  - "codex-rs/core/src/tools/shell.rs"
-source_intent: "tool-use sequencing + diff-shaped edit framing + verify-after-edit pattern"
+  - 'codex-rs/core/src/prompts.rs'
+  - 'codex-rs/core/src/tools/apply_patch.rs'
+  - 'codex-rs/core/src/tools/shell.rs'
+source_intent: 'tool-use sequencing + diff-shaped edit framing + verify-after-edit pattern'
 model_families:
-  - "gpt-5"
-  - "o-series"
-last_tuned: "2026-05-14"
+  - 'gpt-5'
+  - 'o-series'
+last_tuned: '2026-05-14'
 schema_version: 1
 ---
 
 # Intent-mirror of OpenAI Codex CLI dev prompt.
+
 # Source: github.com/openai/codex (codex-rs/core/src/prompts.rs, codex-rs/core/src/tools/apply_patch.rs, codex-rs/core/src/tools/shell.rs)
+
 # Last checked: 2026-05-14
+
 # DO NOT copy verbatim from the source — paraphrase the intent.
 
 ## Tool-use sequencing
@@ -60,4 +63,4 @@ schema_version: 1
 
 ## Per-effort tuning
 
-Phase 1 mirrors the *medium* default. Per-effort branching (separate low / medium / high sections keyed off `thinkingLevel`) is reserved for a future plan. The overlay body is appended in full regardless of resolved effort; tone control today comes from the role prompt, not this overlay.
+Phase 1 mirrors the _medium_ default. Per-effort branching (separate low / medium / high sections keyed off `thinkingLevel`) is reserved for a future plan. The overlay body is appended in full regardless of resolved effort; tone control today comes from the role prompt, not this overlay.

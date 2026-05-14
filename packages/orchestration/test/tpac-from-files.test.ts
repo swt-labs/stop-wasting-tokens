@@ -16,18 +16,15 @@
  *     `TpacReportSchema.safeParse(result).success === true`.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { TpacReportSchema } from '@swt-labs/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { liftMeterSnapshot, countSatisfiedCriteria } from '../src/tpac-from-files.js';
 import { computeTpac } from '../src/tpac-meter.js';
-import {
-  liftMeterSnapshot,
-  countSatisfiedCriteria,
-} from '../src/tpac-from-files.js';
 
 function writePhaseMetrics(
   planningRoot: string,
@@ -145,11 +142,7 @@ describe('liftMeterSnapshot + countSatisfiedCriteria (plan 05-04 T2)', () => {
 
   it('skips malformed JSON files without throwing', () => {
     mkdirSync(join(planningRoot, '.metrics'), { recursive: true });
-    writeFileSync(
-      join(planningRoot, '.metrics', 'phase-broken.json'),
-      '{ not valid json',
-      'utf-8',
-    );
+    writeFileSync(join(planningRoot, '.metrics', 'phase-broken.json'), '{ not valid json', 'utf-8');
     writePhaseMetrics(planningRoot, '02-ok', { in: 7, out: 3 });
     const snap = liftMeterSnapshot({ planningRoot, milestone: 'M-broken' });
     expect(snap.records.length).toBe(1);

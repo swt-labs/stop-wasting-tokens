@@ -46,14 +46,7 @@
  * ─────────────────────────────────────────────────────────────────────
  */
 
-import {
-  appendFileSync,
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -61,14 +54,7 @@ import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(here, '..', '..');
-const SPEC_DIR = join(
-  REPO_ROOT,
-  'packages',
-  'test-utils',
-  'golden',
-  'snake',
-  'spec',
-);
+const SPEC_DIR = join(REPO_ROOT, 'packages', 'test-utils', 'golden', 'snake', 'spec');
 
 /**
  * Real-provider entry point. Invoked by scripts/record-cassette.mjs.

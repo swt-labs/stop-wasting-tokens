@@ -58,9 +58,7 @@ const RESERVED_ACCOUNTS: ReadonlySet<string> = new Set([INDEX_ACCOUNT, PROBE_ACC
  *   `swt:<provider>:<authMode>` — `service` is the fixed first half, `account`
  *   the encoded `<provider>:<authMode>` second half (see `namespace.ts`).
  */
-export function createKeychainBackend(
-  service: string = SWT_KEYCHAIN_SERVICE,
-): CredentialBackend {
+export function createKeychainBackend(service: string = SWT_KEYCHAIN_SERVICE): CredentialBackend {
   /** Read + JSON-parse the account-name index; a missing or corrupt index
    *  degrades to `[]` rather than throwing. */
   function readIndex(): string[] {

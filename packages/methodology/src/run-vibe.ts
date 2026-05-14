@@ -43,12 +43,12 @@
 import { spawn } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
 
-import type { MeterSnapshot } from '@swt-labs/shared';
 import { liftMeterSnapshot, countSatisfiedCriteria } from '@swt-labs/orchestration';
+import type { MeterSnapshot } from '@swt-labs/shared';
 
 export interface RunVibeOptions {
   /** Project working directory (where `.swt-planning/` will be produced). */

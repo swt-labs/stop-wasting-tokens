@@ -1,26 +1,36 @@
 ---
-phase: {NN} # bare integer, no quotes
-round: {RR} # remediation round number, bare integer
-plan: {round-plan-id} # stable plan ID, e.g. R01 or R01-02
-title: {plan-title}
+phase: { NN } # bare integer, no quotes
+round: { RR } # remediation round number, bare integer
+plan: { round-plan-id } # stable plan ID, e.g. R01 or R01-02
+title: { plan-title }
 type: remediation
-autonomous: {true|false}
-effort_override: {thorough|balanced|fast|turbo}
-skills_used: [{skill}]
-files_modified: [{path}]
+autonomous: { true|false }
+effort_override: { thorough|balanced|fast|turbo }
+skills_used: [{ skill }]
+files_modified: [{ path }]
 forbidden_commands: []
 fail_classifications:
-  - {id: "FAIL-ID", type: "code-fix|process-exception", rationale: "why this classification applies"}
-  - {id: "FAIL-ID", type: "plan-amendment", rationale: "why this classification applies", source_plan: "01-01-PLAN.md"}
+  - {
+      id: 'FAIL-ID',
+      type: 'code-fix|process-exception',
+      rationale: 'why this classification applies',
+    }
+  - {
+      id: 'FAIL-ID',
+      type: 'plan-amendment',
+      rationale: 'why this classification applies',
+      source_plan: '01-01-PLAN.md',
+    }
 known_issues_input:
   - '{"test":"{test-name}","file":"{file-path}","error":"{error-message}"}'
 known_issue_resolutions:
   - '{"test":"{test-name}","file":"{file-path}","error":"{error-message}","disposition":"resolved|accepted-process-exception|unresolved","rationale":"why this round resolves or carries the issue"}'
 must_haves:
-  truths: ["{invariant}"]
-  artifacts: [{path: "{file}", provides: "{what}", contains: "{string}"}]
-  key_links: [{from: "{src}", to: "{tgt}", via: "{rel}"}]
+  truths: ['{invariant}']
+  artifacts: [{ path: '{file}', provides: '{what}', contains: '{string}' }]
+  key_links: [{ from: '{src}', to: '{tgt}', via: '{rel}' }]
 ---
+
 <objective>
 {objective-description}
 </objective>

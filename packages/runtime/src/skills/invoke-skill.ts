@@ -104,9 +104,7 @@ export interface InvokeSkillOptions {
 
 function assertValidSkillName(skillName: unknown): asserts skillName is string {
   if (typeof skillName !== 'string') {
-    throw new Error(
-      `swt:invokeSkill — skill name must be a string, got ${typeof skillName}.`,
-    );
+    throw new Error(`swt:invokeSkill — skill name must be a string, got ${typeof skillName}.`);
   }
   const trimmed = skillName.trim();
   if (trimmed.length === 0) {
@@ -138,10 +136,7 @@ function installSkillsDirFor(opts: InvokeSkillOptions): string {
  * Validates `skillName` against the path-traversal guard before any fs
  * access — invalid names throw synchronously.
  */
-export function resolveSkillPath(
-  skillName: string,
-  opts: InvokeSkillOptions = {},
-): string | null {
+export function resolveSkillPath(skillName: string, opts: InvokeSkillOptions = {}): string | null {
   assertValidSkillName(skillName);
 
   const userPath = join(userSkillsDirFor(opts), skillName, 'SKILL.md');
@@ -170,11 +165,7 @@ export function invokeSkill(skillName: string, opts: InvokeSkillOptions = {}): s
   const userPath = join(userSkillsDirFor(opts), skillName, 'SKILL.md');
   const bundledPath = join(installSkillsDirFor(opts), skillName, 'SKILL.md');
 
-  const resolved = existsSync(userPath)
-    ? userPath
-    : existsSync(bundledPath)
-      ? bundledPath
-      : null;
+  const resolved = existsSync(userPath) ? userPath : existsSync(bundledPath) ? bundledPath : null;
 
   if (resolved === null) {
     throw new Error(

@@ -56,12 +56,7 @@
  *  curses with manual-check status (research §2.3 closing paragraph).
  */
 
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-} from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -73,13 +68,7 @@ import {
 } from '../../packages/test-utils/src/cassettes/index.js';
 
 const REPO_ROOT = join(__dirname, '..', '..');
-const FIXTURE_ROOT = join(
-  REPO_ROOT,
-  'packages',
-  'test-utils',
-  'golden',
-  'snake',
-);
+const FIXTURE_ROOT = join(REPO_ROOT, 'packages', 'test-utils', 'golden', 'snake');
 const SPEC_DIR = join(FIXTURE_ROOT, 'spec');
 const CASSETTE_PATH = join(FIXTURE_ROOT, 'cassettes', 'milestone.jsonl');
 
@@ -134,18 +123,14 @@ describe('REQ-12 snake-game canary (anti-empty-PLAN.md regression)', () => {
       // First interaction's body_hash matches the sha256 regex from the
       // schema (this is also enforced by CassetteInteractionSchema, but
       // we surface a clearer assertion message at the canary boundary).
-      expect(c.interactions[0]?.request.body_hash).toMatch(
-        /^sha256:[a-f0-9]{64}$/,
-      );
+      expect(c.interactions[0]?.request.body_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
     });
 
     it('cassette header + every interaction validate against their schemas', () => {
       const c = loadCassette(CASSETTE_PATH);
       expect(() => CassetteHeaderSchema.parse(c.header)).not.toThrow();
       for (const interaction of c.interactions) {
-        expect(() =>
-          CassetteInteractionSchema.parse(interaction),
-        ).not.toThrow();
+        expect(() => CassetteInteractionSchema.parse(interaction)).not.toThrow();
       }
     });
   });
@@ -191,18 +176,9 @@ describe('REQ-12 snake-game canary (anti-empty-PLAN.md regression)', () => {
       const tasks = extractTaskBlocks(planBody);
       expect(tasks.length).toBeGreaterThanOrEqual(3);
       for (const [idx, task] of tasks.entries()) {
-        expect(
-          task.files.length,
-          `task#${idx} <files> must be non-empty`,
-        ).toBeGreaterThan(0);
-        expect(
-          task.action.length,
-          `task#${idx} <action> must be non-empty`,
-        ).toBeGreaterThan(0);
-        expect(
-          task.verify.length,
-          `task#${idx} <verify> must be non-empty`,
-        ).toBeGreaterThan(0);
+        expect(task.files.length, `task#${idx} <files> must be non-empty`).toBeGreaterThan(0);
+        expect(task.action.length, `task#${idx} <action> must be non-empty`).toBeGreaterThan(0);
+        expect(task.verify.length, `task#${idx} <verify> must be non-empty`).toBeGreaterThan(0);
       }
     });
 
@@ -214,16 +190,10 @@ describe('REQ-12 snake-game canary (anti-empty-PLAN.md regression)', () => {
     });
 
     it('Dev wrote snake/__main__.py + snake/game.py + tests/test_game.py', () => {
-      for (const rel of [
-        'snake/__main__.py',
-        'snake/game.py',
-        'tests/test_game.py',
-      ]) {
+      for (const rel of ['snake/__main__.py', 'snake/game.py', 'tests/test_game.py']) {
         const p = join(tmpRoot, rel);
         expect(existsSync(p), `${rel} must exist`).toBe(true);
-        expect(statSync(p).size, `${rel} must be non-empty`).toBeGreaterThan(
-          0,
-        );
+        expect(statSync(p).size, `${rel} must be non-empty`).toBeGreaterThan(0);
       }
     });
 
@@ -240,10 +210,7 @@ describe('REQ-12 snake-game canary (anti-empty-PLAN.md regression)', () => {
           env: { ...process.env, PYTHONPATH: tmpRoot },
         },
       );
-      expect(
-        result.status,
-        `python3 import check failed: ${result.stderr?.toString()}`,
-      ).toBe(0);
+      expect(result.status, `python3 import check failed: ${result.stderr?.toString()}`).toBe(0);
       expect(result.stdout?.toString()).toContain('OK');
     });
 
@@ -253,16 +220,12 @@ describe('REQ-12 snake-game canary (anti-empty-PLAN.md regression)', () => {
         cwd: tmpRoot,
         env: { ...process.env, PYTHONPATH: tmpRoot },
       });
-      expect(
-        result.status,
-        `pytest failed: ${result.stderr?.toString()}`,
-      ).toBe(0);
+      expect(result.status, `pytest failed: ${result.stderr?.toString()}`).toBe(0);
       const out = result.stdout?.toString() ?? '';
       const passedCount = (out.match(/PASSED/g) ?? []).length;
-      expect(
-        passedCount,
-        `expected >= 4 passing tests, got ${passedCount}`,
-      ).toBeGreaterThanOrEqual(4);
+      expect(passedCount, `expected >= 4 passing tests, got ${passedCount}`).toBeGreaterThanOrEqual(
+        4,
+      );
     });
   });
 });

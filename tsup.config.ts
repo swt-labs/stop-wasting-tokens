@@ -79,9 +79,7 @@ export default defineConfig({
   esbuildPlugins: [stubDevDeps],
   define: {
     __SWT_VERSION__: JSON.stringify(pkg.version),
-    ...(reproducible
-      ? { __SWT_BUILD_TIME__: JSON.stringify('1970-01-01T00:00:00.000Z') }
-      : {}),
+    ...(reproducible ? { __SWT_BUILD_TIME__: JSON.stringify('1970-01-01T00:00:00.000Z') } : {}),
   },
   outExtension({ format }) {
     return { js: format === 'esm' ? '.mjs' : '.cjs' };

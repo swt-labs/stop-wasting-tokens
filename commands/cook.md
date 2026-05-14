@@ -1,8 +1,8 @@
 ---
 name: swt:cook
 category: lifecycle
-description: "The one command. Detects state, parses intent, routes to any lifecycle mode -- bootstrap, scope, plan, execute, verify, discuss, archive, and more."
-argument-hint: "[intent or flags] [--plan] [--execute] [--verify] [--discuss] [--assumptions] [--scope] [--add] [--insert] [--remove] [--archive] [--yolo] [--effort=level] [--skip-qa] [--skip-audit] [--plan=NN] [N]"
+description: 'The one command. Detects state, parses intent, routes to any lifecycle mode -- bootstrap, scope, plan, execute, verify, discuss, archive, and more.'
+argument-hint: '[intent or flags] [--plan] [--execute] [--verify] [--discuss] [--assumptions] [--scope] [--add] [--insert] [--remove] [--archive] [--yolo] [--effort=level] [--skip-qa] [--skip-audit] [--plan=NN] [N]'
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, AskUserQuestion, Agent, TeamCreate, TaskCreate, SendMessage, TeamDelete, Skill, LSP, TodoWrite
 disable-model-invocation: true
 ---
@@ -16,17 +16,21 @@ disable-model-invocation: true
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 Pre-computed state (via phase-detect.sh):
+
 ```
 ${SWT_PHASE_DETECT_OUTPUT}
 ```
 
 Config:
+
 ```
 !`cat .swt-planning/config.json 2>/dev/null || echo "No config found"`
 ```
@@ -41,10 +45,12 @@ Verify context (verify routing only — needs_reverification OR needs_verificati
 
 ## Input Parsing
 
-**Pre-parse: todo number resolution.** If $ARGUMENTS is a bare integer (matches `^[0-9]+$` with no other text or flags), inspect the persisted session snapshot from the latest `swt list-todos` invocation before deciding whether this integer is a todo or a phase target:
+**Pre-parse: todo number resolution.** If $ARGUMENTS is a bare integer (matches `^[0-9]+$`with no other text or flags), inspect the persisted session snapshot from the latest`swt list-todos` invocation before deciding whether this integer is a todo or a phase target:
+
 ```bash
 bash "{plugin-root}/scripts/todo-lifecycle.sh" snapshot-show
 ```
+
 - If the snapshot is present and `filter=null`, resolve the integer as a todo selection via:
   ```bash
   bash "{plugin-root}/scripts/resolve-todo-item.sh" <N> --session-snapshot --require-unfiltered --validate-live
@@ -54,13 +60,17 @@ bash "{plugin-root}/scripts/todo-lifecycle.sh" snapshot-show
 - If the snapshot is missing or malformed, preserve the existing bare phase-number path. Do **not** silently fall back to live unfiltered backlog resolution for todo pickup.
 
 If `TODO_SELECTED_JSON` exists and its `ref` is non-null, eagerly load detail during Input Parsing — before routing commits to the todo-derived request:
+
 ```bash
 bash "{plugin-root}/scripts/todo-details.sh" get {hash}
 ```
+
 If `status` is `"ok"`, store `DETAIL_STATUS=ok`, `detail.context`, and `detail.files` for later use. If `status` is `"not_found"` or `"error"`, record the matching `DETAIL_STATUS` value and run:
+
 ```bash
 bash "{plugin-root}/scripts/todo-lifecycle.sh" detail-warning {hash}
 ```
+
 Continue without detail.
 
 **Pre-parse: ref tag extraction.** Before evaluating paths below, check if $ARGUMENTS ends with a `(ref:HASH)` suffix (8 hex characters). If found, extract the hash and strip the ref tag (including any leading space) from $ARGUMENTS. The cleaned arguments are used for all subsequent parsing — the ref must not interfere with flag detection, keyword routing, or mode selection. Store the extracted hash for later use. If `TODO_SELECTED_JSON` already exists from the numbered-todo path above, reuse its resolved ref/detail metadata and do not reload detail here. For non-todo manual `(ref:HASH)` inputs, defer detail loading until an action-bearing mode actually needs it. If no ref tag is found, there is no hash to store.
@@ -68,9 +78,11 @@ Continue without detail.
 **Todo pickup boundary (non-negotiable):** A numbered todo selected through `TODO_SELECTED_JSON` may only be claimed once routing has actually committed to the todo-derived request and any AskUserQuestion confirmation gate has completed successfully. If routing falls back to a phase-number path, stops on a guard, or the user declines confirmation, leave the todo untouched. Manual text and manual `(ref:HASH)` inputs never trigger pickup.
 
 When the chosen route does commit to the todo-derived request, claim it exactly once before entering the chosen mode body by piping `TODO_SELECTED_JSON` into:
+
 ```bash
 bash "{plugin-root}/scripts/todo-lifecycle.sh" pickup swt cook {DETAIL_STATUS} {cleanup_policy}
 ```
+
 Set `{cleanup_policy}` to `safe` when `DETAIL_STATUS=ok`; otherwise set it to `keep`. If the helper returns `status="error"`, STOP with its `message` value. If it returns `status="partial"`, continue but surface the helper's `warning` value so cleanup state stays explicit.
 
 Three input paths, evaluated in order:
@@ -78,6 +90,7 @@ Three input paths, evaluated in order:
 ### Path 1: Flag detection
 
 Check $ARGUMENTS for flags. If any mode flag is present, go directly to that mode:
+
 - `--plan [N]` -> Plan mode
 - `--execute [N]` -> Execute mode
 - `--discuss [N]` -> Discuss mode
@@ -90,6 +103,7 @@ Check $ARGUMENTS for flags. If any mode flag is present, go directly to that mod
 - `--archive` -> Archive mode
 
 Behavior modifiers (combinable with mode flags):
+
 - `--effort <level>`: thorough|balanced|fast|turbo (overrides config)
 - `--skip-qa`: skip post-build QA
 - `--skip-audit`: skip non-UAT pre-archive audit checks (hard UAT gate still enforced)
@@ -102,6 +116,7 @@ If flags present: skip confirmation gate (flags express explicit intent).
 ### Path 2: Natural language intent
 
 If $ARGUMENTS present but no flags detected, interpret user intent:
+
 - Discussion keywords (talk, discuss, explore, think about, what about) -> Discuss mode
 - Assumption keywords (assume, assuming, what if, what are you assuming) -> Assumptions mode
 - Planning keywords (plan, scope, break down, decompose, structure) -> Plan mode
@@ -122,6 +137,7 @@ If no $ARGUMENTS, evaluate phase-detect.sh output. First match determines mode:
 STOP. Do NOT manually scan for project state or improvise routing — incorrect routing can corrupt archived milestones.
 
 **Misnamed plan auto-repair:** If the output contains `misnamed_plans=true`, normalize all phase directories before routing:
+
 ```bash
 NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
 if [ -f "$NORM_SCRIPT" ]; then
@@ -130,6 +146,7 @@ if [ -f "$NORM_SCRIPT" ]; then
   done
 fi
 ```
+
 Display: "⚠ Renamed misnamed plan files to `{NN}-PLAN.md` convention."
 Then re-run phase-detect.sh and use updated output for routing below.
 
@@ -144,20 +161,20 @@ State detects needs_uat_remediation → enters mode inline → step 4 creates To
 </example>
 </examples>
 
-| Priority | Condition | Mode | Confirmation |
-| --- | --- | --- | --- |
-| 1 | `planning_dir_exists=false` | Init redirect | (redirect, no confirmation) |
-| 2 | `project_exists=false` | Bootstrap | → AskUserQuestion: "No project defined. Set one up?" |
-| 3 | `next_phase_state=needs_uat_remediation` | UAT Remediation | auto_uat=true: no confirmation. auto_uat=false: → AskUserQuestion: "Phase {NN} has unresolved UAT issues. Continue with remediation now?" |
-| 3.5 | `next_phase_state=needs_qa_remediation` | QA Remediation | auto_uat=true: no confirmation. auto_uat=false: → AskUserQuestion: "Phase {NN} has QA failures. Continue with QA remediation?" |
-| 4 | `next_phase_state=needs_reverification` | Re-verify | auto_uat=true: no confirmation. auto_uat=false: → AskUserQuestion: "Phase {NN} remediation complete. Run re-verification?" |
-| 5 | `milestone_uat_issues=true` | Milestone UAT Recovery | (mode handles confirmation — see Milestone UAT Recovery steps) |
-| 6 | `phase_count=0` | Scope | → AskUserQuestion: "Project defined but no phases. Scope the work?" |
-| 7 | `next_phase_state=needs_verification` | Verify | (no confirmation — auto_uat intent or active UAT resume). **QA gate:** If `qa_after_uat_dormant=true` or `qa_reason=uat_cutover`, skip QA and stay in the UAT lane. Otherwise, if `qa_status=pending`, display "Phase {NN} QA is pending ({reason label}) — running QA now." after mapping `qa_reason` through the reason labels below, then spawn QA inline first. This state also covers `all_done` milestones that were retargeted because authoritative pre-UAT QA on a completed no-UAT phase is stale/missing, fully built no-UAT phases retargeted back into verification when QA is still pending even with `auto_uat=false`, and active current-round UAT artifacts that must resume Verify instead of entering Re-verify preparation. If `qa_status=failed`, enter QA remediation inline only before UAT cutover. Only proceed to Verify mode when `qa_status` is `passed`, `remediated`, or explicitly dormant after UAT cutover. |
-| 8 | `next_phase_state=needs_discussion` | Discuss | → AskUserQuestion: "Phase {NN} needs discussion before planning. Start discussion?" |
-| 9 | `next_phase_state=needs_plan_and_execute` | Plan + Execute | → AskUserQuestion: "Phase {NN} needs planning and execution. Start?" |
-| 10 | `next_phase_state=needs_execute` | Execute | → AskUserQuestion: "Phase {NN} is planned. Execute it?" |
-| 11 | `next_phase_state=all_done` | Archive | → AskUserQuestion: "All phases complete. Run audit and archive?" (only when no `first_qa_attention_phase` remains) |
+| Priority | Condition                                 | Mode                   | Confirmation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1        | `planning_dir_exists=false`               | Init redirect          | (redirect, no confirmation)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2        | `project_exists=false`                    | Bootstrap              | → AskUserQuestion: "No project defined. Set one up?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 3        | `next_phase_state=needs_uat_remediation`  | UAT Remediation        | auto_uat=true: no confirmation. auto_uat=false: → AskUserQuestion: "Phase {NN} has unresolved UAT issues. Continue with remediation now?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 3.5      | `next_phase_state=needs_qa_remediation`   | QA Remediation         | auto_uat=true: no confirmation. auto_uat=false: → AskUserQuestion: "Phase {NN} has QA failures. Continue with QA remediation?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 4        | `next_phase_state=needs_reverification`   | Re-verify              | auto_uat=true: no confirmation. auto_uat=false: → AskUserQuestion: "Phase {NN} remediation complete. Run re-verification?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 5        | `milestone_uat_issues=true`               | Milestone UAT Recovery | (mode handles confirmation — see Milestone UAT Recovery steps)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 6        | `phase_count=0`                           | Scope                  | → AskUserQuestion: "Project defined but no phases. Scope the work?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 7        | `next_phase_state=needs_verification`     | Verify                 | (no confirmation — auto_uat intent or active UAT resume). **QA gate:** If `qa_after_uat_dormant=true` or `qa_reason=uat_cutover`, skip QA and stay in the UAT lane. Otherwise, if `qa_status=pending`, display "Phase {NN} QA is pending ({reason label}) — running QA now." after mapping `qa_reason` through the reason labels below, then spawn QA inline first. This state also covers `all_done` milestones that were retargeted because authoritative pre-UAT QA on a completed no-UAT phase is stale/missing, fully built no-UAT phases retargeted back into verification when QA is still pending even with `auto_uat=false`, and active current-round UAT artifacts that must resume Verify instead of entering Re-verify preparation. If `qa_status=failed`, enter QA remediation inline only before UAT cutover. Only proceed to Verify mode when `qa_status` is `passed`, `remediated`, or explicitly dormant after UAT cutover. |
+| 8        | `next_phase_state=needs_discussion`       | Discuss                | → AskUserQuestion: "Phase {NN} needs discussion before planning. Start discussion?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 9        | `next_phase_state=needs_plan_and_execute` | Plan + Execute         | → AskUserQuestion: "Phase {NN} needs planning and execution. Start?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 10       | `next_phase_state=needs_execute`          | Execute                | → AskUserQuestion: "Phase {NN} is planned. Execute it?"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 11       | `next_phase_state=all_done`               | Archive                | → AskUserQuestion: "All phases complete. Run audit and archive?" (only when no `first_qa_attention_phase` remains)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 **all_done QA-attention fallback (pending):** When `next_phase_state=all_done`, `first_qa_attention_phase` is set, and `qa_attention_status=pending`, do **not** archive yet. Target `first_qa_attention_phase` / `first_qa_attention_slug` and continue into Verify mode instead. This is the stage-less resume path for a completed pre-UAT phase whose QA verification is still missing or stale, even when `auto_uat=false`. If that phase has any UAT state or artifact, QA attention is dormant and this fallback must not run.
 
@@ -168,35 +185,39 @@ Persisted QA remediation / known-issues backlog is the authoritative plain `swt 
 
 **Re-verify after remediation (needs_reverification) — IMMEDIATE EXECUTION (NON-NEGOTIABLE):**
 When `next_phase_state=needs_reverification`, execute these steps inline in the same turn — do NOT create tasks, read protocol files, or perform any intermediate planning:
+
 1. Run: `bash {plugin-root}/scripts/prepare-reverification.sh {phase-dir}`
 2. **Error guard:** If the script fails (non-zero exit), display the error message and **STOP** — do not attempt to enter Verify mode with stale/missing context.
 3. Parse output: `archived=kept|in-round-dir|<original-uat-basename>`, `skipped=already_archived|ready_for_verify|cap_reached`, `round_file=...`, `phase=NN`, `layout=...`
-  If `skipped=cap_reached`: display the UAT remediation cap banner and STOP. Use `max_rounds={N}` from the script output:
-  ```text
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    Reached maximum UAT remediation rounds ({N}).
-    Review issues manually or adjust max_uat_remediation_rounds
-    in config.json.
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ```
-  Do NOT refresh verify context or enter Verify mode.
-4. If `archived=kept`: display "Phase UAT preserved. Starting fresh re-verification in round dir."
-   If `archived=in-round-dir`: display "Archived previous UAT → {round_file}. Starting fresh re-verification."
-   If `skipped=already_archived`: display "UAT already archived. Starting fresh re-verification."
-   If `skipped=ready_for_verify`: display "Round {NN} remediation complete. Starting fresh re-verification."
-    Otherwise, when `archived=` is the original phase-root UAT basename (flat/legacy layout), display "Archived previous UAT → {round_file}. Starting fresh re-verification."
-5. Refresh verify context and UAT resume metadata for that phase:
-  ```bash
-  bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-verify-context-for-uat.sh "{phase-dir}"
-  bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/extract-uat-resume.sh "{phase-dir}"
-  ```
-  Use this refreshed output in place of the pre-computed verify blocks from Context.
-  **uat_path validation (defense-in-depth):** If the refreshed `uat_path` does not already point at the current remediation round's round-scoped UAT path (`remediation/uat/round-{RR}/R{RR}-UAT.md` for round-dir layout, `remediation/round-{RR}/R{RR}-UAT.md` for legacy layout), run:
-  ```bash
-  bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/uat-remediation-state.sh get-or-init "{phase-dir}" major
-  ```
-  Parse `round=RR` and `layout=...`, then override `uat_path` with the matching round-scoped path for that layout before entering Verify mode.
-6. **Continue directly into Verify mode below** for that phase — do NOT stop, do NOT tell the user to run a separate command.
+   If `skipped=cap_reached`: display the UAT remediation cap banner and STOP. Use `max_rounds={N}` from the script output:
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Reached maximum UAT remediation rounds ({N}).
+  Review issues manually or adjust max_uat_remediation_rounds
+  in config.json.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Do NOT refresh verify context or enter Verify mode. 4. If `archived=kept`: display "Phase UAT preserved. Starting fresh re-verification in round dir."
+If `archived=in-round-dir`: display "Archived previous UAT → {round_file}. Starting fresh re-verification."
+If `skipped=already_archived`: display "UAT already archived. Starting fresh re-verification."
+If `skipped=ready_for_verify`: display "Round {NN} remediation complete. Starting fresh re-verification."
+Otherwise, when `archived=` is the original phase-root UAT basename (flat/legacy layout), display "Archived previous UAT → {round_file}. Starting fresh re-verification." 5. Refresh verify context and UAT resume metadata for that phase:
+
+```bash
+bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-verify-context-for-uat.sh "{phase-dir}"
+bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/extract-uat-resume.sh "{phase-dir}"
+```
+
+Use this refreshed output in place of the pre-computed verify blocks from Context.
+**uat_path validation (defense-in-depth):** If the refreshed `uat_path` does not already point at the current remediation round's round-scoped UAT path (`remediation/uat/round-{RR}/R{RR}-UAT.md` for round-dir layout, `remediation/round-{RR}/R{RR}-UAT.md` for legacy layout), run:
+
+```bash
+bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/uat-remediation-state.sh get-or-init "{phase-dir}" major
+```
+
+Parse `round=RR` and `layout=...`, then override `uat_path` with the matching round-scoped path for that layout before entering Verify mode. 6. **Continue directly into Verify mode below** for that phase — do NOT stop, do NOT tell the user to run a separate command.
 
 The `needs_reverification` state fires regardless of `auto_uat` — remediation always requires re-verification. The `auto_uat` flag only controls whether the user is prompted for confirmation.
 
@@ -204,6 +225,7 @@ The `needs_reverification` state fires regardless of `auto_uat` — remediation 
 
 **QA gate before UAT (needs_verification) — NON-NEGOTIABLE:**
 Before entering Verify mode (UAT), check `qa_status` from phase-detect output:
+
 - `qa_after_uat_dormant=true` or `qa_reason=uat_cutover`: proceed to Verify mode (UAT) without running QA. QA remediation is a pre-UAT route only; once any UAT state or artifact exists for the target phase, stale QA remediation metadata for that phase is traceability-only and must not send `swt cook` back into QA Remediation.
 - `qa_status=passed` or `qa_status=remediated`: proceed to Verify mode (UAT). These values mean VERIFICATION.md exists with PASS and the product code has not changed since QA verified it (staleness check via `verified_at_commit`).
 - `qa_status=pending` (no VERIFICATION.md, malformed/untrusted VERIFICATION.md, deterministic gate rerun, or stale PASS): display "Phase {NN} QA is pending ({reason label}) — running QA now." and spawn QA inline first. Resolve `{reason label}` from `qa_reason`; if `qa_reason=none` or is empty, use `qa_attention_reason`; if both are empty/none, omit the parenthetical.
@@ -229,21 +251,28 @@ Before entering Verify mode (UAT), check `qa_status` from phase-detect output:
     bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" 2>/dev/null || true
     ```
     This backfill is only for the first phase-level QA run after execution. Do not reuse it for round-scoped remediation verification or generic stale-verification reruns.
+
   ```bash
   bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{QA-output-path}" 2>/dev/null || true
   ```
+
   After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
+
   ```bash
   bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
   ```
+
   Then run the deterministic gate:
+
   ```bash
   bash "${SWT_INSTALL_ROOT}/scripts/qa-result-gate.sh" "{phase-dir}"
   ```
+
   **Follow `qa_gate_routing` output literally — no exceptions, no judgment, no rationalization. Do NOT evaluate whether failures are justified, acceptable, or minor. The gate script has already made the decision:**
   - `qa_gate_routing=PROCEED_TO_UAT` → proceed to Verify mode (UAT)
   - `qa_gate_routing=REMEDIATION_REQUIRED` → init QA remediation: `bash {plugin-root}/scripts/qa-remediation-state.sh init {phase-dir}`, then enter QA Remediation mode below. If `qa_gate_known_issues_override=true`, the contract verification passed but `{qa_gate_known_issue_count}` unresolved tracked known issues remain in `{phase-dir}/known-issues.json`.
   - `qa_gate_routing=QA_RERUN_REQUIRED` → re-spawn QA agent immediately (max 2 retries). If `qa_gate_deviation_override=true`, tell QA: "Previous QA run found PASS but SUMMARY.md files contain {qa_gate_deviation_count} deviations that were not reflected as FAIL checks. Each deviation MUST become a FAIL check — do not rationalize deviations as acceptable." If `qa_gate_plan_coverage` is present, tell QA: "Previous QA run only verified {qa_gate_plans_verified_count}/{qa_gate_plan_count} plans. Every plan in the phase must be verified — include all plan IDs in plans_verified." If QA fails to produce a valid result after 2 re-runs, STOP and escalate to user: "QA failed to produce a valid VERIFICATION.md after {N} attempts. Manual intervention needed."
+
 - `qa_status=failed` (VERIFICATION.md exists with FAIL/PARTIAL): init QA remediation and enter QA Remediation mode
 - `qa_status=remediating`: should not reach here (phase-detect routes to `needs_qa_remediation` first)
 - `--skip-qa` flag: bypass contract-QA execution, but **do not** bypass unresolved phase known issues. UAT still cannot proceed while `{phase-dir}/known-issues.json` contains tracked issues.
@@ -254,18 +283,19 @@ When `next_phase_state=needs_qa_remediation`, resume QA remediation at the persi
 **Execution model:** This mode runs inline — the orchestrator manages stage transitions and spawns agents for the actual work within each stage. Do not decompose the stages into TaskCreate items — they are sequential steps of this conversation, not delegated tasks.
 
 1. Read current state: `bash {plugin-root}/scripts/qa-remediation-state.sh get-or-init {phase-dir}`
-  Parse output: `stage`, `round`, `round_dir`, `source_verification_path`, `source_fail_count`, `known_issues_path`, `known_issues_count`, `input_mode`, `verification_path`
+   Parse output: `stage`, `round`, `round_dir`, `source_verification_path`, `source_fail_count`, `known_issues_path`, `known_issues_count`, `input_mode`, `verification_path`
    If remediation state was absent, `get-or-init` initializes round 01 before stage-specific routing. This is the deterministic stage-less resume path for a persisted known-issues backlog.
-  <qa_remediation_artifact_contract>
-  `round_dir`, `source_verification_path`, `known_issues_path`, and `verification_path` are authoritative host-repository paths from `qa-remediation-state.sh` metadata. Claude Code may run subagents from `.claude/worktrees/agent-*` sidechain CWDs; pass these exact paths to Lead, Dev, and QA prompts and never rewrite them relative to the current CWD. Rewriting them relative to sidechain CWDs can write or read remediation artifacts from the wrong location and break resume or verification.
-  </qa_remediation_artifact_contract>
-  <qa_remediation_spawn_contract>
-  QA remediation spawns are plain sequential subagent calls. Do not use TeamCreate. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Use the remediation metadata paths above instead of forcing Claude worktree isolation or spawn cwd handoffs.
-  </qa_remediation_spawn_contract>
-  <qa_remediation_no_tool_circuit_breaker>
-  After any QA remediation Lead, Dev, or QA subagent returns, inspect returned text before artifact validation, deterministic gates, or state advancement. If it says tools, shell/Bash, filesystem, edits, or API-session access are unavailable, treat that as a platform/tool provisioning failure: STOP without advancing `.qa-remediation-stage`, report the failed role and stage/task, and do not retry the same prompt. Repeating a no-tool spawn cannot fix tool provisioning and wastes tokens.
-  </qa_remediation_no_tool_circuit_breaker>
+   <qa_remediation_artifact_contract>
+   `round_dir`, `source_verification_path`, `known_issues_path`, and `verification_path` are authoritative host-repository paths from `qa-remediation-state.sh` metadata. Claude Code may run subagents from `.claude/worktrees/agent-*` sidechain CWDs; pass these exact paths to Lead, Dev, and QA prompts and never rewrite them relative to the current CWD. Rewriting them relative to sidechain CWDs can write or read remediation artifacts from the wrong location and break resume or verification.
+   </qa_remediation_artifact_contract>
+   <qa_remediation_spawn_contract>
+   QA remediation spawns are plain sequential subagent calls. Do not use TeamCreate. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Use the remediation metadata paths above instead of forcing Claude worktree isolation or spawn cwd handoffs.
+   </qa_remediation_spawn_contract>
+   <qa_remediation_no_tool_circuit_breaker>
+   After any QA remediation Lead, Dev, or QA subagent returns, inspect returned text before artifact validation, deterministic gates, or state advancement. If it says tools, shell/Bash, filesystem, edits, or API-session access are unavailable, treat that as a platform/tool provisioning failure: STOP without advancing `.qa-remediation-stage`, report the failed role and stage/task, and do not retry the same prompt. Repeating a no-tool spawn cannot fix tool provisioning and wastes tokens.
+   </qa_remediation_no_tool_circuit_breaker>
 2. Read remediation inputs.
+
 - Round 01: phase-level VERIFICATION (`{NN}-VERIFICATION.md` or brownfield `VERIFICATION.md`)
 - Round 02+: previous round's `R{RR}-VERIFICATION.md`
 - If `known_issues_count>0`, read `known_issues_path` as the authoritative unresolved known-issues backlog for this phase.
@@ -400,7 +430,7 @@ When `next_phase_state=needs_qa_remediation`, resume QA remediation at the persi
       ```
     - **Include in QA task description:** "In addition to verifying the remediation plan's own must_haves, you MUST re-verify each original FAIL from the VERIFICATION HISTORY section. For each FAIL_ID: if classified as code-fix, verify the code now matches the plan; if classified as plan-amendment, verify the original PLAN.md has been updated with the actual approach and rationale; if classified as process-exception, verify the exception is documented with non-fixable justification and that the justification is credible for this FAIL; if code-fix or plan-amendment still appears viable, keep the FAIL open. Any original FAIL that has not been addressed by one of these three paths is still a FAIL."
     - **Include in QA task description when a KNOWN ISSUES block is present:** "Tracked phase known issues are not informational in remediation rounds. Re-check every carried known issue from `known_issues_input` / `known_issue_resolutions`. Return only still-blocking issues in `pre_existing_issues`. If a carried issue is verified as an `accepted-process-exception`, omit it from `pre_existing_issues`, confirm that the accepted non-blocking disposition is credible for this phase, and rely on the matching `known_issue_outcomes` entry to preserve visibility after the blocking registry clears. A clean remediation QA run must return an empty `pre_existing_issues` array for all resolved or accepted non-blocking carried issues so `{phase-dir}/known-issues.json` can clear."
-      - The deterministic gate validates structural evidence only. QA must decide whether a `process-exception` is *actually* justified during this re-verification step — documentation alone is insufficient when the original FAIL still appears fixable via code or plan amendment.
+      - The deterministic gate validates structural evidence only. QA must decide whether a `process-exception` is _actually_ justified during this re-verification step — documentation alone is insufficient when the original FAIL still appears fixable via code or plan amendment.
   - After QA returns, run the deterministic gate:
     ```bash
     bash "${SWT_INSTALL_ROOT}/scripts/qa-result-gate.sh" "{phase-dir}"
@@ -437,17 +467,18 @@ When `next_phase_state=needs_qa_remediation`, resume QA remediation at the persi
 ### Confirmation Gate
 
 Every mode triggers confirmation before executing. Follow the shared interaction contract in `references/ask-user-question.md`, then use the AskUserQuestion tool with the question from the routing table's Confirmation column (marked with `→ AskUserQuestion:`). This section stays local to `swt cook`: it defines when confirmation is skipped, which routing copy to use, and which alternatives belong to each route.
+
 - **Exception:** `--yolo` skips all confirmation gates. Error guards (missing roadmap, uninitialized project) still halt.
 - **Exception:** Flags skip confirmation (explicit intent).
 
 **Discussion-aware alternatives:** Alternatives must reflect whether discussion has already happened for the target phase. Never offer "discuss this phase" as if discussion never happened — when `{NN}-CONTEXT.md` exists, use continuation-aware wording like "Start a discussion" (which enters the Discussion Engine's continuation mode, building on existing context rather than repeating it).
 
-| Routing state | Recommended | Alternatives |
-| --- | --- | --- |
-| `needs_discussion` | "Discuss phase {NN}" | "Skip discussion and plan directly", "View phase goal first" |
+| Routing state            | Recommended                   | Alternatives                                                                                     |
+| ------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `needs_discussion`       | "Discuss phase {NN}"          | "Skip discussion and plan directly", "View phase goal first"                                     |
 | `needs_plan_and_execute` | "Plan and execute phase {NN}" | "Plan only (review before executing)", "Start a discussion (explore gray areas before planning)" |
-| `needs_execute` | "Execute phase {NN}" | "Review plans first", "Start a discussion (revisit scope before executing)" |
-| `milestone_uat_issues` | "Create remediation phases" | "Start fresh with new work", "Not now" |
+| `needs_execute`          | "Execute phase {NN}"          | "Review plans first", "Start a discussion (revisit scope before executing)"                      |
+| `milestone_uat_issues`   | "Create remediation phases"   | "Start fresh with new work", "Not now"                                                           |
 
 ## Modes
 
@@ -460,6 +491,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Guard:** `.swt-planning/` exists but no PROJECT.md.
 
 **Critical Rules (non-negotiable):**
+
 - NEVER fabricate content. Only use what the user explicitly states.
 - If answer doesn't match question: STOP, handle their request, let them re-run.
 - No silent assumptions -- ask follow-ups for gaps.
@@ -470,18 +502,19 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Brownfield detection:** `git ls-files` or Glob check for existing code.
 
 **Steps:**
+
 - **B1: PROJECT.md** -- If $ARGUMENTS provided (excluding flags), use as description. Otherwise ask name + core purpose. Then call:
   ```
   bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/bootstrap/bootstrap-project.sh .swt-planning/PROJECT.md "$NAME" "$DESCRIPTION"
   ```
 - **B1.5: Discovery Depth** -- Read `discovery_questions` and `active_profile` from config. Map profile to depth:
 
-  | Profile | Depth | Questions |
-  | --------- | ------- | ----------- |
-  | yolo | skip | 0 |
-  | prototype | quick | 1-2 |
-  | default | standard | 3-5 |
-  | production | thorough | 5-8 |
+  | Profile    | Depth    | Questions |
+  | ---------- | -------- | --------- |
+  | yolo       | skip     | 0         |
+  | prototype  | quick    | 1-2       |
+  | default    | standard | 3-5       |
+  | production | thorough | 5-8       |
 
   If `discovery_questions=false`: force depth=skip. Store DISCOVERY_DEPTH for B2.
 
@@ -502,17 +535,17 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
        ```
        Use these variables when you execute the Task invocation in step 6.
     3. Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-    3.25. If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the bootstrap domain-research Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
-     3.5. Use this payload prefix as the FIRST lines of the bootstrap domain-research Scout prompt:
+       3.25. If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the bootstrap domain-research Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+       3.5. Use this payload prefix as the FIRST lines of the bootstrap domain-research Scout prompt:
        ```text
        <skill_activation>
        Call Skill('{relevant-skill-1}').
        Call Skill('{relevant-skill-2}').
        </skill_activation>
        After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-      <skill_follow_up_files>
-      {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
-      </skill_follow_up_files>
+       <skill_follow_up_files>
+       {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
+       </skill_follow_up_files>
        ```
        When no installed skills apply, use this prefix instead:
        ```text
@@ -534,7 +567,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
   - **If skip (yolo profile or discovery_questions=false):** Ask 2 minimal static questions via AskUserQuestion:
     1. "What are the must-have features for this project?" Options: ["Core functionality only", "A few essential features", "Comprehensive feature set", "Let me explain..."]
     2. "Who will use this?" Options: ["Just me", "Small team (2-10 people)", "Many users (100+)", "Let me explain..."]
-    Record answers to `.swt-planning/discovery.json` with `{"answered":[],"inferred":[],"deferred":[]}`.
+       Record answers to `.swt-planning/discovery.json` with `{"answered":[],"inferred":[],"deferred":[]}`.
   - **After discovery (all depths):** Call:
     ```
     bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/bootstrap/bootstrap-requirements.sh .swt-planning/REQUIREMENTS.md .swt-planning/discovery.json .swt-planning/domain-research.md
@@ -557,15 +590,15 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
   ```
   Script handles: new file generation (heading + core value + SWT sections), existing file preservation (refreshes only exact canonical SWT-owned sections already emitted by SWT, preserves the user's title/intro/arbitrary headings verbatim, and adds `## Code Intelligence` only if no Code Intelligence heading/guidance already exists anywhere in the file). Omit the fourth argument if no existing CLAUDE.md. Max 200 lines.
 - **B7: Planning commit boundary (conditional)** -- Run:
-   ```bash
+  ```bash
   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "bootstrap project files" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
-   ```
-   Behavior: `planning_tracking=commit` commits `.swt-planning/` + `CLAUDE.md` if changed. Other modes no-op.
+  if [ -f "$PG_SCRIPT" ]; then
+    bash "$PG_SCRIPT" commit-boundary "bootstrap project files" .swt-planning/config.json
+  else
+    echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
+  fi
+  ```
+  Behavior: `planning_tracking=commit` commits `.swt-planning/` + `CLAUDE.md` if changed. Other modes no-op.
 - **B8: Transition** -- Display "Bootstrap complete. Transitioning to scoping..." Re-evaluate state, route to next match.
 
 ### Mode: Scope
@@ -573,6 +606,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Guard:** PROJECT.md exists but `phase_count=0`.
 
 **Steps:**
+
 1. Load context: PROJECT.md, REQUIREMENTS.md. If `.swt-planning/codebase/META.md` exists, read ARCHITECTURE.md and CONCERNS.md (whichever exist) from `.swt-planning/codebase/`.
 2. If $ARGUMENTS (excl. flags) provided, use as scope. Else ask: "What do you want to build?" Show uncovered requirements as suggestions.
 3. Decompose into 3-5 phases (name, goal, success criteria). Each independently plannable. Map REQ-IDs.
@@ -591,7 +625,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
    - **Deferred Ideas:** out-of-scope ideas mentioned during steps 2-3
 7. **Scope commit boundary (conditional):**
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "scope milestone" .swt-planning/config.json
    else
@@ -609,11 +643,12 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Continuation mode:** When the target phase already has a `{NN}-CONTEXT.md`, this is a **continuation discussion** — not a fresh one. If the CONTEXT.md has `pre_seeded: true` in its YAML frontmatter (remediation phase), WARN the user that this phase has pre-seeded UAT context and ask whether they want to re-discuss (which overwrites the pre-seeded content) or skip discussion and proceed to planning. Otherwise display: "Phase {NN} already has discussion context. Continuing to explore additional topics." The Discussion Engine will load existing decisions as baseline and focus on uncovered gray areas.
 
 **Steps:**
+
 1. Determine target phase from $ARGUMENTS or auto-detection.
 2. Read `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/references/discussion-engine.md` and follow its protocol for the target phase.
 3. **Discussion commit boundary (conditional):**
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "discuss phase {NN}" .swt-planning/config.json
    else
@@ -631,11 +666,12 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Continuation mode:** Same as Discuss mode — if a `{NN}-CONTEXT.md` exists, this is a continuation. Pre-seeded remediation phases get the same warning.
 
 **Steps:**
+
 1. Determine target phase from $ARGUMENTS or auto-detection.
 2. Read `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/references/discussion-engine.md` and follow its protocol for the target phase. Pass "Discussion mode: assumptions" to the engine — Step 1.7 handles the assumptions workflow (codebase analysis, assumption formation, user correction, capture).
 3. **Discussion commit boundary (conditional):**
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "assumptions phase {NN}" .swt-planning/config.json
    else
@@ -654,6 +690,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Chain state tracking:** This mode uses `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/uat-remediation-state.sh` to persist the current stage of the remediation chain on disk. This ensures correct resumption after compaction or session restart — the chain does NOT rely on prompt memory alone.
 
 **Steps:**
+
 1. Resolve target phase from pre-computed state (`next_phase`, `next_phase_slug`) when `next_phase_state=needs_uat_remediation`. Set `PHASE_DIR` to the resolved phase directory path.
    **Milestone path guard (NON-NEGOTIABLE):** If `PHASE_DIR` contains `.swt-planning/milestones/` (e.g., `.swt-planning/milestones/*/phases/`), STOP — this is an archived milestone. UAT Remediation operates only on active phases in `.swt-planning/phases/`. Display: "⚠ UAT issues found in archived milestone, not active phases. Routing to Milestone UAT Recovery." Then route to Milestone UAT Recovery mode instead.
 2. Read the active UAT artifact exactly once. Use `uat_file` from the pre-computed state when available; it is phase-relative to `PHASE_DIR` (for example `03-UAT.md` or `remediation/uat/round-01/R01-UAT.md`). If `uat_file=none` or the computed path does not exist, resolve the active UAT artifact from `PHASE_DIR` with one deterministic fallback (current round-dir UAT first, phase-root fallback). If no active UAT artifact exists, STOP and display: "⚠ Phase {NN} routes to UAT remediation but no active UAT artifact could be found."
@@ -669,37 +706,37 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
    - Both resume and init paths emit **plan metadata** after the stage line:
      ```text
      round=RR              — zero-padded current round number (e.g., 01)
-    round_dir=<path>      — absolute host-repository path to the round directory
-    research_path=<path>  — absolute host-repository path to existing RESEARCH.md (empty if none)
-    plan_path=<path>      — absolute host-repository path to existing PLAN.md (empty if none)
-    summary_path=<path>   — absolute host-repository path where SUMMARY.md must be written
+     round_dir=<path>      — absolute host-repository path to the round directory
+     research_path=<path>  — absolute host-repository path to existing RESEARCH.md (empty if none)
+     plan_path=<path>      — absolute host-repository path to existing PLAN.md (empty if none)
+     summary_path=<path>   — absolute host-repository path where SUMMARY.md must be written
      ```
      **Use these values directly** — do NOT glob `*-PLAN.md` or search for RESEARCH.md files. The script pre-computes all paths from the phase directory (with legacy phase-root fallback for brownfield projects).
-    <uat_remediation_artifact_contract>
-    `round_dir`, `research_path`, `plan_path`, and `summary_path` are absolute paths in the host repository. Claude Code may run subagents from `.claude/worktrees/agent-*` sidechain CWDs; pass these exact paths to every Scout/Lead/Dev prompt and never rewrite them relative to the current CWD. Do not accept artifacts written under `.claude/worktrees/agent-*` as valid remediation artifacts.
-    In migrated `layout=legacy` projects, non-empty `research_path` or `plan_path` may be an absolute phase-root artifact selected by `uat-remediation-state.sh`; validate that exact metadata path directly instead of rewriting it to `round_dir` or searching for alternatives.
-    </uat_remediation_artifact_contract>
-    <uat_remediation_spawn_contract>
-    The Research → Plan → Execute (or Fix) list is session progress tracking only. TodoWrite is the only progress tracker for these stages; do not create or update stage-progress items with TaskCreate, TaskUpdate, Agent, or TeamCreate. TaskCreate/Agent is allowed only for real Scout/Lead/Dev work-unit delegation inside the current stage, never to represent the stage list itself.
-    UAT remediation spawns are plain sequential subagent calls. Do not use TeamCreate. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Claude Code worktree isolation and spawn cwd handoffs are not reliable for this path; exact absolute host paths keep the orchestrator and subagents on the same `.swt-planning/.../remediation/uat/...` artifacts.
-    </uat_remediation_spawn_contract>
-    <examples>
-    <example type="anti-pattern" label="WRONG — stage progress via delegated task manager">
-    TaskCreate("Research Phase 03 UAT remediation") → TaskUpdate("Plan", completed) → TaskCreate("Execute") creates stage trackers outside the orchestrator's TodoWrite progress list.
-    </example>
-    <example type="correct" label="RIGHT — stage progress via TodoWrite">
-    TodoWrite: Research=in-progress, Plan=not-started, Execute=not-started; after research validates, TodoWrite: Research=completed, Plan=in-progress, Execute=not-started.
-    </example>
-    <example type="correct" label="RIGHT — delegated Dev work unit">
-    Spawn one Dev for the current plan task using the non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Include absolute artifacts exactly as returned by state metadata:
-    Plan: /repo/.swt-planning/phases/03-example/remediation/uat/round-01/R01-PLAN.md
-    Summary: /repo/.swt-planning/phases/03-example/remediation/uat/round-01/R01-SUMMARY.md
-    </example>
-    </examples>
+     <uat_remediation_artifact_contract>
+     `round_dir`, `research_path`, `plan_path`, and `summary_path` are absolute paths in the host repository. Claude Code may run subagents from `.claude/worktrees/agent-*` sidechain CWDs; pass these exact paths to every Scout/Lead/Dev prompt and never rewrite them relative to the current CWD. Do not accept artifacts written under `.claude/worktrees/agent-*` as valid remediation artifacts.
+     In migrated `layout=legacy` projects, non-empty `research_path` or `plan_path` may be an absolute phase-root artifact selected by `uat-remediation-state.sh`; validate that exact metadata path directly instead of rewriting it to `round_dir` or searching for alternatives.
+     </uat_remediation_artifact_contract>
+     <uat_remediation_spawn_contract>
+     The Research → Plan → Execute (or Fix) list is session progress tracking only. TodoWrite is the only progress tracker for these stages; do not create or update stage-progress items with TaskCreate, TaskUpdate, Agent, or TeamCreate. TaskCreate/Agent is allowed only for real Scout/Lead/Dev work-unit delegation inside the current stage, never to represent the stage list itself.
+     UAT remediation spawns are plain sequential subagent calls. Do not use TeamCreate. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Claude Code worktree isolation and spawn cwd handoffs are not reliable for this path; exact absolute host paths keep the orchestrator and subagents on the same `.swt-planning/.../remediation/uat/...` artifacts.
+     </uat_remediation_spawn_contract>
+     <examples>
+     <example type="anti-pattern" label="WRONG — stage progress via delegated task manager">
+     TaskCreate("Research Phase 03 UAT remediation") → TaskUpdate("Plan", completed) → TaskCreate("Execute") creates stage trackers outside the orchestrator's TodoWrite progress list.
+     </example>
+     <example type="correct" label="RIGHT — stage progress via TodoWrite">
+     TodoWrite: Research=in-progress, Plan=not-started, Execute=not-started; after research validates, TodoWrite: Research=completed, Plan=in-progress, Execute=not-started.
+     </example>
+     <example type="correct" label="RIGHT — delegated Dev work unit">
+     Spawn one Dev for the current plan task using the non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Include absolute artifacts exactly as returned by state metadata:
+     Plan: /repo/.swt-planning/phases/03-example/remediation/uat/round-01/R01-PLAN.md
+     Summary: /repo/.swt-planning/phases/03-example/remediation/uat/round-01/R01-SUMMARY.md
+     </example>
+     </examples>
    - If a stage was already persisted (resume after compaction/restart), the script returns the stage word + plan metadata with no side effects.
    - If no stage existed (first entry into remediation), the script initializes the stage file, creates `remediation/uat/round-01/` directory, pre-seeds the phase `{NN}-CONTEXT.md`, and returns the stage word + plan metadata + `---CONTEXT---` separator with the full pre-seeded context content — **use this directly as your remediation context. Do NOT separately read UAT.md or `{NN}-CONTEXT.md` files.**
    - If the returned stage is `done`: UAT remediation already completed for this phase. Display "Remediation already completed. Run `swt cook` to re-verify." STOP.
-    **TodoWrite progress list (NON-NEGOTIABLE ordering and state):** Immediately after resolving the stage, create a TodoWrite progress list with items in **exactly this order** for the major path: (1) Research, (2) Plan, (3) Execute. For the minor path: (1) Fix. **Item numbering must match stage order** — Research is always #1, Plan #2, Execute #3. Never reorder items. This is a progress display for the user — agent spawning for each stage is handled in the execution stage below. Do not represent Research, Plan, Execute, or Fix as TaskCreate/TaskUpdate items.
+     **TodoWrite progress list (NON-NEGOTIABLE ordering and state):** Immediately after resolving the stage, create a TodoWrite progress list with items in **exactly this order** for the major path: (1) Research, (2) Plan, (3) Execute. For the minor path: (1) Fix. **Item numbering must match stage order** — Research is always #1, Plan #2, Execute #3. Never reorder items. This is a progress display for the user — agent spawning for each stage is handled in the execution stage below. Do not represent Research, Plan, Execute, or Fix as TaskCreate/TaskUpdate items.
    - **Initial creation:** If the resolved stage is `research`, mark Research as in-progress, Plan and Execute as not-started. If the resolved stage is `plan` (resume case), mark Research as completed, Plan as in-progress, Execute as not-started. If `execute`, mark Research and Plan as completed, Execute as in-progress.
    - **Same-session progression:** When a stage completes and you advance to the next stage within the same session (e.g., research completes → advance → start plan), immediately update the TodoWrite progress list: mark the completed stage as completed and the new stage as in-progress. Do NOT defer updates or recreate the list from scratch.
    - **Final stage:** When the last stage completes, mark ALL TodoWrite items as completed before presenting the summary.
@@ -714,15 +751,16 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 
    **Post-route enrichment:** When inspecting earlier archived UAT artifacts for recurrence, read only the archived artifacts for this phase (flat `*-UAT-round-*.md` or round-dir `remediation/uat/round-*/R*-UAT.md`) and **exclude the active step-2 UAT artifact itself from the scan**. Build `FAILED_IN_ROUNDS` from the matching archived rounds plus `active_uat_round`. If no earlier matches exist, default each current issue to `FAILED_IN_ROUNDS={active_uat_round}` — **never** default to `RR` when the active artifact is a previous-round UAT.
 
-  **Phase-level escalation:** When `RR >= 3`, force ALL issues through `research → plan → execute` regardless of severity. If the persisted stage from step 4 is `fix`, replace the quick-fix TodoWrite progress list with the major-path TodoWrite progress list (`Research`, `Plan`, `Execute`) before continuing.
+   **Phase-level escalation:** When `RR >= 3`, force ALL issues through `research → plan → execute` regardless of severity. If the persisted stage from step 4 is `fix`, replace the quick-fix TodoWrite progress list with the major-path TodoWrite progress list (`Research`, `Plan`, `Execute`) before continuing.
 
    **Per-test priority ranking:** Rank issues by `failure_count` descending — tests that failed the most recorded UAT rounds get investigated and fixed FIRST. When presenting issues to Scout (research stage) and Lead (plan stage), reorder by `failure_count` descending and annotate:
    - `⚠ RECURRING (failed in N recorded rounds): ID|SEVERITY|DESCRIPTION` for tests with `failure_count >= 2`
    - `ID|SEVERITY|DESCRIPTION` (no annotation) for first-time failures
 
-   **Scout research prompt for recurring issues** MUST include: *"{ID} has failed in {N} recorded UAT rounds (rounds: {FAILED_IN_ROUNDS}). Current source artifact round: {active_uat_round}; current remediation round: {RR}. Prior fixes have not resolved this. Investigate WHY previous fixes failed before proposing a new approach — examine the actual data flow, not just symptoms."*
+   **Scout research prompt for recurring issues** MUST include: _"{ID} has failed in {N} recorded UAT rounds (rounds: {FAILED_IN_ROUNDS}). Current source artifact round: {active_uat_round}; current remediation round: {RR}. Prior fixes have not resolved this. Investigate WHY previous fixes failed before proposing a new approach — examine the actual data flow, not just symptoms."_
 
-   **Lead planning prompt for recurring issues** MUST include: *"Prioritize recurring failures. {ID} has failed in {N} recorded UAT rounds — allocate more plans/effort to this issue than to first-time failures."*
+   **Lead planning prompt for recurring issues** MUST include: _"Prioritize recurring failures. {ID} has failed in {N} recorded UAT rounds — allocate more plans/effort to this issue than to first-time failures."_
+
 ### Execute the current stage
 
 Execute the current stage based on `STAGE`:
@@ -733,9 +771,11 @@ Execute the current stage based on `STAGE`:
 #### research
 
 If `research_path` from step 4 is non-empty, research already exists — validate it before advancing:
+
 ```bash
 bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/validate-uat-remediation-artifact.sh research "{research_path}"
 ```
+
 If validation fails, display the validator error and STOP without advancing state. Otherwise, skip to advancing the stage.
 
 If `research_path` is empty, spawn Scout (with `subagent_type: "swt:swt-scout"`; non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`); `name` is optional label-only metadata and must never be used for routing, lifecycle state, or team semantics) with the normalized issue list from steps 3-5, **ordered by failure_count descending**, so Scout investigates the relevant code areas for each issue. Use `round` from step 4 as `{RR}`. Pass `<output_path>{round_dir}/R{RR}-RESEARCH.md</output_path>` in the Scout prompt so Scout writes the file directly to the absolute host-repository round directory. Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select only skills directly needed for this research task. Do not include implementation, build, or adjacent domain skills solely because they might become useful in a later Lead or Dev stage. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData and the research task requires SwiftData model semantics, include `swiftdata`; do not include it only as a possible future implementation aid. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. Also evaluate available MCP tools in your system context — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to investigating these issues, note them in the Scout's task context so it prioritizes those tools over generic WebSearch/WebFetch where applicable.
@@ -743,6 +783,7 @@ If `research_path` is empty, spawn Scout (with `subagent_type: "swt:swt-scout"`;
 If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the UAT remediation research Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
 
 Use this payload prefix as the FIRST lines of the UAT remediation research Scout prompt:
+
 ```text
 <skill_activation>
 Call Skill('{relevant-skill-1}').
@@ -753,7 +794,9 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
 </skill_follow_up_files>
 ```
+
 When no installed skills apply, use this prefix instead:
+
 ```text
 <skill_no_activation>
 Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
@@ -761,7 +804,7 @@ Evaluated installed skills for this task. No skills were preselected at orchestr
 After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
 ```
 
-- **Live data validation:** When any issue involves external data sources (APIs, databases, services), include in the Scout prompt: *"Public/anonymous HTTP validation uses WebFetch. Authenticated/private read-only checks use verified-safe Bash helper scripts or curl wrappers after preflight. Do not run unsafe or mutating checks; defer those to Dev/Debugger. When live validation runs or is deferred, include `## Live Validation Evidence` with `command_shape`, `exit_status`, `redacted_evidence`, `expected_shape`, `confidence`, and `limitations_or_deferred_reason`."*
+- **Live data validation:** When any issue involves external data sources (APIs, databases, services), include in the Scout prompt: _"Public/anonymous HTTP validation uses WebFetch. Authenticated/private read-only checks use verified-safe Bash helper scripts or curl wrappers after preflight. Do not run unsafe or mutating checks; defer those to Dev/Debugger. When live validation runs or is deferred, include `## Live Validation Evidence` with `command_shape`, `exit_status`, `redacted_evidence`, `expected_shape`, `confidence`, and `limitations_or_deferred_reason`."_
 - After Scout completes, validate the exact research artifact before advancing:
   - If Scout returns a no-tool/tool-provisioning failure, apply the circuit breaker above before running validation.
   ```bash
@@ -777,9 +820,11 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 #### plan
 
 If `plan_path` from step 4 is non-empty, the plan was already written in a previous session — do NOT re-plan. Validate it, read the existing plan, and advance directly to `execute`:
+
 ```bash
 bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/validate-uat-remediation-artifact.sh plan "{plan_path}"
 ```
+
 If validation fails, display the validator error and STOP without advancing state. If validation succeeds, read the existing plan and advance directly to `execute`.
 
 If `plan_path` is empty, spawn Lead as a **single subagent** to write the remediation plan.
@@ -929,7 +974,7 @@ Execute the remediation plan by spawning Dev agents sequentially — one per tas
     ```
     **uat_path validation (defense-in-depth):** After parsing the fresh verify context, validate that `uat_path` already points at the current remediation round's round-scoped UAT path (`remediation/uat/round-{RR}/R{RR}-UAT.md` for round-dir layout, `remediation/round-{RR}/R{RR}-UAT.md` for legacy layout). If it does not (e.g., it points to the phase-root UAT like `03-UAT.md`), override it with the round-scoped path for the current round from `uat-remediation-state.sh`. This prevents the original phase-root UAT from being overwritten during re-verification.
     Use this fresh verify context for the Verify mode CHECKPOINT loop.
-  Do NOT present the remediation summary and stop — the summary is only useful if the session cannot continue (e.g., compaction).
+    Do NOT present the remediation summary and stop — the summary is only useful if the session cannot continue (e.g., compaction).
 
 #### fix
 
@@ -954,13 +999,14 @@ Only when re-verification chaining could not complete in this turn — e.g., con
 This mode handles the case where a milestone was archived before UAT issues were resolved (e.g., due to a missing audit gate in older versions).
 
 **Steps:**
+
 1. Use pre-computed milestone UAT issues from the "Milestone UAT issues" context block above. Each block starts with `milestone_phase_dir=<path>` followed by `extract-uat-issues.sh` output (header line + issue lines). Do NOT read UAT files from the milestone — all issue data is already extracted.
    If `milestone_uat_count` > 1, multiple blocks are present (one per affected phase, separated by `---`). If `milestone_uat_count` = 1, a single block is present.
 2. Display the unresolved issues to the user with milestone context (milestone slug, affected phase count, severity mix). Then call AskUserQuestion with three options:
    - **"Create remediation phases"** (set `isRecommended` when `milestone_uat_major_or_higher=true`): Create one remediation phase per affected milestone phase. Auto-populate each phase goal from the UAT issue descriptions. Route to Plan mode for the first created phase.
    - **"Start fresh with new work"**: Acknowledge the stale UAT issues, mark them as acknowledged (`.remediated`) so they don't re-trigger archive blocking, then proceed as if all_done. The user can define new work via `swt cook` with arguments.
    - **"Not now"**: Skip milestone UAT recovery without marking anything. The unresolved UAT issues will re-trigger on the next `swt cook` invocation.
-   **`--yolo` exception:** If `--yolo` was passed, skip the AskUserQuestion and auto-select "Create remediation phases" (the recommended action).
+     **`--yolo` exception:** If `--yolo` was passed, skip the AskUserQuestion and auto-select "Create remediation phases" (the recommended action).
 3. If the user chooses remediation: create remediation phases via script — one per affected milestone phase:
    ```bash
    IFS='|' read -ra UAT_DIRS <<< "$milestone_uat_phase_dirs"
@@ -971,7 +1017,7 @@ This mode handles the case where a milestone was archived before UAT issues were
    The script also writes a `.remediated` marker in each source milestone phase dir to prevent re-triggering on future sessions. After creating all phases, write a ROADMAP.md and update STATE.md reflecting the remediation phases.
    **Remediation commit boundary (conditional):**
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "create milestone remediation phases" .swt-planning/config.json
    else
@@ -1003,7 +1049,7 @@ This mode handles the case where a milestone was archived before UAT issues were
    - `needs_execute` → Execute mode
    - `phase_count=0` → Scope mode
    - `all_done` → Archive mode
-   This list is illustrative — always defer to the full priority table. Do NOT stop and ask "What would you like to build?" when phases already exist.
+     This list is illustrative — always defer to the full priority table. Do NOT stop and ask "What would you like to build?" when phases already exist.
 5. If the user chooses "Not now": display "Skipping milestone UAT recovery. Run `swt cook` again when ready to address these issues." and STOP. No `.remediated` markers are written — the unresolved UAT issues will re-trigger on the next `swt cook` invocation.
 
 ### Mode: Plan
@@ -1013,6 +1059,7 @@ This mode handles the case where a milestone was archived before UAT issues were
 **Milestone path guard:** If `{phases_dir}` contains `.swt-planning/milestones/`, STOP "Cannot plan inside archived milestones." Archived milestones are read-only.
 
 **Steps:**
+
 1. **Parse args:** Phase number (optional, auto-detected), --effort (optional, falls back to config).
 2. **Phase context:** Resolve CONTEXT path:
    ```bash
@@ -1027,7 +1074,7 @@ This mode handles the case where a milestone was archived before UAT issues were
      MM=$(echo "$NEXT_PLAN_NAME" | sed 's/^[0-9]*-\([0-9]*\)-.*/\1/')
      RESEARCH_NAME=$(bash "$RESOLVE_SCRIPT" phase-research "{phase-dir}")
      ```
-    - Check for phase-wide research `{phase-dir}/${RESEARCH_NAME}` (preferred). If phase-wide does not exist, only treat historical `{phase-dir}/{NN}-01-RESEARCH.md` as brownfield phase research when no higher-numbered per-plan research exists. Compute it with: `OTHER_PLAN_RESEARCH=$(find "{phase-dir}" -maxdepth 1 -name "{NN}-[0-9][0-9]*-RESEARCH.md" ! -name "{NN}-01-RESEARCH.md" -print -quit 2>/dev/null); if [ -f "{phase-dir}/{NN}-01-RESEARCH.md" ] && [ -z "$OTHER_PLAN_RESEARCH" ]; then BROWNFIELD_RESEARCH="{phase-dir}/{NN}-01-RESEARCH.md"; fi`. If `$OTHER_PLAN_RESEARCH` is non-empty, leave `$BROWNFIELD_RESEARCH` empty — multiple per-plan research files remain distinct and do not count as phase-wide research.
+   - Check for phase-wide research `{phase-dir}/${RESEARCH_NAME}` (preferred). If phase-wide does not exist, only treat historical `{phase-dir}/{NN}-01-RESEARCH.md` as brownfield phase research when no higher-numbered per-plan research exists. Compute it with: `OTHER_PLAN_RESEARCH=$(find "{phase-dir}" -maxdepth 1 -name "{NN}-[0-9][0-9]*-RESEARCH.md" ! -name "{NN}-01-RESEARCH.md" -print -quit 2>/dev/null); if [ -f "{phase-dir}/{NN}-01-RESEARCH.md" ] && [ -z "$OTHER_PLAN_RESEARCH" ]; then BROWNFIELD_RESEARCH="{phase-dir}/{NN}-01-RESEARCH.md"; fi`. If `$OTHER_PLAN_RESEARCH` is non-empty, leave `$BROWNFIELD_RESEARCH` empty — multiple per-plan research files remain distinct and do not count as phase-wide research.
    - **If neither exists:** If `config_context_compiler=true`, compile Scout context first: `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-context.sh {phase} scout {phases_dir}`. Include `.context-scout.md` in the Scout prompt if produced, described as: "compiled context — includes milestone scope decisions (decomposition rationale, scope boundaries, cross-phase key decisions) and phase operational context (goal, success criteria, matched requirements, conventions, changed files)."
      Spawn Scout agent to research the phase goal, requirements, and relevant codebase patterns. Scout writes its findings directly to the output path. Pass `<output_path>{phase-dir}/${RESEARCH_NAME}</output_path>` in the Scout prompt so Scout writes the file using its Write tool. After Scout completes, confirm the file exists (read first line). Resolve Scout model:
      ```bash
@@ -1039,33 +1086,39 @@ This mode handles the case where a milestone was archived before UAT issues were
      SCOUT_MODEL="$RESOLVED_MODEL"
      SCOUT_MAX_TURNS="$RESOLVED_MAX_TURNS"
      ```
-  Pass `subagent_type: "swt:swt-scout"` and `model: "${SCOUT_MODEL}"` to the Task tool. If `SCOUT_MAX_TURNS` is non-empty, also pass `maxTurns: ${SCOUT_MAX_TURNS}`. If `SCOUT_MAX_TURNS` is empty, do NOT include maxTurns (omitting it = unlimited). Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. Also evaluate available MCP tools in your system context — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to this research, note them in the Scout's task context so it prioritizes those tools over generic WebSearch/WebFetch where applicable.
-  If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the phase research Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
-  Use this payload prefix as the FIRST lines of the phase research Scout prompt:
-  ```text
-  <skill_activation>
-  Call Skill('{relevant-skill-1}').
-  Call Skill('{relevant-skill-2}').
-  </skill_activation>
-  After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-  <skill_follow_up_files>
-  {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
-  </skill_follow_up_files>
-  ```
-  When no installed skills apply, use this prefix instead:
-  ```text
-  <skill_no_activation>
-  Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
-  </skill_no_activation>
-  After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-  ```
+     Pass `subagent_type: "swt:swt-scout"` and `model: "${SCOUT_MODEL}"` to the Task tool. If `SCOUT_MAX_TURNS` is non-empty, also pass `maxTurns: ${SCOUT_MAX_TURNS}`. If `SCOUT_MAX_TURNS` is empty, do NOT include maxTurns (omitting it = unlimited). Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. Also evaluate available MCP tools in your system context — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to this research, note them in the Scout's task context so it prioritizes those tools over generic WebSearch/WebFetch where applicable.
+     If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the phase research Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+     Use this payload prefix as the FIRST lines of the phase research Scout prompt:
+
+```text
+<skill_activation>
+Call Skill('{relevant-skill-1}').
+Call Skill('{relevant-skill-2}').
+</skill_activation>
+After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+<skill_follow_up_files>
+{If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
+</skill_follow_up_files>
+```
+
+When no installed skills apply, use this prefix instead:
+
+```text
+<skill_no_activation>
+Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
+</skill_no_activation>
+After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+```
+
     - **If exists (phase-wide or legacy single-file brownfield):** Record the RESEARCH.md path (phase-wide `${RESEARCH_NAME}` or brownfield `${BROWNFIELD_RESEARCH}`) for inclusion in the Lead prompt. The Lead prompt MUST include the directive: `Read {research-path} for full research findings before planning.` Do NOT inline a summary of the research as a substitute — the Lead must read the file itself to get the complete, unabridged findings. Multiple per-plan research files are not phase-wide research; if no real phase-wide file exists, Scout should create `${RESEARCH_NAME}`. Lead may update the phase-wide RESEARCH.md if new information emerges.
-   - **On failure:** Log warning, continue planning without research. Do not block.
-    - **Authenticated live validation policy:** Scout may validate authenticated/private read-only APIs with verified-safe Bash helper scripts or curl wrappers after preflight. Public/anonymous HTTP validation uses WebFetch. Do not route authenticated API validation through WebFetch. If a check is unsafe, mutating, or cannot be verified as read-only, Scout must flag it with `⚠ REQUIRES AUTHENTICATED LIVE VALIDATION` for Dev/Debugger. Research that runs or defers live validation must include `## Live Validation Evidence` with `command_shape`, `exit_status`, `redacted_evidence`, `expected_shape`, `confidence`, and `limitations_or_deferred_reason`.
-   - If effort=turbo: skip entirely.
+
+- **On failure:** Log warning, continue planning without research. Do not block.
+- **Authenticated live validation policy:** Scout may validate authenticated/private read-only APIs with verified-safe Bash helper scripts or curl wrappers after preflight. Public/anonymous HTTP validation uses WebFetch. Do not route authenticated API validation through WebFetch. If a check is unsafe, mutating, or cannot be verified as read-only, Scout must flag it with `⚠ REQUIRES AUTHENTICATED LIVE VALIDATION` for Dev/Debugger. Research that runs or defers live validation must include `## Live Validation Evidence` with `command_shape`, `exit_status`, `redacted_evidence`, `expected_shape`, `confidence`, and `limitations_or_deferred_reason`.
+- If effort=turbo: skip entirely.
+
 4. **Research commit boundary (conditional):** If Scout was spawned in step 3 (new RESEARCH.md written):
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "research phase {NN}" .swt-planning/config.json
    else
@@ -1090,245 +1143,11 @@ This mode handles the case where a milestone was archived before UAT issues were
      LEAD_MODEL="$RESOLVED_MODEL"
      LEAD_MAX_TURNS="$RESOLVED_MAX_TURNS"
      ```
-  **No team creation in Plan mode.** Scout (step 3) and Lead are sequential — Scout must complete before Lead starts (Lead reads the RESEARCH.md). Execute mode may later choose true team mode or serialized Dev subagents based on dependency-aware routing; `prefer_teams` is evaluated there, not here. Always spawn Lead as a plain subagent.
-  - Before composing the Lead task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Lead prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-  - If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the phase planning Lead. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
-  - Use this payload prefix as the FIRST lines of the phase planning Lead prompt:
-    ```text
-    <skill_activation>
-    Call Skill('{relevant-skill-1}').
-    Call Skill('{relevant-skill-2}').
-    </skill_activation>
-    After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-    <skill_follow_up_files>
-    {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
-    </skill_follow_up_files>
-    ```
-    When no installed skills apply, use this prefix instead:
-    ```text
-    <skill_no_activation>
-    Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
-    </skill_no_activation>
-    After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-    ```
-  - Also evaluate available MCP tools in your system context. If any MCP servers provide capabilities relevant to this planning task, use them to derive concise facts, docs, results, or recommended Dev-stage CLIs/skills for the Lead's task context. Dev subagents may call any MCP tools available in their runtime; no orchestrator-side gating is required.
-   - Spawn swt-lead as subagent via Task tool with compiled context (or full file list as fallback).
-  - **CRITICAL:** Set `subagent_type: "swt:swt-lead"` and `model: "${LEAD_MODEL}"` in the Task tool invocation. If `LEAD_MAX_TURNS` is non-empty, also pass `maxTurns: ${LEAD_MAX_TURNS}`. If `LEAD_MAX_TURNS` is empty, do NOT include maxTurns (omitting it = unlimited). Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
-   - **CRITICAL:** If a RESEARCH.md was found or created in step 3, include in the Lead prompt: `Read {research-path} for full research findings before planning.` where `{research-path}` is the per-plan or legacy path from step 3. The Lead must read the file itself — do NOT substitute an inlined summary.
-  - Required Lead guidance: "Execute may run plans as true team teammates or as serialized Dev subagents. Model real dependencies accurately. Same-wave plans must be genuinely independent and modify disjoint file sets; linear chains are valid when dependencies are real. Do not invent independence to increase wave 1 size — dependency-aware Execute uses teams only for real parallel delegate work, and false same-wave grouping can cause stale inputs or file conflicts."
-   - **CRITICAL:** Include in the Lead prompt: `Use resolve-artifact-path.sh to compute plan filenames: bash ${RESOLVE_SCRIPT} plan "{phase-dir}" --plan-number {MM}` where `RESOLVE_SCRIPT` is the path from step 3. The script returns the canonical filename (e.g., `03-01-PLAN.md`). Call it once per plan with the plan number.
-   - Display `◆ Spawning Lead agent...` -> `✓ Lead agent complete`.
-8. **Normalize plan filenames:**
-    ```bash
-    NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-    if [ -f "$NORM_SCRIPT" ]; then
-      bash "$NORM_SCRIPT" "{phase_dir}"
-    fi
-    ```
-    This catches any misnamed files written by Lead (e.g., turbo mode or models that bypass the PreToolUse block).
-9. **Validate output:** Verify PLAN.md has valid frontmatter (phase, plan, title, wave, depends_on, must_haves) and tasks. Check wave deps acyclic.
-10. **Present:** Update STATE.md (phase position, plan count, status=Planned). Resolve model profile:
-   ```bash
-   MODEL_PROFILE=$(jq -r '.model_profile // "quality"' .swt-planning/config.json)
-   ```
-   Display Phase Banner with plan list, effort level, and model profile:
-    ```text
-   Phase {NN}: {name}
-   Plans: {N}
-     {plan}: {title} (wave {W}, {N} tasks)
-   Effort: {effort}
-   Model Profile: {profile}
-   ```
-11. **Planning commit boundary (conditional):**
-   ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "plan phase {NN}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
-   ```
-   Behavior: `planning_tracking=commit` commits planning artifacts if changed. `auto_push=always` pushes when upstream exists.
-12. **Cautious gate (autonomy=cautious only):** STOP after planning. Ask "Plans ready. Execute Phase {NN}?" Other levels: auto-chain.
+     **No team creation in Plan mode.** Scout (step 3) and Lead are sequential — Scout must complete before Lead starts (Lead reads the RESEARCH.md). Execute mode may later choose true team mode or serialized Dev subagents based on dependency-aware routing; `prefer_teams` is evaluated there, not here. Always spawn Lead as a plain subagent.
 
-### Mode: Execute
-
-**Execute-mode invariant:** Parallel execution is only valid when dependency-aware routing finds real parallel delegate work and the live tool set can create real team-scoped teammates. If routing selects serialized subagents, turbo/internal direct, or real team semantics cannot be established, execute mode must fall back to explicit non-team execution. Never simulate a team with background `Agent` spawns that lack `team_name`.
-
-Read `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/references/execute-protocol.md` and follow its instructions.
-
-This mode delegates entirely to the protocol file. **Orchestrator read-scope:** Do NOT read product source files. Your job is orchestration — read plans, check summaries, spawn Dev for remaining work. If you need product-code understanding to route or sequence, delegate that to Dev.
-
-Before reading:
-0. **Pre-normalize filenames:**
-    ```bash
-    NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-    if [ -f "$NORM_SCRIPT" ]; then
-      bash "$NORM_SCRIPT" "{phase_dir}"
-    fi
-    ```
-1. **Parse arguments:** Phase number (auto-detect if omitted), --effort, --skip-qa, --plan=NN.
-2. **Run execute guards:**
-   - Not initialized: STOP "Run swt init first."
-   - No PLAN.md in phase dir: STOP "Phase {NN} has no plans. Run `swt cook --plan {NN}` first."
-   - All plans have SUMMARY.md: cautious/standard -> WARN + confirm; confident/pure-vibe -> warn + auto-continue.
-   - **Milestone path guard:** If `{phases_dir}` contains `.swt-planning/milestones/`, STOP "Cannot execute inside archived milestones." This prevents writing artifacts into shipped milestone directories.
-3. **Compile context:** If `config_context_compiler=true`, run:
-   - `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-context.sh {phase} dev {phases_dir} {plan_path}`
-   - `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-context.sh {phase} qa {phases_dir}`
-   Include compiled context paths in Dev and QA task descriptions. When referencing `.context-dev.md`, describe it as: "compiled context — includes milestone scope decisions (decomposition rationale, scope boundaries, cross-phase key decisions) and phase operational context (goal, conventions, active plan, research findings, changed files, code slices)." When referencing `.context-qa.md`, describe it as: "compiled context — includes milestone scope decisions and phase verification context (success criteria, requirements, conventions to check)."
-  If `TODO_SELECTED_JSON` already exists from the numbered-todo path and `DETAIL_STATUS=ok`, reuse the already-loaded detail in the Dev task description: `Extended context (from todo detail): {detail.context value}. Related files: {detail.files, comma-separated, or omit if empty}.`
-
-  Otherwise, if a ref hash was extracted during Input Parsing, load extended detail now:
-   ```bash
-  bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/todo-details.sh get {hash}
-   ```
-  Parse the JSON output. If `status` is `"ok"`, include the detail in the Dev task description: `Extended context (from todo detail): {detail.context value}. Related files: {detail.files, comma-separated, or omit if empty}.` If `status` is `"not_found"` or `"error"`, run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/todo-lifecycle.sh detail-warning {hash}` and continue without detail — do not block. This provides the executing agent with the rich context that motivated the work item.
-
-Then Read the protocol file and execute Steps 2-5 as written.
-
-### Mode: Verify
-
-**Guard:** Initialized, phase has `*-SUMMARY.md` files.
-No SUMMARY.md: STOP "Phase {NN} has no completed plans. Run swt cook first."
-**Phase auto-detection:** First phase with `*-SUMMARY.md` but no canonical `*-UAT.md` (exclude `*-SOURCE-UAT.md` copies). All verified: STOP "All phases have UAT results. To re-run UAT for a specific phase, use `swt cook --verify {NN}`."
-
-**Inline execution (NON-NEGOTIABLE):** UAT is an interactive conversation with the human user via AskUserQuestion CHECKPOINT prompts. Do NOT spawn a QA agent, Dev agent, or any subagent for UAT verification. Do NOT use TaskCreate to delegate UAT. The AskUserQuestion tool is only available to the orchestrator — subagents cannot interact with the user, so delegating UAT to a subagent bypasses user input entirely and produces auto-written UAT files without human judgment. Run the verify.md CHECKPOINT loop directly in this conversation, the same way UAT Remediation coordinates its stages inline.
-
-**Steps:**
-1. Read `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/commands/verify.md` protocol. When entering from `needs_reverification` or `auto_uat` routing, the pre-computed verify context (verify_scope, uat_path, uat_resume) is already available from the Context section above — use it unless the `needs_reverification` flow above just refreshed verify context and resume metadata after `prepare-reverification.sh`, in which case use that refreshed output instead. **Error guard:** If the active verify block contains `verify_context_error=true` or `verify_context=unavailable`, display: "⚠ Verify context compilation failed. Run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-verify-context.sh .swt-planning/phases/{NN}-{slug}` manually to debug." STOP. Do NOT improvise by scanning PLAN/SUMMARY files manually in this routed path.
-2. Execute the verify.md steps inline in this conversation. Specifically: generate test scenarios (verify.md Step 4), then run the CHECKPOINT loop (verify.md Step 5) presenting one test at a time via AskUserQuestion and waiting for the user's response before proceeding to the next test. Use the pre-computed "Verify context" block from this command's Context section — it contains the PLAN/SUMMARY aggregation and UAT resume metadata for the target phase. Pass the full UAT resume metadata through to the verify protocol, including `uat_resume_scenario`, `uat_resume_expected`, and summary-deviation source fields when present, so verify.md can ask the first resumed checkpoint without re-reading the UAT file. After each persisted answer, verify.md re-runs `extract-uat-resume.sh` and uses the refreshed deterministic fields for the next checkpoint. Do NOT read individual PLAN/SUMMARY files or scan-parse UAT.md for resume state.
-3. Display results per verify.md output format.
-4. **UAT Remediation Auto-Continuation:** This step only applies when verify.md emitted `remediation_continue=true` (which happens when `verify_scope=remediation` AND `status=issues_found` AND running in orchestrated mode from vibe.md). If `remediation_continue` was not set (first-time UAT, complete result, or standalone verify), skip this step entirely — the command ends after step 3.
-
-   **Prepare the next remediation round through the safe transition helper:** Run `prepare-reverification.sh` exactly once for this transition. This helper finalizes and validates the active UAT before state mutation, applies the UAT remediation round cap, and then performs the next-round transition when allowed. A direct `needs-round` call is not the transition path here because it can mutate `.uat-remediation-stage` before the current UAT is terminal.
-
-   ```bash
-   _prepare_output=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/prepare-reverification.sh "{phase-dir}" 2>&1)
-   _prepare_status=$?
-   ```
-
-   **If `prepare-reverification.sh` exits nonzero:** Display the helper output and STOP. Do not re-enter remediation with stale state.
-
-   **If `_prepare_output` is empty or malformed:** STOP. Required recognized keys are one of `archived=...` or `skipped=...`; valid `skipped` values are `already_archived`, `ready_for_verify`, or `cap_reached`. Malformed prepare output means the transition could not be proven safe.
-
-   Parse the helper output:
-   ```bash
-   _archived=$(printf '%s\n' "$_prepare_output" | awk -F= '/^archived=/{print $2; exit}')
-   _skipped=$(printf '%s\n' "$_prepare_output" | awk -F= '/^skipped=/{print $2; exit}')
-   _round=$(printf '%s\n' "$_prepare_output" | awk -F= '/^round=/{print $2; exit}')
-   _max_rounds=$(printf '%s\n' "$_prepare_output" | awk -F= '/^max_rounds=/{print $2; exit}')
-   ```
-
-   **If `_skipped=cap_reached`:** Display the cap-reached banner and STOP. Use `max_rounds={N}` from the helper output:
-   ```text
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     Reached maximum UAT remediation rounds ({_max_rounds}).
-     Review issues manually or adjust max_uat_remediation_rounds
-     in config.json.
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   ```
-   Do NOT re-enter remediation. STOP.
-
-   **Resolve the new round:** Prefer `round=` from `prepare-reverification.sh` when present. If `round=` is absent after a successful prepare, read the current round as a read-only fallback:
-   ```bash
-   if [ -z "$_round" ]; then
-     _round=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/uat-remediation-state.sh current-round "{phase-dir}" 2>/dev/null)
-   fi
-   ```
-   If `_round` is empty after both attempts, treat the prepare output as malformed and STOP.
-
-   Display the transition banner and re-enter UAT Remediation mode inline:
-   ```text
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     Re-verification found {N} issue(s). Continuing to Round {_round}.
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   ```
-   Where `{N}` is the issue count from the `remediation_continue` signal (`issues={N}`).
-   Re-enter UAT Remediation mode (above) for the same `PHASE_DIR`. The prepare helper set the remediation state to `research` for the new round. The UAT Remediation mode's step 4 (`get-or-init`) will resume correctly from the `research` stage.
-
-  **Continuation loop behavior:** The re-entered UAT Remediation mode chains into Verify mode after its execute stage completes (existing behavior). If that verification again finds issues, verify.md emits `remediation_continue=true` again, and this step 4 re-checks the UAT remediation round cap. This creates the auto-continuation loop, bounded only when `max_uat_remediation_rounds` resolves to a positive integer. The fallback remediation summary section remains the escape hatch when context window limits prevent continuation mid-loop.
-
-### Mode: Add Phase
-
-**Guard:** Initialized. Requires phase name in $ARGUMENTS.
-Missing name: STOP "Usage: `swt cook --add <phase-name>`"
-
-**Steps:**
-1. **Codebase context:** If `.swt-planning/codebase/META.md` exists, read ARCHITECTURE.md and CONCERNS.md (whichever exist) from `.swt-planning/codebase/`. Use this to inform phase goal scoping and identify relevant modules/services.
-2. Parse args: phase name (first non-flag arg), --goal (optional), slug (lowercase hyphenated).
-3. Next number: highest in ROADMAP.md + 1, zero-padded.
-4. Create dir: `mkdir -p .swt-planning/phases/{NN}-{slug}/`
-5. **Problem research (conditional):** If $ARGUMENTS contain a problem description (bug report, feature request, multi-sentence intent) rather than just a bare phase name:
-  - Resolve Scout agent settings before spawning Scout. If helper resolution fails, warn and continue without explicit Scout model/maxTurns so this optional research step stays fail-open:
-    ```bash
-    SCOUT_MODEL=""
-    SCOUT_MAX_TURNS=""
-    if ! SCOUT_SETTINGS=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/resolve-agent-settings.sh scout .swt-planning/config.json /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/config/model-profiles.json); then
-      echo "Warning: failed to resolve Scout agent settings; continuing without explicit Scout model/maxTurns." >&2
-    else
-      eval "$SCOUT_SETTINGS"
-      SCOUT_MODEL="$RESOLVED_MODEL"
-      SCOUT_MAX_TURNS="$RESOLVED_MAX_TURNS"
-    fi
-    ```
-  - Spawn Scout agent (with `subagent_type: "swt:swt-scout"`) to research the problem in the codebase. If `SCOUT_MODEL` is non-empty, pass `model: "$SCOUT_MODEL"` to the Task invocation. If `SCOUT_MODEL` is empty, omit model so the default applies. If `SCOUT_MAX_TURNS` is non-empty, also pass `maxTurns: ${SCOUT_MAX_TURNS}`. If `SCOUT_MAX_TURNS` is empty, omit maxTurns. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Pass `<output_path>{phase-dir}/{NN}-RESEARCH.md</output_path>` in the Scout prompt so Scout writes its findings directly using its Write tool.
-    - Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-    - If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the add-phase Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
-    - Use this payload prefix as the FIRST lines of the add-phase Scout prompt:
-      ```text
-      <skill_activation>
-      Call Skill('{relevant-skill-1}').
-      Call Skill('{relevant-skill-2}').
-      </skill_activation>
-      After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-      <skill_follow_up_files>
-      {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
-      </skill_follow_up_files>
-      ```
-      When no installed skills apply, use this prefix instead:
-      ```text
-      <skill_no_activation>
-      Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
-      </skill_no_activation>
-      After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-      ```
-    - Also evaluate available MCP tools — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to this research, note them in the Scout's task context.
-    - After Scout completes, confirm the file exists (read first line).
-   - Use Scout findings to write an informed phase goal and success criteria in ROADMAP.md.
-   - On failure: log warning, write phase goal from $ARGUMENTS alone. Do not block.
-   - **This eliminates duplicate research** — Plan mode step 3 checks for existing RESEARCH.md and skips Scout if found.
-6. Update ROADMAP.md: append phase list entry, append Phase Details section (using Scout findings if available), add progress row.
-7. If `.swt-planning/CONTEXT.md` exists, rewrite it to reflect the updated milestone decomposition (phase count/grouping, ordering, scope coverage, and requirement mapping). Preserve project-level key decisions and deferred ideas where still valid.
-8. Update STATE.md phase total: `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/update-phase-total.sh .swt-planning`
-9. **Phase mutation commit boundary (conditional):**
-   ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "add phase {NN}-{slug}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
-   ```
-   Behavior: `planning_tracking=commit` commits `.swt-planning/` if changed. Other modes no-op.
-10. Present: Phase Banner with position, goal. Checklist for roadmap update + dir creation. Next Up: `swt cook --discuss` or `swt cook --plan`.
-
-### Mode: Insert Phase
-
-**Guard:** Initialized. Requires position + name.
-Missing args: STOP "Usage: `swt cook --insert <position> <phase-name>`"
-Invalid position (out of range 1 to max+1): STOP with valid range.
-Inserting before completed phase: WARN + confirm.
-
-**Steps:**
-1. **Codebase context:** If `.swt-planning/codebase/META.md` exists, read ARCHITECTURE.md and CONCERNS.md (whichever exist) from `.swt-planning/codebase/`. Use this to inform phase goal scoping and identify relevant modules/services.
-2. Parse args: position (int), phase name, --goal (optional), slug (lowercase hyphenated).
-3. Identify renumbering: all phases >= position shift up by 1.
-4. Renumber dirs in REVERSE order: rename dir {NN}-{slug} -> {NN+1}-{slug}, rename internal PLAN/SUMMARY files, update `phase:` frontmatter, update `depends_on` references.
-5. Create dir: `mkdir -p .swt-planning/phases/{NN}-{slug}/`
-6. **Problem research (conditional):** If $ARGUMENTS contain a problem description, spawn Scout (with `subagent_type: "swt:swt-scout"`; non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`); `name` is optional label-only metadata and must never be used for routing, lifecycle state, or team semantics) to research the codebase. Pass `<output_path>{phase-dir}/{NN}-RESEARCH.md</output_path>` in the Scout prompt so Scout writes the file directly. Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. Also evaluate available MCP tools — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to this research, note them in the Scout's task context. After Scout completes, confirm the file exists (read first line). This prevents Plan mode from duplicating the research.
-  If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the insert-phase Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
-  Use this payload prefix as the FIRST lines of the insert-phase Scout prompt:
+- Before composing the Lead task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Lead prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+- If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the phase planning Lead. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+- Use this payload prefix as the FIRST lines of the phase planning Lead prompt:
   ```text
   <skill_activation>
   Call Skill('{relevant-skill-1}').
@@ -1346,12 +1165,272 @@ Inserting before completed phase: WARN + confirm.
   </skill_no_activation>
   After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
   ```
+- Also evaluate available MCP tools in your system context. If any MCP servers provide capabilities relevant to this planning task, use them to derive concise facts, docs, results, or recommended Dev-stage CLIs/skills for the Lead's task context. Dev subagents may call any MCP tools available in their runtime; no orchestrator-side gating is required.
+- Spawn swt-lead as subagent via Task tool with compiled context (or full file list as fallback).
+- **CRITICAL:** Set `subagent_type: "swt:swt-lead"` and `model: "${LEAD_MODEL}"` in the Task tool invocation. If `LEAD_MAX_TURNS` is non-empty, also pass `maxTurns: ${LEAD_MAX_TURNS}`. If `LEAD_MAX_TURNS` is empty, do NOT include maxTurns (omitting it = unlimited). Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
+- **CRITICAL:** If a RESEARCH.md was found or created in step 3, include in the Lead prompt: `Read {research-path} for full research findings before planning.` where `{research-path}` is the per-plan or legacy path from step 3. The Lead must read the file itself — do NOT substitute an inlined summary.
+- Required Lead guidance: "Execute may run plans as true team teammates or as serialized Dev subagents. Model real dependencies accurately. Same-wave plans must be genuinely independent and modify disjoint file sets; linear chains are valid when dependencies are real. Do not invent independence to increase wave 1 size — dependency-aware Execute uses teams only for real parallel delegate work, and false same-wave grouping can cause stale inputs or file conflicts."
+- **CRITICAL:** Include in the Lead prompt: `Use resolve-artifact-path.sh to compute plan filenames: bash ${RESOLVE_SCRIPT} plan "{phase-dir}" --plan-number {MM}` where `RESOLVE_SCRIPT` is the path from step 3. The script returns the canonical filename (e.g., `03-01-PLAN.md`). Call it once per plan with the plan number.
+- Display `◆ Spawning Lead agent...` -> `✓ Lead agent complete`.
+
+8. **Normalize plan filenames:**
+   ```bash
+   NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
+   if [ -f "$NORM_SCRIPT" ]; then
+     bash "$NORM_SCRIPT" "{phase_dir}"
+   fi
+   ```
+   This catches any misnamed files written by Lead (e.g., turbo mode or models that bypass the PreToolUse block).
+9. **Validate output:** Verify PLAN.md has valid frontmatter (phase, plan, title, wave, depends_on, must_haves) and tasks. Check wave deps acyclic.
+10. **Present:** Update STATE.md (phase position, plan count, status=Planned). Resolve model profile:
+
+```bash
+MODEL_PROFILE=$(jq -r '.model_profile // "quality"' .swt-planning/config.json)
+```
+
+Display Phase Banner with plan list, effort level, and model profile:
+
+```text
+Phase {NN}: {name}
+Plans: {N}
+{plan}: {title} (wave {W}, {N} tasks)
+Effort: {effort}
+Model Profile: {profile}
+
+```
+
+11. **Planning commit boundary (conditional):**
+
+```bash
+PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+if [ -f "$PG_SCRIPT" ]; then
+  bash "$PG_SCRIPT" commit-boundary "plan phase {NN}" .swt-planning/config.json
+else
+  echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
+fi
+```
+
+Behavior: `planning_tracking=commit` commits planning artifacts if changed. `auto_push=always` pushes when upstream exists. 12. **Cautious gate (autonomy=cautious only):** STOP after planning. Ask "Plans ready. Execute Phase {NN}?" Other levels: auto-chain.
+
+### Mode: Execute
+
+**Execute-mode invariant:** Parallel execution is only valid when dependency-aware routing finds real parallel delegate work and the live tool set can create real team-scoped teammates. If routing selects serialized subagents, turbo/internal direct, or real team semantics cannot be established, execute mode must fall back to explicit non-team execution. Never simulate a team with background `Agent` spawns that lack `team_name`.
+
+Read `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/references/execute-protocol.md` and follow its instructions.
+
+This mode delegates entirely to the protocol file. **Orchestrator read-scope:** Do NOT read product source files. Your job is orchestration — read plans, check summaries, spawn Dev for remaining work. If you need product-code understanding to route or sequence, delegate that to Dev.
+
+Before reading: 0. **Pre-normalize filenames:**
+`bash
+    NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
+    if [ -f "$NORM_SCRIPT" ]; then
+      bash "$NORM_SCRIPT" "{phase_dir}"
+    fi
+    `
+
+1. **Parse arguments:** Phase number (auto-detect if omitted), --effort, --skip-qa, --plan=NN.
+2. **Run execute guards:**
+   - Not initialized: STOP "Run swt init first."
+   - No PLAN.md in phase dir: STOP "Phase {NN} has no plans. Run `swt cook --plan {NN}` first."
+   - All plans have SUMMARY.md: cautious/standard -> WARN + confirm; confident/pure-vibe -> warn + auto-continue.
+   - **Milestone path guard:** If `{phases_dir}` contains `.swt-planning/milestones/`, STOP "Cannot execute inside archived milestones." This prevents writing artifacts into shipped milestone directories.
+3. **Compile context:** If `config_context_compiler=true`, run:
+   - `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-context.sh {phase} dev {phases_dir} {plan_path}`
+   - `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-context.sh {phase} qa {phases_dir}`
+     Include compiled context paths in Dev and QA task descriptions. When referencing `.context-dev.md`, describe it as: "compiled context — includes milestone scope decisions (decomposition rationale, scope boundaries, cross-phase key decisions) and phase operational context (goal, conventions, active plan, research findings, changed files, code slices)." When referencing `.context-qa.md`, describe it as: "compiled context — includes milestone scope decisions and phase verification context (success criteria, requirements, conventions to check)."
+     If `TODO_SELECTED_JSON` already exists from the numbered-todo path and `DETAIL_STATUS=ok`, reuse the already-loaded detail in the Dev task description: `Extended context (from todo detail): {detail.context value}. Related files: {detail.files, comma-separated, or omit if empty}.`
+
+Otherwise, if a ref hash was extracted during Input Parsing, load extended detail now:
+
+```bash
+bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/todo-details.sh get {hash}
+```
+
+Parse the JSON output. If `status` is `"ok"`, include the detail in the Dev task description: `Extended context (from todo detail): {detail.context value}. Related files: {detail.files, comma-separated, or omit if empty}.` If `status` is `"not_found"` or `"error"`, run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/todo-lifecycle.sh detail-warning {hash}` and continue without detail — do not block. This provides the executing agent with the rich context that motivated the work item.
+
+Then Read the protocol file and execute Steps 2-5 as written.
+
+### Mode: Verify
+
+**Guard:** Initialized, phase has `*-SUMMARY.md` files.
+No SUMMARY.md: STOP "Phase {NN} has no completed plans. Run swt cook first."
+**Phase auto-detection:** First phase with `*-SUMMARY.md` but no canonical `*-UAT.md` (exclude `*-SOURCE-UAT.md` copies). All verified: STOP "All phases have UAT results. To re-run UAT for a specific phase, use `swt cook --verify {NN}`."
+
+**Inline execution (NON-NEGOTIABLE):** UAT is an interactive conversation with the human user via AskUserQuestion CHECKPOINT prompts. Do NOT spawn a QA agent, Dev agent, or any subagent for UAT verification. Do NOT use TaskCreate to delegate UAT. The AskUserQuestion tool is only available to the orchestrator — subagents cannot interact with the user, so delegating UAT to a subagent bypasses user input entirely and produces auto-written UAT files without human judgment. Run the verify.md CHECKPOINT loop directly in this conversation, the same way UAT Remediation coordinates its stages inline.
+
+**Steps:**
+
+1. Read `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/commands/verify.md` protocol. When entering from `needs_reverification` or `auto_uat` routing, the pre-computed verify context (verify_scope, uat_path, uat_resume) is already available from the Context section above — use it unless the `needs_reverification` flow above just refreshed verify context and resume metadata after `prepare-reverification.sh`, in which case use that refreshed output instead. **Error guard:** If the active verify block contains `verify_context_error=true` or `verify_context=unavailable`, display: "⚠ Verify context compilation failed. Run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-verify-context.sh .swt-planning/phases/{NN}-{slug}` manually to debug." STOP. Do NOT improvise by scanning PLAN/SUMMARY files manually in this routed path.
+2. Execute the verify.md steps inline in this conversation. Specifically: generate test scenarios (verify.md Step 4), then run the CHECKPOINT loop (verify.md Step 5) presenting one test at a time via AskUserQuestion and waiting for the user's response before proceeding to the next test. Use the pre-computed "Verify context" block from this command's Context section — it contains the PLAN/SUMMARY aggregation and UAT resume metadata for the target phase. Pass the full UAT resume metadata through to the verify protocol, including `uat_resume_scenario`, `uat_resume_expected`, and summary-deviation source fields when present, so verify.md can ask the first resumed checkpoint without re-reading the UAT file. After each persisted answer, verify.md re-runs `extract-uat-resume.sh` and uses the refreshed deterministic fields for the next checkpoint. Do NOT read individual PLAN/SUMMARY files or scan-parse UAT.md for resume state.
+3. Display results per verify.md output format.
+4. **UAT Remediation Auto-Continuation:** This step only applies when verify.md emitted `remediation_continue=true` (which happens when `verify_scope=remediation` AND `status=issues_found` AND running in orchestrated mode from vibe.md). If `remediation_continue` was not set (first-time UAT, complete result, or standalone verify), skip this step entirely — the command ends after step 3.
+
+   **Prepare the next remediation round through the safe transition helper:** Run `prepare-reverification.sh` exactly once for this transition. This helper finalizes and validates the active UAT before state mutation, applies the UAT remediation round cap, and then performs the next-round transition when allowed. A direct `needs-round` call is not the transition path here because it can mutate `.uat-remediation-stage` before the current UAT is terminal.
+
+   ```bash
+   _prepare_output=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/prepare-reverification.sh "{phase-dir}" 2>&1)
+   _prepare_status=$?
+   ```
+
+   **If `prepare-reverification.sh` exits nonzero:** Display the helper output and STOP. Do not re-enter remediation with stale state.
+
+   **If `_prepare_output` is empty or malformed:** STOP. Required recognized keys are one of `archived=...` or `skipped=...`; valid `skipped` values are `already_archived`, `ready_for_verify`, or `cap_reached`. Malformed prepare output means the transition could not be proven safe.
+
+   Parse the helper output:
+
+   ```bash
+   _archived=$(printf '%s\n' "$_prepare_output" | awk -F= '/^archived=/{print $2; exit}')
+   _skipped=$(printf '%s\n' "$_prepare_output" | awk -F= '/^skipped=/{print $2; exit}')
+   _round=$(printf '%s\n' "$_prepare_output" | awk -F= '/^round=/{print $2; exit}')
+   _max_rounds=$(printf '%s\n' "$_prepare_output" | awk -F= '/^max_rounds=/{print $2; exit}')
+   ```
+
+   **If `_skipped=cap_reached`:** Display the cap-reached banner and STOP. Use `max_rounds={N}` from the helper output:
+
+   ```text
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     Reached maximum UAT remediation rounds ({_max_rounds}).
+     Review issues manually or adjust max_uat_remediation_rounds
+     in config.json.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ```
+
+   Do NOT re-enter remediation. STOP.
+
+   **Resolve the new round:** Prefer `round=` from `prepare-reverification.sh` when present. If `round=` is absent after a successful prepare, read the current round as a read-only fallback:
+
+   ```bash
+   if [ -z "$_round" ]; then
+     _round=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/uat-remediation-state.sh current-round "{phase-dir}" 2>/dev/null)
+   fi
+   ```
+
+   If `_round` is empty after both attempts, treat the prepare output as malformed and STOP.
+
+   Display the transition banner and re-enter UAT Remediation mode inline:
+
+   ```text
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     Re-verification found {N} issue(s). Continuing to Round {_round}.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ```
+
+   Where `{N}` is the issue count from the `remediation_continue` signal (`issues={N}`).
+   Re-enter UAT Remediation mode (above) for the same `PHASE_DIR`. The prepare helper set the remediation state to `research` for the new round. The UAT Remediation mode's step 4 (`get-or-init`) will resume correctly from the `research` stage.
+
+   **Continuation loop behavior:** The re-entered UAT Remediation mode chains into Verify mode after its execute stage completes (existing behavior). If that verification again finds issues, verify.md emits `remediation_continue=true` again, and this step 4 re-checks the UAT remediation round cap. This creates the auto-continuation loop, bounded only when `max_uat_remediation_rounds` resolves to a positive integer. The fallback remediation summary section remains the escape hatch when context window limits prevent continuation mid-loop.
+
+### Mode: Add Phase
+
+**Guard:** Initialized. Requires phase name in $ARGUMENTS.
+Missing name: STOP "Usage: `swt cook --add <phase-name>`"
+
+**Steps:**
+
+1. **Codebase context:** If `.swt-planning/codebase/META.md` exists, read ARCHITECTURE.md and CONCERNS.md (whichever exist) from `.swt-planning/codebase/`. Use this to inform phase goal scoping and identify relevant modules/services.
+2. Parse args: phase name (first non-flag arg), --goal (optional), slug (lowercase hyphenated).
+3. Next number: highest in ROADMAP.md + 1, zero-padded.
+4. Create dir: `mkdir -p .swt-planning/phases/{NN}-{slug}/`
+5. **Problem research (conditional):** If $ARGUMENTS contain a problem description (bug report, feature request, multi-sentence intent) rather than just a bare phase name:
+
+- Resolve Scout agent settings before spawning Scout. If helper resolution fails, warn and continue without explicit Scout model/maxTurns so this optional research step stays fail-open:
+  ```bash
+  SCOUT_MODEL=""
+  SCOUT_MAX_TURNS=""
+  if ! SCOUT_SETTINGS=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/resolve-agent-settings.sh scout .swt-planning/config.json /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/config/model-profiles.json); then
+    echo "Warning: failed to resolve Scout agent settings; continuing without explicit Scout model/maxTurns." >&2
+  else
+    eval "$SCOUT_SETTINGS"
+    SCOUT_MODEL="$RESOLVED_MODEL"
+    SCOUT_MAX_TURNS="$RESOLVED_MAX_TURNS"
+  fi
+  ```
+- Spawn Scout agent (with `subagent_type: "swt:swt-scout"`) to research the problem in the codebase. If `SCOUT_MODEL` is non-empty, pass `model: "$SCOUT_MODEL"` to the Task invocation. If `SCOUT_MODEL` is empty, omit model so the default applies. If `SCOUT_MAX_TURNS` is non-empty, also pass `maxTurns: ${SCOUT_MAX_TURNS}`. If `SCOUT_MAX_TURNS` is empty, omit maxTurns. Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics. Pass `<output_path>{phase-dir}/{NN}-RESEARCH.md</output_path>` in the Scout prompt so Scout writes its findings directly using its Write tool.
+  - Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+  - If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the add-phase Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+  - Use this payload prefix as the FIRST lines of the add-phase Scout prompt:
+    ```text
+    <skill_activation>
+    Call Skill('{relevant-skill-1}').
+    Call Skill('{relevant-skill-2}').
+    </skill_activation>
+    After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+    <skill_follow_up_files>
+    {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
+    </skill_follow_up_files>
+    ```
+    When no installed skills apply, use this prefix instead:
+    ```text
+    <skill_no_activation>
+    Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
+    </skill_no_activation>
+    After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+    ```
+  - Also evaluate available MCP tools — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to this research, note them in the Scout's task context.
+  - After Scout completes, confirm the file exists (read first line).
+- Use Scout findings to write an informed phase goal and success criteria in ROADMAP.md.
+- On failure: log warning, write phase goal from $ARGUMENTS alone. Do not block.
+- **This eliminates duplicate research** — Plan mode step 3 checks for existing RESEARCH.md and skips Scout if found.
+
+6. Update ROADMAP.md: append phase list entry, append Phase Details section (using Scout findings if available), add progress row.
+7. If `.swt-planning/CONTEXT.md` exists, rewrite it to reflect the updated milestone decomposition (phase count/grouping, ordering, scope coverage, and requirement mapping). Preserve project-level key decisions and deferred ideas where still valid.
+8. Update STATE.md phase total: `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/update-phase-total.sh .swt-planning`
+9. **Phase mutation commit boundary (conditional):**
+   ```bash
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   if [ -f "$PG_SCRIPT" ]; then
+     bash "$PG_SCRIPT" commit-boundary "add phase {NN}-{slug}" .swt-planning/config.json
+   else
+     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
+   fi
+   ```
+   Behavior: `planning_tracking=commit` commits `.swt-planning/` if changed. Other modes no-op.
+10. Present: Phase Banner with position, goal. Checklist for roadmap update + dir creation. Next Up: `swt cook --discuss` or `swt cook --plan`.
+
+### Mode: Insert Phase
+
+**Guard:** Initialized. Requires position + name.
+Missing args: STOP "Usage: `swt cook --insert <position> <phase-name>`"
+Invalid position (out of range 1 to max+1): STOP with valid range.
+Inserting before completed phase: WARN + confirm.
+
+**Steps:**
+
+1. **Codebase context:** If `.swt-planning/codebase/META.md` exists, read ARCHITECTURE.md and CONCERNS.md (whichever exist) from `.swt-planning/codebase/`. Use this to inform phase goal scoping and identify relevant modules/services.
+2. Parse args: position (int), phase name, --goal (optional), slug (lowercase hyphenated).
+3. Identify renumbering: all phases >= position shift up by 1.
+4. Renumber dirs in REVERSE order: rename dir {NN}-{slug} -> {NN+1}-{slug}, rename internal PLAN/SUMMARY files, update `phase:` frontmatter, update `depends_on` references.
+5. Create dir: `mkdir -p .swt-planning/phases/{NN}-{slug}/`
+6. **Problem research (conditional):** If $ARGUMENTS contain a problem description, spawn Scout (with `subagent_type: "swt:swt-scout"`; non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`); `name` is optional label-only metadata and must never be used for routing, lifecycle state, or team semantics) to research the codebase. Pass `<output_path>{phase-dir}/{NN}-RESEARCH.md</output_path>` in the Scout prompt so Scout writes the file directly. Before composing the Scout task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this task, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The Scout prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references. Also evaluate available MCP tools — if any MCP servers provide documentation, search, or data retrieval capabilities relevant to this research, note them in the Scout's task context. After Scout completes, confirm the file exists (read first line). This prevents Plan mode from duplicating the research.
+   If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the insert-phase Scout. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+   Use this payload prefix as the FIRST lines of the insert-phase Scout prompt:
+
+```text
+<skill_activation>
+Call Skill('{relevant-skill-1}').
+Call Skill('{relevant-skill-2}').
+</skill_activation>
+After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+<skill_follow_up_files>
+{If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
+</skill_follow_up_files>
+```
+
+When no installed skills apply, use this prefix instead:
+
+```text
+<skill_no_activation>
+Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
+</skill_no_activation>
+After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+```
+
 7. Update ROADMAP.md: insert new phase entry + details at position (using Scout findings if available), renumber subsequent entries/headers/cross-refs, update progress table.
 8. If `.swt-planning/CONTEXT.md` exists, rewrite it to reflect the updated milestone decomposition (phase count/grouping, ordering, scope coverage, and requirement mapping). Preserve project-level key decisions and deferred ideas where still valid.
 9. Update STATE.md phase total: `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/update-phase-total.sh .swt-planning --inserted {position}` (where {position} is the insert position from step 2).
 10. **Phase mutation commit boundary (conditional):**
     ```bash
-   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
     if [ -f "$PG_SCRIPT" ]; then
       bash "$PG_SCRIPT" commit-boundary "insert phase {NN}-{slug} at position {position}" .swt-planning/config.json
     else
@@ -1370,6 +1449,7 @@ Has work (PLAN.md or SUMMARY.md): STOP "Phase {NN} has artifacts. Remove plans f
 Completed ([x] in roadmap): STOP "Cannot remove completed Phase {NN}."
 
 **Steps:**
+
 1. Parse args: extract phase number, validate, look up name/slug.
 2. Confirm: display phase details, ask confirmation. Not confirmed -> STOP.
 3. Remove dir: `rm -rf .swt-planning/phases/{NN}-{slug}/`
@@ -1379,7 +1459,7 @@ Completed ([x] in roadmap): STOP "Cannot remove completed Phase {NN}."
 7. Update STATE.md phase total: `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/update-phase-total.sh .swt-planning --removed {NN}` (where {NN} is the removed phase number from step 1).
 8. **Phase mutation commit boundary (conditional):**
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "remove phase {NN}" .swt-planning/config.json
    else
@@ -1397,20 +1477,25 @@ No work (no SUMMARY.md files): STOP "Nothing to ship."
 
 **Hard UAT gate (always, non-bypassable):**
 Before any audit/bypass handling, run:
+
 ```bash
 bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/archive-uat-guard.sh
 ```
+
 If exit code is 2: STOP. Unresolved UAT (active or milestone) blocks archive regardless of `--skip-audit` or `--force`.
 
 **Hard state-consistency gate (always, non-bypassable):**
 After the UAT gate passes, run:
+
 ```bash
 bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/verify-state-consistency.sh .swt-planning --mode archive
 ```
+
 If exit code is non-zero: STOP. If exit code is 2, state misalignment at archive means the archived milestone record may be unreliable — phase counts, completion markers, or project metadata could be inconsistent. Surface the JSON output's `failed_checks` array so the user can fix the drift before retrying. For any other non-zero exit, treat the verifier as failed unexpectedly and do not proceed with archive.
 
 **Pre-gate audit (unless --skip-audit or --force):**
 Run 7-point audit matrix:
+
 1. Roadmap completeness: every phase has real goal (not TBD/empty)
 2. Phase planning: every phase has >= 1 PLAN.md
 3. Plan execution: every PLAN.md has SUMMARY.md
@@ -1418,14 +1503,15 @@ Run 7-point audit matrix:
 5. Verification: authoritative QA verification exists and is fresh PASS. Missing=WARN, failed=FAIL. After QA remediation reaches `done`, the authoritative artifact is the round-scoped `R{RR}-VERIFICATION.md`; the frozen phase-level VERIFICATION.md must not be reused.
 6. UAT status: any `*-UAT.md` with `status: issues_found` = FAIL. Unresolved UAT issues must be remediated before archiving.
 7. Requirements coverage: req IDs in roadmap exist in REQUIREMENTS.md
-FAIL -> STOP with remediation suggestions. WARN -> proceed with warnings.
+   FAIL -> STOP with remediation suggestions. WARN -> proceed with warnings.
 
 **Steps:**
+
 1. **Derive milestone slug (deterministic — do NOT invent a slug):**
    ```bash
    MILESTONE_SLUG=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/derive-milestone-slug.sh .swt-planning)
    ```
-  This reads ROADMAP.md phase names and outputs a numbered kebab-case slug (e.g., `01-setup-api-layer`). Keep this milestone slug separate from any custom git tag passed via `--tag`. **Never use a hardcoded slug like "default" — always use the script output.**
+   This reads ROADMAP.md phase names and outputs a numbered kebab-case slug (e.g., `01-setup-api-layer`). Keep this milestone slug separate from any custom git tag passed via `--tag`. **Never use a hardcoded slug like "default" — always use the script output.**
 2. Parse args: --tag=vN.N.N (custom tag), --no-tag (skip), --force (skip non-UAT audit).
 3. Compute summary: from ROADMAP (phases), SUMMARY.md files (tasks/commits/deviations), REQUIREMENTS.md (satisfied count).
 4. **Rolling summary (conditional):** If `rolling_summary=true` in config:
@@ -1436,7 +1522,7 @@ FAIL -> STOP with remediation suggestions. WARN -> proceed with warnings.
    Compiles final rolling context before artifacts move to milestones/. Fail-open.
    When `rolling_summary=false`: skip.
 5. Archive: `mkdir -p .swt-planning/milestones/{SLUG}`. Move ROADMAP.md, STATE.md, and phases/ to milestones/{SLUG}/. If `.swt-planning/CONTEXT.md` exists, move it to milestones/{SLUG}/CONTEXT.md. Use the **Write** tool (not Bash) to create `.swt-planning/milestones/{SLUG}/SHIPPED.md` — this ensures PostToolUse hooks fire for artifact tracking. Delete stale RESUME.md.
-5b. **Persist project-level state:** After archiving, run:
+   5b. **Persist project-level state:** After archiving, run:
    ```bash
    bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/persist-state-after-ship.sh \
      .swt-planning/milestones/{SLUG}/STATE.md .swt-planning/STATE.md "{PROJECT_NAME}"
@@ -1444,7 +1530,7 @@ FAIL -> STOP with remediation suggestions. WARN -> proceed with warnings.
    This extracts project-level sections (Todos, Decisions, Blockers, Codebase Profile) from the archived STATE.md and writes a fresh root STATE.md. Milestone-specific sections (Current Phase, Activity Log, Phase Status) stay in the archive only. Fail-open: if the script fails, warn but continue.
 6. Planning commit boundary (conditional):
    ```bash
-  PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
+   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
    if [ -f "$PG_SCRIPT" ]; then
      bash "$PG_SCRIPT" commit-boundary "archive milestone {SLUG}" .swt-planning/config.json
    else
@@ -1455,7 +1541,7 @@ FAIL -> STOP with remediation suggestions. WARN -> proceed with warnings.
 7. Git branch merge: if `milestone/{SLUG}` branch exists, merge --no-ff. Conflict -> abort, warn. No branch -> skip.
 8. Git tag: unless --no-tag, `git tag -a {tag} -m "Shipped milestone: {name}"`. Default: `milestone/{SLUG}`.
 9. Regenerate CLAUDE.md: update Active Context, remove shipped refs. Preserve non-SWT content — only replace SWT-managed sections, keep user's own sections intact.
-9b. Post-archive hook (non-blocking): after successful archive completion, run:
+   9b. Post-archive hook (non-blocking): after successful archive completion, run:
    ```bash
    bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/post-archive-hook.sh "{SLUG}" ".swt-planning/milestones/{SLUG}" "{tag}" .swt-planning/config.json
    ```
@@ -1473,6 +1559,7 @@ After Execute mode completes (autonomy=pure-vibe only): if more unbuilt phases e
 Follow @${SWT_INSTALL_ROOT}/references/swt-brand-essentials.md for all output except Verify mode (UAT files use plain markdown — do NOT read brand-essentials during verification).
 
 Per-mode output:
+
 - **Bootstrap:** project-defined banner + transition to scoping
 - **Scope:** phases-created summary + STOP
 - **Discuss:** ✓ for captured answers, Next Up Block

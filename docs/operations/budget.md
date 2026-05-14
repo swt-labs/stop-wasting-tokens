@@ -42,15 +42,15 @@ Two thresholds against the project's `budget_gate.milestone_usd` ceiling:
 }
 ```
 
-| Field                      | Default | Notes                                                                                                     |
-| -------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
-| `milestone_usd`            | _none_  | Required. Hard ceiling in USD for the whole milestone.                                                    |
-| `phase_usd`                | _none_  | Optional per-phase cap (default: `milestone_usd / total_phases`).                                         |
-| `task_usd`                 | _none_  | Optional per-task cap. Skipped when undefined. — now consumed by the pre-spawn projection as a per-spawn cap (a projection over `task_usd` halts the spawn). |
-| `tier_downgrade_threshold` | `0.70`  | Fraction in [0, 1]. When pressure first crosses, `budget.warning` fires + methodology downgrades tier.    |
-| `pause_threshold`          | `0.95`  | Fraction in [0, 1]. When pressure first crosses, `budget.pause` fires + dashboard surfaces the resume UX. |
-| `projection_enabled`       | `true`  | Pre-spawn cost projection toggle. When false, only the after-the-fact path runs.                          |
-| `projection_halt_threshold`| _reuses `pause_threshold`_ | Optional. Projection-path halt cutoff in [0, 1]; reuses `pause_threshold` when omitted.       |
+| Field                       | Default                    | Notes                                                                                                                                                        |
+| --------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `milestone_usd`             | _none_                     | Required. Hard ceiling in USD for the whole milestone.                                                                                                       |
+| `phase_usd`                 | _none_                     | Optional per-phase cap (default: `milestone_usd / total_phases`).                                                                                            |
+| `task_usd`                  | _none_                     | Optional per-task cap. Skipped when undefined. — now consumed by the pre-spawn projection as a per-spawn cap (a projection over `task_usd` halts the spawn). |
+| `tier_downgrade_threshold`  | `0.70`                     | Fraction in [0, 1]. When pressure first crosses, `budget.warning` fires + methodology downgrades tier.                                                       |
+| `pause_threshold`           | `0.95`                     | Fraction in [0, 1]. When pressure first crosses, `budget.pause` fires + dashboard surfaces the resume UX.                                                    |
+| `projection_enabled`        | `true`                     | Pre-spawn cost projection toggle. When false, only the after-the-fact path runs.                                                                             |
+| `projection_halt_threshold` | _reuses `pause_threshold`_ | Optional. Projection-path halt cutoff in [0, 1]; reuses `pause_threshold` when omitted.                                                                      |
 
 For the pre-spawn projection path, see [`budget-projection.md`](./budget-projection.md).
 

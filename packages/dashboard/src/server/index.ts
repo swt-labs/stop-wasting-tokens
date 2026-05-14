@@ -7,6 +7,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import chokidar from 'chokidar';
 import { Hono } from 'hono';
 
+import { createLiveBudgetWiring, type BudgetWiring } from './budget-routes.js';
 import { createEventBus, type EventBus } from './event-bus.js';
 import { requireToken, resolveDashboardToken } from './lib/auth.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
@@ -17,23 +18,22 @@ import { registerArtifactDiffRoute } from './routes/artifact-diff.js';
 import { registerArtifactHistoryRoute } from './routes/artifact-history.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerBudgetRoute } from './routes/budget.js';
-import { createLiveBudgetWiring, type BudgetWiring } from './budget-routes.js';
 import { registerCacheHitsRoute } from './routes/cache-hits.js';
 import { registerCommandRoute } from './routes/command.js';
-import { registerCookControlRoute } from './routes/cook-control.js';
-import { registerCookStartRoute } from './routes/cook-start.js';
 import { registerCommandsRoute } from './routes/commands.js';
 import { registerConfigRoute } from './routes/config.js';
+import { registerCookControlRoute } from './routes/cook-control.js';
+import { registerCookStartRoute } from './routes/cook-start.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
 import { registerDetectPhaseRoute } from './routes/detect-phase.js';
 import { registerDoctorRoute } from './routes/doctor.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
-import { registerProviderAuthRoute } from './routes/provider-auth.js';
-import { registerProviderAuthOAuthRoute } from './routes/provider-auth-oauth.js';
-import { registerProviderCostRoute } from './routes/provider-cost.js';
 import { registerPromptsRoute } from './routes/prompts.js';
+import { registerProviderAuthOAuthRoute } from './routes/provider-auth-oauth.js';
+import { registerProviderAuthRoute } from './routes/provider-auth.js';
+import { registerProviderCostRoute } from './routes/provider-cost.js';
 import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
@@ -214,7 +214,10 @@ export function createApp(
   // snapshotter's chokidar watch on .metrics/ (T2), so the meter's
   // subscribe() is a no-op — re-render is driven by snapshot deltas, not a
   // separate METER_UPDATED channel.
-  registerCacheHitsRoute(app, createFileBackedMeterGetter(() => projectRoot));
+  registerCacheHitsRoute(
+    app,
+    createFileBackedMeterGetter(() => projectRoot),
+  );
   // Plan 04-01 PR-35: Budget Gate SSE + POST routes. Plan 06-02 T3
   // replaces the prior `() => null` placeholder with a live BudgetGate
   // wired through `createLiveBudgetWiring` — the chokidar file-meter
@@ -371,9 +374,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
       process.env['SWT_DASHBOARD_TOKEN'].length > 0);
   let authToken: string | undefined;
   if (authEnabled) {
-    authToken = resolveDashboardToken(
-      projectRoot !== undefined ? { projectRoot } : {},
-    );
+    authToken = resolveDashboardToken(projectRoot !== undefined ? { projectRoot } : {});
   }
 
   assertSafeBinding({

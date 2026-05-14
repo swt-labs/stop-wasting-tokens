@@ -39,7 +39,7 @@ function collectKeys(schema: z.ZodTypeAny, acc: string[] = []): string[] {
       const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
       for (const [key, child] of Object.entries(shape)) {
         acc.push(key);
-        collectKeys(child as z.ZodTypeAny, acc);
+        collectKeys(child, acc);
       }
       return acc;
     }

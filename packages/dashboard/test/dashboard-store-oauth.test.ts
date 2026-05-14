@@ -75,7 +75,13 @@ function makeProviderAuthSnapshot(
     keychain_available: true,
     keychain_reason: null,
     statuses: [
-      { provider: 'anthropic', configured: true, mode: 'oauth', source: 'keychain', label: 'Keychain' },
+      {
+        provider: 'anthropic',
+        configured: true,
+        mode: 'oauth',
+        source: 'keychain',
+        label: 'Keychain',
+      },
     ],
     generated_at: '2026-05-14T12:00:00.000Z',
     ...overrides,
@@ -148,7 +154,12 @@ describe('applyEvent — oauth.* branches', () => {
   it('oauth.auth_url advances a matching `starting` flow to `awaiting_browser` + sets authUrl', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic'); // flow active with flowId 'f1'
 
       actions.applyEvent({
@@ -198,7 +209,12 @@ describe('applyEvent — oauth.* branches', () => {
   it('oauth.progress updates progressMessage on a matching flow', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic');
 
       actions.applyEvent({
@@ -218,7 +234,12 @@ describe('applyEvent — oauth.* branches', () => {
   it('oauth.awaiting_code sets status `awaiting_code` on a matching flow', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic');
 
       actions.applyEvent({
@@ -237,7 +258,12 @@ describe('applyEvent — oauth.* branches', () => {
   it('oauth.complete sets status `complete` AND triggers a providerAuth cell refetch', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
       await actions.startOAuthFlow('anthropic');
 
@@ -259,7 +285,12 @@ describe('applyEvent — oauth.* branches', () => {
   it('oauth.error sets status `error` + errorCode + errorMessage on a matching flow', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic');
 
       actions.applyEvent({
@@ -281,10 +312,21 @@ describe('applyEvent — oauth.* branches', () => {
   it('an oauth.* event with a NON-matching flow_id is ignored — state.oauthFlow is unchanged', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic');
       // Advance the flow to awaiting_browser so there is a concrete state to compare.
-      actions.applyEvent({ type: 'oauth.auth_url', ts: ISO, flow_id: 'f1', provider: 'anthropic', url: 'https://x' });
+      actions.applyEvent({
+        type: 'oauth.auth_url',
+        ts: ISO,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        url: 'https://x',
+      });
       const before = JSON.stringify(state.oauthFlow);
 
       // An event for a DIFFERENT flow (another tab) must not cross-wire.
@@ -312,7 +354,13 @@ describe('applyEvent — oauth.* branches', () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       expect(state.oauthFlow).toBeNull();
-      actions.applyEvent({ type: 'oauth.auth_url', ts: ISO, flow_id: 'f1', provider: 'anthropic', url: 'https://x' });
+      actions.applyEvent({
+        type: 'oauth.auth_url',
+        ts: ISO,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        url: 'https://x',
+      });
       actions.applyEvent({ type: 'oauth.complete', ts: ISO, flow_id: 'f1', provider: 'anthropic' });
       expect(state.oauthFlow).toBeNull();
       dispose();
@@ -325,10 +373,20 @@ describe('submitOAuthCode', () => {
   it('with an active awaiting_code flow calls postOAuthCode(flowId, code) and returns {ok:true}', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       postOAuthCodeMock.mockResolvedValue({ ok: true, flow_id: 'f1' });
       await actions.startOAuthFlow('anthropic');
-      actions.applyEvent({ type: 'oauth.awaiting_code', ts: ISO, flow_id: 'f1', provider: 'anthropic' });
+      actions.applyEvent({
+        type: 'oauth.awaiting_code',
+        ts: ISO,
+        flow_id: 'f1',
+        provider: 'anthropic',
+      });
       expect(state.oauthFlow?.status).toBe('awaiting_code');
 
       const result = await actions.submitOAuthCode('PASTED-CODE');
@@ -369,10 +427,20 @@ describe('submitOAuthCode', () => {
   it('on a postOAuthCode rejection sets the flow errorMessage + pushes to errors[]', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       postOAuthCodeMock.mockRejectedValue(new Error('bad_code'));
       await actions.startOAuthFlow('anthropic');
-      actions.applyEvent({ type: 'oauth.awaiting_code', ts: ISO, flow_id: 'f1', provider: 'anthropic' });
+      actions.applyEvent({
+        type: 'oauth.awaiting_code',
+        ts: ISO,
+        flow_id: 'f1',
+        provider: 'anthropic',
+      });
 
       const result = await actions.submitOAuthCode('WRONG');
       expect(result).toEqual({ error: 'bad_code' });
@@ -388,7 +456,12 @@ describe('dismissOAuthFlow', () => {
   it('clears state.oauthFlow back to null', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic');
       expect(state.oauthFlow).not.toBeNull();
 
@@ -407,7 +480,12 @@ describe('token-leak guard — the oauthFlow signal is token-free', () => {
   it('after every oauth.* event, JSON.stringify(state.oauthFlow) carries no token-like value', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
       await actions.startOAuthFlow('anthropic');
 
@@ -415,9 +493,22 @@ describe('token-leak guard — the oauthFlow signal is token-free', () => {
       // construction; the store reflects that.
       const events = [
         { type: 'oauth.auth_url', ts: ISO, flow_id: 'f1', provider: 'anthropic', url: 'https://x' },
-        { type: 'oauth.progress', ts: ISO, flow_id: 'f1', provider: 'anthropic', message: 'working' },
+        {
+          type: 'oauth.progress',
+          ts: ISO,
+          flow_id: 'f1',
+          provider: 'anthropic',
+          message: 'working',
+        },
         { type: 'oauth.awaiting_code', ts: ISO, flow_id: 'f1', provider: 'anthropic' },
-        { type: 'oauth.error', ts: ISO, flow_id: 'f1', provider: 'anthropic', code: 'e', message: 'm' },
+        {
+          type: 'oauth.error',
+          ts: ISO,
+          flow_id: 'f1',
+          provider: 'anthropic',
+          code: 'e',
+          message: 'm',
+        },
       ] as const;
       for (const evt of events) {
         actions.applyEvent(evt);
@@ -432,7 +523,12 @@ describe('token-leak guard — the oauthFlow signal is token-free', () => {
   it('the OAuthFlowState shape has exactly the eight non-secret fields — no token field', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       await actions.startOAuthFlow('anthropic');
       expect(Object.keys(state.oauthFlow ?? {}).sort()).toEqual(
         [
@@ -453,10 +549,20 @@ describe('token-leak guard — the oauthFlow signal is token-free', () => {
   it('submitOAuthCode does NOT retain the pasted code anywhere on state.oauthFlow', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
-      postOAuthStartMock.mockResolvedValue({ ok: true, flow_id: 'f1', provider: 'anthropic', started_at: ISO });
+      postOAuthStartMock.mockResolvedValue({
+        ok: true,
+        flow_id: 'f1',
+        provider: 'anthropic',
+        started_at: ISO,
+      });
       postOAuthCodeMock.mockResolvedValue({ ok: true, flow_id: 'f1' });
       await actions.startOAuthFlow('anthropic');
-      actions.applyEvent({ type: 'oauth.awaiting_code', ts: ISO, flow_id: 'f1', provider: 'anthropic' });
+      actions.applyEvent({
+        type: 'oauth.awaiting_code',
+        ts: ISO,
+        flow_id: 'f1',
+        provider: 'anthropic',
+      });
 
       await actions.submitOAuthCode('SENSITIVE-PASTED-CODE');
       // The code was passed straight to postOAuthCode — it must not appear

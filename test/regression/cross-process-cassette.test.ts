@@ -21,12 +21,13 @@
  * cassette-prerequisite skips.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   hashRequest,
@@ -46,13 +47,9 @@ const REPLAYER_TS = resolve(TEST_UTILS_DIR, 'src/cassettes/replayer.ts');
 
 function buildBodyHash(body: unknown): string {
   return hashRequest(
-    normalizeRequest(
-      'POST',
-      FIXTURE_URL,
-      { 'content-type': 'application/json' },
-      body,
-      { cwd: process.cwd() },
-    ),
+    normalizeRequest('POST', FIXTURE_URL, { 'content-type': 'application/json' }, body, {
+      cwd: process.cwd(),
+    }),
   );
 }
 

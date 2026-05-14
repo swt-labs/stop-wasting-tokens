@@ -21,27 +21,18 @@
  * the bundle's argv parser + handler wiring is exercised end-to-end).
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
-const FIXTURE = resolve(
-  REPO_ROOT,
-  'packages/test-utils/golden/ref-fastapi/v2-baseline',
-);
+const FIXTURE = resolve(REPO_ROOT, 'packages/test-utils/golden/ref-fastapi/v2-baseline');
 const CLI_BIN = resolve(REPO_ROOT, 'dist/cli.mjs');
 
 function migrate(input: string, output: string): { stdout: string; status: number } {
@@ -106,9 +97,7 @@ describe('swt migrate --to=v3 + boot-clean', () => {
       );
     }
     if (!existsSync(join(FIXTURE, '.swt-planning', 'config.json'))) {
-      throw new Error(
-        `v2-baseline fixture missing at ${FIXTURE}/.swt-planning/config.json.`,
-      );
+      throw new Error(`v2-baseline fixture missing at ${FIXTURE}/.swt-planning/config.json.`);
     }
   });
 

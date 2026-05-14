@@ -16,6 +16,7 @@ Plugin root: `${SWT_INSTALL_ROOT}`
 Store the plugin root path output above as `{plugin-root}` for use in script and config lookups below. Replace `{plugin-root}` with the literal `Plugin root` value from Context whenever a step below references a script or file in the installed plugin.
 
 Config:
+
 ```
 !`cat .swt-planning/config.json 2>/dev/null || echo "No config found -- run swt init first"`
 ```
@@ -49,6 +50,7 @@ This backfills all missing keys from `config/defaults.json` (without overwriting
 **Step 1:** Display current settings in single-line box table (setting, value, description) + skill-hook mappings.
 
 After the settings table, display Model Profile section:
+
 ```bash
 PROFILE=$(jq -r '.model_profile // "quality"' .swt-planning/config.json)
 echo ""
@@ -77,9 +79,10 @@ if [ "$(jq -r '.model_overrides.architect // ""' .swt-planning/config.json)" != 
 echo "  Lead: $LEAD_DISPLAY | Dev: $DEV_DISPLAY | QA: $QA_DISPLAY | Scout: $SCOUT_DISPLAY | Debugger: $DEBUGGER_DISPLAY | Architect: $ARCHITECT_DISPLAY"
 ```
 
-Note: Core infrastructure flags (v2_hard_contracts, v2_hard_gates, v2_typed_protocol, v2_role_isolation, v3_event_log, v3_delta_context, v3_context_cache, v3_plan_research_persist, v3_schema_validation, v3_contract_lite, v3_lock_lite) have graduated to always-on behavior. The remaining flags are configurable under unprefixed names (see Settings Reference below). Brownfield configs with old `v2_`/`v3_` prefixed keys are auto-migrated by `migrate-config.sh`.
+Note: Core infrastructure flags (v2*hard_contracts, v2_hard_gates, v2_typed_protocol, v2_role_isolation, v3_event_log, v3_delta_context, v3_context_cache, v3_plan_research_persist, v3_schema_validation, v3_contract_lite, v3_lock_lite) have graduated to always-on behavior. The remaining flags are configurable under unprefixed names (see Settings Reference below). Brownfield configs with old `v2*`/`v3\_`prefixed keys are auto-migrated by`migrate-config.sh`.
 
 **Step 2:** AskUserQuestion with 1 question:
+
 - header: `Config`
 - question: `What would you like to adjust?`
 - options:
@@ -90,6 +93,7 @@ Note: Core infrastructure flags (v2_hard_contracts, v2_hard_gates, v2_typed_prot
 Store selection in variable `CONFIG_SECTION`.
 
 For every bounded AskUserQuestion branch below that uses visible options, the built-in `Other` path is still part of that question:
+
 - accept direct option intent that clearly matches a visible choice
 - accept unambiguous visible option-by-number replies (for example `#1`, `option 2`, or `2` when it clearly maps to one visible option)
 - accept hybrid replies anchored to one visible option number (for example `#2 please`)
@@ -97,22 +101,25 @@ For every bounded AskUserQuestion branch below that uses visible options, the bu
 - do NOT add an extra visible `Other` option — keep these prompts within the 2–4 option sweet spot
 
 If `CONFIG_SECTION = "Exit"`:
+
 - Display `✓ No changes made.`
 - Run `bash "{plugin-root}/scripts/suggest-next.sh" config` and display.
 - STOP.
 
 **Step 2.5:** If `CONFIG_SECTION = "Core settings"`, AskUserQuestion with 1 question:
+
 - header: `Core`
 - question: `Which core setting do you want to change?`
 - options:
-  - `Effort` — current: {effort value}  (thorough | balanced | fast | turbo)
-  - `Autonomy` — current: {autonomy value}  (cautious | standard | confident | pure-vibe)
-  - `Planning tracking` — current: {tracking value}  (manual | ignore | commit)
-  - `Auto push` — current: {auto_push value}  (never | after_phase | always)
+  - `Effort` — current: {effort value} (thorough | balanced | fast | turbo)
+  - `Autonomy` — current: {autonomy value} (cautious | standard | confident | pure-vibe)
+  - `Planning tracking` — current: {tracking value} (manual | ignore | commit)
+  - `Auto push` — current: {auto_push value} (never | after_phase | always)
 
 Store selection in variable `SETTING_GROUP`.
 
 Map:
+
 - `Effort` → `SETTING=effort`
 - `Autonomy` → `SETTING=autonomy`
 - `Planning tracking` → `SETTING=planning_tracking`
@@ -121,6 +128,7 @@ Map:
 **Step 2.6:** Ask the bounded value question for the selected core setting.
 
 If `SETTING=effort`, AskUserQuestion with 1 question:
+
 - header: `Effort`
 - question: `Choose effort level.`
 - options:
@@ -130,6 +138,7 @@ If `SETTING=effort`, AskUserQuestion with 1 question:
   - `turbo` — Minimal ceremony, fastest path
 
 If `SETTING=autonomy`, AskUserQuestion with 1 question:
+
 - header: `Autonomy`
 - question: `Choose autonomy level.`
 - options:
@@ -139,6 +148,7 @@ If `SETTING=autonomy`, AskUserQuestion with 1 question:
   - `pure-vibe` — Full auto loop through phases
 
 If `SETTING=planning_tracking`, AskUserQuestion with 1 question:
+
 - header: `Tracking`
 - question: `How should planning artifacts be tracked?`
 - options:
@@ -147,6 +157,7 @@ If `SETTING=planning_tracking`, AskUserQuestion with 1 question:
   - `commit` — Auto-commit planning artifacts
 
 If `SETTING=auto_push`, AskUserQuestion with 1 question:
+
 - header: `Auto push`
 - question: `When should SWT push automatically?`
 - options:
@@ -159,6 +170,7 @@ Store the selected value in variable `VALUE`.
 After a core setting value is chosen, continue to Step 3 and apply it there with the same validation, write behavior, and side effects as the `swt config <setting> <value>` path below. Step 4 remains the no-args tail behavior after that shared apply step.
 
 **Step 2.7:** If `CONFIG_SECTION = "Model profile"`, AskUserQuestion with 1 question:
+
 - header: `Models`
 - question: `How do you want to configure model behavior?`
 - options:
@@ -168,12 +180,14 @@ After a core setting value is chosen, continue to Step 3 and apply it there with
 Store selection in variable `PROFILE_METHOD`.
 
 **Branching:**
+
 - If `PROFILE_METHOD = "Use preset profile"`: AskUserQuestion with 1 question and 3 options (`quality`, `balanced`, `budget`). Store the selected preset in `PROFILE`, then continue to Step 3 and apply it there using the `Model profile switching` logic below.
 - If `PROFILE_METHOD = "Configure each agent individually"`: Proceed to individual agent configuration flow (Round 1 below).
 
 **Individual Configuration - Round 1 (4 agents):**
 
 Calculate OLD_COST before making changes (cost weights: opus=100, sonnet=20, haiku=2):
+
 ```bash
 CURRENT_PROFILE=$(jq -r '.model_profile // "quality"' .swt-planning/config.json)
 PROFILES_PATH="{plugin-root}/config/model-profiles.json"
@@ -200,6 +214,7 @@ OLD_COST=$(( $(get_model_cost "$LEAD_OLD") + $(get_model_cost "$DEV_OLD") + $(ge
 ```
 
 Get current models for Lead, Dev, QA, Scout:
+
 ```bash
 CURRENT_LEAD=$(bash "{plugin-root}/scripts/resolve-agent-model.sh" lead .swt-planning/config.json "{plugin-root}/config/model-profiles.json")
 CURRENT_DEV=$(bash "{plugin-root}/scripts/resolve-agent-model.sh" dev .swt-planning/config.json "{plugin-root}/config/model-profiles.json")
@@ -208,6 +223,7 @@ CURRENT_SCOUT=$(bash "{plugin-root}/scripts/resolve-agent-model.sh" scout .swt-p
 ```
 
 AskUserQuestion with 4 questions:
+
 - Lead model (current: $CURRENT_LEAD): opus | sonnet | haiku
 - Dev model (current: $CURRENT_DEV): opus | sonnet | haiku
 - QA model (current: $CURRENT_QA): opus | sonnet | haiku
@@ -218,12 +234,14 @@ Store selections in variables `LEAD_MODEL`, `DEV_MODEL`, `QA_MODEL`, `SCOUT_MODE
 **Individual Configuration - Round 2 (2 agents):**
 
 Get current models for Debugger and Architect:
+
 ```bash
 CURRENT_DEBUGGER=$(bash "{plugin-root}/scripts/resolve-agent-model.sh" debugger .swt-planning/config.json "{plugin-root}/config/model-profiles.json")
 CURRENT_ARCHITECT=$(bash "{plugin-root}/scripts/resolve-agent-model.sh" architect .swt-planning/config.json "{plugin-root}/config/model-profiles.json")
 ```
 
 AskUserQuestion with 2 questions:
+
 - Debugger model (current: $CURRENT_DEBUGGER): opus | sonnet | haiku
 - Architect model (current: $CURRENT_ARCHITECT): opus | sonnet | haiku
 
@@ -232,6 +250,7 @@ Store selections in variables `DEBUGGER_MODEL`, `ARCHITECT_MODEL`.
 **Apply Individual Overrides:**
 
 Ensure model_overrides object exists:
+
 ```bash
 if ! jq -e '.model_overrides' .swt-planning/config.json >/dev/null 2>&1; then
   jq '.model_overrides = {}' .swt-planning/config.json > .swt-planning/config.json.tmp && mv .swt-planning/config.json.tmp .swt-planning/config.json
@@ -239,6 +258,7 @@ fi
 ```
 
 Apply each agent override:
+
 ```bash
 jq ".model_overrides.lead = \"$LEAD_MODEL\"" .swt-planning/config.json > .swt-planning/config.json.tmp && mv .swt-planning/config.json.tmp .swt-planning/config.json
 echo "✓ Model override: lead ➜ $LEAD_MODEL"
@@ -262,6 +282,7 @@ echo "✓ Model override: architect ➜ $ARCHITECT_MODEL"
 **Cost Estimate Display:**
 
 Calculate NEW_COST using selected models:
+
 ```bash
 NEW_COST=$(( $(get_model_cost "$LEAD_MODEL") + $(get_model_cost "$DEV_MODEL") + $(get_model_cost "$QA_MODEL") + $(get_model_cost "$SCOUT_MODEL") + $(get_model_cost "$DEBUGGER_MODEL") + $(get_model_cost "$ARCHITECT_MODEL") ))
 
@@ -288,6 +309,7 @@ fi
 **Step 3:** Apply changes to config.json. This is the shared apply step for no-args core-setting changes and preset-model-profile changes. Display ✓ per changed setting with ➜. No changes: "✓ No changes made."
 
 **Step 4: Profile drift detection** — if effort/autonomy/verification_tier changed:
+
 - Compare against active profile's expected values
 - If mismatch: AskUserQuestion "Settings no longer match '{profile}'. Save as new profile?" → "Save" (route to swt profile save) or "No" (set active_profile to "custom")
 - Skip if no profile-tracked settings changed or already "custom"
@@ -332,8 +354,9 @@ This applies any mode-specific root `.gitignore` behavior and keeps `.swt-planni
 - `config skill_hook remove <skill>`
 
 Stored in config.json `skill_hooks`:
+
 ```json
-{"skill_hooks": {"lint-fix": {"event": "PostToolUse", "tools": "Write|Edit"}}}
+{ "skill_hooks": { "lint-fix": { "event": "PostToolUse", "tools": "Write|Edit" } } }
 ```
 
 ### Model profile switching: `model_profile <profile>`
@@ -429,52 +452,52 @@ echo "✓ Model override: $AGENT ➜ $MODEL"
 
 Note: `auto_commit` controls source-task commits during Execute mode. Planning artifact commit behavior is controlled by `planning_tracking`.
 
-| Setting | Type | Values | Default |
-| ------- | ---- | ------ | ------- |
-| effort | string | thorough/balanced/fast/turbo | balanced |
-| autonomy | string | cautious/standard/confident/pure-vibe | standard |
-| auto_commit | boolean | true/false | true |
-| planning_tracking | string | manual/ignore/commit | manual |
-| auto_push | string | never/after_phase/always | never |
-| verification_tier | string | quick/standard/deep | standard |
-| skill_suggestions | boolean | true/false | true |
-| auto_install_skills | boolean | true/false | false |
-| discovery_questions | boolean | true/false | true |
-| discussion_mode | string | questions/assumptions/auto | questions |
-| visual_format | string | unicode/ascii | unicode |
-| max_tasks_per_plan | number | 1-7 | 5 |
-| prefer_teams | string | always/auto/never | auto |
-| branch_per_milestone | boolean | true/false | false |
-| plain_summary | boolean | true/false | true |
-| active_profile | string | profile name or "custom" | default |
-| custom_profiles | object | user-defined profiles | {} |
-| model_profile | string | quality/balanced/budget | quality |
-| model_overrides | object | agent-to-model map | {} |
-| agent_max_turns | object | per-agent turns (number), 0/false = unlimited | scout=15, qa=25, architect=30, debugger=80, lead=50, dev=75 |
-| qa_skip_agents | array | array of agent role names | ["docs"] |
-| context_compiler | boolean | true/false | true |
-| token_budgets | boolean | true/false | true |
-| two_phase_completion | boolean | true/false | true |
-| metrics | boolean | true/false | true |
-| smart_routing | boolean | true/false | true |
-| validation_gates | boolean | true/false | true |
-| snapshot_resume | boolean | true/false | true |
-| lease_locks | boolean | true/false | true |
-| event_recovery | boolean | true/false | true |
-| worktree_isolation | string | off/on | off |
-| monorepo_routing | boolean | true/false | true |
-| require_phase_discussion | boolean | true/false | false |
-| auto_uat | boolean | true/false | false |
-| max_uat_remediation_rounds | boolean/number | false, 0, or positive integer | false |
-| rolling_summary | boolean | true/false | false |
-| debug_logging | boolean | true/false | false |
-| statusline_hide_limits | boolean | true/false | false |
-| statusline_hide_limits_for_api_key | boolean | true/false | false |
-| statusline_hide_agent_in_tmux | boolean | true/false | false |
-| statusline_collapse_agent_in_tmux | boolean | true/false | false |
-| caveman_style | string | none/lite/full/ultra/auto | none |
-| caveman_commit | boolean | true/false | false |
-| caveman_review | boolean | true/false | false |
+| Setting                            | Type           | Values                                        | Default                                                     |
+| ---------------------------------- | -------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| effort                             | string         | thorough/balanced/fast/turbo                  | balanced                                                    |
+| autonomy                           | string         | cautious/standard/confident/pure-vibe         | standard                                                    |
+| auto_commit                        | boolean        | true/false                                    | true                                                        |
+| planning_tracking                  | string         | manual/ignore/commit                          | manual                                                      |
+| auto_push                          | string         | never/after_phase/always                      | never                                                       |
+| verification_tier                  | string         | quick/standard/deep                           | standard                                                    |
+| skill_suggestions                  | boolean        | true/false                                    | true                                                        |
+| auto_install_skills                | boolean        | true/false                                    | false                                                       |
+| discovery_questions                | boolean        | true/false                                    | true                                                        |
+| discussion_mode                    | string         | questions/assumptions/auto                    | questions                                                   |
+| visual_format                      | string         | unicode/ascii                                 | unicode                                                     |
+| max_tasks_per_plan                 | number         | 1-7                                           | 5                                                           |
+| prefer_teams                       | string         | always/auto/never                             | auto                                                        |
+| branch_per_milestone               | boolean        | true/false                                    | false                                                       |
+| plain_summary                      | boolean        | true/false                                    | true                                                        |
+| active_profile                     | string         | profile name or "custom"                      | default                                                     |
+| custom_profiles                    | object         | user-defined profiles                         | {}                                                          |
+| model_profile                      | string         | quality/balanced/budget                       | quality                                                     |
+| model_overrides                    | object         | agent-to-model map                            | {}                                                          |
+| agent_max_turns                    | object         | per-agent turns (number), 0/false = unlimited | scout=15, qa=25, architect=30, debugger=80, lead=50, dev=75 |
+| qa_skip_agents                     | array          | array of agent role names                     | ["docs"]                                                    |
+| context_compiler                   | boolean        | true/false                                    | true                                                        |
+| token_budgets                      | boolean        | true/false                                    | true                                                        |
+| two_phase_completion               | boolean        | true/false                                    | true                                                        |
+| metrics                            | boolean        | true/false                                    | true                                                        |
+| smart_routing                      | boolean        | true/false                                    | true                                                        |
+| validation_gates                   | boolean        | true/false                                    | true                                                        |
+| snapshot_resume                    | boolean        | true/false                                    | true                                                        |
+| lease_locks                        | boolean        | true/false                                    | true                                                        |
+| event_recovery                     | boolean        | true/false                                    | true                                                        |
+| worktree_isolation                 | string         | off/on                                        | off                                                         |
+| monorepo_routing                   | boolean        | true/false                                    | true                                                        |
+| require_phase_discussion           | boolean        | true/false                                    | false                                                       |
+| auto_uat                           | boolean        | true/false                                    | false                                                       |
+| max_uat_remediation_rounds         | boolean/number | false, 0, or positive integer                 | false                                                       |
+| rolling_summary                    | boolean        | true/false                                    | false                                                       |
+| debug_logging                      | boolean        | true/false                                    | false                                                       |
+| statusline_hide_limits             | boolean        | true/false                                    | false                                                       |
+| statusline_hide_limits_for_api_key | boolean        | true/false                                    | false                                                       |
+| statusline_hide_agent_in_tmux      | boolean        | true/false                                    | false                                                       |
+| statusline_collapse_agent_in_tmux  | boolean        | true/false                                    | false                                                       |
+| caveman_style                      | string         | none/lite/full/ultra/auto                     | none                                                        |
+| caveman_commit                     | boolean        | true/false                                    | false                                                       |
+| caveman_review                     | boolean        | true/false                                    | false                                                       |
 
 ### Statusline switches
 
@@ -518,6 +541,7 @@ You can also provide per-effort overrides using an object instead of a number:
 Controls only the UAT remediation auto-continuation loop after re-verification finds issues. It does **not** apply to QA remediation.
 
 Accepted values:
+
 - `false` — unlimited UAT remediation rounds
 - `0` — unlimited UAT remediation rounds
 - positive integer — finite UAT remediation round cap

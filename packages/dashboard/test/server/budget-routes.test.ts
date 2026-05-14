@@ -35,7 +35,7 @@ async function waitFor<T>(
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const v = pred();
-    if (v) return v as T;
+    if (v) return v;
     await new Promise((r) => setTimeout(r, pollMs));
   }
   throw new Error(`waitFor: predicate did not become truthy within ${timeoutMs}ms`);
@@ -130,12 +130,7 @@ describe('createLiveBudgetWiring — chokidar → BudgetGate → signal file', (
       );
 
       // Wait for the signal-file write.
-      const signalPath = join(
-        root,
-        '.swt-planning',
-        '.cook-controls',
-        `${SID}.pending`,
-      );
+      const signalPath = join(root, '.swt-planning', '.cook-controls', `${SID}.pending`);
       await waitFor(() => (fs.existsSync(signalPath) ? signalPath : undefined), 5000);
       const sig = fs.readFileSync(signalPath, 'utf-8');
       expect(sig).toBe('pause');
@@ -190,12 +185,7 @@ describe('createLiveBudgetWiring — chokidar → BudgetGate → signal file', (
         }),
       );
 
-      const signalPath = join(
-        root,
-        '.swt-planning',
-        '.cook-controls',
-        `${SID}.pending`,
-      );
+      const signalPath = join(root, '.swt-planning', '.cook-controls', `${SID}.pending`);
       await waitFor(() => (fs.existsSync(signalPath) ? true : undefined), 5000);
       // Consume the pause signal (simulates the orchestrator reading it).
       fs.unlinkSync(signalPath);

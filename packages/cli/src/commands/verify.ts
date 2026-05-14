@@ -191,7 +191,11 @@ export function extractFromPlanSuccessCriteria(body: string, planId: string): Ua
 export function collectScenariosFromPlans(
   phaseDir: string,
   phasePadded: string,
-  fsImpl: { existsSync: typeof existsSync; readdirSync: typeof readdirSync; readFileSync: typeof readFileSync } = {
+  fsImpl: {
+    existsSync: typeof existsSync;
+    readdirSync: typeof readdirSync;
+    readFileSync: typeof readFileSync;
+  } = {
     existsSync,
     readdirSync,
     readFileSync,
@@ -306,12 +310,11 @@ export function loadVerifyConfig(
   try {
     const raw = String(fsImpl.readFileSync(configPath, 'utf8'));
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const verifyScope =
-      parsed['verify_scope'] === 'remediation' ? 'remediation' : 'milestone';
+    const verifyScope = parsed['verify_scope'] === 'remediation' ? 'remediation' : 'milestone';
     const maxRounds =
       typeof parsed['max_uat_remediation_rounds'] === 'number' &&
       Number.isFinite(parsed['max_uat_remediation_rounds'])
-        ? (parsed['max_uat_remediation_rounds'] as number)
+        ? parsed['max_uat_remediation_rounds']
         : 3;
     return { verify_scope: verifyScope, max_uat_remediation_rounds: maxRounds };
   } catch {
@@ -403,11 +406,7 @@ export function makeVerifyHandler(deps: VerifyHandlerDeps = {}): CommandHandler 
       const scenario = scenarios[i]!;
       const verdictResp: AskUserResponse = await askUserFn({
         question: scenario.description,
-        options: [
-          { label: 'Pass', isRecommended: true },
-          { label: 'Fail' },
-          { label: 'Skip' },
-        ],
+        options: [{ label: 'Pass', isRecommended: true }, { label: 'Fail' }, { label: 'Skip' }],
         ...(scenario.steps !== scenario.description ? { preview: scenario.steps } : {}),
         header: `Checkpoint ${i + 1}/${scenarios.length} — ${scenario.id}`,
       });
@@ -457,7 +456,9 @@ export function makeVerifyHandler(deps: VerifyHandlerDeps = {}): CommandHandler 
           `bash ${JSON.stringify(scriptPath)} ${JSON.stringify(`.swt-planning/phases/${slug}`)}`,
           { cwd: io.cwd, encoding: 'utf8' },
         );
-        io.stdout.write(`✓ Seeded re-verification round (max ${config.max_uat_remediation_rounds}).\n`);
+        io.stdout.write(
+          `✓ Seeded re-verification round (max ${config.max_uat_remediation_rounds}).\n`,
+        );
       } catch (err) {
         io.stderr.write(
           `swt verify: prepare-reverification.sh failed: ${err instanceof Error ? err.message : String(err)}\n`,

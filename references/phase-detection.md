@@ -21,6 +21,7 @@ All directory scanning below uses this path.
 **Goal:** Find the next phase that needs planning.
 
 **Algorithm:**
+
 1. List phase directories in numeric order (`01-*`, `02-*`, ...)
 2. For each directory, check for `*-PLAN.md` files
 3. The first phase directory containing NO `*-PLAN.md` files is the target
@@ -32,6 +33,7 @@ All directory scanning below uses this path.
 When `require_phase_discussion=true` in config, the lifecycle command (`swt cook`) adds a discussion step before planning:
 
 **Algorithm:**
+
 1. During the dual-condition scan (same as Lifecycle Command below), before checking for `needs_plan_and_execute`:
 2. If a phase has NO `*-PLAN.md` files AND NO `*-CONTEXT.md` files, it returns `needs_discussion` instead of `needs_plan_and_execute`
 3. If `*-CONTEXT.md` exists (discussion already happened), it falls through to normal `needs_plan_and_execute`
@@ -42,6 +44,7 @@ When `require_phase_discussion=true` in config, the lifecycle command (`swt cook
 **Goal:** Find the next phase that is planned but not yet built.
 
 **Algorithm:**
+
 1. List phase directories in numeric order
 2. For each directory, check for `*-PLAN.md` and `*-SUMMARY.md` files
 3. The first phase where `*-PLAN.md` files exist but at least one plan lacks a corresponding `*-SUMMARY.md` is the target
@@ -55,6 +58,7 @@ When `require_phase_discussion=true` in config, the lifecycle command (`swt cook
 **Goal:** Find the next phase that is built but not yet verified.
 
 **Algorithm:**
+
 1. List phase directories in numeric order
 2. Before UAT cutover, if a phase has active QA remediation (`remediation/qa/.qa-remediation-stage` with stage `verify`), that phase is the QA target and writes to the persisted `verification_path` for the current round. After any UAT state or artifact exists for that phase, QA remediation metadata is dormant/traceability-only and does not select the QA target.
 3. If `phase-detect.sh` reports `first_qa_attention_phase` with `qa_attention_status=pending`, `failed`, or `verify`, that phase is the QA target even when an older verification artifact already exists. This applies only before UAT cutover; once any UAT state or artifact exists for that phase, QA attention is dormant and the command stays in the UAT lane.
@@ -79,6 +83,7 @@ When `require_phase_discussion=true` in config, the lifecycle command (`swt cook
 **Goal:** Find the next phase that needs either planning or execution (or both). Used by States 3-4 of the implement state machine.
 
 **Algorithm (dual-condition):**
+
 1. List phase directories in numeric order
 2. For each directory, check for `*-PLAN.md` and `*-SUMMARY.md` files
 3. Two match conditions (first match wins):
@@ -98,6 +103,7 @@ Auto-detected Phase {NN} ({slug}) -- {reason}
 ```
 
 Reasons by command type:
+
 - Planning: "next phase to plan"
 - Build: "planned, not yet built"
 - Implement: "needs plan + execute" or "planned, needs execute"

@@ -25,8 +25,9 @@ import { AlreadyInitializedError, initProject } from '@swt-labs/core';
 import { spawnAgent } from '@swt-labs/orchestration';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 import type { CommandHandler, CommandIO } from '../router.js';
+
+import { stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 export interface InitHandlerDeps {
   readonly spawnAgentImpl?: typeof spawnAgent;
@@ -121,7 +122,9 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
         installRoot,
       });
       if (result.status === 'success' || result.status === 'partial') {
-        io.stdout.write(`\n✓ Lead bootstrap complete.\nNext: run \`swt vibe\` to scope the first milestone.\n`);
+        io.stdout.write(
+          `\n✓ Lead bootstrap complete.\nNext: run \`swt vibe\` to scope the first milestone.\n`,
+        );
         return EXIT.SUCCESS;
       }
       io.stderr.write(`swt init: Lead spawn returned status="${result.status}".\n`);

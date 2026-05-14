@@ -1,6 +1,16 @@
 {
   "schema_version": "2.0",
-  "envelope_fields": ["id", "type", "phase", "task", "author_role", "timestamp", "schema_version", "payload", "confidence"],
+  "envelope_fields": [
+    "id",
+    "type",
+    "phase",
+    "task",
+    "author_role",
+    "timestamp",
+    "schema_version",
+    "payload",
+    "confidence"
+  ],
   "schemas": {
     "scout_findings": {
       "allowed_roles": ["scout"],
@@ -10,7 +20,14 @@
     },
     "plan_contract": {
       "allowed_roles": ["lead", "architect"],
-      "payload_required": ["plan_id", "phase_id", "objective", "tasks", "allowed_paths", "must_haves"],
+      "payload_required": [
+        "plan_id",
+        "phase_id",
+        "objective",
+        "tasks",
+        "allowed_paths",
+        "must_haves"
+      ],
       "payload_optional": ["forbidden_paths", "depends_on", "verification_checks", "token_budget"],
       "description": "Plan contract issued by Lead/Architect"
     },
@@ -28,17 +45,39 @@
     },
     "debugger_report": {
       "allowed_roles": ["debugger"],
-      "payload_required": ["hypothesis", "evidence_for", "evidence_against", "confidence", "resolution_observation", "recommended_fix"],
+      "payload_required": [
+        "hypothesis",
+        "evidence_for",
+        "evidence_against",
+        "confidence",
+        "resolution_observation",
+        "recommended_fix"
+      ],
       "payload_optional": ["pre_existing_issues"],
       "description": "Diagnostic investigation report from Debugger agent"
     },
     "qa_verdict": {
       "allowed_roles": ["qa"],
       "payload_required": ["tier", "result", "checks"],
-      "payload_optional": ["failures", "body", "recommendations", "pre_existing_issues", "checks_detail", "plans_verified"],
+      "payload_optional": [
+        "failures",
+        "body",
+        "recommendations",
+        "pre_existing_issues",
+        "checks_detail",
+        "plans_verified"
+      ],
       "checks_detail_common_required": ["id", "category", "description", "status", "evidence"],
       "checks_detail_status_enum": ["PASS", "FAIL", "WARN"],
-      "checks_detail_known_categories": ["must_have", "artifact", "key_link", "anti_pattern", "convention", "requirement", "skill_augmented"],
+      "checks_detail_known_categories": [
+        "must_have",
+        "artifact",
+        "key_link",
+        "anti_pattern",
+        "convention",
+        "requirement",
+        "skill_augmented"
+      ],
       "checks_detail_category_fields": {
         "common": ["id", "category", "description", "status", "evidence", "plan_ref"],
         "artifact": ["exists", "contains"],
@@ -74,12 +113,48 @@
     }
   },
   "role_hierarchy": {
-    "lead": {"can_send": ["plan_contract", "approval_request", "approval_response", "shutdown_request", "shutdown_response"], "can_receive": ["execution_update", "blocker_report", "debugger_report", "qa_verdict", "scout_findings", "approval_request", "shutdown_request", "shutdown_response"]},
-    "architect": {"can_send": ["plan_contract", "approval_response"], "can_receive": ["scout_findings", "approval_request"]},
-    "dev": {"can_send": ["execution_update", "blocker_report", "approval_request", "shutdown_response"], "can_receive": ["plan_contract", "approval_response", "shutdown_request"]},
-    "qa": {"can_send": ["qa_verdict", "shutdown_response"], "can_receive": ["plan_contract", "shutdown_request"]},
-    "scout": {"can_send": ["scout_findings", "shutdown_response"], "can_receive": ["plan_contract", "shutdown_request"]},
-    "debugger": {"can_send": ["debugger_report", "shutdown_response"], "can_receive": ["plan_contract", "shutdown_request"]},
-    "docs": {"can_send": ["execution_update", "blocker_report", "shutdown_response"], "can_receive": ["plan_contract", "approval_response", "shutdown_request"]}
+    "lead": {
+      "can_send": [
+        "plan_contract",
+        "approval_request",
+        "approval_response",
+        "shutdown_request",
+        "shutdown_response"
+      ],
+      "can_receive": [
+        "execution_update",
+        "blocker_report",
+        "debugger_report",
+        "qa_verdict",
+        "scout_findings",
+        "approval_request",
+        "shutdown_request",
+        "shutdown_response"
+      ]
+    },
+    "architect": {
+      "can_send": ["plan_contract", "approval_response"],
+      "can_receive": ["scout_findings", "approval_request"]
+    },
+    "dev": {
+      "can_send": ["execution_update", "blocker_report", "approval_request", "shutdown_response"],
+      "can_receive": ["plan_contract", "approval_response", "shutdown_request"]
+    },
+    "qa": {
+      "can_send": ["qa_verdict", "shutdown_response"],
+      "can_receive": ["plan_contract", "shutdown_request"]
+    },
+    "scout": {
+      "can_send": ["scout_findings", "shutdown_response"],
+      "can_receive": ["plan_contract", "shutdown_request"]
+    },
+    "debugger": {
+      "can_send": ["debugger_report", "shutdown_response"],
+      "can_receive": ["plan_contract", "shutdown_request"]
+    },
+    "docs": {
+      "can_send": ["execution_update", "blocker_report", "shutdown_response"],
+      "can_receive": ["plan_contract", "approval_response", "shutdown_request"]
+    }
   }
 }

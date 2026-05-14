@@ -2,6 +2,7 @@ import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
 import type { ConnectionState } from '../state/dashboard-store.js';
+
 import { OptionsMenu } from './OptionsMenu.js';
 
 export interface TopBarProps {
@@ -193,9 +194,7 @@ export const TopBar: Component<TopBarProps> = (props) => {
             value={verb()}
             onChange={(e) => setVerb(e.currentTarget.value)}
           >
-            <For each={ACTION_VERBS}>
-              {(v) => <option value={v.value}>{v.label}</option>}
-            </For>
+            <For each={ACTION_VERBS}>{(v) => <option value={v.value}>{v.label}</option>}</For>
           </select>
           <span class="topbar-cmd-prompt">$</span>
           <input

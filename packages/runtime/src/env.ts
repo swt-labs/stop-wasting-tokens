@@ -139,10 +139,7 @@ export function applyEnvToProcess(): { installRoot: string; sessionId: string } 
   ) {
     process.env.SWT_INSTALL_ROOT = installRoot;
   }
-  if (
-    typeof process.env.SWT_SESSION_ID !== 'string' ||
-    process.env.SWT_SESSION_ID.length === 0
-  ) {
+  if (typeof process.env.SWT_SESSION_ID !== 'string' || process.env.SWT_SESSION_ID.length === 0) {
     process.env.SWT_SESSION_ID = sessionId;
   }
   return { installRoot, sessionId };

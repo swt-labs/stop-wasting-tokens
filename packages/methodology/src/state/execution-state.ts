@@ -33,13 +33,7 @@ import { z } from 'zod';
 // Zod schema
 // ────────────────────────────────────────────────────────────────────────────
 
-const PlanStatusSchema = z.enum([
-  'planning',
-  'in_progress',
-  'paused',
-  'completed',
-  'crashed',
-]);
+const PlanStatusSchema = z.enum(['planning', 'in_progress', 'paused', 'completed', 'crashed']);
 
 const PlanEntrySchema = z.object({
   plan: z.string().min(1),

@@ -54,9 +54,8 @@ vi.mock('../../../src/credentials/oauth/oauth-credentials-store.js', () => ({
 }));
 
 // Imported AFTER the `vi.mock`s are registered (vitest hoists `vi.mock`).
-const { refreshOAuthCredentialsIfNeeded, OAuthRefreshError } = await import(
-  '../../../src/credentials/oauth/oauth-refresh.js'
-);
+const { refreshOAuthCredentialsIfNeeded, OAuthRefreshError } =
+  await import('../../../src/credentials/oauth/oauth-refresh.js');
 const { getOAuthProvider } = await import('@earendil-works/pi-ai/oauth');
 
 beforeEach(() => {
@@ -164,12 +163,12 @@ describe('Plan 04-04 — refreshOAuthCredentialsIfNeeded (SWT-owns-refresh)', ()
       throw new Error('refresh token revoked');
     });
 
-    await expect(
-      refreshOAuthCredentialsIfNeeded('anthropic', creds),
-    ).rejects.toBeInstanceOf(OAuthRefreshError);
-    await expect(
-      refreshOAuthCredentialsIfNeeded('anthropic', creds),
-    ).rejects.toThrow(/refresh token revoked/);
+    await expect(refreshOAuthCredentialsIfNeeded('anthropic', creds)).rejects.toBeInstanceOf(
+      OAuthRefreshError,
+    );
+    await expect(refreshOAuthCredentialsIfNeeded('anthropic', creds)).rejects.toThrow(
+      /refresh token revoked/,
+    );
     expect(storeOAuthCredentialsMock).not.toHaveBeenCalled();
   });
 

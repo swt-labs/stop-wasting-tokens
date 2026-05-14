@@ -1,20 +1,23 @@
 ---
-overlay_for: {{role}}                        # e.g., dev | debugger | qa
-provider: {{provider}}                       # e.g., openai | anthropic | google
-source: "github.com/{{source-repo}}"         # e.g., github.com/openai/codex
+overlay_for: { { role } } # e.g., dev | debugger | qa
+provider: { { provider } } # e.g., openai | anthropic | google
+source: 'github.com/{{source-repo}}' # e.g., github.com/openai/codex
 source_paths:
-  - "{{path-1}}"                              # e.g., codex-rs/core/src/prompts.rs
-  - "{{path-2}}"
-source_intent: "{{one-line summary}}"        # e.g., tool-use sequencing + diff-shaped edits
-model_families:                              # optional; reserved for forward compat (Phase 1 ignores)
-  - "{{family-1}}"                            # e.g., gpt-5
-last_tuned: "{{YYYY-MM-DD}}"
+  - '{{path-1}}' # e.g., codex-rs/core/src/prompts.rs
+  - '{{path-2}}'
+source_intent: '{{one-line summary}}' # e.g., tool-use sequencing + diff-shaped edits
+model_families: # optional; reserved for forward compat (Phase 1 ignores)
+  - '{{family-1}}' # e.g., gpt-5
+last_tuned: '{{YYYY-MM-DD}}'
 schema_version: 1
 ---
 
 # Intent-mirror of {{Provider}} {{role-equivalent}} prompt.
+
 # Source: github.com/{{source-repo}} (paths above)
+
 # Last checked: {{YYYY-MM-DD}}
+
 # DO NOT copy verbatim from the source — paraphrase the intent.
 
 ## Tool-use sequencing

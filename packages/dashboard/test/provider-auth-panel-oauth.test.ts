@@ -31,13 +31,12 @@
  *   (i) token-leak guard                              → "token-leak guard …"
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
 import {
   PROVIDER_VOCABULARY,
   type ProviderAuthSnapshot,
   type ProviderAuthUpdateBody,
 } from '@swt-labs/shared';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   OAUTH_PROVIDERS,
@@ -57,7 +56,13 @@ function makeSnapshot(overrides: Partial<ProviderAuthSnapshot> = {}): ProviderAu
     keychain_available: true,
     keychain_reason: null,
     statuses: [
-      { provider: 'anthropic', configured: true, mode: 'oauth', source: 'keychain', label: 'Keychain' },
+      {
+        provider: 'anthropic',
+        configured: true,
+        mode: 'oauth',
+        source: 'keychain',
+        label: 'Keychain',
+      },
       { provider: 'openai', configured: false, mode: null, source: null, label: null },
     ],
     generated_at: '2026-05-14T00:00:00.000Z',
@@ -91,16 +96,16 @@ function makeProps(overrides: Partial<ProviderAuthPanelProps> = {}): ProviderAut
     error: null,
     lastFetched: '2026-05-14T00:00:00.000Z',
     onRefresh: vi.fn(),
-    onSave: vi.fn<
-      (b: ProviderAuthUpdateBody) => Promise<{ ok: true } | { error: string }>
-    >().mockResolvedValue({ ok: true }),
+    onSave: vi
+      .fn<(b: ProviderAuthUpdateBody) => Promise<{ ok: true } | { error: string }>>()
+      .mockResolvedValue({ ok: true }),
     oauthFlow: null,
-    onStartOAuth: vi.fn<
-      (p: string) => Promise<{ ok: true } | { error: string }>
-    >().mockResolvedValue({ ok: true }),
-    onSubmitOAuthCode: vi.fn<
-      (c: string) => Promise<{ ok: true } | { error: string }>
-    >().mockResolvedValue({ ok: true }),
+    onStartOAuth: vi
+      .fn<(p: string) => Promise<{ ok: true } | { error: string }>>()
+      .mockResolvedValue({ ok: true }),
+    onSubmitOAuthCode: vi
+      .fn<(c: string) => Promise<{ ok: true } | { error: string }>>()
+      .mockResolvedValue({ ok: true }),
     onDismissOAuthFlow: vi.fn(),
     ...overrides,
   };

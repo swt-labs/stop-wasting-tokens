@@ -164,7 +164,10 @@ export type RouterStrategy =
       readonly kind: 'tier-routed-compound';
       readonly map: Readonly<Partial<Record<CompoundTier, string>>>;
       readonly fallback: string;
-      readonly fallbackStrategy?: Exclude<RouterStrategy, { readonly kind: 'tier-routed-compound' }>;
+      readonly fallbackStrategy?: Exclude<
+        RouterStrategy,
+        { readonly kind: 'tier-routed-compound' }
+      >;
     };
 
 /**

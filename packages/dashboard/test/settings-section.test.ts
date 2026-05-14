@@ -45,9 +45,9 @@ import {
  * non-target-key preservation, no mutation of the caller's config cell. */
 describe('buildConfigPatch — full-config merge', () => {
   it('overrides the target field AND preserves every non-target field', () => {
-    expect(buildConfigPatch({ effort: 'balanced', autonomy: 'standard' }, 'effort', 'fast')).toEqual(
-      { config: { effort: 'fast', autonomy: 'standard' } },
-    );
+    expect(
+      buildConfigPatch({ effort: 'balanced', autonomy: 'standard' }, 'effort', 'fast'),
+    ).toEqual({ config: { effort: 'fast', autonomy: 'standard' } });
   });
 
   it('merges a boolean field while preserving the rest', () => {

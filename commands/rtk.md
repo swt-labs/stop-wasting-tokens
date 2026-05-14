@@ -14,6 +14,7 @@ allowed-tools: Read, Bash, AskUserQuestion
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 RTK state:
+
 ```json
 !`bash "${SWT_INSTALL_ROOT}/scripts/rtk-manager.sh" status --json 2>/dev/null || echo '{"status_unavailable":true,"summary":"RTK status unavailable","next_action":"install","compatibility":"unknown"}'`
 ```
@@ -52,6 +53,7 @@ If no subcommand is provided, use the RTK state JSON to present one bounded AskU
   - `Exit` when no action is wanted
 
 For bounded AskUserQuestion replies:
+
 - accept direct option intent that clearly matches a visible choice
 - accept unambiguous visible option-number replies such as `#1`, `option 2`, or `2`
 - accept hybrid replies anchored to a visible option number such as `#2 please`

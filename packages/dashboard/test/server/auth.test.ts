@@ -69,9 +69,7 @@ describe('Plan 06-03 T4 — initDashboardToken', () => {
   });
 
   it('readDashboardToken throws when the file does not exist', () => {
-    expect(() => readDashboardToken({ projectRoot: root })).toThrow(
-      /Dashboard token file missing/,
-    );
+    expect(() => readDashboardToken({ projectRoot: root })).toThrow(/Dashboard token file missing/);
   });
 });
 

@@ -23,13 +23,13 @@ The projection is emitted as the **`cook.budget_projected`** JSONL event on **ev
 
 ### How it differs from the after-the-fact gate
 
-| | After-the-fact gate (`budget.md`) | Pre-spawn projection (this doc) |
-| --- | --- | --- |
-| When | After each token-usage event | Before `spawnFn` runs |
-| Trigger | Cumulative `spent` crosses a threshold | Projected `spent + projected_cost_usd` crosses the halt threshold |
-| Effect | Transitions `status` (`ok` → `warning` → `paused`), fires `budget.warning` / `budget.pause` / `budget.resume` | Halts the spawn pre-emptively via `cook.task_fail` + `cook.completion(failed)` — no gate state change |
-| Money spent | The crossing turn already spent | None — the spawn never runs |
-| Event | `budget.warning` / `budget.pause` / `budget.resume` | `cook.budget_projected` (every spawn) |
+|             | After-the-fact gate (`budget.md`)                                                                             | Pre-spawn projection (this doc)                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| When        | After each token-usage event                                                                                  | Before `spawnFn` runs                                                                                 |
+| Trigger     | Cumulative `spent` crosses a threshold                                                                        | Projected `spent + projected_cost_usd` crosses the halt threshold                                     |
+| Effect      | Transitions `status` (`ok` → `warning` → `paused`), fires `budget.warning` / `budget.pause` / `budget.resume` | Halts the spawn pre-emptively via `cook.task_fail` + `cook.completion(failed)` — no gate state change |
+| Money spent | The crossing turn already spent                                                                               | None — the spawn never runs                                                                           |
+| Event       | `budget.warning` / `budget.pause` / `budget.resume`                                                           | `cook.budget_projected` (every spawn)                                                                 |
 
 Phase 3 added **no new gate state**. The projection path does not introduce an `exceeded` state — it halts via `BudgetGate.project()` returning `would_exceed: true`, which the cook callsite turns into a task failure. The gate's own state machine (`ok` / `warning` / `paused`) is untouched.
 
@@ -51,11 +51,11 @@ Phase 3 added **no new gate state**. The projection path does not introduce an `
 }
 ```
 
-| Field                       | Default                | Notes                                                                                                                                                                       |
-| --------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projection_enabled`        | `true`                 | Pre-spawn cost projection toggle. Projection is **ON by default**. Set `false` to fall back to after-the-fact-only behaviour — `project()` then short-circuits to `would_exceed: false` while still returning an honest `projected_pressure` for telemetry. |
-| `projection_halt_threshold` | _reuses `pause_threshold`_ | Optional fraction in `[0, 1]`. The projection-path halt cutoff. When omitted the projection reuses `pause_threshold`. Lets operators be **stricter pre-spawn than post-spawn** — e.g. halt projections at `0.90` but only hard-pause actuals at `0.95`. |
-| `task_usd`                  | _none_                 | Optional per-task cap. Previously declared-but-unconsumed in `BudgetConfigSchema`; **now live** as a per-spawn cap — a projection with `projected_cost_usd > task_usd` halts the spawn regardless of milestone pressure. Skipped when undefined. |
+| Field                       | Default                    | Notes                                                                                                                                                                                                                                                       |
+| --------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projection_enabled`        | `true`                     | Pre-spawn cost projection toggle. Projection is **ON by default**. Set `false` to fall back to after-the-fact-only behaviour — `project()` then short-circuits to `would_exceed: false` while still returning an honest `projected_pressure` for telemetry. |
+| `projection_halt_threshold` | _reuses `pause_threshold`_ | Optional fraction in `[0, 1]`. The projection-path halt cutoff. When omitted the projection reuses `pause_threshold`. Lets operators be **stricter pre-spawn than post-spawn** — e.g. halt projections at `0.90` but only hard-pause actuals at `0.95`.     |
+| `task_usd`                  | _none_                     | Optional per-task cap. Previously declared-but-unconsumed in `BudgetConfigSchema`; **now live** as a per-spawn cap — a projection with `projected_cost_usd > task_usd` halts the spawn regardless of milestone pressure. Skipped when undefined.            |
 
 The after-the-fact fields (`milestone_usd`, `phase_usd`, `tier_downgrade_threshold`, `pause_threshold`) are documented in [`budget.md`](./budget.md) and are unchanged.
 
@@ -69,9 +69,9 @@ Each projection carries a `confidence` band and an `assumptions[]` honesty list.
 - **`medium`** — a rate-card entry was found for the provider, and the `maxTurns` worst case was cross-checked against the fixed-multiplier expected mid-point.
 - **`high`** — **reserved for a future plan** with real per-role historical output averages. It is **not reachable in Phase 3** — Phase 3 caps at `medium`.
 
-**`confidence` is a DISPLAY concern only.** The halt decision is binary (`would_exceed`) and is computed purely from the conservative worst-case number — `project()` **never** reads `projection.confidence`. A low-confidence projection that still shows `would_exceed: true` is *exactly* when to halt: low confidence means the estimate is uncertain, not that it is safe. The dashboard renders `confidence` so an operator can judge a halt — but it never softens the gate.
+**`confidence` is a DISPLAY concern only.** The halt decision is binary (`would_exceed`) and is computed purely from the conservative worst-case number — `project()` **never** reads `projection.confidence`. A low-confidence projection that still shows `would_exceed: true` is _exactly_ when to halt: low confidence means the estimate is uncertain, not that it is safe. The dashboard renders `confidence` so an operator can judge a halt — but it never softens the gate.
 
-**`assumptions[]`** is a short, human-readable list (each entry capped at ~80 chars, max 8 entries, always-present notes first) that the dashboard renders so operators can see *what the projection assumed*:
+**`assumptions[]`** is a short, human-readable list (each entry capped at ~80 chars, max 8 entries, always-present notes first) that the dashboard renders so operators can see _what the projection assumed_:
 
 - the char/4 input-token heuristic,
 - the `maxTurns`-bounded output worst case,
@@ -83,7 +83,7 @@ Each projection carries a `confidence` band and an `assumptions[]` honesty list.
 Pre-spawn projection **complements** the after-the-fact file-meter — it does not replace it (research §4.3):
 
 - The **file-meter → gate subscription stays the actual-spend ground truth** and is **untouched**. It remains the exact backstop that catches estimation error mid-flight.
-- `BudgetGate.project()` is a **pure, side-effect-free forward guard**. It never mutates `spent` / `status` / `warning_fired_at` / `paused_at`, never fires a `BudgetEvent`, and never calls `evaluate()`. It only *reads* the live `ceiling` + `spent` and returns a `BudgetProjectionResult`.
+- `BudgetGate.project()` is a **pure, side-effect-free forward guard**. It never mutates `spent` / `status` / `warning_fired_at` / `paused_at`, never fires a `BudgetEvent`, and never calls `evaluate()`. It only _reads_ the live `ceiling` + `spent` and returns a `BudgetProjectionResult`.
 - The projection catches **obvious** overruns pre-spawn; the file-meter remains the **exact** safety net for everything the estimate gets wrong.
 
 ### Best-effort degradation

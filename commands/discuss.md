@@ -1,8 +1,8 @@
 ---
 name: swt:discuss
 category: lifecycle
-description: "Start or continue phase discussion to build context before planning."
-argument-hint: "[N] [--assumptions]"
+description: 'Start or continue phase discussion to build context before planning.'
+argument-hint: '[N] [--assumptions]'
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, LSP
 disable-model-invocation: true
 ---
@@ -12,14 +12,17 @@ disable-model-invocation: true
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 Store the plugin root path output above as `{plugin-root}` for use in script/reference lookups below. Replace `{plugin-root}` with the literal `Plugin root` value from Context whenever a step below references a script or reference file.
 
 Phase state:
+
 ```
 ${SWT_PHASE_DETECT_OUTPUT}
 ```
@@ -57,6 +60,7 @@ Read `{plugin-root}/references/discussion-engine.md` and follow its protocol for
 ## After Discussion
 
 **Discussion commit boundary (conditional):**
+
 ```bash
 PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
 if [ -f "$PG_SCRIPT" ]; then
@@ -65,6 +69,7 @@ else
   echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
 fi
 ```
+
 Behavior: `planning_tracking=commit` commits `{NN}-CONTEXT.md` and `discovery.json` if changed. Other modes no-op.
 
 Run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/suggest-next.sh discuss`.

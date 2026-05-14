@@ -147,11 +147,7 @@ async function buildSnapshot(cwd: string): Promise<ProviderAuthSnapshot> {
     const raw = await readFile(cfgPath, 'utf8');
     parsed = JSON.parse(raw);
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       // Greenfield daemon — no `.swt-planning/config.json` yet. Fall through
       // with `parsed = {}`: the selection defaults to null/pinned and the
       // `auth` block is empty, but the keychain probe below still runs.
@@ -286,8 +282,7 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
       return c.json(
         {
           error: 'credential_write_confirmation_required',
-          detail:
-            'POST /api/provider-auth requires the X-SWT-Credential-Write: confirm header.',
+          detail: 'POST /api/provider-auth requires the X-SWT-Credential-Write: confirm header.',
         },
         403,
       );
@@ -297,10 +292,7 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
     const raw: unknown = await c.req.json().catch(() => null);
     const parsed = ProviderAuthUpdateBodySchema.safeParse(raw);
     if (!parsed.success) {
-      return c.json(
-        { error: 'invalid_provider_auth_body', detail: parsed.error.flatten() },
-        400,
-      );
+      return c.json({ error: 'invalid_provider_auth_body', detail: parsed.error.flatten() }, 400);
     }
     const { provider, authMode } = parsed.data;
 
@@ -353,11 +345,7 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
           ? { ...(parsedCurrent as Record<string, unknown>) }
           : {};
     } catch (err) {
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        (err as { code?: string }).code === 'ENOENT'
-      ) {
+      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
         // Greenfield daemon — no config.json yet. Start from an empty object;
         // `mkdir -p` below creates `.swt-planning/` on demand.
         config = {};

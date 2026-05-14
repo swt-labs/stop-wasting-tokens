@@ -9,6 +9,7 @@ Write code review comments terse and actionable. One line per finding. Location,
 `L<line>: <problem>. <fix>.` — or `<file>:L<line>: ...` when reviewing multi-file diffs.
 
 **Severity prefix (when mixed findings):**
+
 - `🔴 bug:` — broken behavior, will cause incident
 - `🟡 risk:` — works but fragile (race, missing null check, swallowed error)
 - `🔵 nit:` — style, naming, micro-optim. Author can ignore
@@ -17,6 +18,7 @@ Write code review comments terse and actionable. One line per finding. Location,
 ## Rules
 
 **Drop:**
+
 - "I noticed that...", "It seems like...", "You might want to consider..."
 - "This is just a suggestion but..." — use `nit:` instead
 - "Great work!", "Looks good overall but..." — say it once at the top, not per comment
@@ -24,10 +26,11 @@ Write code review comments terse and actionable. One line per finding. Location,
 - Hedging ("perhaps", "maybe", "I think") — if unsure use `q:`
 
 **Keep:**
+
 - Exact line numbers
 - Exact symbol/function/variable names in backticks
 - Concrete fix, not "consider refactoring this"
-- The *why* if the fix isn't obvious from the problem statement
+- The _why_ if the fix isn't obvious from the problem statement
 
 ## Examples
 

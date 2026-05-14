@@ -25,9 +25,10 @@
  * PASS vs FAIL) as a Phase 5 exit signal.
  */
 
-import { describe, expect, it, afterAll, beforeAll } from 'vitest';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { describe, expect, it, afterAll, beforeAll } from 'vitest';
 
 import { TpacReportSchema } from '../../packages/shared/src/schemas/tpac-report.js';
 import { diffArtefacts } from '../../packages/test-utils/src/diff-artefacts.js';
@@ -38,13 +39,7 @@ import {
 } from '../../packages/test-utils/src/run-milestone.js';
 
 const REPO_ROOT = join(__dirname, '..', '..');
-const FIXTURE_ROOT = join(
-  REPO_ROOT,
-  'packages',
-  'test-utils',
-  'golden',
-  'ref-fastapi',
-);
+const FIXTURE_ROOT = join(REPO_ROOT, 'packages', 'test-utils', 'golden', 'ref-fastapi');
 const CASSETTE_PATH = join(FIXTURE_ROOT, 'cassettes', 'full-milestone.jsonl');
 const BASELINE_DIR = join(FIXTURE_ROOT, 'v2-baseline');
 const BASELINE_PLANNING = join(BASELINE_DIR, '.swt-planning');
@@ -62,9 +57,7 @@ function isPlaceholderBaseline(): boolean {
 }
 
 const READY =
-  existsSync(CASSETTE_PATH) &&
-  existsSync(BASELINE_PLANNING) &&
-  !isPlaceholderBaseline();
+  existsSync(CASSETTE_PATH) && existsSync(BASELINE_PLANNING) && !isPlaceholderBaseline();
 
 describe.skipIf(!READY)('ref-fastapi full-milestone e2e (plan 05-04 T4)', () => {
   let result: RunMilestoneResult;

@@ -106,12 +106,8 @@ async function refreshInteractive(entries) {
       console.log(
         `\n[${entry.provider} / ${entry.model}] current: input=$${entry.input_per_1k}/1k, output=$${entry.output_per_1k}/1k`,
       );
-      const newIn = (
-        await rl.question('  new input_per_1k (blank to keep): ')
-      ).trim();
-      const newOut = (
-        await rl.question('  new output_per_1k (blank to keep): ')
-      ).trim();
+      const newIn = (await rl.question('  new input_per_1k (blank to keep): ')).trim();
+      const newOut = (await rl.question('  new output_per_1k (blank to keep): ')).trim();
       let touched = false;
       if (newIn !== '' && Number.isFinite(Number(newIn))) {
         entry.input_per_1k = Number(newIn);
@@ -153,25 +149,17 @@ async function main() {
     !Array.isArray(card.entries) ||
     card.entries.length < 1
   ) {
-    throw new Error(
-      'refresh-rate-card: invariant violation post-refresh; refusing to write.',
-    );
+    throw new Error('refresh-rate-card: invariant violation post-refresh; refusing to write.');
   }
   for (const e of card.entries) {
     if (!e.provider || !e.model) {
-      throw new Error(
-        `refresh-rate-card: malformed entry: ${JSON.stringify(e)}`,
-      );
+      throw new Error(`refresh-rate-card: malformed entry: ${JSON.stringify(e)}`);
     }
     if (typeof e.input_per_1k !== 'number' || e.input_per_1k < 0) {
-      throw new Error(
-        `refresh-rate-card: bad input_per_1k for ${e.provider}/${e.model}`,
-      );
+      throw new Error(`refresh-rate-card: bad input_per_1k for ${e.provider}/${e.model}`);
     }
     if (typeof e.output_per_1k !== 'number' || e.output_per_1k < 0) {
-      throw new Error(
-        `refresh-rate-card: bad output_per_1k for ${e.provider}/${e.model}`,
-      );
+      throw new Error(`refresh-rate-card: bad output_per_1k for ${e.provider}/${e.model}`);
     }
   }
 

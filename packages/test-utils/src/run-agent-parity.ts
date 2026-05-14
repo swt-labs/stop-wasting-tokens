@@ -27,14 +27,7 @@ import { join } from 'node:path';
 import { installReplay, type ReplayHandle } from './cassettes/replayer.js';
 import { classify, compareFile, type ArtefactCategory } from './diff-artefacts.js';
 
-export type AgentRole =
-  | 'scout'
-  | 'architect'
-  | 'lead'
-  | 'dev'
-  | 'qa'
-  | 'debugger'
-  | 'docs';
+export type AgentRole = 'scout' | 'architect' | 'lead' | 'dev' | 'qa' | 'debugger' | 'docs';
 
 /**
  * Outcome of a single per-role parity invocation.

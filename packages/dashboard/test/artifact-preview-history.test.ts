@@ -11,10 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ArtifactPreview } from '../src/client/components/ArtifactPreview.jsx';
-import {
-  fetchArtifactDiff,
-  fetchArtifactHistory,
-} from '../src/client/services/api.js';
+import { fetchArtifactDiff, fetchArtifactHistory } from '../src/client/services/api.js';
 
 let fetchSpy!: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>;
 

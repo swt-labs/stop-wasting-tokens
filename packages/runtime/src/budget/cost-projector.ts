@@ -163,9 +163,7 @@ function priceTokens(tokens: number, per1k: number): number {
 
 /** Hard-truncate an assumption string to `MAX_ASSUMPTION_LEN` chars. */
 function clampAssumption(text: string): string {
-  return text.length <= MAX_ASSUMPTION_LEN
-    ? text
-    : text.slice(0, MAX_ASSUMPTION_LEN);
+  return text.length <= MAX_ASSUMPTION_LEN ? text : text.slice(0, MAX_ASSUMPTION_LEN);
 }
 
 /**
@@ -188,8 +186,7 @@ export function projectSpawnCost(
 ): CostProjection {
   const estimate = opts?.estimateTokens ?? estimateTokens;
   const outputRatio = opts?.outputRatio ?? DEFAULT_OUTPUT_RATIO;
-  const outputTokensPerTurn =
-    opts?.outputTokensPerTurn ?? DEFAULT_OUTPUT_TOKENS_PER_TURN;
+  const outputTokensPerTurn = opts?.outputTokensPerTurn ?? DEFAULT_OUTPUT_TOKENS_PER_TURN;
   const assumeWarmPrefix = opts?.assumeWarmPrefix ?? false;
 
   // --- Token projection -----------------------------------------------------
@@ -206,9 +203,7 @@ export function projectSpawnCost(
   // Mirrors `rate-card-source.ts:find` — first match on provider, model-
   // agnostic when `model` omitted.
   const matchedEntry: RateCardEntry | undefined = rateCard.entries.find(
-    (e) =>
-      e.provider === input.provider &&
-      (input.model === undefined || e.model === input.model),
+    (e) => e.provider === input.provider && (input.model === undefined || e.model === input.model),
   );
   const providerMiss = matchedEntry === undefined;
   // On a miss, fall back to the first anthropic entry, else the first entry
@@ -220,24 +215,19 @@ export function projectSpawnCost(
   const entry: RateCardEntry = matchedEntry ?? fallbackEntry;
 
   // --- Pricing (R5 — cold default) -----------------------------------------
-  const warmApplied =
-    assumeWarmPrefix && entry.cache_read_per_1k !== undefined;
+  const warmApplied = assumeWarmPrefix && entry.cache_read_per_1k !== undefined;
   const inputCost = warmApplied
     ? priceTokens(systemTokens, entry.cache_read_per_1k as number) +
       priceTokens(taskTokens, entry.input_per_1k)
     : priceTokens(projected_input_tokens, entry.input_per_1k);
 
-  const projected_cost_usd =
-    inputCost + priceTokens(projected_output_tokens, entry.output_per_1k);
-  const expected_cost_usd =
-    inputCost + priceTokens(expected_output_tokens, entry.output_per_1k);
+  const projected_cost_usd = inputCost + priceTokens(projected_output_tokens, entry.output_per_1k);
+  const expected_cost_usd = inputCost + priceTokens(expected_output_tokens, entry.output_per_1k);
 
   // --- Confidence (research §5) --------------------------------------------
   // Provider-miss → `low`; otherwise `medium`. `high` is unreachable in
   // Phase 3 (reserved for real per-role historical output averages).
-  const confidence: CostProjection['confidence'] = providerMiss
-    ? 'low'
-    : 'medium';
+  const confidence: CostProjection['confidence'] = providerMiss ? 'low' : 'medium';
 
   // --- Assumptions honesty surface -----------------------------------------
   const assumptions: string[] = [
@@ -255,9 +245,7 @@ export function projectSpawnCost(
   }
   // Cap the array at MAX_ASSUMPTIONS — drop from the END (always-present
   // notes come first) — and hard-truncate each string to MAX_ASSUMPTION_LEN.
-  const cappedAssumptions = assumptions
-    .slice(0, MAX_ASSUMPTIONS)
-    .map(clampAssumption);
+  const cappedAssumptions = assumptions.slice(0, MAX_ASSUMPTIONS).map(clampAssumption);
 
   return {
     projected_cost_usd,

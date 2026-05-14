@@ -13,11 +13,10 @@ import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import { SnapshotEventSchema, type TaskResult } from '@swt-labs/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { makeCookHandler, __setCookControlsForTesting } from '../src/commands/cook.js';
 import { EXIT } from '../src/exit-codes.js';
@@ -148,7 +147,7 @@ async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
     const r = askResponses[askIdx];
     askIdx += 1;
     if (r !== undefined) return r;
-    return { selectedOption: 'Yes', freeform: null } as AskUserResponse;
+    return { selectedOption: 'Yes', freeform: null };
   });
 
   const spawnResult: TaskResult = {
@@ -166,21 +165,19 @@ async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
   });
 
   const detectPhaseImpl = vi.fn(async () => state);
-  const execSyncImpl = vi.fn(
-    (_cmd: string, _opts: unknown) => '' as unknown as Buffer,
-  );
+  const execSyncImpl = vi.fn((_cmd: string, _opts: unknown) => '' as unknown as Buffer);
   const readFileSyncImpl = vi.fn(
     (_p: import('node:fs').PathOrFileDescriptor, _enc?: unknown) => STUB_COOK_MD,
   );
   const existsSyncImpl = vi.fn((_p: import('node:fs').PathLike) => false);
 
   const handler = makeCookHandler({
-    detectPhaseImpl: detectPhaseImpl as never,
-    askUserImpl: askUserImpl as never,
-    spawnOrchestratorSessionImpl: spawnImpl as never,
+    detectPhaseImpl: detectPhaseImpl,
+    askUserImpl: askUserImpl,
+    spawnOrchestratorSessionImpl: spawnImpl,
     execSyncImpl: execSyncImpl as never,
     readFileSyncImpl: readFileSyncImpl as never,
-    existsSyncImpl: existsSyncImpl as never,
+    existsSyncImpl: existsSyncImpl,
   });
 
   const stderr: string[] = [];
@@ -295,9 +292,10 @@ describe('@swt-labs/cli — cook events integration (Plan 04-01 T5)', () => {
     const entries = await readdir(metricsDir);
     const sessionFile = entries.find((f) => f.startsWith('session-') && f.endsWith('.json'));
     expect(sessionFile, `metrics entries: ${entries.join(', ')}`).toBeDefined();
-    const metrics = JSON.parse(
-      await readFile(join(metricsDir, sessionFile!), 'utf-8'),
-    ) as { agent_results: number; tokens: { in: number; out: number } };
+    const metrics = JSON.parse(await readFile(join(metricsDir, sessionFile!), 'utf-8')) as {
+      agent_results: number;
+      tokens: { in: number; out: number };
+    };
     expect(metrics.agent_results).toBe(1);
     // T2 emits {input_tokens: 0, output_tokens: 0} until Phase 5 parity.
     expect(metrics.tokens.in).toBe(0);

@@ -256,7 +256,8 @@ function readAgentEventTail(projectRoot: string, subSessionId: string): AgentEve
       };
       out.tokens_in += typeof u.input_tokens === 'number' ? u.input_tokens : 0;
       out.tokens_out += typeof u.output_tokens === 'number' ? u.output_tokens : 0;
-      out.cache_read += typeof u.cache_read_input_tokens === 'number' ? u.cache_read_input_tokens : 0;
+      out.cache_read +=
+        typeof u.cache_read_input_tokens === 'number' ? u.cache_read_input_tokens : 0;
       out.cache_creation +=
         typeof u.cache_creation_input_tokens === 'number' ? u.cache_creation_input_tokens : 0;
       out.cost_usd += typeof u.cost_usd === 'number' ? u.cost_usd : 0;
@@ -266,7 +267,13 @@ function readAgentEventTail(projectRoot: string, subSessionId: string): AgentEve
 }
 
 function coerceAgentStatus(raw: unknown): AgentLiveState['status'] {
-  if (raw === 'idle' || raw === 'spawning' || raw === 'running' || raw === 'completed' || raw === 'failed') {
+  if (
+    raw === 'idle' ||
+    raw === 'spawning' ||
+    raw === 'running' ||
+    raw === 'completed' ||
+    raw === 'failed'
+  ) {
     return raw;
   }
   return 'running';
@@ -378,7 +385,11 @@ export function scanCostSummary(
     if (Number.isFinite(last) && now - last <= DAY_MS) {
       todayUsd += cost;
     }
-    if (milestoneSet.size > 0 && typeof m.phase_slug === 'string' && milestoneSet.has(m.phase_slug)) {
+    if (
+      milestoneSet.size > 0 &&
+      typeof m.phase_slug === 'string' &&
+      milestoneSet.has(m.phase_slug)
+    ) {
       milestoneUsd += cost;
     }
     if (opts.activeSessionId !== undefined && m.session_id === opts.activeSessionId) {
@@ -538,7 +549,12 @@ function readPlanFrontmatter(absPath: string, planId: string): PlanSummary | nul
   const statusRaw = getField('status');
   const summary: PlanSummary = { plan: planId, title };
   if (Number.isFinite(wave) && wave >= 0) summary.wave = wave;
-  if (statusRaw === 'pending' || statusRaw === 'in_progress' || statusRaw === 'complete' || statusRaw === 'failed') {
+  if (
+    statusRaw === 'pending' ||
+    statusRaw === 'in_progress' ||
+    statusRaw === 'complete' ||
+    statusRaw === 'failed'
+  ) {
     summary.status = statusRaw;
   }
   return summary;

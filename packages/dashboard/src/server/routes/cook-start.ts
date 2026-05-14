@@ -62,9 +62,7 @@ export function registerCookStartRoute(app: Hono, opts: CookStartOptions): void 
   const spawnFn = opts.spawnFn ?? spawn;
 
   app.post('/api/cook/start', async (c) => {
-    const body: CookStartBody = await c.req
-      .json<CookStartBody>()
-      .catch(() => ({} as CookStartBody));
+    const body: CookStartBody = await c.req.json<CookStartBody>().catch(() => ({}));
     const extraArgs = Array.isArray(body.args)
       ? body.args.filter((a: unknown): a is string => typeof a === 'string')
       : [];

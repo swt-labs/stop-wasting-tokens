@@ -23,7 +23,10 @@ export interface ActiveAgentsPaneProps {
   postControl?: (sessionId: string, action: CookControlAction) => Promise<unknown>;
 }
 
-const DEFAULT_POST_CONTROL = async (sessionId: string, action: CookControlAction): Promise<void> => {
+const DEFAULT_POST_CONTROL = async (
+  sessionId: string,
+  action: CookControlAction,
+): Promise<void> => {
   await fetch(`/api/cook/${sessionId}/control`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -56,9 +59,7 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
   const [pending, setPending] = createSignal<CookControlAction | null>(null);
 
   const rows = (): AgentLiveState[] =>
-    Array.from(props.agents().values()).sort((a, b) =>
-      b.started_at.localeCompare(a.started_at),
-    );
+    Array.from(props.agents().values()).sort((a, b) => b.started_at.localeCompare(a.started_at));
 
   const sendControl = async (action: CookControlAction): Promise<void> => {
     const sid = props.sessionId();
@@ -131,10 +132,7 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
           </div>
         </Show>
       </header>
-      <Show
-        when={rows().length > 0}
-        fallback={<p class="active-agents-empty">No active agents</p>}
-      >
+      <Show when={rows().length > 0} fallback={<p class="active-agents-empty">No active agents</p>}>
         <table class="active-agents-table">
           <thead>
             <tr>
@@ -158,7 +156,10 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
                   </td>
                   <td>{row.status}</td>
                   <td>
-                    <Show when={row.current_tool} fallback={<span class="active-agents-dash">—</span>}>
+                    <Show
+                      when={row.current_tool}
+                      fallback={<span class="active-agents-dash">—</span>}
+                    >
                       <code title={row.current_tool_input_excerpt ?? undefined}>
                         {row.current_tool}
                       </code>

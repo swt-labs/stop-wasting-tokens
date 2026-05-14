@@ -72,10 +72,10 @@ import {
   type SwtSessionOptions,
   type ThinkingLevel,
 } from '@swt-labs/runtime';
+import { createCodingTools } from '@swt-labs/runtime';
 import type { AuthMode, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
-import { createCodingTools } from '@swt-labs/runtime';
 import { readProviderOverlay } from './provider-overlay.js';
 import type { AgentToolList } from './role-router.js';
 
@@ -224,7 +224,7 @@ export function resolveOrchestratorSessionConfig(
 ): SpawnOrchestratorSessionConfig {
   // The orchestrator gets the full coding bundle so it can do everything
   // a non-orchestrator role can (Read/Write/Edit/Bash/Glob/Grep/LSP/TodoWrite).
-  const tools = createCodingTools(opts.cwd) as AgentToolList;
+  const tools = createCodingTools(opts.cwd);
 
   const transcriptPath = resolve(
     opts.cwd,

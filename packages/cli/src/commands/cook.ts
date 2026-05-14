@@ -81,7 +81,6 @@ import {
   type RouterTier,
   type SelectedVia,
 } from '@swt-labs/orchestration';
-import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared';
 import {
   askUser as defaultAskUser,
   createBudgetGate,
@@ -96,6 +95,7 @@ import {
   type CostProjection,
   type OAuthCredentials,
 } from '@swt-labs/runtime';
+import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared';
 import type { CookEvent } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
@@ -321,10 +321,10 @@ export function probeForResume(
     lastStart !== undefined &&
     (lastComplete === undefined || lastStart.task_id !== lastComplete.task_id) &&
     (lastCommit === undefined || lastStart.task_id !== lastCommit.task_id)
-      ? lastStart.task_id ?? 'unknown'
+      ? (lastStart.task_id ?? 'unknown')
       : lastCommit !== undefined && lastCommit.task_id !== undefined
         ? `${lastCommit.task_id}_next`
-        : lastStart?.task_id ?? 'unknown';
+        : (lastStart?.task_id ?? 'unknown');
 
   return {
     kind: 'resume',
@@ -396,14 +396,7 @@ export interface RoutingDecision {
 // CookMode + priority that role's parity test should invoke. Not exported
 // as a public API surface — only consumed at the routeFromPhaseDetect()
 // callsite below when the env-var seam fires.
-export type DebugOnlyRole =
-  | 'scout'
-  | 'architect'
-  | 'lead'
-  | 'dev'
-  | 'qa'
-  | 'debugger'
-  | 'docs';
+export type DebugOnlyRole = 'scout' | 'architect' | 'lead' | 'dev' | 'qa' | 'debugger' | 'docs';
 
 export const ROLE_TO_ROUTING: Readonly<
   Record<DebugOnlyRole, { readonly mode: CookMode; readonly priority: number }>
@@ -690,9 +683,7 @@ export function detectModeFromFlags(
   return undefined;
 }
 
-function normaliseEffort(
-  raw: string | boolean | undefined,
-): ModeOptions['effort'] | undefined {
+function normaliseEffort(raw: string | boolean | undefined): ModeOptions['effort'] | undefined {
   if (typeof raw !== 'string') return undefined;
   switch (raw) {
     case 'thorough':
@@ -829,10 +820,7 @@ export function routeFromPhaseDetect(
   if (state.next_phase_state === 'needs_discussion') {
     // Fallback (TDD3 §7.4): if first_qa_attention_phase + failed,
     // re-target into QA Remediation rather than discussing unrelated work.
-    if (
-      state.first_qa_attention_phase !== undefined &&
-      state.qa_attention_status === 'failed'
-    ) {
+    if (state.first_qa_attention_phase !== undefined && state.qa_attention_status === 'failed') {
       return {
         mode: 'qa-remediation',
         priority: 8,
@@ -852,10 +840,7 @@ export function routeFromPhaseDetect(
 
   // Priority 9 — needs_plan_and_execute (gated)
   if (state.next_phase_state === 'needs_plan_and_execute') {
-    if (
-      state.first_qa_attention_phase !== undefined &&
-      state.qa_attention_status === 'failed'
-    ) {
+    if (state.first_qa_attention_phase !== undefined && state.qa_attention_status === 'failed') {
       return {
         mode: 'qa-remediation',
         priority: 9,
@@ -875,10 +860,7 @@ export function routeFromPhaseDetect(
 
   // Priority 10 — needs_execute (gated)
   if (state.next_phase_state === 'needs_execute') {
-    if (
-      state.first_qa_attention_phase !== undefined &&
-      state.qa_attention_status === 'failed'
-    ) {
+    if (state.first_qa_attention_phase !== undefined && state.qa_attention_status === 'failed') {
       return {
         mode: 'qa-remediation',
         priority: 10,
@@ -899,10 +881,7 @@ export function routeFromPhaseDetect(
   // Priority 11 — all_done. Honour QA-attention pending fallback first:
   // re-target to verify of the qa-attention phase rather than archiving.
   if (state.next_phase_state === 'all_done') {
-    if (
-      state.first_qa_attention_phase !== undefined &&
-      state.qa_attention_status === 'pending'
-    ) {
+    if (state.first_qa_attention_phase !== undefined && state.qa_attention_status === 'pending') {
       return {
         mode: 'verify',
         priority: 11,
@@ -1052,9 +1031,7 @@ export function stripFrontmatter(md: string): string {
 export function extractModeSection(body: string, modeHeading: string): string {
   const startIdx = body.indexOf(modeHeading);
   if (startIdx === -1) {
-    throw new Error(
-      `cook: could not find mode section "${modeHeading}" in commands/cook.md`,
-    );
+    throw new Error(`cook: could not find mode section "${modeHeading}" in commands/cook.md`);
   }
   const afterStart = startIdx + modeHeading.length;
   const nextIdx = body.indexOf('\n### Mode:', afterStart);
@@ -1113,12 +1090,16 @@ function parseProvidersConfig(raw: unknown): CookProvidersConfig {
     ? (block['fallbacks'] as unknown[]).filter((s): s is string => typeof s === 'string')
     : DEFAULT_PROVIDERS_CONFIG.fallbacks;
   const retryBudget =
-    typeof block['retryBudget'] === 'number' && Number.isFinite(block['retryBudget']) && (block['retryBudget'] as number) >= 1
-      ? (block['retryBudget'] as number)
+    typeof block['retryBudget'] === 'number' &&
+    Number.isFinite(block['retryBudget']) &&
+    block['retryBudget'] >= 1
+      ? block['retryBudget']
       : DEFAULT_PROVIDERS_CONFIG.retryBudget;
   const timeBudgetMs =
-    typeof block['timeBudgetMs'] === 'number' && Number.isFinite(block['timeBudgetMs']) && (block['timeBudgetMs'] as number) > 0
-      ? (block['timeBudgetMs'] as number)
+    typeof block['timeBudgetMs'] === 'number' &&
+    Number.isFinite(block['timeBudgetMs']) &&
+    block['timeBudgetMs'] > 0
+      ? block['timeBudgetMs']
       : DEFAULT_PROVIDERS_CONFIG.timeBudgetMs;
   return { strategy, fallbacks, retryBudget, timeBudgetMs };
 }
@@ -1133,20 +1114,20 @@ function parseBudgetConfig(raw: unknown): BudgetConfigSchemaT {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_BUDGET_CONFIG;
   const block = raw as Record<string, unknown>;
   const milestone =
-    typeof block['milestone_usd'] === 'number' && (block['milestone_usd'] as number) > 0
-      ? (block['milestone_usd'] as number)
+    typeof block['milestone_usd'] === 'number' && block['milestone_usd'] > 0
+      ? block['milestone_usd']
       : DEFAULT_BUDGET_CONFIG.milestone_usd;
   const downgrade =
     typeof block['tier_downgrade_threshold'] === 'number' &&
-    (block['tier_downgrade_threshold'] as number) >= 0 &&
-    (block['tier_downgrade_threshold'] as number) <= 1
-      ? (block['tier_downgrade_threshold'] as number)
+    block['tier_downgrade_threshold'] >= 0 &&
+    block['tier_downgrade_threshold'] <= 1
+      ? block['tier_downgrade_threshold']
       : DEFAULT_BUDGET_CONFIG.tier_downgrade_threshold;
   const pause =
     typeof block['pause_threshold'] === 'number' &&
-    (block['pause_threshold'] as number) >= 0 &&
-    (block['pause_threshold'] as number) <= 1
-      ? (block['pause_threshold'] as number)
+    block['pause_threshold'] >= 0 &&
+    block['pause_threshold'] <= 1
+      ? block['pause_threshold']
       : DEFAULT_BUDGET_CONFIG.pause_threshold;
   // Plan 03-03 added `projection_enabled` (required, default true) +
   // `projection_halt_threshold` (optional) to the budget schema. Parse both
@@ -1154,7 +1135,7 @@ function parseBudgetConfig(raw: unknown): BudgetConfigSchemaT {
   // (G-R4); anything else keeps it on.
   const projectionEnabled =
     typeof block['projection_enabled'] === 'boolean'
-      ? (block['projection_enabled'] as boolean)
+      ? block['projection_enabled']
       : DEFAULT_BUDGET_CONFIG.projection_enabled;
   return {
     schema_version: 1,
@@ -1162,16 +1143,16 @@ function parseBudgetConfig(raw: unknown): BudgetConfigSchemaT {
     tier_downgrade_threshold: downgrade,
     pause_threshold: pause,
     projection_enabled: projectionEnabled,
-    ...(typeof block['phase_usd'] === 'number' && (block['phase_usd'] as number) > 0
-      ? { phase_usd: block['phase_usd'] as number }
+    ...(typeof block['phase_usd'] === 'number' && block['phase_usd'] > 0
+      ? { phase_usd: block['phase_usd'] }
       : {}),
-    ...(typeof block['task_usd'] === 'number' && (block['task_usd'] as number) > 0
-      ? { task_usd: block['task_usd'] as number }
+    ...(typeof block['task_usd'] === 'number' && block['task_usd'] > 0
+      ? { task_usd: block['task_usd'] }
       : {}),
     ...(typeof block['projection_halt_threshold'] === 'number' &&
-    (block['projection_halt_threshold'] as number) >= 0 &&
-    (block['projection_halt_threshold'] as number) <= 1
-      ? { projection_halt_threshold: block['projection_halt_threshold'] as number }
+    block['projection_halt_threshold'] >= 0 &&
+    block['projection_halt_threshold'] <= 1
+      ? { projection_halt_threshold: block['projection_halt_threshold'] }
       : {}),
   };
 }
@@ -1194,7 +1175,9 @@ function parseStrategy(raw: unknown): CookProviderStrategy {
           }
         : DEFAULT_PROVIDERS_CONFIG.strategy;
     case 'tier-routed':
-      return typeof obj['map'] === 'object' && obj['map'] !== null && typeof obj['fallback'] === 'string'
+      return typeof obj['map'] === 'object' &&
+        obj['map'] !== null &&
+        typeof obj['fallback'] === 'string'
         ? {
             kind: 'tier-routed',
             map: obj['map'] as Record<string, string>,
@@ -1238,8 +1221,7 @@ export function loadCookConfig(
   try {
     const raw = fsImpl.readFileSync(configPath, 'utf8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const autoUat =
-      typeof parsed['auto_uat'] === 'boolean' ? (parsed['auto_uat'] as boolean) : false;
+    const autoUat = typeof parsed['auto_uat'] === 'boolean' ? parsed['auto_uat'] : false;
     const overrides =
       typeof parsed['qa_gate_overrides'] === 'object' && parsed['qa_gate_overrides'] !== null
         ? (parsed['qa_gate_overrides'] as QaGateOverrides)
@@ -1302,13 +1284,11 @@ function parseWorktreeIsolation(raw: unknown): 'off' | 'on' | 'auto' {
 export type BudgetGateFactory = (cfg: {
   readonly config: BudgetConfigSchemaT;
   readonly cwd: string;
-}) =>
-  | {
-      readonly gate: BudgetGate;
-      /** Optional async disposer (closes the chokidar watcher if present). */
-      readonly dispose?: () => Promise<void> | void;
-    }
-  | null;
+}) => {
+  readonly gate: BudgetGate;
+  /** Optional async disposer (closes the chokidar watcher if present). */
+  readonly dispose?: () => Promise<void> | void;
+} | null;
 
 /**
  * Production BudgetGate factory — wires `createFileMeterAdapter` against
@@ -1491,10 +1471,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         // the cook.md mode section.
         const response = await askUserFn({
           question: `Interpreted as ${MODE_HEADING[nlMode]}. Proceed?`,
-          options: [
-            { label: 'Yes', isRecommended: true },
-            { label: 'No' },
-          ],
+          options: [{ label: 'Yes', isRecommended: true }, { label: 'No' }],
         });
         if (!isAcceptResponse(response)) {
           return EXIT.SUCCESS;
@@ -1527,7 +1504,13 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             refHash,
             startTs,
           },
-          { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
+          {
+            askUserFn,
+            spawnFn,
+            execSyncFn,
+            readFileSyncFn,
+            budgetGateFactory: budgetGateFactoryFn,
+          },
         );
       }
     }
@@ -1553,10 +1536,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
     // single-role execution.
     const debugOnlyRole = process.env['SWT_DEBUG_ONLY_ROLE'];
     if (debugOnlyRole !== undefined && debugOnlyRole.length > 0) {
-      if (
-        process.env['NODE_ENV'] !== 'test' &&
-        process.env['SWT_ALLOW_DEBUG_ROLE'] !== '1'
-      ) {
+      if (process.env['NODE_ENV'] !== 'test' && process.env['SWT_ALLOW_DEBUG_ROLE'] !== '1') {
         throw new Error(
           'SWT_DEBUG_ONLY_ROLE is a test-only seam. Set NODE_ENV=test or SWT_ALLOW_DEBUG_ROLE=1 to use.',
         );
@@ -1593,10 +1573,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
     if (routing.requiresConfirmation && routing.confirmationQuestion !== undefined) {
       const response = await askUserFn({
         question: routing.confirmationQuestion,
-        options: [
-          { label: 'Yes', isRecommended: true },
-          { label: 'No' },
-        ],
+        options: [{ label: 'Yes', isRecommended: true }, { label: 'No' }],
       });
       if (!isAcceptResponse(response)) {
         return EXIT.SUCCESS;
@@ -1629,9 +1606,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             mode: 'qa-remediation',
             priority: 7,
             requiresConfirmation: false,
-            ...(routing.phaseTarget !== undefined
-              ? { phaseTarget: routing.phaseTarget }
-              : {}),
+            ...(routing.phaseTarget !== undefined ? { phaseTarget: routing.phaseTarget } : {}),
           },
           { skipQa: false, skipAudit: false, yolo: false },
           io,
@@ -1643,7 +1618,13 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             refHash,
             startTs,
           },
-          { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
+          {
+            askUserFn,
+            spawnFn,
+            execSyncFn,
+            readFileSyncFn,
+            budgetGateFactory: budgetGateFactoryFn,
+          },
         );
       }
       if (qaDecision.kind === 'qa_rerun_required') {
@@ -1731,10 +1712,7 @@ function resolveCookControls(io: CommandIO): CookControlsConfig {
  * waitForResumeOrCancel; on 'cancel' throw CookCancelledError; on
  * 'resume' (no pause was active) consume the signal and continue.
  */
-async function checkBoundarySignal(
-  sessionId: string,
-  controls: CookControlsConfig,
-): Promise<void> {
+async function checkBoundarySignal(sessionId: string, controls: CookControlsConfig): Promise<void> {
   if (controls.disabled === true) return;
   const sig = readPendingSignal(sessionId, controls.planningRoot);
   if (sig === null) return;
@@ -1776,10 +1754,7 @@ function deriveTaskId(routing: RoutingDecision): string {
  * so emission falls back gracefully — the resume probe treats absence
  * the same as "task ran but no commit observed".
  */
-function tryReadHeadCommit(
-  cwd: string,
-  execSyncFn: typeof nodeExecSync,
-): string | undefined {
+function tryReadHeadCommit(cwd: string, execSyncFn: typeof nodeExecSync): string | undefined {
   try {
     return execSyncFn('git log -1 --format=%H', { cwd, encoding: 'utf8' }).toString().trim();
   } catch {
@@ -1852,10 +1827,7 @@ async function acquireWorktreeForSpawn(opts: {
 }): Promise<WorktreeSpawnSession | null> {
   try {
     const locksRoot = resolvePath(opts.cwd, '.swt-planning', 'locks');
-    const lockOps = createLockOpsFromAcquireLock(
-      (a) => acquireLock(a),
-      locksRoot,
-    );
+    const lockOps = createLockOpsFromAcquireLock((a) => acquireLock(a), locksRoot);
     const manager = new WorktreeManager({
       parallelRoot: resolvePath(opts.cwd, '.swt-planning', 'parallel'),
       journalRoot: resolvePath(opts.cwd, '.swt-planning', 'journal'),
@@ -1940,9 +1912,8 @@ async function keepWorktreeForForensics(
 function recordRunModeStart(io: CommandIO, ctx: RunModeContext, routing: RoutingDecision): void {
   try {
     const phaseTarget = routing.phaseTarget;
-    const planEntry = phaseTarget !== undefined
-      ? [{ plan: phaseTarget, status: 'in_progress' as const }]
-      : [];
+    const planEntry =
+      phaseTarget !== undefined ? [{ plan: phaseTarget, status: 'in_progress' as const }] : [];
     const state: ExecutionStateRecord = {
       phase: phaseTarget !== undefined ? Number.parseInt(phaseTarget, 10) || 0 : 0,
       phase_name: routing.mode,
@@ -2411,7 +2382,7 @@ export async function runSpawnWithFallback(
   // Loop guard: the chain's `select` throws on exhaustion, so the loop
   // terminates either via successful spawn (break) or thrown error
   // (FallbackChainExhaustedError or `'other'`-classified re-throw).
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     const selection = chain.select(opts.taskBrief);
     try {
@@ -2439,9 +2410,7 @@ export async function runSpawnWithFallback(
       const spawnArgsWithProvider = {
         ...opts.spawnArgs,
         provider: selection.provider,
-        ...(resolved !== undefined
-          ? { resolvedCredential: resolved.resolvedCredential }
-          : {}),
+        ...(resolved !== undefined ? { resolvedCredential: resolved.resolvedCredential } : {}),
       };
       const result = await opts.spawnFn(spawnArgsWithProvider);
       return {
@@ -2654,8 +2623,7 @@ async function runMode(
   // explicitly accept the experimental wiring (R6 — default 'off').
   const isolationEnabled =
     config.worktree_isolation === 'on' ||
-    (config.worktree_isolation === 'auto' &&
-      countParallelPlans(io.cwd, routing.phaseTarget) >= 2);
+    (config.worktree_isolation === 'auto' && countParallelPlans(io.cwd, routing.phaseTarget) >= 2);
   let worktreeSession: WorktreeSpawnSession | null = null;
   if (isolationEnabled) {
     worktreeSession = await acquireWorktreeForSpawn({
@@ -2667,12 +2635,9 @@ async function runMode(
   const spawnCwd = worktreeSession?.absPath ?? io.cwd;
 
   // Load the cook.md mode section + substitute placeholders.
-  const prompt = loadCookModeSection(
-    ctx.installRoot,
-    routing.mode,
-    ctx.phaseDetectOutput,
-    { readFileSync: deps.readFileSyncFn },
-  );
+  const prompt = loadCookModeSection(ctx.installRoot, routing.mode, ctx.phaseDetectOutput, {
+    readFileSync: deps.readFileSyncFn,
+  });
 
   const promptWithOpts = appendModeOptions(prompt, opts, routing, ctx.refHash);
 
@@ -2764,12 +2729,8 @@ async function runMode(
           selected_provider: ev.selected_provider,
           selected_via: ev.selected_via,
           ...(ev.tier !== undefined ? { tier: ev.tier } : {}),
-          ...(ev.rate_card_age_ms !== undefined
-            ? { rate_card_age_ms: ev.rate_card_age_ms }
-            : {}),
-          ...(ev.rate_card_source !== undefined
-            ? { rate_card_source: ev.rate_card_source }
-            : {}),
+          ...(ev.rate_card_age_ms !== undefined ? { rate_card_age_ms: ev.rate_card_age_ms } : {}),
+          ...(ev.rate_card_source !== undefined ? { rate_card_source: ev.rate_card_source } : {}),
           ...(ev.dimension !== undefined ? { dimension: ev.dimension } : {}),
         });
       },
@@ -2801,15 +2762,15 @@ async function runMode(
                 },
                 rateCard as RateCard,
               );
-              const result = projectionGate!.project(projection);
+              const result = projectionGate.project(projection);
               emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
                 type: 'cook.budget_projected',
                 ts: new Date().toISOString(),
                 session_id: ctx.sessionId,
                 sub_session_id: pctx.sub_session_id,
                 projected_cost_usd: projection.projected_cost_usd,
-                spent_usd: projectionGate!.state().spent_usd,
-                ceiling_usd: projectionGate!.state().ceiling_usd,
+                spent_usd: projectionGate.state().spent_usd,
+                ceiling_usd: projectionGate.state().ceiling_usd,
                 projected_pressure: result.projected_pressure,
                 would_exceed: result.would_exceed,
                 confidence: projection.confidence,
@@ -2818,9 +2779,7 @@ async function runMode(
               });
               return result;
             } catch (err) {
-              io.stderr.write(
-                `swt cook: budget projection skipped (${String(err)}).\n`,
-              );
+              io.stderr.write(`swt cook: budget projection skipped (${String(err)}).\n`);
               return undefined;
             }
           }
@@ -2916,9 +2875,7 @@ async function runMode(
       } catch {
         // best-effort
       }
-      io.stderr.write(
-        `swt cook: orchestrator session returned status="${result.status}".\n`,
-      );
+      io.stderr.write(`swt cook: orchestrator session returned status="${result.status}".\n`);
       return EXIT.RUNTIME_ERROR;
     }
 
@@ -3098,7 +3055,13 @@ function isAcceptResponse(response: AskUserResponse): boolean {
   // accept path always picks the first option (Yes); freeform responses
   // never satisfy the gate.
   const lower = response.selectedOption.toLowerCase();
-  return lower === 'yes' || lower.includes('yes') || lower.includes('accept') || lower.includes('proceed') || lower.includes('continue');
+  return (
+    lower === 'yes' ||
+    lower.includes('yes') ||
+    lower.includes('accept') ||
+    lower.includes('proceed') ||
+    lower.includes('continue')
+  );
 }
 
 /**

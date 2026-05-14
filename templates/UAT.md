@@ -1,13 +1,13 @@
 ---
-phase: {NN} # bare integer, no quotes
-plan_count: {N}
-status: {in_progress|complete|issues_found}
-started: {YYYY-MM-DD}
-completed: {YYYY-MM-DD}
-total_tests: {N}
-passed: {N}
-skipped: {N}
-issues: {N}
+phase: { NN } # bare integer, no quotes
+plan_count: { N }
+status: { in_progress|complete|issues_found }
+started: { YYYY-MM-DD }
+completed: { YYYY-MM-DD }
+total_tests: { N }
+passed: { N }
+skipped: { N }
+issues: { N }
 ---
 
 {one-line-summary}
@@ -15,6 +15,7 @@ issues: {N}
 ## Tests
 
 Supported checkpoint IDs:
+
 - `P{plan}-T{NN}` — full-scope plan checkpoint (example: `P01-T01`)
 - `PR{round}-T{NN}` — remediation re-verification checkpoint (example: `PR03-T01`)
 - `D{NN}` — prefilled summary-deviation review or discovered issue (example: `D01`)

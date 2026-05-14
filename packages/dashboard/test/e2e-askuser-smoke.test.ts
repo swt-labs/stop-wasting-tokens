@@ -61,10 +61,7 @@ describe('e2e: askUser round-trip (publish → bus → respond → bus + pending
       prompt_id: 'p-e2e-1',
       header: 'Phase 04 UAT checkpoint',
       question: 'Does the cook control surface behave as expected?',
-      options: [
-        { label: 'PASS', isRecommended: true },
-        { label: 'FAIL' },
-      ],
+      options: [{ label: 'PASS', isRecommended: true }, { label: 'FAIL' }],
     };
     const publishRes = await app.request('http://x/api/prompts/publish', {
       method: 'POST',

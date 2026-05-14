@@ -1,18 +1,18 @@
 ---
-phase: {NN} # bare integer, no quotes
-round: {RR} # remediation round number, bare integer
-title: {round-title}
+phase: { NN } # bare integer, no quotes
+round: { RR } # remediation round number, bare integer
+title: { round-title }
 type: remediation
-status: {in-progress|complete|partial|failed}
-completed: {YYYY-MM-DD}
-tasks_completed: {N}
-tasks_total: {N}
+status: { in-progress|complete|partial|failed }
+completed: { YYYY-MM-DD }
+tasks_completed: { N }
+tasks_total: { N }
 commit_hashes:
-  - {hash}
+  - { hash }
 files_modified:
-  - {path}
+  - { path }
 deviations:
-  - "{deviation-description}"
+  - '{deviation-description}'
 known_issue_outcomes:
   - '{"test":"{test-name}","file":"{file-path}","error":"{error-message}","disposition":"resolved|accepted-process-exception|unresolved","rationale":"why this round resolved or carried the issue"}'
 ---
@@ -22,16 +22,20 @@ known_issue_outcomes:
 ## Task {N}: {task-name}
 
 ### What Was Built
+
 - {deliverable-1}
 - {deliverable-2}
 
 ### Files Modified
+
 - `{file-path}` -- {action}: {purpose}
 
 ### Known Issue Outcomes
+
 - `{test-name}` (`{file-path}`) — `{resolved|accepted-process-exception|unresolved}`: {rationale}
 
 ### Deviations
+
 - {deviation-description}
 
 <!-- Or write `None` / `No deviations` as plain text when there were no deviations.

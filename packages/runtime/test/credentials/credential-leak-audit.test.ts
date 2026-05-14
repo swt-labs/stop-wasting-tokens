@@ -116,26 +116,23 @@ describe('@swt-labs/runtime — credential-leak audit (Plan 03-01, research §6)
 
       // Fire raw events down the real handler chain, each smuggling the
       // sentinel on a field the journal must not propagate.
-      pi.handlers
-        .get('agent_start')
-        ?.[0]?.({ type: 'agent_start', sessionId: 's1', secret: SENTINEL }, CTX);
-      pi.handlers
-        .get('tool_execution_start')
-        ?.[0]?.(
-          {
-            type: 'tool_execution_start',
-            sessionId: 's1',
-            toolCall: { name: 'bash' },
-            resolvedCredential: { authMode: 'api_key', secret: SENTINEL },
-          },
-          CTX,
-        );
-      pi.handlers
-        .get('message_update')
-        ?.[0]?.(
-          { type: 'message_update', sessionId: 's1', delta: { text: 'hello' }, apiKey: SENTINEL },
-          CTX,
-        );
+      pi.handlers.get('agent_start')?.[0]?.(
+        { type: 'agent_start', sessionId: 's1', secret: SENTINEL },
+        CTX,
+      );
+      pi.handlers.get('tool_execution_start')?.[0]?.(
+        {
+          type: 'tool_execution_start',
+          sessionId: 's1',
+          toolCall: { name: 'bash' },
+          resolvedCredential: { authMode: 'api_key', secret: SENTINEL },
+        },
+        CTX,
+      );
+      pi.handlers.get('message_update')?.[0]?.(
+        { type: 'message_update', sessionId: 's1', delta: { text: 'hello' }, apiKey: SENTINEL },
+        CTX,
+      );
 
       // The mapper produced real events (proves the path actually ran).
       expect(sink.events.length).toBeGreaterThan(0);
@@ -151,20 +148,19 @@ describe('@swt-labs/runtime — credential-leak audit (Plan 03-01, research §6)
         const pi = createMockPi();
         buildJournalExtension({ sink })(pi);
 
-        pi.handlers
-          .get('agent_start')
-          ?.[0]?.({ type: 'agent_start', sessionId: 's1', apiKey: SENTINEL }, CTX);
-        pi.handlers
-          .get('tool_execution_end')
-          ?.[0]?.(
-            {
-              type: 'tool_execution_end',
-              sessionId: 's1',
-              toolResult: { name: 'grep' },
-              resolvedCredential: { authMode: 'api_key', secret: SENTINEL },
-            },
-            CTX,
-          );
+        pi.handlers.get('agent_start')?.[0]?.(
+          { type: 'agent_start', sessionId: 's1', apiKey: SENTINEL },
+          CTX,
+        );
+        pi.handlers.get('tool_execution_end')?.[0]?.(
+          {
+            type: 'tool_execution_end',
+            sessionId: 's1',
+            toolResult: { name: 'grep' },
+            resolvedCredential: { authMode: 'api_key', secret: SENTINEL },
+          },
+          CTX,
+        );
         sink.close();
 
         const onDisk = readFileSync(path, 'utf8');

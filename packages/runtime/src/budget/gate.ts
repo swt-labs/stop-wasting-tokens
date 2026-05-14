@@ -224,8 +224,7 @@ export function createBudgetGate(opts: BudgetGateOptions): BudgetGate {
       // Per-spawn cap check — makes the previously-declared-but-unconsumed
       // `task_usd` schema field LIVE for the first time (research §6.3).
       const overTaskCap =
-        config.task_usd !== undefined &&
-        projection.projected_cost_usd > config.task_usd;
+        config.task_usd !== undefined && projection.projected_cost_usd > config.task_usd;
       // R4 — `would_exceed` is computed purely from the conservative
       // worst-case `projected_cost_usd`; it does NOT inspect
       // `projection.confidence` (confidence is a downstream display concern).

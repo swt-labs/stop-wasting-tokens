@@ -12,7 +12,7 @@ allowed-tools: Read, Edit, Bash
 ## Context
 
 - Working directory: current workspace root.
-- Plugin cache root: ``${SWT_INSTALL_ROOT}`` (respects non-default `SWT_CONFIG_DIR`; always quote — path may contain spaces).
+- Plugin cache root: `${SWT_INSTALL_ROOT}` (respects non-default `SWT_CONFIG_DIR`; always quote — path may contain spaces).
 
 ## Guard
 

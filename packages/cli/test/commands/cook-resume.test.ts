@@ -3,10 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  writeExecutionState,
-  type ExecutionStateRecord,
-} from '@swt-labs/methodology';
+import { writeExecutionState, type ExecutionStateRecord } from '@swt-labs/methodology';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { probeForResume } from '../../src/commands/cook.js';
@@ -116,7 +113,13 @@ describe('@swt-labs/cli — probeForResume truth table', () => {
     writeExecutionState(dir, sampleState());
     writeJournal([
       { type: 'cook.task_start', session_id: SID, plan: '06-01', task_id: 'T1' },
-      { type: 'cook.task_commit', session_id: SID, plan: '06-01', task_id: 'T1', commit_hash: 'abc' },
+      {
+        type: 'cook.task_commit',
+        session_id: SID,
+        plan: '06-01',
+        task_id: 'T1',
+        commit_hash: 'abc',
+      },
       { type: 'cook.task_complete', session_id: SID, plan: '06-01', task_id: 'T1' },
       { type: 'cook.completion', session_id: SID, status: 'success' },
     ]);
@@ -130,7 +133,13 @@ describe('@swt-labs/cli — probeForResume truth table', () => {
     writeExecutionState(dir, sampleState());
     writeJournal([
       { type: 'cook.task_start', session_id: SID, plan: '06-01', task_id: 'T1' },
-      { type: 'cook.task_commit', session_id: SID, plan: '06-01', task_id: 'T1', commit_hash: 'aaa111' },
+      {
+        type: 'cook.task_commit',
+        session_id: SID,
+        plan: '06-01',
+        task_id: 'T1',
+        commit_hash: 'aaa111',
+      },
       { type: 'cook.task_complete', session_id: SID, plan: '06-01', task_id: 'T1' },
     ]);
     const result = probeForResume(dir, { pidChecker: deadPidChecker });
@@ -146,7 +155,13 @@ describe('@swt-labs/cli — probeForResume truth table', () => {
     writeExecutionState(dir, sampleState());
     writeJournal([
       { type: 'cook.task_start', session_id: SID, plan: '06-01', task_id: 'T1' },
-      { type: 'cook.task_commit', session_id: SID, plan: '06-01', task_id: 'T1', commit_hash: 'aaa111' },
+      {
+        type: 'cook.task_commit',
+        session_id: SID,
+        plan: '06-01',
+        task_id: 'T1',
+        commit_hash: 'aaa111',
+      },
       // T2 started but never committed — simulated crash mid-task.
       { type: 'cook.task_start', session_id: SID, plan: '06-01', task_id: 'T2' },
     ]);
@@ -162,9 +177,7 @@ describe('@swt-labs/cli — probeForResume truth table', () => {
 
   it('three-condition AND breaks if pid is alive even when status=in_progress + no completion', () => {
     writeExecutionState(dir, sampleState({ pid: process.pid }));
-    writeJournal([
-      { type: 'cook.task_start', session_id: SID, plan: '06-01', task_id: 'T1' },
-    ]);
+    writeJournal([{ type: 'cook.task_start', session_id: SID, plan: '06-01', task_id: 'T1' }]);
     const result = probeForResume(dir, { pidChecker: alivePidChecker });
     // The probe must NOT claim resume — recorded pid alive means another
     // cook is racing and we abort rather than double-run.

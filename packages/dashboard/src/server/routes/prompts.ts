@@ -95,7 +95,7 @@ export function registerPromptsRoute(app: Hono, bus: EventBus): void {
     }
     const event: PromptRequestEvent = parsed.data;
     pendingPrompts.set(event.prompt_id, event);
-    bus.publish(event as SnapshotEvent);
+    bus.publish(event);
     return c.json({ published: true, prompt_id: event.prompt_id });
   });
 

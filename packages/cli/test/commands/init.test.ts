@@ -12,10 +12,9 @@
  *   - Lead spawn failure surfaces as RUNTIME_ERROR
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-
 import { AlreadyInitializedError } from '@swt-labs/core';
 import type { TaskResult } from '@swt-labs/shared';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { makeInitHandler } from '../../src/commands/init.js';
 import { buildRegistry } from '../../src/main.js';
@@ -64,9 +63,9 @@ function buildInitHarness(opts: HarnessOpts = {}) {
   });
 
   const handler = makeInitHandler({
-    spawnAgentImpl: spawnAgentImpl as never,
+    spawnAgentImpl: spawnAgentImpl,
     readFileSyncImpl: readFileSyncImpl as never,
-    initProjectImpl: initProjectImpl as never,
+    initProjectImpl: initProjectImpl,
   });
 
   const stderr: string[] = [];

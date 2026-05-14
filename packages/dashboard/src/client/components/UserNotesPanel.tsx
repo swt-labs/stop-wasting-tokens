@@ -25,14 +25,7 @@
  * DOM globals (`Node`, etc.) are `undefined` under node-env vitest.
  */
 
-import {
-  Show,
-  createEffect,
-  createSignal,
-  onCleanup,
-  type Component,
-  type JSX,
-} from 'solid-js';
+import { Show, createEffect, createSignal, onCleanup, type Component, type JSX } from 'solid-js';
 
 import type { UserNotesSnapshot } from '../services/api.js';
 
@@ -212,10 +205,7 @@ export const UserNotesPanel: Component<UserNotesPanelProps> = (props) => {
         </div>
       </header>
       <p class="tools-panel-meta">
-        <span
-          class={`user-notes-status user-notes-status-${saveState().kind}`}
-          aria-live="polite"
-        >
+        <span class={`user-notes-status user-notes-status-${saveState().kind}`} aria-live="polite">
           {formatSaveStatus(saveState())}
         </span>{' '}
         · {formatRelative(props.lastFetched)}

@@ -52,10 +52,7 @@ function makePromptRequest(promptId: string): unknown {
     prompt_id: promptId,
     header: 'Confirm',
     question: 'Continue with phase 03 now?',
-    options: [
-      { label: 'Execute phase 03', isRecommended: true },
-      { label: 'Review plans first' },
-    ],
+    options: [{ label: 'Execute phase 03', isRecommended: true }, { label: 'Review plans first' }],
   };
 }
 

@@ -50,7 +50,10 @@ const SingleCard: Component<SingleCardProps> = (props) => {
   // disabled until at least one option is checked.
   const [multiPicked, setMultiPicked] = createSignal<Set<string>>(new Set());
 
-  const submit = async (selectedOption: string | null, freeformText: string | null): Promise<void> => {
+  const submit = async (
+    selectedOption: string | null,
+    freeformText: string | null,
+  ): Promise<void> => {
     setSubmitting(true);
     setError(null);
     try {
@@ -129,7 +132,11 @@ const SingleCard: Component<SingleCardProps> = (props) => {
           </div>
         }
       >
-        <div class="prompt-card-options prompt-card-options-multi" role="group" aria-label="Options">
+        <div
+          class="prompt-card-options prompt-card-options-multi"
+          role="group"
+          aria-label="Options"
+        >
           <For each={props.prompt.options}>
             {(opt) => (
               <label

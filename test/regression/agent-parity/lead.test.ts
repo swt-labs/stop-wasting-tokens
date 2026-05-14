@@ -57,11 +57,8 @@ describe.skipIf(!HAS_BASELINE)('agent-parity: lead vs ref-fastapi v2.3.5 baselin
   });
 });
 
-describe.skipIf(HAS_BASELINE)(
-  'agent-parity: lead — skipped (v2-baseline not yet recorded)',
-  () => {
-    it('scaffolding placeholder — plan 05-04 records v2-baseline; flip skipIf to activate', () => {
-      expect(HAS_BASELINE).toBe(false);
-    });
-  },
-);
+describe.skipIf(HAS_BASELINE)('agent-parity: lead — skipped (v2-baseline not yet recorded)', () => {
+  it('scaffolding placeholder — plan 05-04 records v2-baseline; flip skipIf to activate', () => {
+    expect(HAS_BASELINE).toBe(false);
+  });
+});

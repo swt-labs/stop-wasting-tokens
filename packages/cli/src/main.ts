@@ -13,15 +13,15 @@ import { detectPhaseHandler } from './commands/detect-phase.js';
 import { discussHandler } from './commands/discuss.js';
 import { doctorHandler } from './commands/doctor.js';
 import { initHandler } from './commands/init.js';
-import { migrateHandler } from './commands/migrate.js';
 import { mapHandler } from './commands/map.js';
+import { migrateHandler } from './commands/migrate.js';
 import { qaHandler } from './commands/qa.js';
 import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { fixDeprecatedHandler, stubCommand, STUB_SPECS } from './commands/stubs.js';
-import { verifyHandler } from './commands/verify.js';
 import { updateHandler } from './commands/update.js';
+import { verifyHandler } from './commands/verify.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
 import { defaultWatchHandler } from './commands/watch.js';
 import { EXIT, type ExitCode } from './exit-codes.js';
@@ -230,9 +230,7 @@ export async function main(
     process.env['SWT_CASSETTE_PATH'].length > 0
   ) {
     try {
-      const { installReplayFromEnv } = await import(
-        '@swt-labs/test-utils/cassettes'
-      );
+      const { installReplayFromEnv } = await import('@swt-labs/test-utils/cassettes');
       installReplayFromEnv();
     } catch {
       // best-effort; cassette replay is a test-utility surface and its

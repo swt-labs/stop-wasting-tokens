@@ -3,7 +3,7 @@ name: swt:teach
 category: supporting
 disable-model-invocation: true
 description: View, add, or manage project conventions. Shows what SWT already knows and warns about conflicts.
-argument-hint: "[\"convention text\" | remove <id> | refresh]"
+argument-hint: '["convention text" | remove <id> | refresh]'
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, LSP
 ---
 
@@ -12,15 +12,20 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, LSP
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 Conventions:
+
 ```
 !`cat .swt-planning/conventions.json 2>/dev/null || echo "No conventions found"`
 ```
+
 Codebase map:
+
 ```text
 !`ls .swt-planning/codebase/INDEX.md 2>/dev/null && echo "EXISTS" || echo "NONE"`
 ```
@@ -32,13 +37,20 @@ If no .swt-planning/ dir: STOP "Run swt init first." (check `.swt-planning/confi
 ## Convention Structure
 
 Stored in `.swt-planning/conventions.json`:
+
 ```json
 {
-  "conventions": [{
-    "id": "CONV-001", "rule": "API routes go in src/routes/{resource}.ts",
-    "source": "auto-detected", "category": "file-structure",
-    "confidence": "high", "detected_from": "PATTERNS.md", "added": "2026-02-10"
-  }]
+  "conventions": [
+    {
+      "id": "CONV-001",
+      "rule": "API routes go in src/routes/{resource}.ts",
+      "source": "auto-detected",
+      "category": "file-structure",
+      "confidence": "high",
+      "detected_from": "PATTERNS.md",
+      "added": "2026-02-10"
+    }
+  ]
 }
 ```
 
@@ -57,6 +69,7 @@ Stored in `.swt-planning/conventions.json`:
 ### Text argument: Add a convention
 
 **A1. Parse:** Extract rule text. Infer category:
+
 - File paths/dirs → file-structure
 - Casing/naming/prefixes → naming
 - Test/coverage/vitest/jest/pytest → testing
@@ -66,6 +79,7 @@ Stored in `.swt-planning/conventions.json`:
 - Otherwise → other
 
 **A2. Conflict check:** Compare against ALL existing conventions:
+
 - **Semantic conflict** (contradicting rules): display ⚠, AskUserQuestion: "Replace existing" | "Keep both" | "Cancel"
 - **Redundancy** (essentially same rule): display ○, AskUserQuestion: "Replace with new version" | "Add as separate" | "Cancel"
 
@@ -87,6 +101,7 @@ Stored in `.swt-planning/conventions.json`:
 **R1.** If no `.swt-planning/codebase/`: `⚠ No codebase map found. Run swt map first.`
 
 **R2. Extract conventions from map:** Read PATTERNS.md, ARCHITECTURE.md, STACK.md, CONCERNS.md. Rules:
+
 - Be specific, not generic ("Components use PascalCase" good; "Code should be clean" bad)
 - Only extract patterns actually present in codebase
 - Confidence from language: "consistently/always/all" → high, "most/commonly" → medium, "some/mixed" → low

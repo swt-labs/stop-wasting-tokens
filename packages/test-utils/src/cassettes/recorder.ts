@@ -28,12 +28,8 @@ import { writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Readable } from 'node:stream';
 
-import {
-  Agent,
-  Dispatcher,
-  setGlobalDispatcher,
-  getGlobalDispatcher,
-} from 'undici';
+import type { Dispatcher } from 'undici';
+import { Agent, setGlobalDispatcher, getGlobalDispatcher } from 'undici';
 
 import {
   CassetteHeaderSchema,
@@ -187,8 +183,8 @@ function normalizeResponseHeaders(headers: Buffer[] | string[] | null): Record<s
   for (let i = 0; i < headers.length; i += 2) {
     const k = headers[i];
     const v = headers[i + 1];
-    const ks = Buffer.isBuffer(k) ? k.toString('utf8') : (k as string | undefined);
-    const vs = Buffer.isBuffer(v) ? v.toString('utf8') : (v as string | undefined);
+    const ks = Buffer.isBuffer(k) ? k.toString('utf8') : k;
+    const vs = Buffer.isBuffer(v) ? v.toString('utf8') : v;
     if (ks !== undefined && vs !== undefined) out[ks.toLowerCase()] = vs;
   }
   return out;
@@ -297,8 +293,9 @@ export async function record(opts: RecordOptions): Promise<void> {
 
             // Chunked SSE: store each chunk as one element (string).
             // For non-SSE bodies the array typically has length 1.
-            const isEventStream =
-              (capturedHeaders['content-type'] ?? '').toLowerCase().includes('text/event-stream');
+            const isEventStream = (capturedHeaders['content-type'] ?? '')
+              .toLowerCase()
+              .includes('text/event-stream');
             const bodyChunks: unknown[] = isEventStream
               ? responseChunks.map((c) => c.toString('utf8'))
               : [Buffer.concat(responseChunks).toString('utf8')];

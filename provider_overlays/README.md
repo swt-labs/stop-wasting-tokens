@@ -29,16 +29,16 @@ YAML frontmatter is REQUIRED on every overlay (for traceability — see "Authori
 
 Fields:
 
-| Field            | Required        | Description                                                                                                              |
-| ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `overlay_for`    | yes             | The role this overlay tunes (e.g., `dev`). Must match the filename's role component.                                     |
-| `provider`       | yes             | The provider id (e.g., `openai`). Must match the filename's provider component.                                          |
-| `source`         | yes             | The repo / project the intent was derived from (e.g., `github.com/openai/codex`).                                        |
-| `source_paths`   | yes (list)      | Specific modules / files in the source where the tuned intent lives.                                                     |
-| `source_intent`  | yes             | One-line summary of what was mirrored (e.g., `"tool-use sequencing + apply_patch edit framing"`).                        |
-| `model_families` | optional (list) | Forward-compat for per-family granularity. Phase 1 reads but ignores. See "Resolution order — R3" below.                 |
-| `last_tuned`     | yes             | ISO date (`YYYY-MM-DD`) of the last verification against the source.                                                     |
-| `schema_version` | yes             | Integer. Phase 1 ships `1`. Bumps when frontmatter shape changes.                                                        |
+| Field            | Required        | Description                                                                                              |
+| ---------------- | --------------- | -------------------------------------------------------------------------------------------------------- |
+| `overlay_for`    | yes             | The role this overlay tunes (e.g., `dev`). Must match the filename's role component.                     |
+| `provider`       | yes             | The provider id (e.g., `openai`). Must match the filename's provider component.                          |
+| `source`         | yes             | The repo / project the intent was derived from (e.g., `github.com/openai/codex`).                        |
+| `source_paths`   | yes (list)      | Specific modules / files in the source where the tuned intent lives.                                     |
+| `source_intent`  | yes             | One-line summary of what was mirrored (e.g., `"tool-use sequencing + apply_patch edit framing"`).        |
+| `model_families` | optional (list) | Forward-compat for per-family granularity. Phase 1 reads but ignores. See "Resolution order — R3" below. |
+| `last_tuned`     | yes             | ISO date (`YYYY-MM-DD`) of the last verification against the source.                                     |
+| `schema_version` | yes             | Integer. Phase 1 ships `1`. Bumps when frontmatter shape changes.                                        |
 
 The resolver MECHANICALLY strips any leading frontmatter delimited by `---\n` ... `---\n` — it does NOT validate field shape today. Field-level validation may land in a future plan; the schema is currently a **documentation contract** authors are expected to follow.
 

@@ -12,12 +12,15 @@ allowed-tools: Read, Bash, Glob
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 Pre-computed state (via phase-detect.sh):
+
 ```
 ${SWT_PHASE_DETECT_OUTPUT}
 ```

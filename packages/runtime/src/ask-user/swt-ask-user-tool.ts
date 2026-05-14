@@ -53,11 +53,9 @@
  * the label back to the option's `id` so the IPC schema is stable for the LLM.
  */
 
+import type { PiExtensionAPI, PiToolExecuteResult } from '../extensions/pi-types.js';
+
 import { askUser, type AskUserOption, type AskUserOptions } from './ask-user.js';
-import type {
-  PiExtensionAPI,
-  PiToolExecuteResult,
-} from '../extensions/pi-types.js';
 
 /**
  * Input parameter shape the Pi side validates against the JSON Schema below.
@@ -158,8 +156,7 @@ export function buildSwtAskUserExtension(
       label: 'Ask the human a structured question',
       description:
         'Ask the human a structured question (orchestrator-only). Renders in the dashboard when running; falls back to readline TTY prompt or non-TTY auto-accept otherwise. Use to gate confirmation, intent disambiguation, and UAT checkpoints.',
-      promptSnippet:
-        'swt_ask_user — gate a decision on a structured human reply',
+      promptSnippet: 'swt_ask_user — gate a decision on a structured human reply',
       promptGuidelines: [
         'Provide 1-4 structured options whenever possible; mark the recommended option with isRecommended: true.',
         'Use the id field to identify the choice unambiguously; the label is the human-readable text.',
@@ -179,7 +176,7 @@ export function buildSwtAskUserExtension(
         // bridge (cf. result-protocol.ts where the LLM-supplied params
         // demand a defence-in-depth re-parse against the harvested
         // envelope shape).
-        const params = rawParams as SwtAskUserToolParams;
+        const params = rawParams;
         const mappedOptions: AskUserOption[] = params.options.map((opt) => ({
           label: opt.label,
           ...(opt.isRecommended !== undefined ? { isRecommended: opt.isRecommended } : {}),

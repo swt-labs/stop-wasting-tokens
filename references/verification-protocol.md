@@ -20,13 +20,16 @@ Authoritative spec for SWT's verification pipeline. QA agent persists results to
 ## 2. Three-Tier Verification (VRFY-01)
 
 ### Quick (5-10 checks)
+
 - Artifact existence: each `must_haves.artifacts` path exists
 - Frontmatter validity: YAML parses, required fields present
 - Key string presence: each `contains` value found via grep
 - No placeholder text: no `{placeholder}`, `TBD`, `Phase N` stubs
 
 ### Standard (15-25 checks)
+
 Quick, plus:
+
 - Content structure: expected sections/headings present
 - Key link verification: each `must_haves.key_links` confirmed via grep
 - Import/export chain: referenced files exist, cross-refs resolve
@@ -36,7 +39,9 @@ Quick, plus:
 - Skill-augmented checks: domain-specific checks from installed quality skills
 
 ### Deep (30+ checks)
+
 Standard, plus:
+
 - Anti-pattern scan (see §6 / VRFY-07)
 - Requirement-to-artifact mapping (see §7 / VRFY-08)
 - Cross-file consistency: shared constants/enums/types match everywhere
@@ -46,14 +51,14 @@ Standard, plus:
 
 ## 3. Auto-Selection Heuristic (VRFY-01)
 
-| Signal | Tier |
-|--------|------|
-| `--effort=turbo` / `QA_EFFORT=skip` | Skipped |
-| `--effort=fast` / `QA_EFFORT=low` | Quick |
-| `--effort=balanced` / `QA_EFFORT=medium` | Standard |
-| `--effort=thorough` / `QA_EFFORT=high` | Deep |
-| On-demand QA via `swt cook`, `swt debug`, or hidden `swt qa` (no flag) | Standard |
-| >15 requirements or last phase before ship | Deep (override) |
+| Signal                                                                 | Tier            |
+| ---------------------------------------------------------------------- | --------------- |
+| `--effort=turbo` / `QA_EFFORT=skip`                                    | Skipped         |
+| `--effort=fast` / `QA_EFFORT=low`                                      | Quick           |
+| `--effort=balanced` / `QA_EFFORT=medium`                               | Standard        |
+| `--effort=thorough` / `QA_EFFORT=high`                                 | Deep            |
+| On-demand QA via `swt cook`, `swt debug`, or hidden `swt qa` (no flag) | Standard        |
+| >15 requirements or last phase before ship                             | Deep (override) |
 
 Precedence: explicit `--tier` > context overrides > effort-based > default.
 
@@ -73,25 +78,25 @@ Start from desired outcomes, derive testable conditions, verify against artifact
 
 Active when `.swt-planning/codebase/CONVENTIONS.md` exists. Silently skipped otherwise.
 
-| Tier | Behavior |
-|------|----------|
-| Quick | Skipped |
-| Standard | Spot-check naming patterns + file placement for new files |
-| Deep | Systematic: every new file vs naming, every modified file vs conventions, code patterns vs documented idioms |
+| Tier     | Behavior                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------ |
+| Quick    | Skipped                                                                                                      |
+| Standard | Spot-check naming patterns + file placement for new files                                                    |
+| Deep     | Systematic: every new file vs naming, every modified file vs conventions, code patterns vs documented idioms |
 
 Categories: naming patterns, file placement, import ordering, export patterns.
 
 ## 6. Anti-Pattern Scanning (VRFY-07)
 
-| Anti-Pattern | Detection | Severity | Tier |
-|---|---|---|---|
-| TODO/FIXME without tracking | `grep -rn "TODO\|FIXME"` not linked to tracker | WARN | Deep |
-| Placeholder text | `{placeholder}`, `TBD`, `Phase N` stubs, `lorem ipsum` | FAIL | Standard+ |
-| Empty function bodies | Functions with no implementation | FAIL | Deep |
-| Filler phrases | "think carefully", "be thorough", "as an AI" in agent/ref files | FAIL | Standard+ |
-| Unwired code | Exported symbols never imported elsewhere | WARN | Deep |
-| Dead imports | Imported symbols never used | WARN | Deep |
-| Hardcoded secrets | `sk-`, `pk_`, `AKIA`, `ghp_`, `glpat-`, password/secret patterns | FAIL | Standard+ |
+| Anti-Pattern                | Detection                                                        | Severity | Tier      |
+| --------------------------- | ---------------------------------------------------------------- | -------- | --------- |
+| TODO/FIXME without tracking | `grep -rn "TODO\|FIXME"` not linked to tracker                   | WARN     | Deep      |
+| Placeholder text            | `{placeholder}`, `TBD`, `Phase N` stubs, `lorem ipsum`           | FAIL     | Standard+ |
+| Empty function bodies       | Functions with no implementation                                 | FAIL     | Deep      |
+| Filler phrases              | "think carefully", "be thorough", "as an AI" in agent/ref files  | FAIL     | Standard+ |
+| Unwired code                | Exported symbols never imported elsewhere                        | WARN     | Deep      |
+| Dead imports                | Imported symbols never used                                      | WARN     | Deep      |
+| Hardcoded secrets           | `sk-`, `pk_`, `AKIA`, `ghp_`, `glpat-`, password/secret patterns | FAIL     | Standard+ |
 
 Severities: FAIL = must fix before ship. WARN = review, may be intentional.
 
@@ -132,13 +137,13 @@ Protocol instructions in agent definitions (not JS hooks or event handlers).
 
 ```yaml
 ---
-phase: {phase-id}
-tier: {quick|standard|deep}
-result: {PASS|FAIL|PARTIAL}
-passed: {N}
-failed: {N}
-total: {N}
-date: {YYYY-MM-DD}
+phase: { phase-id }
+tier: { quick|standard|deep }
+result: { PASS|FAIL|PARTIAL }
+passed: { N }
+failed: { N }
+total: { N }
+date: { YYYY-MM-DD }
 ---
 ```
 
@@ -148,6 +153,7 @@ Check tables use **5-column** or **6-column** format depending on category-speci
 
 **5-column** (must_have, anti_pattern, or fallback): `# | ID | {col} | Status | Evidence`
 **6-column** (when category-specific fields present):
+
 - Artifact: `# | ID | Artifact | Exists | Contains | Status`
 - Key Link: `# | ID | From | To | Via | Status`
 - Requirement: `# | ID | Requirement | Plan Ref | Evidence | Status`
@@ -155,21 +161,37 @@ Check tables use **5-column** or **6-column** format depending on category-speci
 
 ```markdown
 # Verification: Phase {NN}
+
 ## Must-Have Checks
+
 | # | ID | Truth/Condition | Status | Evidence |
+
 ## Artifact Checks
+
 | # | ID | Artifact | Exists | Contains | Status |
+
 ## Key Link Checks
+
 | # | ID | From | To | Via | Status |
+
 ## Anti-Pattern Scan (standard+)
+
 | # | ID | Pattern | Status | Evidence |
+
 ## Requirement Mapping (deep only)
+
 | # | ID | Requirement | Plan Ref | Evidence | Status |
+
 ## Convention Compliance (standard+, if CONVENTIONS.md)
+
 | # | ID | Convention | File | Status | Detail |
+
 ## Skill-Augmented Checks (if quality skills)
+
 | # | ID | Skill Check | Status | Evidence |
+
 ## Summary
+
 Tier: / Result: / Passed: N/total / Failed: [list]
 ```
 

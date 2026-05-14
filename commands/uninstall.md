@@ -12,14 +12,19 @@ allowed-tools: Read, Write, Edit, Bash, Glob, AskUserQuestion
 ## Context
 
 Settings:
+
 ```
 !`for _d in "${SWT_CONFIG_DIR:-}" "$HOME/.config/claude-code" "$HOME/.claude"; do [ -z "$_d" ] && continue; [ -f "$_d/settings.json" ] && cat "$_d/settings.json" 2>/dev/null && break; done || echo "{}"`
 ```
+
 Planning dir:
+
 ```text
 !`ls -d .swt-planning 2>/dev/null && echo "EXISTS" || echo "NONE"`
 ```
+
 CLAUDE.md:
+
 ```text
 !`ls CLAUDE.md 2>/dev/null && echo "EXISTS" || echo "NONE"`
 ```
@@ -51,11 +56,13 @@ If CLAUDE.md exists: ask keep or delete.
 ### Step 6: Summary
 
 Display Phase Banner "SWT Cleanup Complete" with ✓/○ per step. Then:
+
 ```
 ➜ Final Step
   /plugin uninstall vbw@swt-marketplace
   Then optionally: /plugin marketplace remove swt-marketplace
 ```
+
 **Do NOT run plugin uninstall yourself** — it would remove itself mid-execution.
 
 ## Output Format

@@ -9,10 +9,9 @@
  *   - Returns EXIT.RUNTIME_ERROR on TaskResult.status === 'failed'
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { TaskResult } from '@swt-labs/shared';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { makeQaHandler } from '../../src/commands/qa.js';
 import { buildRegistry } from '../../src/main.js';
@@ -67,9 +66,9 @@ function buildQaHarness(opts: HarnessOpts = {}) {
   );
 
   const handler = makeQaHandler({
-    spawnAgentImpl: spawnAgentImpl as never,
+    spawnAgentImpl: spawnAgentImpl,
     readFileSyncImpl: readFileSyncImpl as never,
-    detectPhaseImpl: detectPhaseImpl as never,
+    detectPhaseImpl: detectPhaseImpl,
   });
 
   const stderr: string[] = [];
@@ -90,7 +89,10 @@ function buildQaHarness(opts: HarnessOpts = {}) {
     } as unknown as NodeJS.WritableStream,
   };
 
-  async function run(positionals: readonly string[] = [], flags: Record<string, string | boolean | undefined> = {}) {
+  async function run(
+    positionals: readonly string[] = [],
+    flags: Record<string, string | boolean | undefined> = {},
+  ) {
     return handler({ verb: 'qa', positionals, flags }, io);
   }
 

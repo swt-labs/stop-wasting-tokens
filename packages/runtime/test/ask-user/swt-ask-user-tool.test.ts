@@ -40,7 +40,7 @@ function makeFakePi(): {
   const registered: PiToolDefinition[] = [];
   const pi: PiExtensionAPI = {
     registerTool: (def) => {
-      registered.push(def as unknown as PiToolDefinition);
+      registered.push(def);
     },
     on: () => undefined,
     appendEntry: () => undefined,
@@ -124,7 +124,7 @@ describe('@swt-labs/runtime — swt_ask_user Pi custom-tool bridge (Plan 03-02 T
           { id: 'go', label: 'Run it' },
           { id: 'stop', label: 'Hold' },
         ],
-      } as SwtAskUserToolParams,
+      },
       undefined,
       undefined,
       makeCtx(),
@@ -136,7 +136,10 @@ describe('@swt-labs/runtime — swt_ask_user Pi custom-tool bridge (Plan 03-02 T
   it("B.4 — execute() returns {selectedOption:'other', freeform} when askUser returns freeform", async () => {
     const { pi, registered } = makeFakePi();
     const askUserMock = vi.fn(
-      async (): Promise<AskUserResponse> => ({ selectedOption: null, freeform: 'do something else' }),
+      async (): Promise<AskUserResponse> => ({
+        selectedOption: null,
+        freeform: 'do something else',
+      }),
     );
     const factory = buildSwtAskUserExtension({ askUserImpl: askUserMock });
     factory(pi);
@@ -148,7 +151,7 @@ describe('@swt-labs/runtime — swt_ask_user Pi custom-tool bridge (Plan 03-02 T
         id: 'prompt-3',
         question: 'Continue?',
         options: [{ id: 'go', label: 'Run it' }],
-      } as SwtAskUserToolParams,
+      },
       undefined,
       undefined,
       makeCtx(),
@@ -162,7 +165,7 @@ describe('@swt-labs/runtime — swt_ask_user Pi custom-tool bridge (Plan 03-02 T
     const factory = buildSwtAskUserExtension({ askUserImpl: vi.fn() });
     factory(pi);
     const tool = registered[0]!;
-    const schema = tool.parameters as Record<string, unknown>;
+    const schema = tool.parameters;
     expect(schema['type']).toBe('object');
     expect(schema['required']).toEqual(['id', 'question', 'options']);
     expect(schema['additionalProperties']).toBe(false);

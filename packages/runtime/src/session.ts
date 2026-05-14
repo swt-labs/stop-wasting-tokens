@@ -94,9 +94,7 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       // only in this in-memory AuthStorage; it is NEVER logged.
       let oauthCredentials: OAuthCredentials;
       try {
-        oauthCredentials = JSON.parse(
-          opts.resolvedCredential.secret,
-        ) as OAuthCredentials;
+        oauthCredentials = JSON.parse(opts.resolvedCredential.secret) as OAuthCredentials;
       } catch {
         throw new Error(
           'createSession: oauth resolvedCredential.secret is not a valid OAuthCredentials JSON blob',

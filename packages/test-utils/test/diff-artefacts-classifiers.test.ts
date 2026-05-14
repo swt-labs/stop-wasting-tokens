@@ -14,11 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  classify,
-  DEFAULT_CLASSIFIERS,
-  type ArtefactCategory,
-} from '../src/diff-artefacts.js';
+import { classify, DEFAULT_CLASSIFIERS, type ArtefactCategory } from '../src/diff-artefacts.js';
 
 describe('DEFAULT_CLASSIFIERS — per-role calibration', () => {
   // [path, expected category] cases — drawn from research §5.5 + the

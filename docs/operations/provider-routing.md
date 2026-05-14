@@ -13,7 +13,7 @@ Source of truth: `packages/orchestration/src/provider-router.ts` (`RouterStrateg
 ### 1. `pinned`
 
 ```jsonc
-{"kind": "pinned", "provider": "anthropic"}
+{ "kind": "pinned", "provider": "anthropic" }
 ```
 
 Returns the literal `provider` for every spawn; tier is ignored. The default for `DEFAULT_PROVIDERS_CONFIG`.
@@ -21,7 +21,7 @@ Returns the literal `provider` for every spawn; tier is ignored. The default for
 ### 2. `round-robin`
 
 ```jsonc
-{"kind": "round-robin", "providers": ["anthropic", "openai", "openrouter"]}
+{ "kind": "round-robin", "providers": ["anthropic", "openai", "openrouter"] }
 ```
 
 Cycles through `providers` modulo `providers.length`; tier is ignored. Throws on empty list.
@@ -31,8 +31,8 @@ Cycles through `providers` modulo `providers.length`; tier is ignored. Throws on
 ```jsonc
 {
   "kind": "tier-routed",
-  "map": {"cheap-fast": "openrouter", "balanced": "anthropic"},
-  "fallback": "anthropic"
+  "map": { "cheap-fast": "openrouter", "balanced": "anthropic" },
+  "fallback": "anthropic",
 }
 ```
 
@@ -44,7 +44,7 @@ Flat dictionary lookup `map[ctx.tier] ?? fallback`. Tier vocabulary: `'cheap-fas
 {
   "kind": "cost-optimized",
   "providers": ["anthropic", "openai", "openrouter"],
-  "priceTable": {"anthropic": 15.0, "openai": 10.0, "openrouter": 0.5}
+  "priceTable": { "anthropic": 15.0, "openai": 10.0, "openrouter": 0.5 },
 }
 ```
 
@@ -56,9 +56,11 @@ Picks the cheapest provider from `priceTable`. Operators paste current per-milli
 {
   "kind": "cost-optimized-rate-card",
   "providers": ["anthropic", "openai", "openrouter"],
-  "rateCard": { /* loaded via @swt-labs/runtime's createRateCardSource */ },
+  "rateCard": {
+    /* loaded via @swt-labs/runtime's createRateCardSource */
+  },
   "dimension": "input",
-  "model": "claude-opus-4-7"
+  "model": "claude-opus-4-7",
 }
 ```
 
@@ -74,15 +76,17 @@ Cook callers populate `rateCard` by calling `createRateCardSource({cwd}).readCur
   "map": {
     "cheap-fast": "openrouter",
     "standard-standard": "anthropic",
-    "premium-slow": "anthropic"
+    "premium-slow": "anthropic",
   },
   "fallback": "anthropic",
   "fallbackStrategy": {
     "kind": "cost-optimized-rate-card",
     "providers": ["anthropic", "openrouter"],
-    "rateCard": { /* ... */ },
-    "dimension": "blended"
-  }
+    "rateCard": {
+      /* ... */
+    },
+    "dimension": "blended",
+  },
 }
 ```
 
@@ -96,18 +100,18 @@ Richer tier vocabulary on top of `tier-routed`. Resolution order:
 
 Cost axis: `cheap`, `standard`, `premium`. Speed axis: `fast`, `standard`, `slow`. Model-class hint (axis-orthogonal): `reasoning`.
 
-| Tier | Cost | Speed | Notes |
-| --- | --- | --- | --- |
-| `cheap-fast` | cheap | fast | Latency-optimised low-cost models (e.g., gpt-5-mini, gemini-flash). Also a legacy Phase 6 alias. |
-| `cheap-standard` | cheap | standard | Standard-latency low-cost models. |
-| `standard-fast` | standard | fast | Default-quality, latency-optimised models. |
-| `standard-standard` | standard | standard | Default everything. Alias for legacy `balanced`. |
-| `standard-slow` | standard | slow | Default-quality, deep reasoning (extended thinking). Alias for legacy `quality`. |
-| `premium-standard` | premium | standard | Top-tier models, default latency. |
-| `premium-slow` | premium | slow | Top-tier models, deep reasoning. |
-| `reasoning` | n/a | n/a | Model-class hint — extended thinking / o-series; orthogonal to cost/speed. Also a legacy alias. |
-| `balanced` (legacy alias) | standard | standard | Maps onto `standard-standard`. Preserved for Phase 6 configs. |
-| `quality` (legacy alias) | standard | slow | Maps onto `standard-slow`. Preserved for Phase 6 configs. |
+| Tier                      | Cost     | Speed    | Notes                                                                                            |
+| ------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `cheap-fast`              | cheap    | fast     | Latency-optimised low-cost models (e.g., gpt-5-mini, gemini-flash). Also a legacy Phase 6 alias. |
+| `cheap-standard`          | cheap    | standard | Standard-latency low-cost models.                                                                |
+| `standard-fast`           | standard | fast     | Default-quality, latency-optimised models.                                                       |
+| `standard-standard`       | standard | standard | Default everything. Alias for legacy `balanced`.                                                 |
+| `standard-slow`           | standard | slow     | Default-quality, deep reasoning (extended thinking). Alias for legacy `quality`.                 |
+| `premium-standard`        | premium  | standard | Top-tier models, default latency.                                                                |
+| `premium-slow`            | premium  | slow     | Top-tier models, deep reasoning.                                                                 |
+| `reasoning`               | n/a      | n/a      | Model-class hint — extended thinking / o-series; orthogonal to cost/speed. Also a legacy alias.  |
+| `balanced` (legacy alias) | standard | standard | Maps onto `standard-standard`. Preserved for Phase 6 configs.                                    |
+| `quality` (legacy alias)  | standard | slow     | Maps onto `standard-slow`. Preserved for Phase 6 configs.                                        |
 
 Final unique vocabulary: 10 strings (7 compound + 1 model-class hint + 2 legacy aliases not already in the compound grid).
 

@@ -106,9 +106,7 @@ describe('@swt-labs/runtime — env resolvers (Plan 01-02)', () => {
       expect(first).toBe(second);
       expect(second).toBe(third);
       // UUID v4 shape: 8-4-4-4-12 lowercase hex.
-      expect(first).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
   });
 

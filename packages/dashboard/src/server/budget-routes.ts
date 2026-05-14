@@ -37,13 +37,8 @@ import {
   writePendingSignal,
   type FileMeterAdapter,
 } from '@swt-labs/methodology';
-import {
-  createBudgetGate,
-  type BudgetEvent,
-  type BudgetGate,
-} from '@swt-labs/runtime';
+import { createBudgetGate, type BudgetEvent, type BudgetGate } from '@swt-labs/runtime';
 import { BudgetConfigSchema, type BudgetConfigSchemaT } from '@swt-labs/shared';
-
 import type { Hono } from 'hono';
 
 import { registerBudgetRoute } from './routes/budget.js';
@@ -113,7 +108,6 @@ function findConfigFile(projectRoot: string): string | undefined {
 export function loadBudgetConfig(
   projectRoot: string,
   warn: (m: string) => void = (m): void => {
-    // eslint-disable-next-line no-console
     console.warn(m);
   },
 ): BudgetConfigSchemaT {
@@ -140,7 +134,7 @@ export function loadBudgetConfig(
   if (block === undefined) return DEFAULT_BUDGET_CONFIG;
   // Auto-fill schema_version if absent so users don't need to know about it.
   const withVersion =
-    typeof block === 'object' && block !== null && !('schema_version' in (block as object))
+    typeof block === 'object' && block !== null && !('schema_version' in block)
       ? { schema_version: 1, ...(block as Record<string, unknown>) }
       : block;
   const result = BudgetConfigSchema.safeParse(withVersion);
@@ -174,7 +168,6 @@ export function createLiveBudgetWiring(opts: BudgetWiringOptions): BudgetWiring 
   const warn =
     opts.onWarn ??
     ((m: string): void => {
-      // eslint-disable-next-line no-console
       console.warn(m);
     });
   const config = opts.configOverride ?? loadBudgetConfig(opts.projectRoot, warn);
@@ -196,8 +189,7 @@ export function createLiveBudgetWiring(opts: BudgetWiringOptions): BudgetWiring 
     };
   }
 
-  const sessionIdResolver =
-    opts.sessionIdResolver ?? defaultSessionIdResolver(opts.projectRoot);
+  const sessionIdResolver = opts.sessionIdResolver ?? defaultSessionIdResolver(opts.projectRoot);
 
   // Pause/resume → cook-controls signal file. Bridges the gate's
   // in-process event stream onto the existing signal-file protocol that

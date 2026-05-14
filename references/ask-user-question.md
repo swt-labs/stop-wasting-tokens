@@ -47,6 +47,7 @@ Last reviewed: 2026-04-18
 Header: Confirm
 Question: Continue with phase 03 now?
 Options:
+
 - Execute phase 03 (Recommended — the plan is already complete)
 - Review plans first
 - Not now
@@ -56,6 +57,7 @@ Options:
 Prompt: Tell me which todo to act on. Use the todo number or describe the item in your own words.
 
 Why this stays freeform:
+
 - the list length is not bounded to 2–4 options
 - the correct answer may be a number, a phrase, or a new clarification
 - pretending this is a fixed menu creates fake structure and worse UX
@@ -65,6 +67,7 @@ Why this stays freeform:
 Header: Next step
 Question: Ready to proceed with implementation?
 Options:
+
 - Proceed (Recommended)
 - Keep exploring
 

@@ -19,10 +19,11 @@
  * developer-local recording lands.
  */
 
-import { describe, expect, it, afterAll, beforeAll } from 'vitest';
-import { existsSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { describe, expect, it, afterAll, beforeAll } from 'vitest';
 
 import { TpacReportSchema } from '../../packages/shared/src/schemas/tpac-report.js';
 import {
@@ -77,11 +78,7 @@ describe.skipIf(!READY)('snake full-milestone e2e (plan 05-04 T4)', () => {
 
   it('Dev produced snake/__main__.py + snake/game.py + tests/test_game.py', () => {
     const tmp = result.artefactsPath;
-    for (const rel of [
-      'snake/__main__.py',
-      'snake/game.py',
-      'tests/test_game.py',
-    ]) {
+    for (const rel of ['snake/__main__.py', 'snake/game.py', 'tests/test_game.py']) {
       expect(existsSync(join(tmp, rel)), `${rel} must exist`).toBe(true);
     }
   });

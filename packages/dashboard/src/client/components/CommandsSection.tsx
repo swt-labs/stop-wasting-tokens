@@ -59,11 +59,7 @@ export interface CommandsSectionProps {
   lastResult: CommandRunFeedback | null;
 }
 
-export type VerbAction =
-  | 'safe-dispatch'
-  | 'cook-start'
-  | 'disabled-interactive'
-  | 'disabled-stub';
+export type VerbAction = 'safe-dispatch' | 'cook-start' | 'disabled-interactive' | 'disabled-stub';
 
 /** R2 — the per-verb dispatch decision. LOCKED rules (see ## Decisions):
  *  - dashboard_safe → 'safe-dispatch' (one-click POST /api/command)

@@ -15,8 +15,8 @@
  * Phase 5 plan 05-01 task T4 — R7 CI gating smoke.
  */
 
-import { createServer } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 

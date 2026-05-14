@@ -19,15 +19,12 @@
  * when no project file exists.
  */
 
-import { describe, expect, test } from 'vitest';
-import {
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+
+import { describe, expect, test } from 'vitest';
+
 import { createRateCardSource } from '../../src/budget/rate-card-source.js';
 
 function makeTmpCwd(): string {

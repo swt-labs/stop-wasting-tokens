@@ -399,16 +399,12 @@ describe('@swt-labs/shared — cook.budget_projected event', () => {
 
   it('rejects an object missing would_exceed', () => {
     const { would_exceed: _omit, ...withoutWouldExceed } = validBudgetProjected;
-    expect(
-      CookBudgetProjectedEventSchema.safeParse(withoutWouldExceed).success,
-    ).toBe(false);
+    expect(CookBudgetProjectedEventSchema.safeParse(withoutWouldExceed).success).toBe(false);
   });
 
   it('ACCEPTS projected_pressure > 1.0 (no .max() — a projection can blow past the ceiling)', () => {
     const overPressure = { ...validBudgetProjected, projected_pressure: 1.5 };
-    expect(
-      CookBudgetProjectedEventSchema.safeParse(overPressure).success,
-    ).toBe(true);
+    expect(CookBudgetProjectedEventSchema.safeParse(overPressure).success).toBe(true);
     // The discriminated union accepts it too.
     expect(SnapshotEventSchema.safeParse(overPressure).success).toBe(true);
   });

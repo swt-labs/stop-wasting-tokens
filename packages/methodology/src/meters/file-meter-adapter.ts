@@ -27,14 +27,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import type { MeterRecord, MeterSnapshot, MeterUpdate, TokenMeter } from '@swt-labs/shared';
 import chokidar from 'chokidar';
-
-import type {
-  MeterRecord,
-  MeterSnapshot,
-  MeterUpdate,
-  TokenMeter,
-} from '@swt-labs/shared';
 
 import type { SessionMetrics } from './token-meter.js';
 
@@ -101,14 +95,11 @@ function deriveSessionIdFromPath(filePath: string): string {
  * Build a TokenMeter that surfaces deltas in `.swt-planning/.metrics/` files
  * to subscribers. Pure file watcher; no per-call IO from subscribers' POV.
  */
-export function createFileMeterAdapter(
-  opts: CreateFileMeterAdapterOptions,
-): FileMeterAdapter {
+export function createFileMeterAdapter(opts: CreateFileMeterAdapterOptions): FileMeterAdapter {
   const clock = opts.clock ?? ((): string => new Date().toISOString());
   const warn =
     opts.onWarn ??
     ((message: string): void => {
-      // eslint-disable-next-line no-console
       console.warn(message);
     });
   const listeners: Array<(event: MeterUpdate) => void> = [];
@@ -196,9 +187,7 @@ export function createFileMeterAdapter(
       // baseline; subscribers only see DELTAS going forward.
       lastSeen.set(filePath, snap);
     } catch (err) {
-      warn(
-        `[file-meter-adapter] add: parse error for ${filePath}: ${(err as Error).message}`,
-      );
+      warn(`[file-meter-adapter] add: parse error for ${filePath}: ${(err as Error).message}`);
     }
   });
 
@@ -208,9 +197,7 @@ export function createFileMeterAdapter(
       const snap = readSnapshot(filePath);
       emit(filePath, snap);
     } catch (err) {
-      warn(
-        `[file-meter-adapter] change: parse error for ${filePath}: ${(err as Error).message}`,
-      );
+      warn(`[file-meter-adapter] change: parse error for ${filePath}: ${(err as Error).message}`);
     }
   });
 

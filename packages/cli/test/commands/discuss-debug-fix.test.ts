@@ -10,11 +10,11 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { fixDeprecatedHandler, STUB_SPECS } from '../../src/commands/stubs.js';
-import { buildRegistry } from '../../src/main.js';
-import { EXIT } from '../../src/exit-codes.js';
-import type { CommandIO } from '../../src/router.js';
 import type { ParsedArgv } from '../../src/argv.js';
+import { fixDeprecatedHandler, STUB_SPECS } from '../../src/commands/stubs.js';
+import { EXIT } from '../../src/exit-codes.js';
+import { buildRegistry } from '../../src/main.js';
+import type { CommandIO } from '../../src/router.js';
 
 function makeIO(): {
   io: CommandIO;

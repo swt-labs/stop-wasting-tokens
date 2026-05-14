@@ -1,6 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { randomUUID } from 'node:crypto';
 
 import {
   runOAuthLoginFlow,
@@ -96,11 +96,7 @@ async function writeAuthConfig(cfgPath: string, provider: string): Promise<void>
         ? { ...(parsedCurrent as Record<string, unknown>) }
         : {};
   } catch (err) {
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      (err as { code?: string }).code === 'ENOENT'
-    ) {
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
       // Greenfield daemon — no config.json yet; `mkdir -p` below creates
       // `.swt-planning/` on demand.
       config = {};
@@ -136,11 +132,7 @@ async function writeAuthConfig(cfgPath: string, provider: string): Promise<void>
  * so the per-boot `Bearer` token middleware (already wired on `/api/*`)
  * covers both OAuth routes automatically.
  */
-export function registerProviderAuthOAuthRoute(
-  app: Hono,
-  cwd: string,
-  bus: EventBus,
-): void {
+export function registerProviderAuthOAuthRoute(app: Hono, cwd: string, bus: EventBus): void {
   const cfgPath = join(cwd, PLANNING_DIR, CONFIG_FILENAME);
 
   // The in-process flow registry — per `createApp`, so each daemon instance
@@ -206,10 +198,7 @@ export function registerProviderAuthOAuthRoute(
     const raw: unknown = await c.req.json().catch(() => null);
     const parsed = OAuthStartBodySchema.safeParse(raw);
     if (!parsed.success) {
-      return c.json(
-        { error: 'invalid_oauth_start_body', detail: parsed.error.flatten() },
-        400,
-      );
+      return c.json({ error: 'invalid_oauth_start_body', detail: parsed.error.flatten() }, 400);
     }
     const { provider } = parsed.data;
 
@@ -359,10 +348,7 @@ export function registerProviderAuthOAuthRoute(
     const raw: unknown = await c.req.json().catch(() => null);
     const parsed = OAuthManualCodeBodySchema.safeParse(raw);
     if (!parsed.success) {
-      return c.json(
-        { error: 'invalid_oauth_code_body', detail: parsed.error.flatten() },
-        400,
-      );
+      return c.json({ error: 'invalid_oauth_code_body', detail: parsed.error.flatten() }, 400);
     }
 
     // 3. Look up the flow — absent means no such flow, or it already

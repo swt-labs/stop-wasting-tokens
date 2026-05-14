@@ -3,19 +3,23 @@ name: swt:report
 category: supporting
 disable-model-invocation: true
 description: Collect diagnostic context, classify bug or feature, and file a GitHub issue.
-argument-hint: "[problem description]"
+argument-hint: '[problem description]'
 allowed-tools: Read, Bash, Glob, Grep, mcp__github__issue_write
 ---
 
 # SWT Report
 
 ## Context
+
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 SWT version:
+
 ```
 !`cat VERSION 2>/dev/null || echo "unknown"`
 ```
@@ -38,169 +42,178 @@ This command collects diagnostics and files a GitHub issue — nothing else.
 ## Steps
 
 1. **Collect diagnostics and persist to temp file.** Run the diagnostic collection script from the resolved plugin root. Pass the plugin root path as the first argument and the working directory as the second. Persist the output to a temp file so it can be embedded verbatim in the issue body later, even if context compaction occurs between this step and the filing step:
-    ```bash
-    set -eo pipefail
-    DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"
-    ( umask 077; : > "$DIAG_FILE" )
-    bash <plugin-root>/scripts/collect-diagnostics.sh "<plugin-root>" "$(pwd)" | tee "$DIAG_FILE"
-    echo "DIAG_FILE=$DIAG_FILE"
-    ```
-    The diagnostic output appears in this tool result for display (step 2) and classification (step 3). The temp file path is session-scoped via `SWT_SESSION_ID` (set by SWT hooks) — deterministic across separate Bash invocations within a session and unique across concurrent sessions. When `SWT_SESSION_ID` is unset, the literal `default` fallback keeps the path deterministic but shared across concurrent sessions (acceptable since this only applies when SWT hooks are inactive). Note the `DIAG_FILE=...` path printed at the end for use in step 4.
+
+   ```bash
+   set -eo pipefail
+   DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"
+   ( umask 077; : > "$DIAG_FILE" )
+   bash <plugin-root>/scripts/collect-diagnostics.sh "<plugin-root>" "$(pwd)" | tee "$DIAG_FILE"
+   echo "DIAG_FILE=$DIAG_FILE"
+   ```
+
+   The diagnostic output appears in this tool result for display (step 2) and classification (step 3). The temp file path is session-scoped via `SWT_SESSION_ID` (set by SWT hooks) — deterministic across separate Bash invocations within a session and unique across concurrent sessions. When `SWT_SESSION_ID` is unset, the literal `default` fallback keeps the path deterministic but shared across concurrent sessions (acceptable since this only applies when SWT hooks are inactive). Note the `DIAG_FILE=...` path printed at the end for use in step 4.
 
 2. **Display the report.** Show the diagnostic output inside a fenced code block. Use only the `collect-diagnostics.sh` output (the content before the `DIAG_FILE=...` line) — do not include the `DIAG_FILE=` path line in the displayed report. Do not paraphrase or reformat — the section headers and structure are designed for maintainer readability. If a problem description was provided, prepend it above the diagnostics:
 
-    ```
-    ## Problem Description
-    {user's problem description from $ARGUMENTS}
+   ```
+   ## Problem Description
+   {user's problem description from $ARGUMENTS}
 
-    ## Diagnostic Report
-    ```
-    Then the fenced code block with the script output.
+   ## Diagnostic Report
+   ```
+
+   Then the fenced code block with the script output.
 
 3. **Classify the issue.** Read the problem description and classify it as `bug` or `feature`:
-
-    - **Bug**: the description reports something broken, an error, unexpected behavior, a crash, a regression, or a mismatch between expected and actual behavior.
-    - **Feature**: the description requests something missing, a workflow improvement, a new capability, or a change to existing behavior that is not broken.
-    - When the description is ambiguous or empty, classify as `bug`.
+   - **Bug**: the description reports something broken, an error, unexpected behavior, a crash, a regression, or a mismatch between expected and actual behavior.
+   - **Feature**: the description requests something missing, a workflow improvement, a new capability, or a change to existing behavior that is not broken.
+   - When the description is ambiguous or empty, classify as `bug`.
 
 4. **Compose and file the issue.**
 
-    The **Additional context** section contains the full diagnostic report collected in step 1. Always source this diagnostic content from the temp file (`$DIAG_FILE`) created in step 1 — do not reproduce the diagnostic output from memory. For Method 1 (`gh` CLI flow), write only the `**Additional context**` header in the body because the bash script appends the diagnostic content from `$DIAG_FILE`. For Methods 2 (MCP) and 4 (manual), compose the full `**Additional context**` section by reading the diagnostics from `$DIAG_FILE`.
+   The **Additional context** section contains the full diagnostic report collected in step 1. Always source this diagnostic content from the temp file (`$DIAG_FILE`) created in step 1 — do not reproduce the diagnostic output from memory. For Method 1 (`gh` CLI flow), write only the `**Additional context**` header in the body because the bash script appends the diagnostic content from `$DIAG_FILE`. For Methods 2 (MCP) and 4 (manual), compose the full `**Additional context**` section by reading the diagnostics from `$DIAG_FILE`.
 
-    a. Derive a concise issue title from the problem description — summarize to ~10 words. Do not use the raw description verbatim as the title. If no description is provided, use `"Bug report from swt report"` for bugs or `"Feature request from swt report"` for features.
+   a. Derive a concise issue title from the problem description — summarize to ~10 words. Do not use the raw description verbatim as the title. If no description is provided, use `"Bug report from swt report"` for bugs or `"Feature request from swt report"` for features.
 
-    b. Compose the body using the template that matches the classification. Each section header must be bold on its own line, with content on the next line and a blank line between sections.
+   b. Compose the body using the template that matches the classification. Each section header must be bold on its own line, with content on the next line and a blank line between sections.
 
-    <examples>
-    <example>
-    **Classification: bug** — use this body structure (matches `.github/ISSUE_TEMPLATE/bug_report.md`):
+   <examples>
+   <example>
+   **Classification: bug** — use this body structure (matches `.github/ISSUE_TEMPLATE/bug_report.md`):
 
-    ```
-    **Command**
-    {the swt * command from the description, or "Not specified"}
+   ```
+   **Command**
+   {the swt * command from the description, or "Not specified"}
 
-    **What happened**
-    {problem description from $ARGUMENTS, or "Not provided — please edit this section"}
+   **What happened**
+   {problem description from $ARGUMENTS, or "Not provided — please edit this section"}
 
-    **What you expected**
-    {inferred from description, or "Not provided — please edit this section"}
+   **What you expected**
+   {inferred from description, or "Not provided — please edit this section"}
 
-    **Steps to reproduce**
-    {inferred from description, or "Not provided — please edit this section"}
+   **Steps to reproduce**
+   {inferred from description, or "Not provided — please edit this section"}
 
-    **Environment**
-    - Claude Code version: {from diagnostics}
-    - OS: {from diagnostics}
-    - Plugin install method: {from diagnostics}
-    - Model: Not specified
+   **Environment**
+   - Claude Code version: {from diagnostics}
+   - OS: {from diagnostics}
+   - Plugin install method: {from diagnostics}
+   - Model: Not specified
 
-    **Additional context**
-    {diagnostic report — appended from temp file in the filing step, not written here}
-    ```
-    </example>
+   **Additional context**
+   {diagnostic report — appended from temp file in the filing step, not written here}
+   ```
 
-    <example>
-    **Classification: feature** — use this body structure (matches `.github/ISSUE_TEMPLATE/feature_request.md`):
+   </example>
 
-    ```
-    **Problem**
-    {problem description from $ARGUMENTS, or "Not provided — please edit this section"}
+   <example>
+   **Classification: feature** — use this body structure (matches `.github/ISSUE_TEMPLATE/feature_request.md`):
 
-    **Proposed solution**
-    {inferred from description, or "Not provided — please edit this section"}
+   ```
+   **Problem**
+   {problem description from $ARGUMENTS, or "Not provided — please edit this section"}
 
-    **Alternatives considered**
-    Not provided — please edit this section
+   **Proposed solution**
+   {inferred from description, or "Not provided — please edit this section"}
 
-    **Additional context**
-    {diagnostic report — appended from temp file in the filing step, not written here}
-    ```
-    </example>
-    </examples>
+   **Alternatives considered**
+   Not provided — please edit this section
 
-    c. Show the composed title and body as a brief preview so the user can see what will be filed.
+   **Additional context**
+   {diagnostic report — appended from temp file in the filing step, not written here}
+   ```
 
-    d. File the issue immediately using this fallback chain. Stop at the first method that succeeds:
+   </example>
+   </examples>
 
-    Set the label based on classification: `bug` for bugs, `enhancement` for features.
+   c. Show the composed title and body as a brief preview so the user can see what will be filed.
 
-    **Method 1 — `gh` CLI (if installed and authenticated):**
+   d. File the issue immediately using this fallback chain. Stop at the first method that succeeds:
 
-    Check: `gh auth status 2>/dev/null`
+   Set the label based on classification: `bug` for bugs, `enhancement` for features.
 
-    If `gh` is installed and authenticated, file via temp files for safe quoting. The body heredoc contains everything except the diagnostic report. The diagnostic content is appended from the temp file created in step 1:
-    ```bash
-    DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"
-    ISSUE_BODY_FILE=$(mktemp /tmp/swt-issue-body.XXXXXX.md)
-    ISSUE_TITLE_FILE=$(mktemp /tmp/swt-issue-title.XXXXXX.txt)
-    trap 'rm -f "$ISSUE_BODY_FILE" "$ISSUE_TITLE_FILE"' EXIT
+   **Method 1 — `gh` CLI (if installed and authenticated):**
 
-    cat > "$ISSUE_TITLE_FILE" << 'ISSUE_TITLE_EOF'
-    <composed title>
-    ISSUE_TITLE_EOF
+   Check: `gh auth status 2>/dev/null`
 
-    cat > "$ISSUE_BODY_FILE" << 'ISSUE_BODY_EOF'
-    <composed body sections WITHOUT the diagnostic report>
+   If `gh` is installed and authenticated, file via temp files for safe quoting. The body heredoc contains everything except the diagnostic report. The diagnostic content is appended from the temp file created in step 1:
 
-    **Additional context**
-    ISSUE_BODY_EOF
+   ````bash
+   DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"
+   ISSUE_BODY_FILE=$(mktemp /tmp/swt-issue-body.XXXXXX.md)
+   ISSUE_TITLE_FILE=$(mktemp /tmp/swt-issue-title.XXXXXX.txt)
+   trap 'rm -f "$ISSUE_BODY_FILE" "$ISSUE_TITLE_FILE"' EXIT
 
-    # Append the full diagnostic report from the temp file
-    if [ -s "$DIAG_FILE" ]; then
-      printf '```\n' >> "$ISSUE_BODY_FILE"
-      cat "$DIAG_FILE" >> "$ISSUE_BODY_FILE"
-      printf '```\n' >> "$ISSUE_BODY_FILE"
-    else
-      printf '\n_Diagnostic report unavailable — temp file missing or empty._\n' >> "$ISSUE_BODY_FILE"
-    fi
+   cat > "$ISSUE_TITLE_FILE" << 'ISSUE_TITLE_EOF'
+   <composed title>
+   ISSUE_TITLE_EOF
 
-    if gh issue create --repo swt-labs/vibe-better-with-claude-code-vbw \
-      --title "$(cat "$ISSUE_TITLE_FILE")" \
-      --label <bug or enhancement> \
-      --body-file "$ISSUE_BODY_FILE"; then
-      rm -f "$DIAG_FILE"
-    fi
-    ```
+   cat > "$ISSUE_BODY_FILE" << 'ISSUE_BODY_EOF'
+   <composed body sections WITHOUT the diagnostic report>
 
-    **Method 2 — GitHub MCP server (if available):**
+   **Additional context**
+   ISSUE_BODY_EOF
 
-    If `gh` is not installed or not authenticated, check if `mcp__github__issue_write` is available in your tool list. If it is, first re-derive the temp file path (`DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"`) and read the diagnostic report (`cat "$DIAG_FILE"`). Compose the full body by combining the non-diagnostic sections with the diagnostic output in a code fence under `**Additional context**`. Call the tool with:
-    - `method`: `create`
-    - `owner`: `swt-labs`
-    - `repo`: `vibe-better-with-claude-code-vbw`
-    - `title`: The composed title
-    - `body`: The composed body (with full diagnostic report from the temp file)
-    - `labels`: `["bug"]` or `["enhancement"]` based on classification
-    - `assignees`: `["dpearson2699"]`
+   # Append the full diagnostic report from the temp file
+   if [ -s "$DIAG_FILE" ]; then
+     printf '```\n' >> "$ISSUE_BODY_FILE"
+     cat "$DIAG_FILE" >> "$ISSUE_BODY_FILE"
+     printf '```\n' >> "$ISSUE_BODY_FILE"
+   else
+     printf '\n_Diagnostic report unavailable — temp file missing or empty._\n' >> "$ISSUE_BODY_FILE"
+   fi
 
-    After the MCP call succeeds, clean up the temp file: `rm -f "$DIAG_FILE"`.
+   if gh issue create --repo swt-labs/vibe-better-with-claude-code-vbw \
+     --title "$(cat "$ISSUE_TITLE_FILE")" \
+     --label <bug or enhancement> \
+     --body-file "$ISSUE_BODY_FILE"; then
+     rm -f "$DIAG_FILE"
+   fi
+   ````
 
-    **Method 3 — Install `gh` CLI, authenticate, then file:**
+   **Method 2 — GitHub MCP server (if available):**
 
-    If neither method 1 nor method 2 is available, install and set up `gh`:
+   If `gh` is not installed or not authenticated, check if `mcp__github__issue_write` is available in your tool list. If it is, first re-derive the temp file path (`DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"`) and read the diagnostic report (`cat "$DIAG_FILE"`). Compose the full body by combining the non-diagnostic sections with the diagnostic output in a code fence under `**Additional context**`. Call the tool with:
+   - `method`: `create`
+   - `owner`: `swt-labs`
+   - `repo`: `vibe-better-with-claude-code-vbw`
+   - `title`: The composed title
+   - `body`: The composed body (with full diagnostic report from the temp file)
+   - `labels`: `["bug"]` or `["enhancement"]` based on classification
+   - `assignees`: `["dpearson2699"]`
 
-    a. Detect the platform and install `gh`:
-       - macOS: `brew install gh`
-       - Debian/Ubuntu: `sudo apt install gh` (or the official install script)
-       - Other: Direct the user to https://cli.github.com/ and skip to Method 4.
+   After the MCP call succeeds, clean up the temp file: `rm -f "$DIAG_FILE"`.
 
-    b. After installation, authenticate:
-       ```bash
-       gh auth login --web
-       ```
-       Walk the user through the browser-based auth flow. Wait for authentication to complete successfully (`gh auth status` returns 0).
+   **Method 3 — Install `gh` CLI, authenticate, then file:**
 
-    c. Once authenticated, file the issue using the same `gh issue create` command from Method 1.
+   If neither method 1 nor method 2 is available, install and set up `gh`:
 
-    **Method 4 — Manual fallback (last resort):**
+   a. Detect the platform and install `gh`:
+   - macOS: `brew install gh`
+   - Debian/Ubuntu: `sudo apt install gh` (or the official install script)
+   - Other: Direct the user to https://cli.github.com/ and skip to Method 4.
 
-    If all of the above fail (install refused, auth failed, network error, etc.), re-derive the temp file path (`DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"`), read the diagnostic report (`cat "$DIAG_FILE"`), clean it up (`rm -f "$DIAG_FILE"`), and display the composed issue title, body (with full diagnostics), and a link:
-    ```
-    ⚠ Could not file issue automatically.
-    File manually: https://github.com/swt-labs/vibe-better-with-claude-code-vbw/issues/new?template=<bug_report.md or feature_request.md>
+   b. After installation, authenticate:
 
-    Copy the composed issue body above and paste it into the issue form.
-    ```
-    Use `?template=bug_report.md` for bugs or `?template=feature_request.md` for features.
+   ```bash
+   gh auth login --web
+   ```
 
-    Stop here. Do not take any further action.
+   Walk the user through the browser-based auth flow. Wait for authentication to complete successfully (`gh auth status` returns 0).
+
+   c. Once authenticated, file the issue using the same `gh issue create` command from Method 1.
+
+   **Method 4 — Manual fallback (last resort):**
+
+   If all of the above fail (install refused, auth failed, network error, etc.), re-derive the temp file path (`DIAG_FILE="/tmp/swt-diag-report-${SWT_SESSION_ID:-default}.txt"`), read the diagnostic report (`cat "$DIAG_FILE"`), clean it up (`rm -f "$DIAG_FILE"`), and display the composed issue title, body (with full diagnostics), and a link:
+
+   ```
+   ⚠ Could not file issue automatically.
+   File manually: https://github.com/swt-labs/vibe-better-with-claude-code-vbw/issues/new?template=<bug_report.md or feature_request.md>
+
+   Copy the composed issue body above and paste it into the issue form.
+   ```
+
+   Use `?template=bug_report.md` for bugs or `?template=feature_request.md` for features.
+
+   Stop here. Do not take any further action.

@@ -38,9 +38,7 @@ const CREDENTIALS_SRC = path.resolve(__dirname, '../../src/credentials');
  * is NOT an import and must not trip the invariant. Dependency-free, no AST.
  */
 function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
 // L2 constraint (CLAUDE.md): runtime may import core/shared/within-package
@@ -67,9 +65,7 @@ function credentialSourceFiles(): string[] {
 describe('@swt-labs/runtime — credentials/ L2 layering invariants (Phase 1)', () => {
   it('no credentials/ source file imports an L3+ (upward) package', () => {
     for (const file of credentialSourceFiles()) {
-      const code = stripComments(
-        readFileSync(path.join(CREDENTIALS_SRC, file), 'utf8'),
-      );
+      const code = stripComments(readFileSync(path.join(CREDENTIALS_SRC, file), 'utf8'));
       for (const forbidden of FORBIDDEN_UPWARD) {
         expect(
           code.includes(forbidden),
@@ -82,9 +78,7 @@ describe('@swt-labs/runtime — credentials/ L2 layering invariants (Phase 1)', 
   it('the native @napi-rs/keyring import is isolated to keychain-backend.ts + probe.ts', () => {
     for (const file of credentialSourceFiles()) {
       if (NATIVE_ALLOWED_FILES.includes(file)) continue;
-      const code = stripComments(
-        readFileSync(path.join(CREDENTIALS_SRC, file), 'utf8'),
-      );
+      const code = stripComments(readFileSync(path.join(CREDENTIALS_SRC, file), 'utf8'));
       expect(
         code.includes(NATIVE_SPECIFIER),
         `${file} must not import ${NATIVE_SPECIFIER} — native access is isolated to ${NATIVE_ALLOWED_FILES.join(' + ')}`,
@@ -93,9 +87,7 @@ describe('@swt-labs/runtime — credentials/ L2 layering invariants (Phase 1)', 
   });
 
   it('credentials/index.ts (sub-barrel) is itself native-dep-free', () => {
-    const code = stripComments(
-      readFileSync(path.join(CREDENTIALS_SRC, 'index.ts'), 'utf8'),
-    );
+    const code = stripComments(readFileSync(path.join(CREDENTIALS_SRC, 'index.ts'), 'utf8'));
     expect(code.includes(NATIVE_SPECIFIER)).toBe(false);
   });
 });

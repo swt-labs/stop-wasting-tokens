@@ -24,12 +24,8 @@
  *     onAwaitingCode/onError (only `onComplete` receives the blob).
  */
 
+import type { OAuthCredentials, OAuthLoginCallbacks } from '@earendil-works/pi-ai/oauth';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-import type {
-  OAuthCredentials,
-  OAuthLoginCallbacks,
-} from '@earendil-works/pi-ai/oauth';
 
 /** A minimal fake `OAuthProviderInterface` — only `id` / `name` / `login` are
  *  exercised by the driver; the rest are stubbed to satisfy the type. */
@@ -50,9 +46,7 @@ vi.mock('@earendil-works/pi-ai/oauth', () => ({
 }));
 
 // Imported AFTER `vi.mock` is registered (vitest hoists `vi.mock`).
-const { runOAuthLoginFlow } = await import(
-  '../../../src/credentials/oauth/oauth-flow.js'
-);
+const { runOAuthLoginFlow } = await import('../../../src/credentials/oauth/oauth-flow.js');
 const { getOAuthProvider } = await import('@earendil-works/pi-ai/oauth');
 
 /** A flush helper — lets the driver's `void (async () => …)()` IIFE settle. */

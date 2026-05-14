@@ -37,10 +37,7 @@ const storeGetMock = vi.hoisted(() =>
 );
 const refreshMock = vi.hoisted(() =>
   vi.fn<
-    (
-      provider: string,
-      credentials: Record<string, unknown>,
-    ) => Promise<Record<string, unknown>>
+    (provider: string, credentials: Record<string, unknown>) => Promise<Record<string, unknown>>
   >(),
 );
 
@@ -157,9 +154,7 @@ describe('Plan 04-04 — resolveSpawnCredential oauth refresh-on-expiry', () => 
       expires: Date.now() + 5_000,
     };
     storeGetMock.mockResolvedValue(JSON.stringify(stale));
-    refreshMock.mockRejectedValue(
-      new OAuthRefreshError('refresh token revoked', 'anthropic'),
-    );
+    refreshMock.mockRejectedValue(new OAuthRefreshError('refresh token revoked', 'anthropic'));
 
     const resolved = await resolveSpawnCredential('anthropic', {
       anthropic: { mode: 'oauth' },
@@ -196,9 +191,7 @@ describe('Plan 04-04 — resolveSpawnCredential oauth refresh-on-expiry', () => 
     storeGetMock.mockResolvedValue(JSON.stringify(stale));
     // Force the stderr-breadcrumb path (the only place resolveSpawnCredential
     // writes to stderr on the 'oauth' arm).
-    refreshMock.mockRejectedValue(
-      new OAuthRefreshError('network failure', 'anthropic'),
-    );
+    refreshMock.mockRejectedValue(new OAuthRefreshError('network failure', 'anthropic'));
 
     await resolveSpawnCredential('anthropic', { anthropic: { mode: 'oauth' } });
 

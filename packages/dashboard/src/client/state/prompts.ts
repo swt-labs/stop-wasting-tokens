@@ -129,10 +129,7 @@ export function createPromptsStore(opts: CreatePromptsStoreOptions = {}): Prompt
     sse.addEventListener('prompt.response', onPromptResponse as EventListener);
   };
 
-  const respondToPrompt = async (
-    promptId: string,
-    response: PromptResponseBody,
-  ): Promise<void> => {
+  const respondToPrompt = async (promptId: string, response: PromptResponseBody): Promise<void> => {
     const body = {
       prompt_id: promptId,
       selectedOption: response.selectedOption,

@@ -13,10 +13,7 @@
 import type { TaskBrief } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
-import {
-  createFallbackChain,
-  FallbackChainExhaustedError,
-} from '../src/provider-fallback.js';
+import { createFallbackChain, FallbackChainExhaustedError } from '../src/provider-fallback.js';
 
 const TASK: TaskBrief = {
   taskId: 'T-time-budget',

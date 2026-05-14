@@ -202,11 +202,7 @@ export {
 // over bundled). The Pi custom-tool registration that bridges this reader
 // onto agent sessions lives in spawnAgent (plan 01-01), not here. TDD3
 // §14, REQ-06.
-export {
-  invokeSkill,
-  resolveSkillPath,
-  type InvokeSkillOptions,
-} from './skills/index.js';
+export { invokeSkill, resolveSkillPath, type InvokeSkillOptions } from './skills/index.js';
 
 // Plan 01-05 (Phase 1): Pi-substrate primitive 2 — `swt:askUser`. Dashboard-
 // mediated structured prompt with readline headless fallback (research §2

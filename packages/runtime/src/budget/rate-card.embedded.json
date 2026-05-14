@@ -24,8 +24,8 @@
     {
       "provider": "openai",
       "model": "gpt-5",
-      "input_per_1k": 0.010,
-      "output_per_1k": 0.030,
+      "input_per_1k": 0.01,
+      "output_per_1k": 0.03,
       "updated_at": "2026-05-14T00:00:00Z"
     },
     {

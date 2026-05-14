@@ -11,11 +11,14 @@ allowed-tools: Read, Bash, Glob, Grep, LSP
 ## Context
 
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 Version:
+
 ```text
 !`cat "/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/VERSION" 2>/dev/null || echo "none"`
 ```
@@ -25,63 +28,80 @@ Version:
 Run ALL checks below. For each, report PASS or FAIL with a one-line detail. Replace `{plugin-root}` with the literal Plugin root value from Context.
 
 ### 1. jq installed
+
 `jq --version 2>/dev/null || echo "MISSING"`
 FAIL if missing: "Install jq: brew install jq (macOS) or apt install jq (Linux)"
 
 ### 2. VERSION file exists
+
 Check `{plugin-root}/VERSION`. FAIL if missing.
 
 ### 3. Version sync
+
 `bash "{plugin-root}/scripts/bump-version.sh" --verify 2>&1`
 FAIL if mismatch detected.
 
 ### 4. Plugin cache present
+
 Check `${SWT_CONFIG_DIR:-~/.claude}/plugins/cache/` exists and has at least one version directory. FAIL if empty or missing.
 
 ### 5. hooks.json valid
+
 Parse `{plugin-root}/hooks/hooks.json` with `jq empty`. FAIL if parse error.
 
 ### 6. Agent files present
+
 Glob `{plugin-root}/agents/swt-*.md`. Expect 7 files (lead, dev, qa, scout, debugger, architect, docs). FAIL if any missing.
 
 ### 7. Config valid (project only)
+
 If `.swt-planning/config.json` exists, parse with `jq empty`. FAIL if parse error. SKIP if no project initialized.
 
 ### 8. Scripts executable
+
 Check all `{plugin-root}/scripts/*.sh` files. WARN if any lack execute permission.
 
 ### 9. gh CLI available
+
 `gh --version 2>/dev/null || echo "MISSING"`
 WARN if missing: "Install gh for GitHub CLI integration (used by maintainer release tooling)."
 
 ### 10. sort -V support
+
 `echo -e "1.0.2\n1.0.10" | sort -V 2>/dev/null | tail -1`
 PASS if result is "1.0.10". WARN if sort -V unavailable (fallback will be used).
 
 ### Runtime Health
 
 ### 11. Stale teams
+
 Run `bash "{plugin-root}/scripts/doctor-cleanup.sh" scan 2>/dev/null` and count lines starting with `stale_team|`.
 PASS if 0. WARN if any, show count.
 
 ### 12. Orphaned processes
+
 Count lines starting with `orphan_process|` from the scan output.
 PASS if 0. WARN if any, show count.
 
 ### 13. Dangling PIDs
+
 Count lines starting with `dangling_pid|` from the scan output.
 PASS if 0. WARN if any, show count.
 
 ### 14. Stale markers
+
 Count lines starting with `stale_marker|` from the scan output.
 PASS if 0. WARN if any, list which markers.
 
 ### 15. Watchdog status
+
 If $TMUX is set, check if .swt-planning/.watchdog-pid exists and process is alive via kill -0.
 PASS if alive or not in tmux. WARN if dead watchdog in tmux.
 
 ### 16. CLAUDE.md sections
+
 If `.swt-planning/` exists (project initialized):
+
 - Run `bash "{plugin-root}/scripts/check-claude-md-staleness.sh" --json 2>/dev/null`
 - Parse JSON output: `stale`, `missing_sections`, `version_mismatch`, `installed_version`, `marker_version`
 - PASS if `stale` is false
@@ -91,7 +111,9 @@ If `.swt-planning/` exists (project initialized):
 If user invoked with `--cleanup`: run `bash "{plugin-root}/scripts/check-claude-md-staleness.sh" --fix 2>&1` and report result. The fix must refresh only SWT-owned sections in place, preserve all other `CLAUDE.md` content verbatim, and add `## Code Intelligence` only when no Code Intelligence heading/guidance already exists.
 
 ### 17. State consistency
+
 If `.swt-planning/` exists:
+
 - Run `bash "{plugin-root}/scripts/verify-state-consistency.sh" .swt-planning --mode advisory 2>/dev/null`
 - Parse JSON output with jq: `.verdict`
 - PASS if verdict is `"pass"`
@@ -99,7 +121,9 @@ If `.swt-planning/` exists:
 - SKIP if no `.swt-planning/` directory (not bootstrapped)
 
 ### 18. RTK integration
+
 Run `bash "{plugin-root}/scripts/rtk-manager.sh" doctor-json 2>/dev/null`.
+
 - Parse JSON output: `doctor_status`, `doctor_detail`, `compatibility`, `compatibility_basis`, `updated_input_risk`, `proof_source`, `diagnostic_caveat`, `upstream_issue`
 - SKIP only when RTK is absent and helper JSON reports no local/global RTK artifacts, no SWT RTK receipt, and no partial install evidence
 - WARN when binary-only, hook-active-unverified, artifact-only, missing/error config, settings are unreadable, or a cached explicit update check says RTK is outdated
@@ -139,10 +163,12 @@ Use checkmark for PASS, warning triangle for WARN, X for FAIL.
 ### Cleanup
 
 If any WARN from checks 11-14, 16, or 17:
+
 - Show cleanup preview listing all findings
 - Display: "Run `swt doctor --cleanup` to apply cleanup"
 
 If user invoked with `--cleanup` (check for this in the command arguments):
+
 - Run `bash "{plugin-root}/scripts/doctor-cleanup.sh" cleanup 2>&1` for runtime findings
 - Run `bash "{plugin-root}/scripts/check-claude-md-staleness.sh" --fix 2>&1` for stale CLAUDE.md (non-destructive in-place refresh of SWT-owned sections only)
 - Report what was cleaned

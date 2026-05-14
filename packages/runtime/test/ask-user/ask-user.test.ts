@@ -48,8 +48,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
  * askUser always falls into the headless branch.
  */
 function makeUnreachableFetch(): typeof fetch {
-  return (async () =>
-    new Response('unreachable', { status: 503 })) as unknown as typeof fetch;
+  return async () => new Response('unreachable', { status: 503 });
 }
 
 /**
@@ -120,10 +119,7 @@ describe('@swt-labs/runtime — askUser (Plan 01-05)', () => {
     const result = await askUser(
       {
         question: 'Ready to proceed?',
-        options: [
-          { label: 'Proceed', isRecommended: true },
-          { label: 'Keep exploring' },
-        ],
+        options: [{ label: 'Proceed', isRecommended: true }, { label: 'Keep exploring' }],
       },
       {
         fetch: makeUnreachableFetch(),
@@ -256,10 +252,13 @@ describe('@swt-labs/runtime — askUser (Plan 01-05)', () => {
       //   (a1) The role-router's tool list excludes any askUser tool.
       //   (a2) `resolveSpawnAgentConfig(role)` produces an extensions[]
       //        list whose registered tool names exclude swt_ask_user.
-      const tools = toolsForRole(role as Exclude<AgentRole, 'orchestrator'>, cwd);
+      const tools = toolsForRole(role, cwd);
       const leakedTools = tools
         .map((t: unknown) =>
-          t && typeof t === 'object' && 'name' in t && typeof (t as { name?: unknown }).name === 'string'
+          t &&
+          typeof t === 'object' &&
+          'name' in t &&
+          typeof (t as { name?: unknown }).name === 'string'
             ? (t as { name: string }).name
             : '',
         )

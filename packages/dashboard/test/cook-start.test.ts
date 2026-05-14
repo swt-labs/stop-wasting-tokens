@@ -30,12 +30,16 @@ interface RecordedSpawn {
 }
 
 function makeFakeSpawn(recorded: RecordedSpawn[]): {
-  spawnFn: (command: string, args: ReadonlyArray<string>, opts: Record<string, unknown>) => FakeChild;
+  spawnFn: (
+    command: string,
+    args: ReadonlyArray<string>,
+    opts: Record<string, unknown>,
+  ) => FakeChild;
   children: FakeChild[];
 } {
   const children: FakeChild[] = [];
   return {
-    spawnFn: ((command, args, opts) => {
+    spawnFn: (command, args, opts) => {
       recorded.push({
         command,
         args: [...args],
@@ -47,7 +51,7 @@ function makeFakeSpawn(recorded: RecordedSpawn[]): {
       const child: FakeChild = { pid: 99000 + children.length, unref: vi.fn() };
       children.push(child);
       return child;
-    }) as unknown as typeof import('node:child_process').spawn,
+    },
     children,
   };
 }
@@ -78,9 +82,7 @@ describe('POST /api/cook/start', () => {
     expect(recorded[0]?.stdio).toBe('ignore');
     expect(recorded[0]?.cwd).toBe(projectRoot);
     expect(recorded[0]?.env?.['SWT_SESSION_ID']).toBe(body.session_id);
-    expect(recorded[0]?.env?.['SWT_PLANNING_ROOT']).toBe(
-      path.join(projectRoot, '.swt-planning'),
-    );
+    expect(recorded[0]?.env?.['SWT_PLANNING_ROOT']).toBe(path.join(projectRoot, '.swt-planning'));
     expect(children[0]?.unref).toHaveBeenCalledTimes(1);
   });
 

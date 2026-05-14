@@ -68,8 +68,7 @@ export const PhaseStepper: Component<PhaseStepperProps> = (props) => {
             // Plan rows render under the selected (or current) phase only —
             // keeps the column compact while still surfacing the drill-in
             // (REQ-07 Pane 2).
-            const showPlans = (): boolean =>
-              plans().length > 0 && (isSelected() || isCurrent());
+            const showPlans = (): boolean => plans().length > 0 && (isSelected() || isCurrent());
             return (
               <li class="phase-stepper-item">
                 <button

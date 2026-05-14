@@ -3,7 +3,7 @@ name: swt:whats-new
 category: advanced
 disable-model-invocation: true
 description: View changelog and recent updates since your installed version.
-argument-hint: "[version]"
+argument-hint: '[version]'
 allowed-tools: Read, Glob
 ---
 

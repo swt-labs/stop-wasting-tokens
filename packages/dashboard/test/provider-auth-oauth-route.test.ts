@@ -70,9 +70,8 @@ vi.mock('@swt-labs/runtime', () => ({
 }));
 
 // Imported AFTER `vi.mock` is registered (vitest hoists `vi.mock`).
-const { registerProviderAuthOAuthRoute } = await import(
-  '../src/server/routes/provider-auth-oauth.ts'
-);
+const { registerProviderAuthOAuthRoute } =
+  await import('../src/server/routes/provider-auth-oauth.ts');
 
 let cwd: string;
 let app: Hono;

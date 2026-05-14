@@ -12,7 +12,7 @@ allowed-tools: Read, Edit, Bash
 ## Context
 
 - Working directory: current workspace root.
-- Plugin cache root: ``${SWT_INSTALL_ROOT}`` (respects non-default `SWT_CONFIG_DIR`; always quote — path may contain spaces).
+- Plugin cache root: `${SWT_INSTALL_ROOT}` (respects non-default `SWT_CONFIG_DIR`; always quote — path may contain spaces).
 - Session startup creates a symlink at `/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}` pointing to the plugin root. The cache-based tiers are authoritative; symlinks are a fallback. See Step 1 for full resolution order.
 
 ## Guard
@@ -31,9 +31,11 @@ allowed-tools: Read, Edit, Bash
    If none resolves to a valid directory, STOP: "Plugin root not found. The session startup hook may not have run. Try restarting your Claude session." Store the resolved path as `PLUGIN_ROOT` for subsequent steps.
 
 2. **Load todos through the snapshot helper:** Run:
+
    ```bash
    bash "${PLUGIN_ROOT}/scripts/todo-lifecycle.sh" list-with-snapshot {priority-filter}
    ```
+
    Omit the filter arg if none is provided. Parse the JSON output. This helper owns both the fresh `list-todos.sh` lookup and the exact last-view snapshot write. If snapshot persistence fails, it returns the helper error JSON instead of a partial success.
 
 3. **Handle status:**
@@ -45,44 +47,43 @@ allowed-tools: Read, Edit, Bash
 4. **Display list:** Show the `display` value from the script output exactly as returned (do not append any additional prompt text).
 
 5. **Display action hints and STOP.** Do NOT prompt the user for input — display one of the following as plain text after the todo list, then STOP:
+   - **Unfiltered view (`filter=null`):**
+     ```text
+     ➜ To act on a todo:
+           swt cook N      — full lifecycle (plan → execute → verify)
+           swt fix N       — quick fix, one commit
+           swt debug N     — investigate with scientific method
+           swt research N  — research context with Scout
+           remove N         — delete from todo list
+     ```
+   - **Filtered view (`filter` is non-null):**
+     ```text
+     ➜ Filtered view:
+           remove N         — delete from this displayed list
+           delete N         — same as remove N
+        swt list-todos  — rerun unfiltered swt list-todos before using swt cook N, swt fix N, swt debug N, or swt research N
+     ```
 
-    - **Unfiltered view (`filter=null`):**
-       ```text
-       ➜ To act on a todo:
-             swt cook N      — full lifecycle (plan → execute → verify)
-             swt fix N       — quick fix, one commit
-             swt debug N     — investigate with scientific method
-             swt research N  — research context with Scout
-             remove N         — delete from todo list
-       ```
-    - **Filtered view (`filter` is non-null):**
-       ```text
-       ➜ Filtered view:
-             remove N         — delete from this displayed list
-             delete N         — same as remove N
-          swt list-todos  — rerun unfiltered swt list-todos before using swt cook N, swt fix N, swt debug N, or swt research N
-       ```
-
-    If the user says **`remove N`** or **`delete N`** as a follow-up message (not via a slash command):
-    - Resolve `N` against the persisted session snapshot, not a fresh rerun:
-       ```bash
-       bash "${PLUGIN_ROOT}/scripts/resolve-todo-item.sh" <N> --session-snapshot
-       ```
-       If the resolver returns `status="error"`, STOP with its `message` value.
-    - If the resolved item has a non-null `ref`, load detail status first:
-       ```bash
-       bash "${PLUGIN_ROOT}/scripts/todo-details.sh" get <ref>
-       ```
-       Record the result as `detail_status=ok|not_found|error`.
-       If the item has no ref, use `detail_status=none`.
-    - Pipe the selected item JSON from the resolver into the shared helper:
-       ```bash
-       bash "${PLUGIN_ROOT}/scripts/todo-lifecycle.sh" remove <detail_status> safe
-       ```
-       If the helper returns `status="error"`, STOP with its `message` value.
-       If the helper returns `status="partial"`, display `✓ Todo removed.` and then display its `warning` value.
-       If the helper returns `status="ok"`, display `✓ Todo removed.`
-    - Run `bash "${PLUGIN_ROOT}/scripts/suggest-next.sh" list-todos` and display. STOP.
+   If the user says **`remove N`** or **`delete N`** as a follow-up message (not via a slash command):
+   - Resolve `N` against the persisted session snapshot, not a fresh rerun:
+     ```bash
+     bash "${PLUGIN_ROOT}/scripts/resolve-todo-item.sh" <N> --session-snapshot
+     ```
+     If the resolver returns `status="error"`, STOP with its `message` value.
+   - If the resolved item has a non-null `ref`, load detail status first:
+     ```bash
+     bash "${PLUGIN_ROOT}/scripts/todo-details.sh" get <ref>
+     ```
+     Record the result as `detail_status=ok|not_found|error`.
+     If the item has no ref, use `detail_status=none`.
+   - Pipe the selected item JSON from the resolver into the shared helper:
+     ```bash
+     bash "${PLUGIN_ROOT}/scripts/todo-lifecycle.sh" remove <detail_status> safe
+     ```
+     If the helper returns `status="error"`, STOP with its `message` value.
+     If the helper returns `status="partial"`, display `✓ Todo removed.` and then display its `warning` value.
+     If the helper returns `status="ok"`, display `✓ Todo removed.`
+   - Run `bash "${PLUGIN_ROOT}/scripts/suggest-next.sh" list-todos` and display. STOP.
 
 ## Output Format
 

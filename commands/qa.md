@@ -11,15 +11,19 @@ allowed-tools: Read, Write, Bash, Glob, Grep, Agent, Skill, LSP
 # SWT QA: $ARGUMENTS
 
 ## Context
+
 Working directory:
+
 ```
 !`pwd`
 ```
+
 Plugin root: `${SWT_INSTALL_ROOT}`
 
 Store the plugin root path output above as `{plugin-root}` for use in script invocations below. Replace `{plugin-root}` with the literal `Plugin root` value from Context whenever a step below references a script or reference file.
 
 Current state:
+
 ```text
 !`head -40 .swt-planning/STATE.md 2>/dev/null || echo "No state found"`
 ```
@@ -27,17 +31,19 @@ Current state:
 Config: Pre-injected by SessionStart hook. Override with --effort flag.
 
 Phase directories:
+
 ```text
 !`ls .swt-planning/phases/ 2>/dev/null || echo "No phases directory"`
 ```
 
 Phase state:
+
 ```
 ${SWT_PHASE_DETECT_OUTPUT}
 ```
 
-
 ## Guard
+
 - Not initialized (no .swt-planning/ dir): STOP "Run swt init first."
 - **Debug session override:** If `$ARGUMENTS` does NOT contain an explicit phase number OR `$ARGUMENTS` contains `--session`, check for an active debug session before any phase-related guards:
   ```bash
@@ -81,6 +87,7 @@ eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" get-or-latest .swt-p
 The helper exports `active_session`, `session_id`, `session_file`, and `session_status`; use `session_status` for routing after `eval`.
 
 **Routing decision:**
+
 - If `$ARGUMENTS` contains an explicit phase number AND no `--session` flag → skip debug-session routing, use standard phase QA flow below.
 - If `active_session != none` AND exported `session_status` is `qa_pending` or `qa_failed` AND (`phase_count=0` OR `$ARGUMENTS` contains `--session`) → enter debug-session QA mode (below). If `phase_count > 0` and no `--session` flag, skip debug-session routing — standard phase QA takes priority.
 - If `active_session != none` but exported `session_status` is NOT `qa_pending`/`qa_failed` → skip debug-session routing. Session is in a different lifecycle stage.
@@ -90,75 +97,81 @@ The helper exports `active_session`, `session_id`, `session_file`, and `session_
 When routed here, skip the standard phase-resolution Steps entirely. Instead:
 
 1. Read the debug session's QA context:
+
    ```bash
-  QA_CONTEXT=$(bash "{plugin-root}/scripts/compile-debug-session-context.sh" "$session_file" qa)
+   QA_CONTEXT=$(bash "{plugin-root}/scripts/compile-debug-session-context.sh" "$session_file" qa)
    ```
 
 2. Increment the QA round:
+
    ```bash
-  eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" increment-qa .swt-planning)"
+   eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" increment-qa .swt-planning)"
    ```
 
 3. Resolve tier: same logic as Step 1 below (--tier flag > --effort flag > config default > Standard).
 
 4. Resolve QA model:
+
    ```bash
-  if ! AGENT_SETTINGS=$(bash "{plugin-root}/scripts/resolve-agent-settings.sh" qa .swt-planning/config.json "{plugin-root}/config/model-profiles.json" "$QA_EFFORT_PROFILE"); then
+   if ! AGENT_SETTINGS=$(bash "{plugin-root}/scripts/resolve-agent-settings.sh" qa .swt-planning/config.json "{plugin-root}/config/model-profiles.json" "$QA_EFFORT_PROFILE"); then
     echo "$AGENT_SETTINGS" >&2
     exit 1
-  fi
-  eval "$AGENT_SETTINGS"
-  QA_MODEL="$RESOLVED_MODEL"
-  QA_MAX_TURNS="$RESOLVED_MAX_TURNS"
+   fi
+   eval "$AGENT_SETTINGS"
+   QA_MODEL="$RESOLVED_MODEL"
+   QA_MAX_TURNS="$RESOLVED_MAX_TURNS"
    ```
 
 5. Spawn swt-qa as subagent via Task tool for debug-session verification. **Set `subagent_type: "swt:swt-qa"` and `model: "${QA_MODEL}"` in the Task tool invocation. If `QA_MAX_TURNS` is non-empty, also pass `maxTurns: ${QA_MAX_TURNS}`.** Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
 
-    Before composing the QA task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this verification pass, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The QA prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+   Before composing the QA task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this verification pass, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The QA prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
 
-  If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the debug-session QA agent. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the debug-session QA agent. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
 
-  Use this payload prefix as the FIRST lines of the debug-session QA prompt:
-  ```text
-  <skill_activation>
-  Call Skill('{relevant-skill-1}').
-  Call Skill('{relevant-skill-2}').
-  </skill_activation>
-  After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-  <skill_follow_up_files>
-  {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
-  </skill_follow_up_files>
-  ```
+Use this payload prefix as the FIRST lines of the debug-session QA prompt:
 
-  When no installed skills apply, use this prefix instead:
-  ```text
-  <skill_no_activation>
-  Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
-  </skill_no_activation>
-  After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-  ```
+```text
+<skill_activation>
+Call Skill('{relevant-skill-1}').
+Call Skill('{relevant-skill-2}').
+</skill_activation>
+After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+<skill_follow_up_files>
+{If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
+</skill_follow_up_files>
+```
 
-   Task description for debug-session QA:
-   ```text
-   Debug session verification. Tier: {ACTIVE_TIER}. Round: {qa_round}.
+When no installed skills apply, use this prefix instead:
 
-   This is a debug-session QA round, NOT a phase-scoped verification. You are verifying
-   a standalone debug fix — there are no phase PLAN.md or SUMMARY.md files.
+```text
+<skill_no_activation>
+Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
+</skill_no_activation>
+After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+```
 
-   Session context (issue, investigation, plan, implementation, prior QA rounds):
-   {QA_CONTEXT}
+Task description for debug-session QA:
 
-   Verification targets:
-   - The root cause identified in the investigation is correct
-   - The fix addresses the root cause (not just the symptom)
-   - Changed files are correct and complete
-   - No regressions introduced in modified files
-   - Related tests pass
+```text
+Debug session verification. Tier: {ACTIVE_TIER}. Round: {qa_round}.
 
-   Output your verdict as PASS, FAIL, or PARTIAL with a checks table.
-   Do NOT use write-verification.sh — return your verdict inline as structured text.
-   Format each check as: ID | Description | Status (PASS/FAIL) | Evidence
-   ```
+This is a debug-session QA round, NOT a phase-scoped verification. You are verifying
+a standalone debug fix — there are no phase PLAN.md or SUMMARY.md files.
+
+Session context (issue, investigation, plan, implementation, prior QA rounds):
+{QA_CONTEXT}
+
+Verification targets:
+- The root cause identified in the investigation is correct
+- The fix addresses the root cause (not just the symptom)
+- Changed files are correct and complete
+- No regressions introduced in modified files
+- Related tests pass
+
+Output your verdict as PASS, FAIL, or PARTIAL with a checks table.
+Do NOT use write-verification.sh — return your verdict inline as structured text.
+Format each check as: ID | Description | Status (PASS/FAIL) | Evidence
+```
 
 6. Process the QA result:
    - Parse the verdict (PASS/FAIL/PARTIAL) from the QA agent's response.
@@ -175,13 +188,14 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
      }
      ENDJSON
      )
-    echo "$QA_RESULT_JSON" | bash "{plugin-root}/scripts/write-debug-session.sh" "$session_file"
+     echo "$QA_RESULT_JSON" | bash "{plugin-root}/scripts/write-debug-session.sh" "$session_file"
      ```
    - Update session status based on result:
      - PASS → `bash .../debug-session-state.sh set-status .swt-planning uat_pending`
      - FAIL or PARTIAL → `bash .../debug-session-state.sh set-status .swt-planning qa_failed`
 
 7. Present debug-session QA result:
+
    ```text
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    Debug QA: Round {qa_round}
@@ -194,197 +208,209 @@ When routed here, skip the standard phase-resolution Steps entirely. Instead:
      Failed:   {list or "None"}
 
    ```
+
    - If PASS: `➜ Next: swt verify --session -- Run UAT on the debug fix`
    - If FAIL/PARTIAL: `➜ Next: swt debug --resume -- Address QA failures and re-investigate`
 
    STOP after presenting. Do not continue to the standard phase QA steps.
-</debug_session_qa>
+   </debug_session_qa>
 
 Note: Continuous verification handled by hooks. This command is for deep, on-demand verification only.
 
 ## Steps
+
 1. **Resolve tier:** Priority order: `--tier` flag > `--effort` flag > config
-  default > Standard.
-  Keep effort profile as `QA_EFFORT_PROFILE` (thorough|balanced|fast|turbo).
-  Effort mapping: turbo=skip (exit "QA skipped in turbo mode"), fast=quick,
-  balanced=standard, thorough=deep.
-  Read `{plugin-root}/references/effort-profile-{profile}.md`.
-  Context overrides: >15 requirements or last phase before ship → Deep.
+   default > Standard.
+   Keep effort profile as `QA_EFFORT_PROFILE` (thorough|balanced|fast|turbo).
+   Effort mapping: turbo=skip (exit "QA skipped in turbo mode"), fast=quick,
+   balanced=standard, thorough=deep.
+   Read `{plugin-root}/references/effort-profile-{profile}.md`.
+   Context overrides: >15 requirements or last phase before ship → Deep.
 
 2. **Resolve phase:** Use `.swt-planning/phases/` for phase directories.
 
 3. **Spawn QA:**
-    - Resolve QA model:
+   - Resolve QA model:
 
-        ```bash
-        if ! AGENT_SETTINGS=$(bash "{plugin-root}/scripts/resolve-agent-settings.sh" qa .swt-planning/config.json "{plugin-root}/config/model-profiles.json" "$QA_EFFORT_PROFILE"); then
-          echo "$AGENT_SETTINGS" >&2
-          exit 1
-        fi
-        eval "$AGENT_SETTINGS"
-        QA_MODEL="$RESOLVED_MODEL"
-        QA_MAX_TURNS="$RESOLVED_MAX_TURNS"
-        ```
+     ```bash
+     if ! AGENT_SETTINGS=$(bash "{plugin-root}/scripts/resolve-agent-settings.sh" qa .swt-planning/config.json "{plugin-root}/config/model-profiles.json" "$QA_EFFORT_PROFILE"); then
+       echo "$AGENT_SETTINGS" >&2
+       exit 1
+     fi
+     eval "$AGENT_SETTINGS"
+     QA_MODEL="$RESOLVED_MODEL"
+     QA_MAX_TURNS="$RESOLVED_MAX_TURNS"
+     ```
 
-    - Display: `◆ Spawning QA agent (${QA_MODEL})...`
-    - Resolve the VERIFICATION output path before spawning QA:
+   - Display: `◆ Spawning QA agent (${QA_MODEL})...`
+   - Resolve the VERIFICATION output path before spawning QA:
 
-        ```bash
-        QA_STATE=$(bash "{plugin-root}/scripts/qa-remediation-state.sh" get "{phase-dir}" 2>/dev/null || true)
-        QA_STAGE=$(printf '%s\n' "$QA_STATE" | head -1)
-        VERIF_PATH=$(printf '%s\n' "$QA_STATE" | awk -F= '/^verification_path=/{print $2; exit}')
-        case "$QA_STAGE" in
-          verify) ;;
-          done)
-            VERIF_PATH=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" current "{phase-dir}" 2>/dev/null || true)
-            [ -n "$VERIF_PATH" ] && [ ! -f "$VERIF_PATH" ] && VERIF_PATH=""
-            if [ -z "$VERIF_PATH" ] || [ ! -f "$VERIF_PATH" ]; then
-              echo "Phase {NN} QA remediation is done, but the round-scoped VERIFICATION artifact is missing. Re-run swt cook to restore the remediation artifact before standalone QA." >&2
-              exit 1
-            fi
-            ;;
-          plan|execute)
-            echo "Phase {NN} has active QA remediation at stage ${QA_STAGE}. Run swt cook to continue remediation before standalone QA." >&2
-            exit 1
-            ;;
-          *) VERIF_PATH="" ;;
-        esac
-        if [ -z "$VERIF_PATH" ]; then
-          VERIF_NAME=$(bash "{plugin-root}/scripts/resolve-artifact-path.sh" verification "{phase-dir}")
-          VERIF_PATH="{phase-dir}/${VERIF_NAME}"
-        fi
-        if [ ! -f "$VERIF_PATH" ]; then
-          bash "{plugin-root}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" 2>/dev/null || true
-        fi
-        ```
+     ```bash
+     QA_STATE=$(bash "{plugin-root}/scripts/qa-remediation-state.sh" get "{phase-dir}" 2>/dev/null || true)
+     QA_STAGE=$(printf '%s\n' "$QA_STATE" | head -1)
+     VERIF_PATH=$(printf '%s\n' "$QA_STATE" | awk -F= '/^verification_path=/{print $2; exit}')
+     case "$QA_STAGE" in
+       verify) ;;
+       done)
+         VERIF_PATH=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" current "{phase-dir}" 2>/dev/null || true)
+         [ -n "$VERIF_PATH" ] && [ ! -f "$VERIF_PATH" ] && VERIF_PATH=""
+         if [ -z "$VERIF_PATH" ] || [ ! -f "$VERIF_PATH" ]; then
+           echo "Phase {NN} QA remediation is done, but the round-scoped VERIFICATION artifact is missing. Re-run swt cook to restore the remediation artifact before standalone QA." >&2
+           exit 1
+         fi
+         ;;
+       plan|execute)
+         echo "Phase {NN} has active QA remediation at stage ${QA_STAGE}. Run swt cook to continue remediation before standalone QA." >&2
+         exit 1
+         ;;
+       *) VERIF_PATH="" ;;
+     esac
+     if [ -z "$VERIF_PATH" ]; then
+       VERIF_NAME=$(bash "{plugin-root}/scripts/resolve-artifact-path.sh" verification "{phase-dir}")
+       VERIF_PATH="{phase-dir}/${VERIF_NAME}"
+     fi
+     if [ ! -f "$VERIF_PATH" ]; then
+       bash "{plugin-root}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" 2>/dev/null || true
+     fi
+     ```
 
-      The guarded `sync-summaries` backfill above is for resumed phase-level QA only. It closes the interruption window where execution completed and `SUMMARY.md` files exist, but the earlier session ended before the post-build QA handoff created `{phase-dir}/known-issues.json`.
+     The guarded `sync-summaries` backfill above is for resumed phase-level QA only. It closes the interruption window where execution completed and `SUMMARY.md` files exist, but the earlier session ended before the post-build QA handoff created `{phase-dir}/known-issues.json`.
 
-    - Before composing the QA task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this verification pass, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The QA prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+   - Before composing the QA task description, evaluate installed skills visible in your system context — read each skill's description and select all materially helpful installed skills for this verification pass, including adjacent/supporting domain skills surfaced by the prompt, logs, error text, related files, or stack context — not just the single most direct skill. The QA prompt MUST begin with exactly one explicit skill outcome block: use `<skill_activation>{For each selected skill: "Call Skill({skill-name})"}</skill_activation>` when one or more installed skills are preselected at orchestration time, or `<skill_no_activation>Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.</skill_no_activation>` when none are preselected. Silent omission of both blocks is invalid. After evaluating, state the skill outcome in your response (e.g., "Skills: activating {skill-name}" or "Skills: none preselected — {reason}") so the user has visibility before the agent is spawned. Example: if the prompt or error mentions SwiftData, include `swiftdata` alongside relevant test/build/debug skills. After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
 
-      If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the phase QA agent. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
+     If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning the phase QA agent. If the helper prints a `<skill_follow_up_files>` block, paste it immediately after the follow-up-read sentence in the spawned payload. Otherwise omit that block.
 
-    Use this payload prefix as the FIRST lines of the phase QA prompt:
-    ```text
-    <skill_activation>
-    Call Skill('{relevant-skill-1}').
-    Call Skill('{relevant-skill-2}').
-    </skill_activation>
-    After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-    <skill_follow_up_files>
-    {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
-    </skill_follow_up_files>
-    ```
+   Use this payload prefix as the FIRST lines of the phase QA prompt:
 
-    When no installed skills apply, use this prefix instead:
-    ```text
-    <skill_no_activation>
-    Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
-    </skill_no_activation>
-    After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
-    ```
+   ```text
+   <skill_activation>
+   Call Skill('{relevant-skill-1}').
+   Call Skill('{relevant-skill-2}').
+   </skill_activation>
+   After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+   <skill_follow_up_files>
+   {If one or more skills were preselected, run `bash "{plugin-root}/scripts/extract-skill-follow-up-files.sh" "{all preselected skill names from the activation block}" 2>/dev/null || true` before spawning and replace this block with the emitted absolute follow-up file paths. Omit this block when the helper prints nothing.}
+   </skill_follow_up_files>
+   ```
 
-    - Also evaluate available MCP tools in your system context. If any MCP servers provide build, test, documentation, or domain-specific capabilities relevant to verification, note them in the QA task context.
+   When no installed skills apply, use this prefix instead:
 
-    - Spawn swt-qa as subagent via Task tool. **Set `subagent_type: "swt:swt-qa"` and `model: "${QA_MODEL}"` in
-      the Task tool invocation. If `QA_MAX_TURNS` is non-empty, also pass
-      `maxTurns: ${QA_MAX_TURNS}`. If `QA_MAX_TURNS` is empty, do NOT include maxTurns (omitting it = unlimited).** Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
+   ```text
+   <skill_no_activation>
+   Evaluated installed skills for this task. No skills were preselected at orchestration time. Reason: {brief task-specific reason}.
+   </skill_no_activation>
+   After calling `Skill(...)`, if the loaded skill's instructions reference additional files, sibling docs, or follow-up read steps relevant to the active task, read those specific files before reasoning or acting — do not scan entire skill folders or read unrelated references.
+   ```
 
-        ```text
-        Verify phase {NN}. Tier: {ACTIVE_TIER}.
-        Determine verification scope from `VERIF_PATH`.
-        - If `VERIF_PATH` is under `remediation/qa/round-*/R*-VERIFICATION.md`, re-verify the remediation round using compounded remediation context.
-          - Run `bash "{plugin-root}/scripts/compile-verify-context.sh" --remediation-only "{phase-dir}"` and use its `VERIFICATION HISTORY` section to re-verify each original FAIL from the source VERIFICATION.
-          - Plans for `plans_verified` / `plan_ref`: {current round R{RR}-PLAN.md path(s) only}
-          - Summaries for current-round execution evidence: {current round R{RR}-SUMMARY.md path(s) only}
-          - Do NOT include phase-root PLAN.md/SUMMARY.md files in plans_verified or plan_ref for round-scoped output.
-          - Any original FAIL not resolved by code-fix, plan-amendment, or documented process-exception is still a FAIL, even if the remediation round's own must_haves pass.
-        - Otherwise, verify full phase scope.
-          - Plans: {paths to phase PLAN.md files}
-          - Summaries: {paths to phase SUMMARY.md files}
-          - If `{phase-dir}/known-issues.json` exists, read it as the authoritative tracked phase backlog. Re-check those known issues during this QA run and return only the ones that still remain unresolved in `pre_existing_issues`.
-        Phase success criteria: {section from ROADMAP.md}
-        If `.swt-planning/codebase/META.md` exists, read CONVENTIONS.md, TESTING.md, CONCERNS.md, and ARCHITECTURE.md (whichever exist) from `.swt-planning/codebase/` to bootstrap codebase understanding before verifying.
-        Verification protocol: `{plugin-root}/references/verification-protocol.md`
-        Return findings using the qa_verdict schema (see `{plugin-root}/references/handoff-schemas.md`).
-        If tests reveal pre-existing failures unrelated to this phase, list them in your response under a "Pre-existing Issues" heading and include them in the qa_verdict payload's pre_existing_issues array.
-        Persist your VERIFICATION.md by piping qa_verdict JSON through write-verification.sh. Output path: {VERIF_PATH}. Plugin root: `{plugin-root}`.
-        ```
+   - Also evaluate available MCP tools in your system context. If any MCP servers provide build, test, documentation, or domain-specific capabilities relevant to verification, note them in the QA task context.
 
-    - QA agent reads all files and persists VERIFICATION.md itself. If QA reports a `write-verification.sh` failure, surface the error to the user — do NOT fall back to manual VERIFICATION.md writes.
+   - Spawn swt-qa as subagent via Task tool. **Set `subagent_type: "swt:swt-qa"` and `model: "${QA_MODEL}"` in
+     the Task tool invocation. If `QA_MAX_TURNS` is non-empty, also pass
+     `maxTurns: ${QA_MAX_TURNS}`. If `QA_MAX_TURNS` is empty, do NOT include maxTurns (omitting it = unlimited).** Non-team spawn shape: omit `team_name`, `run_in_background`, `isolation`, and worktree cwd fields (`cwd`, `working_dir`, `workingDirectory`, `workdir`). `name` is optional label-only metadata; never use it for routing, lifecycle state, or team semantics.
+
+     ```text
+     Verify phase {NN}. Tier: {ACTIVE_TIER}.
+     Determine verification scope from `VERIF_PATH`.
+     - If `VERIF_PATH` is under `remediation/qa/round-*/R*-VERIFICATION.md`, re-verify the remediation round using compounded remediation context.
+       - Run `bash "{plugin-root}/scripts/compile-verify-context.sh" --remediation-only "{phase-dir}"` and use its `VERIFICATION HISTORY` section to re-verify each original FAIL from the source VERIFICATION.
+       - Plans for `plans_verified` / `plan_ref`: {current round R{RR}-PLAN.md path(s) only}
+       - Summaries for current-round execution evidence: {current round R{RR}-SUMMARY.md path(s) only}
+       - Do NOT include phase-root PLAN.md/SUMMARY.md files in plans_verified or plan_ref for round-scoped output.
+       - Any original FAIL not resolved by code-fix, plan-amendment, or documented process-exception is still a FAIL, even if the remediation round's own must_haves pass.
+     - Otherwise, verify full phase scope.
+       - Plans: {paths to phase PLAN.md files}
+       - Summaries: {paths to phase SUMMARY.md files}
+       - If `{phase-dir}/known-issues.json` exists, read it as the authoritative tracked phase backlog. Re-check those known issues during this QA run and return only the ones that still remain unresolved in `pre_existing_issues`.
+     Phase success criteria: {section from ROADMAP.md}
+     If `.swt-planning/codebase/META.md` exists, read CONVENTIONS.md, TESTING.md, CONCERNS.md, and ARCHITECTURE.md (whichever exist) from `.swt-planning/codebase/` to bootstrap codebase understanding before verifying.
+     Verification protocol: `{plugin-root}/references/verification-protocol.md`
+     Return findings using the qa_verdict schema (see `{plugin-root}/references/handoff-schemas.md`).
+     If tests reveal pre-existing failures unrelated to this phase, list them in your response under a "Pre-existing Issues" heading and include them in the qa_verdict payload's pre_existing_issues array.
+     Persist your VERIFICATION.md by piping qa_verdict JSON through write-verification.sh. Output path: {VERIF_PATH}. Plugin root: `{plugin-root}`.
+     ```
+
+   - QA agent reads all files and persists VERIFICATION.md itself. If QA reports a `write-verification.sh` failure, surface the error to the user — do NOT fall back to manual VERIFICATION.md writes.
 
 4. **Reconcile with the deterministic QA gate before trusting the result:**
-    - Immediately after QA persists `VERIFICATION.md`, sync tracked known issues from the written artifact:
+   - Immediately after QA persists `VERIFICATION.md`, sync tracked known issues from the written artifact:
 
-      ```bash
-      bash "{plugin-root}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{VERIF_PATH}" 2>/dev/null || true
-      ```
+     ```bash
+     bash "{plugin-root}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{VERIF_PATH}" 2>/dev/null || true
+     ```
 
-      After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
+     After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
 
-      ```bash
-      bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
-      ```
+     ```bash
+     bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
+     ```
 
-      Phase-level `VERIFICATION.md` merges newly found pre-existing issues into `{phase-dir}/known-issues.json` without clearing the execution-time backlog. Round-scoped `R{RR}-VERIFICATION.md` is authoritative for unresolved known issues and prunes/clears the registry when issues are fixed.
+     Phase-level `VERIFICATION.md` merges newly found pre-existing issues into `{phase-dir}/known-issues.json` without clearing the execution-time backlog. Round-scoped `R{RR}-VERIFICATION.md` is authoritative for unresolved known issues and prunes/clears the registry when issues are fixed.
 
-    - Then run:
+   - Then run:
 
-      ```bash
-      QA_GATE=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "{phase-dir}" 2>/dev/null || true)
-      QA_GATE_ROUTING=$(printf '%s\n' "$QA_GATE" | awk -F= '/^qa_gate_routing=/{print $2; exit}')
-      ```
+     ```bash
+     QA_GATE=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "{phase-dir}" 2>/dev/null || true)
+     QA_GATE_ROUTING=$(printf '%s\n' "$QA_GATE" | awk -F= '/^qa_gate_routing=/{print $2; exit}')
+     ```
 
-    - Follow `QA_GATE_ROUTING` literally:
-      - `PROCEED_TO_UAT` → if `VERIF_PATH` is round-scoped (`remediation/qa/round-*/R*-VERIFICATION.md`), persist the remediation transition first:
+   - Follow `QA_GATE_ROUTING` literally:
+     - `PROCEED_TO_UAT` → if `VERIF_PATH` is round-scoped (`remediation/qa/round-*/R*-VERIFICATION.md`), persist the remediation transition first:
 
-        ```bash
-        bash "{plugin-root}/scripts/qa-remediation-state.sh" advance "{phase-dir}"
-        ```
+       ```bash
+       bash "{plugin-root}/scripts/qa-remediation-state.sh" advance "{phase-dir}"
+       ```
 
-        Then continue to presentation.
-      - `REMEDIATION_REQUIRED` → if `VERIF_PATH` is round-scoped (`remediation/qa/round-*/R*-VERIFICATION.md`), persist the next remediation round first:
+       Then continue to presentation.
 
-        ```bash
-        bash "{plugin-root}/scripts/qa-remediation-state.sh" needs-round "{phase-dir}"
-        ```
+     - `REMEDIATION_REQUIRED` → if `VERIF_PATH` is round-scoped (`remediation/qa/round-*/R*-VERIFICATION.md`), persist the next remediation round first:
 
-        Then display that standalone QA found a result, but the deterministic gate still requires remediation; tell the user to continue via `swt cook`. Do **not** present the round as a shippable PASS. If `qa_gate_process_exception_evidence_missing=true`, say the round has a clean verification result but lacks recorded remediation-artifact evidence, and the next round should record an existing remediation `RNN-PLAN.md`/`RNN-SUMMARY.md` or valid original phase `PLAN.md`. If `qa_gate_known_issues_override=true`, note that the contract checks passed but `{qa_gate_known_issue_count}` tracked known issues remain unresolved in `{phase-dir}/known-issues.json`.
-      - `REMEDIATION_REQUIRED` → if `VERIF_PATH` is phase-level, initialize QA remediation state first so plain `swt cook` has a deterministic resume target:
+       ```bash
+       bash "{plugin-root}/scripts/qa-remediation-state.sh" needs-round "{phase-dir}"
+       ```
 
-        ```bash
-        bash "{plugin-root}/scripts/qa-remediation-state.sh" init "{phase-dir}" 2>/dev/null || true
-        ```
+       Then display that standalone QA found a result, but the deterministic gate still requires remediation; tell the user to continue via `swt cook`. Do **not** present the round as a shippable PASS. If `qa_gate_process_exception_evidence_missing=true`, say the round has a clean verification result but lacks recorded remediation-artifact evidence, and the next round should record an existing remediation `RNN-PLAN.md`/`RNN-SUMMARY.md` or valid original phase `PLAN.md`. If `qa_gate_known_issues_override=true`, note that the contract checks passed but `{qa_gate_known_issue_count}` tracked known issues remain unresolved in `{phase-dir}/known-issues.json`.
 
-        Then display that the phase-level QA result was written, but the deterministic gate still requires remediation; tell the user to continue via `swt cook`. Do **not** continue to the generic verified presentation. If `qa_gate_process_exception_evidence_missing=true`, say the round has a clean verification result but lacks recorded remediation-artifact evidence, and the next round should record an existing remediation `RNN-PLAN.md`/`RNN-SUMMARY.md` or valid original phase `PLAN.md`. If `qa_gate_known_issues_override=true`, note that the contract checks passed but `{qa_gate_known_issue_count}` tracked known issues remain unresolved in `{phase-dir}/known-issues.json`.
-      - `QA_RERUN_REQUIRED` → display that the persisted verification artifact is invalid or incomplete and must be re-run before it can be trusted. Do **not** present it as authoritative.
+     - `REMEDIATION_REQUIRED` → if `VERIF_PATH` is phase-level, initialize QA remediation state first so plain `swt cook` has a deterministic resume target:
+
+       ```bash
+       bash "{plugin-root}/scripts/qa-remediation-state.sh" init "{phase-dir}" 2>/dev/null || true
+       ```
+
+       Then display that the phase-level QA result was written, but the deterministic gate still requires remediation; tell the user to continue via `swt cook`. Do **not** continue to the generic verified presentation. If `qa_gate_process_exception_evidence_missing=true`, say the round has a clean verification result but lacks recorded remediation-artifact evidence, and the next round should record an existing remediation `RNN-PLAN.md`/`RNN-SUMMARY.md` or valid original phase `PLAN.md`. If `qa_gate_known_issues_override=true`, note that the contract checks passed but `{qa_gate_known_issue_count}` tracked known issues remain unresolved in `{phase-dir}/known-issues.json`.
+
+     - `QA_RERUN_REQUIRED` → display that the persisted verification artifact is invalid or incomplete and must be re-run before it can be trusted. Do **not** present it as authoritative.
 
 5. **Present:** Per @${SWT_INSTALL_ROOT}/references/swt-brand-essentials.md:
-    ```text
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    Phase {NN}: {name} -- Verified
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      Tier:     {quick|standard|deep}
-      Result:   {✓ PASS | ✗ FAIL | ◆ PARTIAL}
-      Checks:   {passed}/{total}
-      Failed:   {list or "None"}
+   ```text
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Phase {NN}: {name} -- Verified
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      Report:   {path to VERIFICATION.md}
+     Tier:     {quick|standard|deep}
+     Result:   {✓ PASS | ✗ FAIL | ◆ PARTIAL}
+     Checks:   {passed}/{total}
+     Failed:   {list or "None"}
 
-    ```
+     Report:   {path to VERIFICATION.md}
+
+   ```
 
 **Discovered Issues:** If the QA agent reported pre-existing failures, out-of-scope bugs, or issues unrelated to this phase's work, de-duplicate by test name and file (keep first error message when the same test+file pair has different messages) and append after the result box. Cap the list at 20 entries; if more exist, show the first 20 and append `... and {N} more`:
+
 ```text
   Discovered Issues:
     ⚠ testName (path/to/file): error message
     ⚠ testName (path/to/file): error message
   Registry: {phase-dir}/known-issues.json
 ```
+
 This display is supplemental to the phase registry. After `VERIFICATION.md` is written, the orchestrator must sync these issues into `{phase-dir}/known-issues.json` before reading the deterministic gate. Do NOT create todos automatically or enter an interactive loop here. If no discovered issues: omit the section entirely. After displaying discovered issues, STOP. Do not take further action.
 
 Run:
+
 ```text
 bash "{plugin-root}/scripts/suggest-next.sh" qa {result}
 ```
+
 Then display the output.

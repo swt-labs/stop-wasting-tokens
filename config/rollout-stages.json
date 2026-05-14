@@ -19,9 +19,12 @@
       "label": "full",
       "phases_required": 5,
       "flags": [
-        "validation_gates", "smart_routing",
-        "snapshot_resume", "event_recovery",
-        "monorepo_routing", "lease_locks"
+        "validation_gates",
+        "smart_routing",
+        "snapshot_resume",
+        "event_recovery",
+        "monorepo_routing",
+        "lease_locks"
       ],
       "description": "All remaining optional flags, enable after 5 successful phases"
     }

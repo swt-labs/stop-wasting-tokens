@@ -12,13 +12,9 @@
  *       consuming a fallback hop.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
+import { FallbackChainExhaustedError, type ProviderFallbackEvent } from '@swt-labs/orchestration';
 import type { TaskResult, TaskBrief } from '@swt-labs/shared';
-import {
-  FallbackChainExhaustedError,
-  type ProviderFallbackEvent,
-} from '@swt-labs/orchestration';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_PROVIDERS_CONFIG,
@@ -65,7 +61,7 @@ describe('Plan 06-02 T3 — runSpawnWithFallback', () => {
     const out = await runSpawnWithFallback({
       providers,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnImpl as never,
+      spawnFn: spawnImpl,
       taskBrief: STUB_TASK_BRIEF,
       onProviderEvent: (ev) => events.push(ev),
     });
@@ -129,7 +125,7 @@ describe('Plan 06-02 T3 — runSpawnWithFallback', () => {
       runSpawnWithFallback({
         providers,
         spawnArgs: STUB_SPAWN_ARGS,
-        spawnFn: spawnImpl as never,
+        spawnFn: spawnImpl,
         taskBrief: STUB_TASK_BRIEF,
         onProviderEvent: (ev) => events.push(ev),
       }),
@@ -166,7 +162,7 @@ describe('Plan 06-02 T3 — runSpawnWithFallback', () => {
       await runSpawnWithFallback({
         providers,
         spawnArgs: STUB_SPAWN_ARGS,
-        spawnFn: spawnImpl as never,
+        spawnFn: spawnImpl,
         taskBrief: STUB_TASK_BRIEF,
         clock,
       });
@@ -196,7 +192,7 @@ describe('Plan 06-02 T3 — runSpawnWithFallback', () => {
       runSpawnWithFallback({
         providers,
         spawnArgs: STUB_SPAWN_ARGS,
-        spawnFn: spawnImpl as never,
+        spawnFn: spawnImpl,
         taskBrief: STUB_TASK_BRIEF,
         onProviderEvent: (ev) => events.push(ev),
       }),
@@ -211,7 +207,7 @@ describe('Plan 06-02 T3 — runSpawnWithFallback', () => {
     const out = await runSpawnWithFallback({
       providers: DEFAULT_PROVIDERS_CONFIG,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnImpl as never,
+      spawnFn: spawnImpl,
       taskBrief: STUB_TASK_BRIEF,
     });
     expect(out.providerUsed).toBe('anthropic');
@@ -235,7 +231,7 @@ describe('Plan 02-04 (G-R3) — runSpawnWithFallback telemetry events', () => {
     await runSpawnWithFallback({
       providers,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnImpl as never,
+      spawnFn: spawnImpl,
       taskBrief: STUB_TASK_BRIEF,
       subSessionId: 'sub-pinned',
       onSelectionEvent: (ev) => events.push(ev),
@@ -285,7 +281,7 @@ describe('Plan 02-04 (G-R3) — runSpawnWithFallback telemetry events', () => {
     await runSpawnWithFallback({
       providers,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnImpl as never,
+      spawnFn: spawnImpl,
       taskBrief: STUB_TASK_BRIEF,
       subSessionId: 'sub-rate-card',
       onSelectionEvent: (ev) => events.push(ev),

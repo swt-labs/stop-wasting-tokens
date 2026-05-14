@@ -17,10 +17,7 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: [
-      'test/regression/**/*.test.ts',
-      'packages/test-utils/test/**/*.test.ts',
-    ],
+    include: ['test/regression/**/*.test.ts', 'packages/test-utils/test/**/*.test.ts'],
     testTimeout: 60_000,
   },
 });

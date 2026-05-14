@@ -39,9 +39,7 @@ export function registerCookControlRoute(app: Hono, opts: CookControlOptions): v
       return c.json({ ok: false, error: 'invalid sessionId' }, 400);
     }
 
-    const body: CookControlBody = await c.req
-      .json<CookControlBody>()
-      .catch(() => ({} as CookControlBody));
+    const body: CookControlBody = await c.req.json<CookControlBody>().catch(() => ({}));
     const action = body.action;
     if (typeof action !== 'string' || !VALID_ACTIONS.has(action as CookControlAction)) {
       return c.json({ ok: false, error: 'invalid action' }, 400);
@@ -54,8 +52,7 @@ export function registerCookControlRoute(app: Hono, opts: CookControlOptions): v
       return c.json({ ok: false, error: `failed to write signal: ${message}` }, 500);
     }
 
-    const newState =
-      action === 'cancel' ? 'cancelled' : action === 'pause' ? 'paused' : 'running';
+    const newState = action === 'cancel' ? 'cancelled' : action === 'pause' ? 'paused' : 'running';
     return c.json({ ok: true, new_state: newState });
   });
 }

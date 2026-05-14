@@ -11,30 +11,30 @@ If you have a working VBW project, migrating to SWT v3 is `mv .vbw-planning .swt
 
 ## Feature parity
 
-| Feature                       | VBW              | SWT v3.0                              |
-| ----------------------------- | ---------------- | ------------------------------------- |
-| Bootstrap                     | ✅               | ✅ (`swt vibe` / bare `swt`)          |
-| Scope (phase decomposition)   | ✅               | ✅                                    |
-| Plan + Execute                | ✅               | ✅                                    |
-| Verify (UAT)                  | ✅               | ✅                                    |
-| Archive                       | ✅               | ✅                                    |
-| Discussion engine             | ✅               | ✅                                    |
-| Add / Insert / Remove phase   | ✅               | ✅                                    |
-| UAT remediation pipeline      | ✅               | ✅                                    |
-| QA remediation pipeline       | ✅               | ✅                                    |
-| 7-point archive audit         | ✅               | ✅                                    |
-| Hard UAT gate at archive      | ✅               | ✅                                    |
-| State-consistency verifier    | ✅               | ✅                                    |
-| Hook event taxonomy           | ✅               | ✅ (Pi event surface; see Phase 1)    |
-| Codebase mapping (brownfield) | ✅               | ✅                                    |
-| `--bash-format` phase-detect  | ✅               | ✅                                    |
-| AgentSpawner wiring           | Claude Code      | Pi (Anthropic / OpenAI / OpenRouter / Google / Bedrock / Ollama) |
-| Ink TUI dashboard             | ❌               | ✅ (`swt watch`)                      |
-| Web dashboard (primary)       | ❌               | ✅ (`swt dashboard` / bare `swt`)     |
-| Worktree-isolated parallel    | ❌               | ✅ (M3; default `off`, opt-in `auto`) |
-| Cassette-based deterministic CI | ❌             | ✅ (per ADR-011)                      |
-| Provider router + fallback    | ❌               | ✅ (M5; four strategies)              |
-| Budget Gate                   | ❌               | ✅ (70%/95% per ADR-007)              |
+| Feature                         | VBW         | SWT v3.0                                                         |
+| ------------------------------- | ----------- | ---------------------------------------------------------------- |
+| Bootstrap                       | ✅          | ✅ (`swt vibe` / bare `swt`)                                     |
+| Scope (phase decomposition)     | ✅          | ✅                                                               |
+| Plan + Execute                  | ✅          | ✅                                                               |
+| Verify (UAT)                    | ✅          | ✅                                                               |
+| Archive                         | ✅          | ✅                                                               |
+| Discussion engine               | ✅          | ✅                                                               |
+| Add / Insert / Remove phase     | ✅          | ✅                                                               |
+| UAT remediation pipeline        | ✅          | ✅                                                               |
+| QA remediation pipeline         | ✅          | ✅                                                               |
+| 7-point archive audit           | ✅          | ✅                                                               |
+| Hard UAT gate at archive        | ✅          | ✅                                                               |
+| State-consistency verifier      | ✅          | ✅                                                               |
+| Hook event taxonomy             | ✅          | ✅ (Pi event surface; see Phase 1)                               |
+| Codebase mapping (brownfield)   | ✅          | ✅                                                               |
+| `--bash-format` phase-detect    | ✅          | ✅                                                               |
+| AgentSpawner wiring             | Claude Code | Pi (Anthropic / OpenAI / OpenRouter / Google / Bedrock / Ollama) |
+| Ink TUI dashboard               | ❌          | ✅ (`swt watch`)                                                 |
+| Web dashboard (primary)         | ❌          | ✅ (`swt dashboard` / bare `swt`)                                |
+| Worktree-isolated parallel      | ❌          | ✅ (M3; default `off`, opt-in `auto`)                            |
+| Cassette-based deterministic CI | ❌          | ✅ (per ADR-011)                                                 |
+| Provider router + fallback      | ❌          | ✅ (M5; four strategies)                                         |
+| Budget Gate                     | ❌          | ✅ (70%/95% per ADR-007)                                         |
 
 ## Frontmatter compatibility
 

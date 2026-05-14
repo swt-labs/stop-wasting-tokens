@@ -27,13 +27,10 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import {
-  RateCardSchema,
-  type RateCard,
-  type RateCardEntry,
-} from '@swt-labs/shared';
+import { fileURLToPath } from 'node:url';
+
+import { RateCardSchema, type RateCard, type RateCardEntry } from '@swt-labs/shared';
 
 export interface RateCardSourceOptions {
   /** Project cwd; used to locate <cwd>/.swt-planning/rate-card.json. */

@@ -148,7 +148,9 @@ describe('GET /api/provider-auth', () => {
   });
 
   it('reflects the pinned selection from providers.strategy', async () => {
-    writeConfig(JSON.stringify({ providers: { strategy: { kind: 'pinned', provider: 'openai' } } }));
+    writeConfig(
+      JSON.stringify({ providers: { strategy: { kind: 'pinned', provider: 'openai' } } }),
+    );
     const { status, body } = await getAuth();
     expect(status).toBe(200);
     const parsed = ProviderAuthSnapshotSchema.parse(body);
@@ -232,8 +234,14 @@ describe('POST /api/provider-auth', () => {
   });
 
   it('preserves other config keys on write', async () => {
-    writeConfig(JSON.stringify({ effort: 'fast', autonomy: 'pure-vibe', providers: { fallback: ['x'] } }));
-    const { status } = await postAuth({ provider: 'openai', authMode: 'api_key', apiKey: 'sk-keep' });
+    writeConfig(
+      JSON.stringify({ effort: 'fast', autonomy: 'pure-vibe', providers: { fallback: ['x'] } }),
+    );
+    const { status } = await postAuth({
+      provider: 'openai',
+      authMode: 'api_key',
+      apiKey: 'sk-keep',
+    });
     expect(status).toBe(200);
     const written = JSON.parse(readFileSync(configPath(), 'utf8')) as Record<string, unknown>;
     // Untouched top-level keys survive.

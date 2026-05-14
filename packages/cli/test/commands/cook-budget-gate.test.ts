@@ -19,15 +19,8 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
-import {
-  SnapshotEventSchema,
-  type BudgetConfigSchemaT,
-  type TaskResult,
-} from '@swt-labs/shared';
 import type {
   BudgetEvent,
   BudgetGate,
@@ -35,6 +28,8 @@ import type {
   BudgetProjectionResult,
   CostProjection,
 } from '@swt-labs/runtime';
+import { SnapshotEventSchema, type BudgetConfigSchemaT, type TaskResult } from '@swt-labs/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   makeCookHandler,
@@ -182,9 +177,7 @@ function makeFakeGate(initial: Partial<BudgetGateState> = {}): FakeGate {
   // Plan 03-04 — default project() impl: a passing projection (would_exceed
   // false) with an honest projected_pressure. Tests override via
   // setProjectionResult() to drive the halt path.
-  let projectImpl: (projection: CostProjection) => BudgetProjectionResult = (
-    projection,
-  ) => {
+  let projectImpl: (projection: CostProjection) => BudgetProjectionResult = (projection) => {
     const projectedSpent = currentState.spent_usd + projection.projected_cost_usd;
     const projected_pressure =
       currentState.ceiling_usd > 0 ? projectedSpent / currentState.ceiling_usd : 0;
@@ -238,9 +231,7 @@ interface HarnessOpts {
 }
 
 async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
-  const askUserImpl = vi.fn(
-    async () => ({ selectedOption: 'Yes', freeform: null } as AskUserResponse),
-  );
+  const askUserImpl = vi.fn(async () => ({ selectedOption: 'Yes', freeform: null }));
 
   const spawnResult: TaskResult = {
     schema_version: 1,
@@ -263,21 +254,13 @@ async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
   // JSON; all other reads still resolve to STUB_COOK_MD.
   const configPathSuffix = join('.swt-planning', 'config.json');
   const readFileSyncImpl = vi.fn((p?: unknown) => {
-    if (
-      opts.configJson !== undefined &&
-      typeof p === 'string' &&
-      p.endsWith(configPathSuffix)
-    ) {
+    if (opts.configJson !== undefined && typeof p === 'string' && p.endsWith(configPathSuffix)) {
       return JSON.stringify(opts.configJson);
     }
     return STUB_COOK_MD;
   });
   const existsSyncImpl = vi.fn((p?: unknown) => {
-    if (
-      opts.configJson !== undefined &&
-      typeof p === 'string' &&
-      p.endsWith(configPathSuffix)
-    ) {
+    if (opts.configJson !== undefined && typeof p === 'string' && p.endsWith(configPathSuffix)) {
       return true;
     }
     return false;
@@ -286,17 +269,15 @@ async function buildHarness(repoRoot: string, opts: HarnessOpts = {}) {
   // Resolve the factory: explicit factory > gate seed > no-op (gate disabled).
   const factory: BudgetGateFactory =
     opts.factory ??
-    (opts.gate !== undefined
-      ? () => ({ gate: opts.gate as BudgetGate })
-      : () => null);
+    (opts.gate !== undefined ? () => ({ gate: opts.gate as BudgetGate }) : () => null);
 
   const handler = makeCookHandler({
-    detectPhaseImpl: detectPhaseImpl as never,
-    askUserImpl: askUserImpl as never,
-    spawnOrchestratorSessionImpl: spawnImpl as never,
+    detectPhaseImpl: detectPhaseImpl,
+    askUserImpl: askUserImpl,
+    spawnOrchestratorSessionImpl: spawnImpl,
     execSyncImpl: execSyncImpl as never,
     readFileSyncImpl: readFileSyncImpl as never,
-    existsSyncImpl: existsSyncImpl as never,
+    existsSyncImpl: existsSyncImpl,
     budgetGateFactory: factory,
   });
 
@@ -389,9 +370,7 @@ describe('Plan 06-02 T4 — BudgetGate wired into cook task loop', () => {
     expect(types).toContain('cook.completion');
     expect(types).not.toContain('cook.agent_spawn');
 
-    const exceeded = events.find(
-      (e) => (e as { type: string }).type === 'cook.budget_exceeded',
-    ) as
+    const exceeded = events.find((e) => (e as { type: string }).type === 'cook.budget_exceeded') as
       | { reason: string; spent_usd: number; ceiling_usd: number; threshold: number }
       | undefined;
     expect(exceeded?.reason).toBe('paused_on_entry');
@@ -431,9 +410,7 @@ describe('Plan 06-02 T4 — BudgetGate wired into cook task loop', () => {
     expect(types).toContain('cook.agent_spawn');
     expect(types).toContain('cook.budget_exceeded');
 
-    const exceeded = events.find(
-      (e) => (e as { type: string }).type === 'cook.budget_exceeded',
-    ) as
+    const exceeded = events.find((e) => (e as { type: string }).type === 'cook.budget_exceeded') as
       | { reason: string; spent_usd: number; ceiling_usd: number; threshold: number }
       | undefined;
     expect(exceeded?.reason).toBe('paused_during_spawn');
@@ -471,9 +448,9 @@ describe('Plan 06-02 T4 — BudgetGate wired into cook task loop', () => {
     expect(types).toContain('cook.budget_exceeded');
     expect(types).toContain('cook.budget_resume');
 
-    const resume = events.find(
-      (e) => (e as { type: string }).type === 'cook.budget_resume',
-    ) as { spent_usd: number; ceiling_usd: number } | undefined;
+    const resume = events.find((e) => (e as { type: string }).type === 'cook.budget_resume') as
+      | { spent_usd: number; ceiling_usd: number }
+      | undefined;
     expect(resume?.spent_usd).toBe(9.6);
     expect(resume?.ceiling_usd).toBe(20);
   });
@@ -634,19 +611,17 @@ describe('Plan 03-04 T4 (G-R4) — runMode pre-spawn projection wiring', () => {
     // Followed by the failure events mirroring the paused_on_entry shape.
     expect(types).toContain('cook.task_fail');
     expect(types).toContain('cook.completion');
-    const taskFail = events.find(
-      (e) => (e as { type: string }).type === 'cook.task_fail',
-    ) as { reason: string } | undefined;
+    const taskFail = events.find((e) => (e as { type: string }).type === 'cook.task_fail') as
+      | { reason: string }
+      | undefined;
     expect(taskFail?.reason).toBe('budget_projection_exceeded');
-    const completion = events.find(
-      (e) => (e as { type: string }).type === 'cook.completion',
-    ) as { status: string } | undefined;
+    const completion = events.find((e) => (e as { type: string }).type === 'cook.completion') as
+      | { status: string }
+      | undefined;
     expect(completion?.status).toBe('failed');
 
     // Event ordering: cook.budget_projected lands before cook.task_fail.
-    expect(types.indexOf('cook.budget_projected')).toBeLessThan(
-      types.indexOf('cook.task_fail'),
-    );
+    expect(types.indexOf('cook.budget_projected')).toBeLessThan(types.indexOf('cook.task_fail'));
 
     // All emitted events still parse through the canonical schema.
     for (const ev of events) {

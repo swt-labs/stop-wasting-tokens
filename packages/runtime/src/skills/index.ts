@@ -7,8 +7,4 @@
  * `packages/orchestration/src/spawn-agent.ts` (plan 01-01), NOT here.
  */
 
-export {
-  invokeSkill,
-  resolveSkillPath,
-  type InvokeSkillOptions,
-} from './invoke-skill.js';
+export { invokeSkill, resolveSkillPath, type InvokeSkillOptions } from './invoke-skill.js';

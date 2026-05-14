@@ -33,10 +33,10 @@ Also read `active_profile` to calibrate recommendation verbosity (see Recommenda
 
 Two modes, silently selected:
 
-| Mode | Signals | Question style | Depth |
-| ------ | --------- | --------------- | ------- |
-| **Builder** | Plain language, vibe keywords, prototype/yolo profile | Scenario-based, no jargon, cause-and-effect | Concrete situations |
-| **Architect** | Technical terms, specific requirements, production profile | Direct, uses domain terms, trade-off framing | Design decisions |
+| Mode          | Signals                                                    | Question style                               | Depth               |
+| ------------- | ---------------------------------------------------------- | -------------------------------------------- | ------------------- |
+| **Builder**   | Plain language, vibe keywords, prototype/yolo profile      | Scenario-based, no jargon, cause-and-effect  | Concrete situations |
+| **Architect** | Technical terms, specific requirements, production profile | Direct, uses domain terms, trade-off framing | Design decisions    |
 
 Same gray area, two modes:
 
@@ -107,6 +107,7 @@ Structure each assumption as:
 ```
 
 Ground confidence levels in codebase evidence:
+
 - **High** — codebase has explicit implementation matching the assumption
 - **Medium** — codebase has related patterns but the specific decision is ambiguous
 - **Low** — codebase provides no clear signal; genuine uncertainty
@@ -128,17 +129,19 @@ Present all assumptions at once, grouped by confidence level. Use `AskUserQuesti
 
 Presentation varies by profile:
 
-| Profile | Behavior |
-| ---------- | ---------- |
-| `production` | All confidence levels shown individually with detailed evidence citations. |
-| `default` | High confidence batched as a confirmation list. Medium shown individually. Low become standard questions (fall through to Step 3 Explore). |
-| `prototype` | High and medium batched as confirmations. Only low confidence shown individually. |
-| `yolo` | All assumptions accepted automatically. Low-confidence items flagged in output but not asked. |
+| Profile      | Behavior                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `production` | All confidence levels shown individually with detailed evidence citations.                                                                 |
+| `default`    | High confidence batched as a confirmation list. Medium shown individually. Low become standard questions (fall through to Step 3 Explore). |
+| `prototype`  | High and medium batched as confirmations. Only low confidence shown individually.                                                          |
+| `yolo`       | All assumptions accepted automatically. Low-confidence items flagged in output but not asked.                                              |
 
 **High confidence (confirming):** Batch as a list: "Based on the codebase, I'm assuming: [numbered list with evidence citations]. Any corrections?"
+
 - Options: "All correct", "I'd like to correct one", "Let me explain..."
 
 **Medium confidence (validating):** Present individually: "I think [X] based on [evidence], but [gap]. Is this right?"
+
 - Options: "[Assumption] (Recommended — [reason])", "[Alternative]", "Let me explain..."
 
 **Low confidence (genuine questions):** Fall through to standard Step 3 Explore flow with recommendation-led questions.
@@ -148,6 +151,7 @@ When the user selects `Let me explain...`, stop using AskUserQuestion, ask a pla
 ### A4: Process Corrections
 
 For each assumption the user reviews:
+
 - **Confirmed:** Record as a decision with the original assumption and evidence
 - **Corrected:** Record the user's correction as the decision, preserve the original assumption as context ("Originally assumed X based on [evidence]; user corrected to Y")
 - **Expanded:** If the user chose "Let me explain...", capture the nuance and update the assumption accordingly
@@ -168,13 +172,13 @@ Also append to `discovery.json` using the existing schema. For confirmed assumpt
 
 After writing context and discovery files, present a summary to the user showing each assumption with its resolution:
 
-| Indicator | Meaning |
-|-----------|---------|
-| ✓ confirmed (high) | Assumption confirmed as-is |
-| ⚡ validated (medium) | Assumption validated with evidence |
-| ? resolved (low) | Low-confidence area resolved through discussion |
-| ✗ corrected | User corrected the assumption |
-| ○ expanded | User added nuance via "Let me explain..." |
+| Indicator             | Meaning                                         |
+| --------------------- | ----------------------------------------------- |
+| ✓ confirmed (high)    | Assumption confirmed as-is                      |
+| ⚡ validated (medium) | Assumption validated with evidence              |
+| ? resolved (low)      | Low-confidence area resolved through discussion |
+| ✗ corrected           | User corrected the assumption                   |
+| ○ expanded            | User added nuance via "Let me explain..."       |
 
 After A5, skip Steps 2-4 for areas covered by assumptions. If any low-confidence areas fell through to Step 3 Explore, those are captured by Step 4 independently — A5 only captures the assumption-path decisions (high and medium confidence).
 
@@ -193,6 +197,7 @@ For each gray area identified, also form a preliminary recommendation based on t
 > "What decisions about this phase are NOT already captured in the existing discussion context? What new angles, edge cases, or deeper implications haven't been explored yet?"
 
 Exclude gray areas already covered by existing `## Decisions Made` subsections. Focus on:
+
 - Topics the user didn't select in the original discussion
 - Deeper implications of decisions already made (second-order effects)
 - Edge cases or integration concerns that surface after the first discussion
@@ -207,13 +212,14 @@ For bootstrap context (no phases yet): generate gray areas from the project desc
 
 Profile depth controls gray area count:
 
-| Profile | Gray Areas |
-| --------- | ----------- |
-| prototype | 2-3 |
-| default | 3-5 |
-| production | 4-6 |
+| Profile    | Gray Areas |
+| ---------- | ---------- |
+| prototype  | 2-3        |
+| default    | 3-5        |
+| production | 4-6        |
 
 Present gray-area selection based on list size and discussion mode:
+
 - **Continuation invariant:** Continuation discussions must always offer an explicit `None — discussion is complete` no-op path. Selecting it, or entering `none` in a freeform path, means no gray areas were selected.
 - **Fresh 1–4 gray areas:** Use structured AskUserQuestion multi-select and require at least one selected area.
 - **Fresh 5–6 gray areas:** Present a numbered list and ask for intentional freeform/no-options selection; require at least one selected area and do NOT use `options` array.
@@ -231,6 +237,7 @@ Present gray-area selection based on list size and discussion mode:
 For each selected area, have a natural conversation. Not a form. Not a fixed number of questions.
 
 The rhythm:
+
 1. Open with your recommendation for the area (for product decisions, present options equally per the Recommendation Principle instead): state the gray area, provide your recommendation with brief reasoning (2-3 sentences), then ask for confirmation via AskUserQuestion. Format the first option as the recommended choice with "(Recommended — [brief reason])" in the label. Include 1-2 alternatives and a "Let me explain..." free-form option.
 2. If user picks recommended: confirm in one line, move on. No follow-ups for standard picks.
 3. If user picks alternative: record the preference. Only ask a follow-up if the alternative changes a downstream requirement or invalidates the recommendation's reasoning — otherwise move on.
@@ -241,22 +248,26 @@ The rhythm:
 
 **Scope awareness** (simple, not a subsystem):
 If the user mentions something outside the phase boundary:
+
 > "[Feature] sounds like its own phase. I'll note it. Back to [current area]..."
-One line. Captured in Deferred Ideas. No feature extraction pipeline.
+> One line. Captured in Deferred Ideas. No feature extraction pipeline.
 
 **Vague answer handling** (natural, not mechanical):
 If the user says something vague like "I want it to be fast", just ask a follow-up:
+
 > "Fast in what way — page loads, search results, or handling lots of users at once?"
-No disambiguation subsystem. Just good conversation.
+> No disambiguation subsystem. Just good conversation.
 
 ## Step 4: Capture
 
 Resolve the CONTEXT filename:
+
 ```bash
 CONTEXT_NAME=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/resolve-artifact-path.sh context "{phase-dir}")
 ```
 
 **Continuation mode (CONTEXT.md already exists):** Do NOT overwrite. Merge new insights into the existing file:
+
 - Add new `### [Gray Area]` subsections under `## Decisions Made` (after existing subsections)
 - Append new entries to `## Deferred Ideas` if any surfaced
 - Update the `Gathered:` date to today's date
@@ -273,20 +284,26 @@ Gathered: YYYY-MM-DD
 Calibration: builder | architect
 
 ## Phase Boundary
+
 [What this phase delivers — scope anchor from ROADMAP.md]
 
 ## Decisions Made
+
 ### [Gray Area 1]
+
 - [Decision or preference]
 - [Follow-up detail if captured]
 
 ### [Gray Area 2]
+
 - [Decision or preference]
 
 ### Open (Claude's discretion)
+
 [Areas where user said "you decide" or was indifferent]
 
 ## Deferred Ideas
+
 [Out-of-scope ideas captured during discussion. Empty if none.]
 ```
 
@@ -323,15 +340,15 @@ Also append to `discovery.json` using this schema:
 
 ## Config Interaction
 
-| Config | Effect |
-| -------- | -------- |
-| `active_profile=yolo` | Skip discussion entirely |
-| `active_profile=prototype` | 2-3 gray areas, quick explore |
-| `active_profile=default` | 3-5 gray areas, standard depth |
-| `active_profile=production` | 4-6 gray areas, thorough explore |
-| `discovery_questions=false` | Skip discussion entirely |
-| `discussion_mode=assumptions` | Use assumptions path (Step 1.7); falls back to questions if no codebase map |
-| `discussion_mode=auto` | Auto-select: assumptions if `.swt-planning/codebase/META.md` exists, questions otherwise |
+| Config                        | Effect                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `active_profile=yolo`         | Skip discussion entirely                                                                 |
+| `active_profile=prototype`    | 2-3 gray areas, quick explore                                                            |
+| `active_profile=default`      | 3-5 gray areas, standard depth                                                           |
+| `active_profile=production`   | 4-6 gray areas, thorough explore                                                         |
+| `discovery_questions=false`   | Skip discussion entirely                                                                 |
+| `discussion_mode=assumptions` | Use assumptions path (Step 1.7); falls back to questions if no codebase map              |
+| `discussion_mode=auto`        | Auto-select: assumptions if `.swt-planning/codebase/META.md` exists, questions otherwise |
 
 ## Design Principles
 

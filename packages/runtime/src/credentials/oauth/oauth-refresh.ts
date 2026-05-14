@@ -68,8 +68,7 @@ export async function refreshOAuthCredentialsIfNeeded(
 ): Promise<OAuthCredentials> {
   const margin = opts?.marginMs ?? DEFAULT_MARGIN_MS;
   const nearExpiry =
-    typeof credentials.expires === 'number' &&
-    credentials.expires <= Date.now() + margin;
+    typeof credentials.expires === 'number' && credentials.expires <= Date.now() + margin;
   if (!nearExpiry) return credentials; // still valid — no refresh, no keychain write
 
   const oauthProvider = getOAuthProvider(provider);

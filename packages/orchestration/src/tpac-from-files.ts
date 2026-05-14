@@ -135,8 +135,7 @@ export function liftMeterSnapshot(opts: LiftMeterSnapshotOptions): MeterSnapshot
     const cacheRead = tokens.cache_read ?? 0;
     const cacheWrite = tokens.cache_creation ?? 0;
     const cost = parsed.cost_usd ?? 0;
-    const phaseSlug =
-      parsed.phase_slug ?? entry.replace(/^phase-/, '').replace(/\.json$/, '');
+    const phaseSlug = parsed.phase_slug ?? entry.replace(/^phase-/, '').replace(/\.json$/, '');
 
     records.push({
       timestamp: parsed.last_updated ?? new Date(0).toISOString(),

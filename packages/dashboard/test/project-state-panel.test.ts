@@ -12,10 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  ProjectStatePanel,
-  percentLabel,
-} from '../src/client/components/ProjectStatePanel.jsx';
+import { ProjectStatePanel, percentLabel } from '../src/client/components/ProjectStatePanel.jsx';
 
 describe('percentLabel', () => {
   it('rounds the 0..1 percent_complete to whole percent', () => {

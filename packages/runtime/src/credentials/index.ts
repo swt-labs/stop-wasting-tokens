@@ -27,7 +27,4 @@ export type {
   CredentialStoreOptions,
 } from './types.js';
 export type { KeychainProbeResult } from './probe.js';
-export type {
-  ResolveCredentialStoreOptions,
-  ResolvedCredentialStore,
-} from './resolve-store.js';
+export type { ResolveCredentialStoreOptions, ResolvedCredentialStore } from './resolve-store.js';

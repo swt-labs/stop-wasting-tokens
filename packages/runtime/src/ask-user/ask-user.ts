@@ -214,10 +214,7 @@ async function dashboardIsReachable(
  * picked, or `{ selectedOption: null, freeform: text }` when "Other" is
  * picked AND the user enters freeform text.
  */
-async function askViaTTY(
-  q: AskUserQuestion,
-  opts: AskUserOptions,
-): Promise<AskUserResponse> {
+async function askViaTTY(q: AskUserQuestion, opts: AskUserOptions): Promise<AskUserResponse> {
   const stdin = opts.stdin ?? process.stdin;
   const stdout = opts.stdout ?? process.stdout;
   const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -262,10 +259,7 @@ async function askViaTTY(
  * auditable. Required for the askUser primitive to work in piped /
  * containerised / cron contexts where no human is present.
  */
-function autoAcceptResponse(
-  q: AskUserQuestion,
-  opts: AskUserOptions,
-): AskUserResponse {
+function autoAcceptResponse(q: AskUserQuestion, opts: AskUserOptions): AskUserResponse {
   const stderr = opts.stderr ?? process.stderr;
   const picked = pickAutoAcceptOption(q);
   stderr.write(`[auto-accept: "${picked.label}"]\n`);

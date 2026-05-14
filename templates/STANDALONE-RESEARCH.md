@@ -1,11 +1,11 @@
 ---
-title: {research-title}
+title: { research-title }
 type: standalone-research
 status: active
 confidence: high
-created: {YYYY-MM-DD HH:MM:SS}
-updated: {YYYY-MM-DD HH:MM:SS}
-base_commit: {git-sha}
+created: { YYYY-MM-DD HH:MM:SS }
+updated: { YYYY-MM-DD HH:MM:SS }
+base_commit: { git-sha }
 linked_sessions: []
 ---
 

@@ -163,7 +163,10 @@ describe('cassette replayer', () => {
         captured instanceof RequestNotInCassetteError
           ? captured
           : ((captured as { cause?: unknown })?.cause as RequestNotInCassetteError | undefined);
-      const finalErr = target instanceof RequestNotInCassetteError ? target : (captured as RequestNotInCassetteError);
+      const finalErr =
+        target instanceof RequestNotInCassetteError
+          ? target
+          : (captured as RequestNotInCassetteError);
       expect(finalErr.requestedHash).toMatch(/^sha256:[a-f0-9]{64}$/);
       expect(finalErr.recordedHashes).toEqual(recordedHashes);
       expect(finalErr.requestedBodyExcerpt).toContain('wrong');
@@ -214,7 +217,7 @@ describe('cassette replayer', () => {
       }
       const name =
         (captured as { name?: string })?.name ??
-        ((captured as { cause?: { name?: string } })?.cause?.name);
+        (captured as { cause?: { name?: string } })?.cause?.name;
       expect(name).toBe('CassetteSeqError');
     } finally {
       handle.uninstall();

@@ -1,21 +1,24 @@
 ---
 overlay_for: debugger
 provider: openai
-source: "github.com/openai/codex"
+source: 'github.com/openai/codex'
 source_paths:
-  - "codex-rs/core/src/prompts.rs"
-  - "codex-rs/core/src/prompts/"
-source_intent: "scientific-method framing + hypothesis-evidence cycle + per-effort tone control + minimal-fix scope"
+  - 'codex-rs/core/src/prompts.rs'
+  - 'codex-rs/core/src/prompts/'
+source_intent: 'scientific-method framing + hypothesis-evidence cycle + per-effort tone control + minimal-fix scope'
 model_families:
-  - "gpt-5"
-  - "o-series"
-last_tuned: "2026-05-14"
+  - 'gpt-5'
+  - 'o-series'
+last_tuned: '2026-05-14'
 schema_version: 1
 ---
 
 # Intent-mirror of OpenAI Codex CLI debugger prompt.
+
 # Source: github.com/openai/codex (codex-rs/core/src/prompts.rs, codex-rs/core/src/prompts/ reasoning-effort overlays)
+
 # Last checked: 2026-05-14
+
 # DO NOT copy verbatim from the source — paraphrase the intent.
 
 ## Investigation framing

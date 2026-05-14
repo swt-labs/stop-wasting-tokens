@@ -33,9 +33,7 @@ describe('@swt-labs/runtime — credentials/namespace codec (Plan 01-01)', () =>
     });
 
     it('is deterministic — 10 identical calls return byte-identical strings', () => {
-      const results = Array.from({ length: 10 }, () =>
-        encodeAccount('openai', 'api_key'),
-      );
+      const results = Array.from({ length: 10 }, () => encodeAccount('openai', 'api_key'));
       for (const r of results) {
         expect(r).toBe('openai:api_key');
       }

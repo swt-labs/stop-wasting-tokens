@@ -35,10 +35,7 @@ import {
 /* ── pure helpers (load-bearing logic, unit-tested directly) ────────────── */
 
 /** Read config[key] defensively — config may be null / non-object. */
-export function currentSettingValue(
-  config: unknown,
-  key: string,
-): string | boolean | undefined {
+export function currentSettingValue(config: unknown, key: string): string | boolean | undefined {
   if (typeof config !== 'object' || config === null) return undefined;
   const v = (config as Record<string, unknown>)[key];
   return typeof v === 'string' || typeof v === 'boolean' ? v : undefined;
@@ -112,10 +109,7 @@ export interface SettingsSectionProps {
    * Returns {ok:true} on success or {error} on failure — the section surfaces
    * the error inline.
    */
-  onApply: (
-    key: string,
-    value: string | boolean,
-  ) => Promise<{ ok: true } | { error: string }>;
+  onApply: (key: string, value: string | boolean) => Promise<{ ok: true } | { error: string }>;
 }
 
 /* ── component ──────────────────────────────────────────────────────────── */
@@ -175,11 +169,7 @@ export const SettingsSection: Component<SettingsSectionProps> = (props) => {
                           type="button"
                           class="settings-segment"
                           classList={{
-                            'settings-segment-active': isSegmentActive(
-                              data().config,
-                              key,
-                              value,
-                            ),
+                            'settings-segment-active': isSegmentActive(data().config, key, value),
                           }}
                           aria-pressed={isSegmentActive(data().config, key, value)}
                           disabled={isFieldBusy(pendingField(), key) || props.loading}

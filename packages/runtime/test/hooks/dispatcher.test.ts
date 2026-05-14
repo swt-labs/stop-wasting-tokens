@@ -95,10 +95,7 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
   }
 
   it('1) Script exits 0 + PreToolUse → dispatchPreTool resolves "allow"', async () => {
-    const scriptPath = writeScript(
-      'pretool-allow.sh',
-      '#!/bin/bash\nexit 0\n',
-    );
+    const scriptPath = writeScript('pretool-allow.sh', '#!/bin/bash\nexit 0\n');
     const { dispatcher } = makeDispatcher([
       {
         event: 'PreToolUse',
@@ -131,10 +128,7 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
   });
 
   it('3) Script sleeps past timeoutMs + PreToolUse → "allow" + timeout logged', async () => {
-    const scriptPath = writeScript(
-      'pretool-sleep.sh',
-      '#!/bin/bash\nsleep 5\nexit 0\n',
-    );
+    const scriptPath = writeScript('pretool-sleep.sh', '#!/bin/bash\nsleep 5\nexit 0\n');
     const { dispatcher, bus } = makeDispatcher([
       {
         event: 'PreToolUse',
@@ -206,10 +200,7 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
   it('6) PostToolUse with no matching registration → resolves, no spawn', async () => {
     // Register a hook for SubagentStart only — PostToolUse has zero
     // matching registrations.
-    const scriptPath = writeScript(
-      'subagent-start-only.sh',
-      '#!/bin/bash\nexit 0\n',
-    );
+    const scriptPath = writeScript('subagent-start-only.sh', '#!/bin/bash\nexit 0\n');
     const { dispatcher, bus } = makeDispatcher([
       {
         event: 'SubagentStart',
@@ -257,10 +248,7 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
   });
 
   it('register() adds a new registration that subsequent dispatches honour', async () => {
-    const blockScriptPath = writeScript(
-      'late-register-block.sh',
-      '#!/bin/bash\nexit 2\n',
-    );
+    const blockScriptPath = writeScript('late-register-block.sh', '#!/bin/bash\nexit 2\n');
     const { dispatcher } = makeDispatcher([]);
     // No registrations → allow.
     expect(await dispatcher.dispatchPreTool('Bash', { command: 'ls' })).toBe('allow');
@@ -275,10 +263,7 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
   });
 
   it('regex matcher (compiled from toolPattern) gates on /Write|Edit/', async () => {
-    const blockScriptPath = writeScript(
-      'regex-block.sh',
-      '#!/bin/bash\nexit 2\n',
-    );
+    const blockScriptPath = writeScript('regex-block.sh', '#!/bin/bash\nexit 2\n');
     const { dispatcher } = makeDispatcher([
       {
         event: 'PreToolUse',
@@ -295,14 +280,8 @@ describe('@swt-labs/runtime — HookDispatcher (Plan 01-03 T4)', () => {
   });
 
   it('multiple PreToolUse handlers: any clean exit-2 yields "block"', async () => {
-    const allowScriptPath = writeScript(
-      'multi-allow.sh',
-      '#!/bin/bash\nexit 0\n',
-    );
-    const blockScriptPath = writeScript(
-      'multi-block.sh',
-      '#!/bin/bash\nexit 2\n',
-    );
+    const allowScriptPath = writeScript('multi-allow.sh', '#!/bin/bash\nexit 0\n');
+    const blockScriptPath = writeScript('multi-block.sh', '#!/bin/bash\nexit 2\n');
     const { dispatcher } = makeDispatcher([
       {
         event: 'PreToolUse',

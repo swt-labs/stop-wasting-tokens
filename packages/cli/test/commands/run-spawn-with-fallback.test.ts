@@ -21,13 +21,9 @@
  *       router-resolved primary for the fixture strategy.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
+import type { BudgetProjectionResult, CostProjection } from '@swt-labs/runtime';
 import type { TaskResult, TaskBrief } from '@swt-labs/shared';
-import type {
-  BudgetProjectionResult,
-  CostProjection,
-} from '@swt-labs/runtime';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   BudgetProjectionExceededError,
@@ -100,7 +96,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
       runSpawnWithFallback({
         providers: STUB_PROVIDERS,
         spawnArgs: STUB_SPAWN_ARGS,
-        spawnFn: spawnFnSpy as never,
+        spawnFn: spawnFnSpy,
         taskBrief: STUB_TASK_BRIEF,
         subSessionId: 'sub-halt',
         onProjection,
@@ -122,7 +118,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
       await runSpawnWithFallback({
         providers: STUB_PROVIDERS,
         spawnArgs: STUB_SPAWN_ARGS,
-        spawnFn: spawnFnSpy as never,
+        spawnFn: spawnFnSpy,
         taskBrief: STUB_TASK_BRIEF,
         onProjection: () => projectionResult,
       });
@@ -144,7 +140,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
     const out = await runSpawnWithFallback({
       providers: STUB_PROVIDERS,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnFnSpy as never,
+      spawnFn: spawnFnSpy,
       taskBrief: STUB_TASK_BRIEF,
       subSessionId: 'sub-pass',
       onProjection,
@@ -165,7 +161,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
     const out = await runSpawnWithFallback({
       providers: STUB_PROVIDERS,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnFnSpy as never,
+      spawnFn: spawnFnSpy,
       taskBrief: STUB_TASK_BRIEF,
       onProjection,
     });
@@ -181,7 +177,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
     const out = await runSpawnWithFallback({
       providers: STUB_PROVIDERS,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnFnSpy as never,
+      spawnFn: spawnFnSpy,
       taskBrief: STUB_TASK_BRIEF,
       // onProjection omitted entirely
     });
@@ -202,7 +198,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
     await runSpawnWithFallback({
       providers: STUB_PROVIDERS,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnFnSpy as never,
+      spawnFn: spawnFnSpy,
       taskBrief: STUB_TASK_BRIEF,
       subSessionId: 'sub-once',
       onProjection,
@@ -257,7 +253,7 @@ describe('Plan 03-04 T3 (G-R4) — runSpawnWithFallback onProjection hook', () =
     await runSpawnWithFallback({
       providers,
       spawnArgs: STUB_SPAWN_ARGS,
-      spawnFn: spawnFnSpy as never,
+      spawnFn: spawnFnSpy,
       taskBrief: STUB_TASK_BRIEF,
       onProjection: (ctx) => {
         seenProviders.push(ctx.provider);

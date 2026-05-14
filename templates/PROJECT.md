@@ -7,19 +7,23 @@
 ## Requirements
 
 ### Validated
+
 {validated-or-none}
 
 ### Active
+
 - [ ] {requirement}
 
 ### Out of Scope
+
 - {item} -- {reason}
 
 ## Constraints
+
 - **{name}**: {description}
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| {decision} | {why} | {result} |
+| Decision   | Rationale | Outcome  |
+| ---------- | --------- | -------- |
+| {decision} | {why}     | {result} |

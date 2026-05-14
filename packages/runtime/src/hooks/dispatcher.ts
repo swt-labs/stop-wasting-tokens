@@ -83,6 +83,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve, sep } from 'node:path';
 
+import type { SwtEvent, SwtSession } from '../types.js';
+
 import type {
   HookContext,
   HookDecision,
@@ -90,7 +92,6 @@ import type {
   HookMatcher,
   HookRegistration,
 } from './types.js';
-import type { SwtEvent, SwtSession } from '../types.js';
 
 /** Single line written to the dispatcher's structured log channel. */
 export interface HookEventBusEntry {
@@ -498,10 +499,7 @@ export function createHookDispatcher(opts: HookDispatcherOptions): HookDispatche
     return results;
   }
 
-  async function dispatchPreTool(
-    toolName: string,
-    toolInput: unknown,
-  ): Promise<HookDecision> {
+  async function dispatchPreTool(toolName: string, toolInput: unknown): Promise<HookDecision> {
     const results = await runMatching('PreToolUse', toolName, {
       tool_name: toolName,
       tool_input: toolInput,
@@ -522,10 +520,7 @@ export function createHookDispatcher(opts: HookDispatcherOptions): HookDispatche
     });
   }
 
-  async function dispatchSessionEvent(
-    event: HookEvent,
-    ctx?: Partial<HookContext>,
-  ): Promise<void> {
+  async function dispatchSessionEvent(event: HookEvent, ctx?: Partial<HookContext>): Promise<void> {
     // Session-level events don't carry a tool input; we still let the
     // matcher narrow by role if a registration says so. The stdin
     // payload echoes the resolved ctx so future scripts can opt in to
@@ -625,7 +620,11 @@ export function createHookDispatcher(opts: HookDispatcherOptions): HookDispatche
  */
 interface HookRegistrationWire {
   readonly event: HookEvent;
-  readonly matcher: { readonly tool?: string; readonly toolPattern?: string; readonly role?: string } | null;
+  readonly matcher: {
+    readonly tool?: string;
+    readonly toolPattern?: string;
+    readonly role?: string;
+  } | null;
   readonly scriptPath: string;
   readonly env?: Record<string, string>;
   readonly timeoutMs?: number;

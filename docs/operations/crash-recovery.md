@@ -31,11 +31,11 @@ there is no resume granularity finer than per-task-commit today.
 
 A crash is claimed only when ALL three conditions hold:
 
-| Signal | Source | Meaning |
-| --- | --- | --- |
-| `status === 'in_progress'` | `.execution-state.json` | Prior cook recorded itself as still running |
-| `PidChecker.isAlive(pid) === false` | `process.kill(pid, 0)` | The recorded pid is gone (ESRCH) |
-| no `cook.completion` event for the recorded `session_id` | events JSONL tail | Prior cook never wrote its clean-exit row |
+| Signal                                                   | Source                  | Meaning                                     |
+| -------------------------------------------------------- | ----------------------- | ------------------------------------------- |
+| `status === 'in_progress'`                               | `.execution-state.json` | Prior cook recorded itself as still running |
+| `PidChecker.isAlive(pid) === false`                      | `process.kill(pid, 0)`  | The recorded pid is gone (ESRCH)            |
+| no `cook.completion` event for the recorded `session_id` | events JSONL tail       | Prior cook never wrote its clean-exit row   |
 
 A single missing condition falls through to a fresh run — no recovery
 is attempted. Specifically:
