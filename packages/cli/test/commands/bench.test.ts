@@ -24,6 +24,20 @@ import { StringStream } from '../_helpers.js';
 describe('benchHandler — M3 PR-T live state', () => {
   it('returns NOT_IMPLEMENTED + reports CassetteNotRecordedError on stderr when no cassettes are recorded', async () => {
     vi.resetModules();
+    // Hermetic: mock `runMilestone` to throw `CassetteNotRecordedError` rather
+    // than depending on the ambient repo cassette dir. Once a (placeholder or
+    // real) cassette is committed under `packages/test-utils/cassettes/`, the
+    // real `runMilestone` no longer throws and this case's "no cassettes"
+    // premise goes stale — so mock it, mirroring cases 2/3/5 below.
+    vi.doMock('@swt-labs/test-utils', async () => {
+      const actual = await vi.importActual<typeof TestUtilsModule>('@swt-labs/test-utils');
+      return {
+        ...actual,
+        runMilestone: async () => {
+          throw new actual.CassetteNotRecordedError('packages/test-utils/cassettes');
+        },
+      };
+    });
     const { benchHandler } = await import('../../src/commands/bench.js');
     const stdout = new StringStream();
     const stderr = new StringStream();
@@ -37,6 +51,9 @@ describe('benchHandler — M3 PR-T live state', () => {
     expect(stderr.text()).toContain('No cassettes found');
     expect(stderr.text()).toContain('docs/operations/cassette-recording.md');
     expect(exit).toBe(2);
+
+    vi.doUnmock('@swt-labs/test-utils');
+    vi.resetModules();
   });
 
   it('emits a validated TpacReport to stdout when runMilestone returns enriched fields', async () => {
