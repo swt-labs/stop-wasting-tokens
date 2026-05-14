@@ -409,22 +409,22 @@ fi
 DEBUG_USAGE_LINES="$(grep -F 'Usage:' "$DEBUG_CMD" 2>/dev/null || true)"
 DEBUG_USAGE_COUNT=$(printf '%s\n' "$DEBUG_USAGE_LINES" | grep -c 'Usage:' || true)
 if [ "$DEBUG_USAGE_COUNT" -ge 2 ] \
-  && contains_literal "$DEBUG_USAGE_LINES" '/swt:debug <todo-number>' \
-  && contains_literal "$DEBUG_USAGE_LINES" '/swt:debug --resume' \
-  && contains_literal "$DEBUG_USAGE_LINES" '/swt:debug --session <id>' \
+  && contains_literal "$DEBUG_USAGE_LINES" 'swt debug <todo-number>' \
+  && contains_literal "$DEBUG_USAGE_LINES" 'swt debug --resume' \
+  && contains_literal "$DEBUG_USAGE_LINES" 'swt debug --session <id>' \
   && contains_literal "$DEBUG_USAGE_LINES" '[--competing|--parallel|--serial]'; then
   pass "debug.md keeps both expanded Usage strings with resume/session and ambiguity flags"
 else
   fail "debug.md missing expanded Usage strings with resume/session and ambiguity flags"
 fi
 
-if grep -Fq 'No active debug session to resume. Use `/swt:debug --session <id>` to open a specific session' "$DEBUG_CMD" 2>/dev/null; then
+if grep -Fq 'No active debug session to resume. Use `swt debug --session <id>` to open a specific session' "$DEBUG_CMD" 2>/dev/null; then
   pass "debug.md resume stop message advertises session override and new-session entry points"
 else
   fail "debug.md resume stop message still uses freeform-only guidance"
 fi
 
-if grep -Fq 'This debug session is already complete. Use `/swt:debug --session <id>` to inspect another session' "$DEBUG_CMD" 2>/dev/null; then
+if grep -Fq 'This debug session is already complete. Use `swt debug --session <id>` to inspect another session' "$DEBUG_CMD" 2>/dev/null; then
   pass "debug.md complete-session stop message advertises session override and new-session entry points"
 else
   fail "debug.md complete-session stop message still uses freeform-only guidance"
@@ -449,7 +449,7 @@ fi
 debug_complete_matches=$(grep -nF 'bash "{plugin-root}/scripts/debug-session-state.sh" set-status .swt-planning complete' "$DEBUG_CMD" 2>/dev/null || true)
 debug_pg_matches=$(grep -nF 'PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"' "$DEBUG_CMD" 2>/dev/null || true)
 debug_commit_matches=$(grep -nF 'bash "$PG_SCRIPT" commit-boundary "complete debug session" .swt-planning/config.json' "$DEBUG_CMD" 2>/dev/null || true)
-debug_warning_matches=$(grep -nF 'VBW: planning-git.sh unavailable; skipping planning git boundary commit' "$DEBUG_CMD" 2>/dev/null || true)
+debug_warning_matches=$(grep -nF 'SWT: planning-git.sh unavailable; skipping planning git boundary commit' "$DEBUG_CMD" 2>/dev/null || true)
 
 debug_complete_first=$(printf '%s\n' "$debug_complete_matches" | sed -n '1s/:.*//p')
 debug_complete_second=$(printf '%s\n' "$debug_complete_matches" | sed -n '2s/:.*//p')
@@ -549,11 +549,11 @@ else
   fail "swt-debugger.md Investigation Protocol missing accepted-exception already_fixed invariant"
 fi
 
-if grep -Fq 'When `/swt:debug` Path A spawns you as a hypothesis investigator' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
+if grep -Fq 'When `swt debug` Path A spawns you as a hypothesis investigator' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
   && grep -Fq 'overrides any conflicting implementation language' <<< "$DEBUGGER_TEAMMATE_BLOCK"; then
-  pass "swt-debugger.md teammate mode explicitly defers to /swt:debug orchestration"
+  pass "swt-debugger.md teammate mode explicitly defers to swt debug orchestration"
 else
-  fail "swt-debugger.md teammate mode missing /swt:debug orchestration override"
+  fail "swt-debugger.md teammate mode missing swt debug orchestration override"
 fi
 
 if grep -Fq 'Teammate mode ends at diagnosis plus `debugger_report`.' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
@@ -569,7 +569,7 @@ else
   fail "swt-debugger.md teammate mode missing accepted-metadata already_fixed guard"
 fi
 
-if grep -Fq '`/swt:debug` owns synthesis, session status, teardown, and any later implementation handoff.' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
+if grep -Fq '`swt debug` owns synthesis, session status, teardown, and any later implementation handoff.' <<< "$DEBUGGER_TEAMMATE_BLOCK" \
   && grep -Fq 'That implementation owner is not this teammate.' <<< "$DEBUGGER_TEAMMATE_BLOCK"; then
   pass "swt-debugger.md teammate mode reserves implementation ownership for a fresh post-synthesis owner"
 else
@@ -644,13 +644,11 @@ else
   fail "write-debug-session.sh missing skip or user_response handling"
 fi
 
-# — Lifecycle integration test exists (CM1-04) —
-
-if [ -f "$ROOT/tests/debug-session-lifecycle.bats" ]; then
-  pass "debug-session-lifecycle.bats end-to-end test exists"
-else
-  fail "debug-session-lifecycle.bats missing"
-fi
+# — Lifecycle integration test (CM1-04) —
+# NOTE: the debug-session-lifecycle end-to-end test fixture exists only in the
+# upstream VBW clone (a_non_production_files/.../tests/) and was never ported
+# to SWT v3 — the v3 codebase has no such fixtures. The obsolete existence
+# assertion is dropped (plan 04-01 T2, research §2 category A).
 
 # — suggest-next.sh qa path handles standalone debug sessions (CM2-01) —
 
@@ -677,13 +675,11 @@ else
   fail "verify.md debug-session routing decision missing --session flag support"
 fi
 
-# — suggest-next-debug-session.bats covers qa context (CM2-03) —
-
-if grep -q 'suggest-next qa.*pass.*debug session' "$ROOT/tests/suggest-next-debug-session.bats" 2>/dev/null; then
-  pass "suggest-next-debug-session.bats covers qa pass with debug session"
-else
-  fail "suggest-next-debug-session.bats missing qa pass with debug session test"
-fi
+# — suggest-next debug-session qa coverage (CM2-03) —
+# NOTE: the suggest-next-debug-session test fixture exists only in the upstream
+# VBW clone and was never ported to SWT v3 — the v3 codebase has no such
+# fixtures. The obsolete existence assertion is dropped (plan 04-01 T2,
+# research §2 category A).
 
 # — Guard sections support --session escape hatch (CM3-01) —
 
@@ -701,10 +697,10 @@ fi
 
 # — suggest-next.sh routes debug sessions to /swt:debug --resume (CM3-01) —
 
-if grep -q 'swt:debug --resume' "$ROOT/scripts/suggest-next.sh" 2>/dev/null; then
-  pass "suggest-next.sh routes debug sessions to /swt:debug --resume"
+if grep -q 'swt debug --resume' "$ROOT/scripts/suggest-next.sh" 2>/dev/null; then
+  pass "suggest-next.sh routes debug sessions to swt debug --resume"
 else
-  fail "suggest-next.sh missing /swt:debug --resume routing for debug sessions"
+  fail "suggest-next.sh missing swt debug --resume routing for debug sessions"
 fi
 
 # — suggest-next.sh qa/verify debug handlers guard on phase_count=0 (CM7-01) —
