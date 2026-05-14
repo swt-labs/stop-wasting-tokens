@@ -184,3 +184,126 @@ describe('createProviderRouter — cost-optimized (M5 PR-41)', () => {
     expect(router.select(ctx('balanced'))).toBe('anthropic');
   });
 });
+
+describe('createProviderRouter — cost-optimized-rate-card (Phase 2 / G-R3)', () => {
+  // Frozen test fixture rate card. Inline values DO NOT need to match real
+  // 2026 vendor pricing — the strategy logic only cares about the relative
+  // ordering of per-1k values per dimension.
+  //
+  // anthropic: high input ($15) / low output ($0.5)
+  // openai:    mid both        ($10 / $10)
+  // openrouter: low input ($0.5) / high output ($15)
+  //
+  // These asymmetries let each describe-block assertion pin a specific
+  // provider per dimension without depending on the embedded snapshot
+  // (which can shift across rate-card refreshes).
+  const fixtureCard = {
+    schema_version: 1 as const,
+    source: 'embedded' as const,
+    generated_at: '2026-05-14T00:00:00Z',
+    entries: [
+      {
+        provider: 'anthropic',
+        model: 'claude-opus-4-7',
+        input_per_1k: 15.0,
+        output_per_1k: 0.5,
+        updated_at: '2026-05-14T00:00:00Z',
+      },
+      {
+        provider: 'openai',
+        model: 'gpt-5',
+        input_per_1k: 10.0,
+        output_per_1k: 10.0,
+        updated_at: '2026-05-14T00:00:00Z',
+      },
+      {
+        provider: 'openrouter',
+        model: 'openrouter/anthropic/claude-opus-4-7',
+        input_per_1k: 0.5,
+        output_per_1k: 15.0,
+        updated_at: '2026-05-14T00:00:00Z',
+      },
+    ],
+  };
+
+  it('picks cheapest by input dimension', () => {
+    const router = createProviderRouter({
+      kind: 'cost-optimized-rate-card',
+      providers: ['anthropic', 'openai', 'openrouter'],
+      rateCard: fixtureCard,
+      dimension: 'input',
+    });
+    // openrouter input_per_1k=0.5 is lowest.
+    expect(router.select(ctx('balanced'))).toBe('openrouter');
+  });
+
+  it('picks cheapest by output dimension', () => {
+    const router = createProviderRouter({
+      kind: 'cost-optimized-rate-card',
+      providers: ['anthropic', 'openai', 'openrouter'],
+      rateCard: fixtureCard,
+      dimension: 'output',
+    });
+    // anthropic output_per_1k=0.5 is lowest.
+    expect(router.select(ctx('balanced'))).toBe('anthropic');
+  });
+
+  it('picks cheapest by blended dimension (first wins on tie)', () => {
+    // Blended averages: anthropic=(15+0.5)/2=7.75, openai=10, openrouter=(0.5+15)/2=7.75.
+    // anthropic + openrouter tie at 7.75 — strict `<` keeps the FIRST
+    // ('anthropic') as best.
+    const router = createProviderRouter({
+      kind: 'cost-optimized-rate-card',
+      providers: ['anthropic', 'openai', 'openrouter'],
+      rateCard: fixtureCard,
+      dimension: 'blended',
+    });
+    expect(router.select(ctx('balanced'))).toBe('anthropic');
+  });
+
+  it('missing model maps to Infinity (excluded from selection)', () => {
+    // Request claude-opus-4-7 explicitly — only anthropic has an entry
+    // matching THAT model; openai (gpt-5) and openrouter (openrouter/...)
+    // entries do NOT match → both return Infinity → anthropic wins even
+    // though its input_per_1k=15 is the highest of the three.
+    const router = createProviderRouter({
+      kind: 'cost-optimized-rate-card',
+      providers: ['anthropic', 'openai', 'openrouter'],
+      rateCard: fixtureCard,
+      dimension: 'input',
+      model: 'claude-opus-4-7',
+    });
+    expect(router.select(ctx('balanced'))).toBe('anthropic');
+  });
+
+  it('throws on empty providers list at construction', () => {
+    expect(() =>
+      createProviderRouter({
+        kind: 'cost-optimized-rate-card',
+        providers: [],
+        rateCard: fixtureCard,
+        dimension: 'input',
+      }),
+    ).toThrow(/non-empty providers/);
+  });
+
+  it('breaks ties by selection order (first match wins)', () => {
+    // Override fixture entries so anthropic + openai both have
+    // input_per_1k=5.0 — first in `providers` should win.
+    const tieCard = {
+      ...fixtureCard,
+      entries: [
+        { ...fixtureCard.entries[0]!, input_per_1k: 5.0 },
+        { ...fixtureCard.entries[1]!, input_per_1k: 5.0 },
+        fixtureCard.entries[2]!,
+      ],
+    };
+    const router = createProviderRouter({
+      kind: 'cost-optimized-rate-card',
+      providers: ['anthropic', 'openai'],
+      rateCard: tieCard,
+      dimension: 'input',
+    });
+    expect(router.select(ctx('balanced'))).toBe('anthropic');
+  });
+});
