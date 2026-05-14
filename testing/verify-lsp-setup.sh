@@ -126,7 +126,7 @@ fi
 # --- bootstrap-claude.sh: Code Intelligence section ---
 
 BOOTSTRAP="$ROOT/scripts/bootstrap/bootstrap-claude.sh"
-CLAUDE_LIB="$ROOT/scripts/lib/claude-md-vbw-sections.sh"
+CLAUDE_LIB="$ROOT/scripts/lib/claude-md-swt-sections.sh"
 
 if grep -q '"## Code Intelligence"' "$CLAUDE_LIB"; then
   pass "CLAUDE helper library contains ## Code Intelligence"
