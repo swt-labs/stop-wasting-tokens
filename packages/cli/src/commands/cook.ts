@@ -73,6 +73,7 @@ import {
   WorktreeManager,
   acquireLock,
   createLockOpsFromAcquireLock,
+  type CompoundTier,
   type PidChecker,
   type ProviderFallbackEvent,
   type FallbackFailureReason,
@@ -476,6 +477,29 @@ export type CookProviderStrategy =
       readonly rateCard: RateCard;
       readonly dimension: 'input' | 'output' | 'blended';
       readonly model?: string;
+    }
+  | {
+      /**
+       * Phase 2 / G-R3 R2 (plan 02-03) — tier-routed with the wider
+       * compound tier vocabulary (10 strings, see
+       * `packages/orchestration/src/provider-router.ts:CompoundTier`).
+       *
+       * `map` is `Record<string, string>` at the config layer because
+       * JSON-loaded keys are stringly-typed; `toRouterStrategy` filters
+       * against `validCompoundTiers` (10-entry literal array) before
+       * mapping to the router shape's narrower
+       * `Partial<Record<CompoundTier, string>>`.
+       *
+       * `fallbackStrategy` is OPEN recursive at the config layer
+       * (allows any `CookProviderStrategy`); the router-layer Exclude<...>
+       * bound on RouterStrategy.tier-routed-compound.fallbackStrategy
+       * catches nested `tier-routed-compound` configs at the
+       * `toRouterStrategy` mapping boundary (R3 bounded depth-1).
+       */
+      readonly kind: 'tier-routed-compound';
+      readonly map: Readonly<Record<string, string>>;
+      readonly fallback: string;
+      readonly fallbackStrategy?: CookProviderStrategy;
     };
 
 export interface CookProvidersConfig {
@@ -1901,11 +1925,45 @@ export function classifyError(err: unknown): FallbackFailureReason {
 }
 
 /**
+ * Phase 2 / G-R3 (plan 02-03) — compound tier vocabulary for
+ * `tier-routed-compound`. Source of truth:
+ * `packages/orchestration/src/provider-router.ts:CompoundTier`. Order matches
+ * the `CompoundTierSchema` Zod enum entry order (load-bearing for the doc
+ * table at `docs/operations/provider-routing.md`).
+ */
+const validCompoundTiers = [
+  'cheap-fast',
+  'cheap-standard',
+  'standard-fast',
+  'standard-standard',
+  'standard-slow',
+  'premium-standard',
+  'premium-slow',
+  'reasoning',
+  'balanced',
+  'quality',
+] as const;
+type ValidCompoundTier = (typeof validCompoundTiers)[number];
+
+function isValidCompoundTier(s: string): s is ValidCompoundTier {
+  return (validCompoundTiers as readonly string[]).includes(s);
+}
+
+/**
  * Plan 06-02 T4 — map `CookProviderStrategy` (config-shape) to
  * `RouterStrategy` (orchestration-shape). The only meaningful difference
  * is the `tier-routed` map key type — config accepts `Record<string,...>`
  * while the router uses `Partial<Record<Tier,...>>`. Filtering down to
  * known tier names keeps the router contract clean.
+ *
+ * Phase 2 / G-R3 (plan 02-03) extends with `'tier-routed-compound'`:
+ *   - Map keys are filtered against `validCompoundTiers` (10 strings).
+ *   - `fallbackStrategy` is mapped recursively at the config layer.
+ *   - The router-layer Exclude<...> bound on
+ *     `RouterStrategy.tier-routed-compound.fallbackStrategy` catches
+ *     nested `tier-routed-compound` configs at TS-narrowing time; an
+ *     `as` cast widens the recursive result to the router union here
+ *     (a localized escape valve — see inline comment).
  */
 export function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy {
   switch (strategy.kind) {
@@ -1944,6 +2002,40 @@ export function toRouterStrategy(strategy: CookProviderStrategy): RouterStrategy
         rateCard: strategy.rateCard,
         dimension: strategy.dimension,
         ...(strategy.model !== undefined ? { model: strategy.model } : {}),
+      };
+    }
+    case 'tier-routed-compound': {
+      // Phase 2 / G-R3 R2 — filter stringly-typed config keys against the
+      // 10 known CompoundTier values. Unknown keys are dropped silently to
+      // mirror the legacy `'tier-routed'` filter behaviour above (an
+      // operator with a typo gets a quiet drop, not a hard failure).
+      const mapped: Partial<Record<CompoundTier, string>> = {};
+      for (const [k, v] of Object.entries(strategy.map)) {
+        if (typeof v === 'string' && isValidCompoundTier(k)) {
+          mapped[k] = v;
+        }
+      }
+      // R3 bounded depth-1 recursion. The cook config layer accepts open
+      // recursion (`fallbackStrategy?: CookProviderStrategy`) so config
+      // files can express any nesting. The router-layer type bound
+      // (`Exclude<RouterStrategy, {kind:'tier-routed-compound'}>`) rejects
+      // nested `tier-routed-compound`. The `as never` widens here: if an
+      // operator nests a tier-routed-compound under another, the mapped
+      // RouterStrategy would still be runtime-correct (the inner case is
+      // implemented the same way), but the TYPE bound documents the
+      // depth-1 INTENT. Do not refactor without understanding R3.
+      const recursiveFallback =
+        strategy.fallbackStrategy !== undefined
+          ? toRouterStrategy(strategy.fallbackStrategy)
+          : undefined;
+      type CompoundFallback = Exclude<RouterStrategy, { readonly kind: 'tier-routed-compound' }>;
+      return {
+        kind: 'tier-routed-compound',
+        map: mapped,
+        fallback: strategy.fallback,
+        ...(recursiveFallback !== undefined
+          ? { fallbackStrategy: recursiveFallback as CompoundFallback }
+          : {}),
       };
     }
   }

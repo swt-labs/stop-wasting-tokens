@@ -128,4 +128,59 @@ describe('cook providers config — strategy mapping (Phase 2 / Plan 02-02)', ()
       expect(coR.priceTable).toEqual({ anthropic: 15, openai: 10 });
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Phase 2 / Plan 02-03 — tier-routed-compound mapping (R2 + R3)
+  // ─────────────────────────────────────────────────────────────────────
+
+  it('tier-routed-compound config maps to router shape (known compound keys preserved, unknown dropped)', () => {
+    const cfg: CookProviderStrategy = {
+      kind: 'tier-routed-compound',
+      map: {
+        'cheap-fast': 'openrouter',
+        'standard-standard': 'anthropic',
+        'not-a-real-tier': 'silently-dropped',
+      },
+      fallback: 'anthropic',
+    };
+    const router = toRouterStrategy(cfg);
+    expect(router.kind).toBe('tier-routed-compound');
+    if (router.kind === 'tier-routed-compound') {
+      expect(router.map['cheap-fast']).toBe('openrouter');
+      expect(router.map['standard-standard']).toBe('anthropic');
+      // Unknown keys are silently dropped (mirrors legacy tier-routed filter).
+      expect((router.map as Record<string, string>)['not-a-real-tier']).toBeUndefined();
+      expect(router.fallback).toBe('anthropic');
+      expect(router.fallbackStrategy).toBeUndefined();
+    }
+  });
+
+  it('tier-routed-compound with recursive fallbackStrategy maps the inner strategy correctly', () => {
+    // Inner strategy reuses the cost-optimized-rate-card fixture card from
+    // the top of this file. The cook config layer allows OPEN recursion
+    // (any CookProviderStrategy as fallbackStrategy); the router-layer
+    // Exclude<...> bound catches nested tier-routed-compound (R3).
+    const cfg: CookProviderStrategy = {
+      kind: 'tier-routed-compound',
+      map: { 'cheap-fast': 'openrouter' },
+      fallback: 'anthropic',
+      fallbackStrategy: {
+        kind: 'cost-optimized-rate-card',
+        providers: ['anthropic'],
+        rateCard: fixtureCard,
+        dimension: 'input',
+      },
+    };
+    const router = toRouterStrategy(cfg);
+    expect(router.kind).toBe('tier-routed-compound');
+    if (router.kind === 'tier-routed-compound') {
+      expect(router.fallbackStrategy).toBeDefined();
+      // The inner strategy must round-trip the kind discriminator unchanged.
+      expect(router.fallbackStrategy?.kind).toBe('cost-optimized-rate-card');
+      if (router.fallbackStrategy?.kind === 'cost-optimized-rate-card') {
+        expect(router.fallbackStrategy.providers).toEqual(['anthropic']);
+        expect(router.fallbackStrategy.dimension).toBe('input');
+      }
+    }
+  });
 });
