@@ -277,12 +277,20 @@ export type {
 // is re-exported from @earendil-works/pi-ai/oauth so the dashboard's
 // /api/provider-auth/oauth/* routes (plan 04-02) can run their up-front
 // supported-provider check through the @swt-labs/runtime edge — no pi-ai
-// dependency on the dashboard. Consumed by 04-04's SWT-owns-refresh module too.
+// dependency on the dashboard.
+// Plan 04-04 (Phase 4 / Risk 2): the SWT-owns-refresh module
+// (refreshOAuthCredentialsIfNeeded — spawn-time lazy-refresh: checks
+// OAuthCredentials.expires, calls pi-ai's refreshToken when near-expiry, and
+// writes the refreshed blob back to the keychain via storeOAuthCredentials;
+// a refreshToken rejection surfaces as OAuthRefreshError). Consumed by the
+// cook callsite's resolveSpawnCredential (plan 04-04).
 export {
   runOAuthLoginFlow,
   storeOAuthCredentials,
   readOAuthCredentials,
   getOAuthProvider,
+  refreshOAuthCredentialsIfNeeded,
+  OAuthRefreshError,
 } from './credentials/oauth/index.js';
 export type {
   OAuthLoginFlowOptions,
