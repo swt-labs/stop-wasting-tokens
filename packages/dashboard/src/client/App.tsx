@@ -164,6 +164,8 @@ export const App: Component = () => {
               submitting={state.initSubmitting}
               brownfield={isBrownfield()}
               onInit={actions.initProject}
+              onProviderApiKeySave={(body) => actions.applyProviderAuthUpdate(body)}
+              onProviderOAuthStart={(provider) => actions.startOAuthFlow(provider)}
             />
           </main>
         }
