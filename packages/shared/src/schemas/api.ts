@@ -408,6 +408,64 @@ export const ProviderAuthUpdateResponseSchema = z.object({
 });
 export type ProviderAuthUpdateResponse = z.infer<typeof ProviderAuthUpdateResponseSchema>;
 
+/* ── Phase 4: provider-auth OAuth login routes ───────────────────────── */
+
+/**
+ * `POST /api/provider-auth/oauth/start` body. Just the provider id — OAuth
+ * carries NO inbound secret (the credential is produced server-side by
+ * pi-ai's login() flow and goes straight to the keychain). `.strict()`
+ * rejects any attempt to smuggle a secret field in.
+ */
+export const OAuthStartBodySchema = z
+  .object({
+    provider: z.string().min(1),
+  })
+  .strict();
+export type OAuthStartBody = z.infer<typeof OAuthStartBodySchema>;
+
+/**
+ * `POST /api/provider-auth/oauth/code` body — the Risk-4 headless manual-code
+ * paste flow. `flow_id` correlates to the in-flight OAuth flow (from the
+ * oauth.* SSE events / the /oauth/start response); `code` is the
+ * authorization code the user copied from the provider's browser page.
+ */
+export const OAuthManualCodeBodySchema = z
+  .object({
+    flow_id: z.string().min(1),
+    code: z.string().min(1),
+  })
+  .strict();
+export type OAuthManualCodeBody = z.infer<typeof OAuthManualCodeBodySchema>;
+
+/**
+ * `POST /api/provider-auth/oauth/start` response. The flow has begun — here
+ * is its `flow_id` to correlate the SSE `oauth.*` events that will follow.
+ * NO token, NO snapshot: completion arrives via the `oauth.complete` SSE
+ * event, and the credential lives only in the keychain.
+ */
+export const OAuthStartResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    flow_id: z.string().min(1),
+    provider: z.string().min(1),
+    started_at: z.string().datetime({ offset: true }),
+  })
+  .strict();
+export type OAuthStartResponse = z.infer<typeof OAuthStartResponseSchema>;
+
+/**
+ * `POST /api/provider-auth/oauth/code` acknowledgement — the pasted code was
+ * accepted into the flow. The actual login completion still arrives via the
+ * `oauth.complete` (or `oauth.error`) SSE event.
+ */
+export const OAuthManualCodeResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    flow_id: z.string().min(1),
+  })
+  .strict();
+export type OAuthManualCodeResponse = z.infer<typeof OAuthManualCodeResponseSchema>;
+
 export const ApiSchemas = {
   '/api/health': {
     method: 'GET',
