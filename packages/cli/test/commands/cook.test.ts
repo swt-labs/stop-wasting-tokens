@@ -41,7 +41,10 @@ import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
 
+import { DEFAULT_AUTH_CONFIG } from '../../src/commands/auth-config.js';
 import {
+  DEFAULT_BUDGET_CONFIG,
+  DEFAULT_PROVIDERS_CONFIG,
   evaluateQaGate,
   extractRefTag,
   makeCookHandler,
@@ -598,20 +601,34 @@ describe('@swt-labs/cli — cookHandler auto_uat config (Plan 03-02 T5 / D.10)',
 });
 
 describe('@swt-labs/cli — evaluateQaGate (Plan 03-02 T5 / D.7)', () => {
+  // Plan 02-04 (Phase 2) — `CookConfig` carries four required fields
+  // (`providers`, `budget`, `worktree_isolation`, `auth`); `evaluateQaGate`
+  // only reads `auto_uat` + `qa_gate_overrides`, so this helper backfills the
+  // rest with the production defaults so the literals are full, valid
+  // `CookConfig` values without changing what the gate exercises.
+  const makeQaGateConfig = (overrides: Partial<CookConfig> = {}): CookConfig => ({
+    auto_uat: false,
+    providers: DEFAULT_PROVIDERS_CONFIG,
+    budget: DEFAULT_BUDGET_CONFIG,
+    worktree_isolation: 'off',
+    auth: DEFAULT_AUTH_CONFIG,
+    ...overrides,
+  });
+
   it("D.7 — qa_status='passed' → proceed_to_uat", () => {
-    const config: CookConfig = { auto_uat: false };
+    const config = makeQaGateConfig();
     const decision = evaluateQaGate(makePhaseDetect({ qa_status: 'passed' }), config);
     expect(decision.kind).toBe('proceed_to_uat');
   });
 
   it("D.7 — qa_status='remediated' → proceed_to_uat", () => {
-    const config: CookConfig = { auto_uat: false };
+    const config = makeQaGateConfig();
     const decision = evaluateQaGate(makePhaseDetect({ qa_status: 'remediated' }), config);
     expect(decision.kind).toBe('proceed_to_uat');
   });
 
   it("D.7 — qa_status='pending' → run_qa_inline with reason label", () => {
-    const config: CookConfig = { auto_uat: false };
+    const config = makeQaGateConfig();
     const decision = evaluateQaGate(
       makePhaseDetect({ qa_status: 'pending', qa_reason: 'missing_verification_artifact' }),
       config,
@@ -623,13 +640,13 @@ describe('@swt-labs/cli — evaluateQaGate (Plan 03-02 T5 / D.7)', () => {
   });
 
   it("D.7 — qa_status='failed' → init_qa_remediation", () => {
-    const config: CookConfig = { auto_uat: false };
+    const config = makeQaGateConfig();
     const decision = evaluateQaGate(makePhaseDetect({ qa_status: 'failed' }), config);
     expect(decision.kind).toBe('init_qa_remediation');
   });
 
   it("D.7 — qa_reason='uat_cutover' → proceed_to_uat (overrides qa_status)", () => {
-    const config: CookConfig = { auto_uat: false };
+    const config = makeQaGateConfig();
     const decision = evaluateQaGate(
       makePhaseDetect({ qa_status: 'pending', qa_reason: 'uat_cutover' }),
       config,
@@ -638,10 +655,9 @@ describe('@swt-labs/cli — evaluateQaGate (Plan 03-02 T5 / D.7)', () => {
   });
 
   it('D.9 — qa_gate_known_issues_override converts run_qa_inline → proceed_to_uat', () => {
-    const config: CookConfig = {
-      auto_uat: false,
+    const config = makeQaGateConfig({
       qa_gate_overrides: { qa_gate_known_issues_override: true },
-    };
+    });
     const decision = evaluateQaGate(
       makePhaseDetect({ qa_status: 'pending', qa_reason: 'missing_verification_artifact' }),
       config,
@@ -650,10 +666,9 @@ describe('@swt-labs/cli — evaluateQaGate (Plan 03-02 T5 / D.7)', () => {
   });
 
   it('D.9 — qa_gate_deviation_override only fires for verification_result_unrecognized', () => {
-    const config: CookConfig = {
-      auto_uat: false,
+    const config = makeQaGateConfig({
       qa_gate_overrides: { qa_gate_deviation_override: true },
-    };
+    });
     // Does NOT match — should still run inline.
     const decision1 = evaluateQaGate(
       makePhaseDetect({ qa_status: 'pending', qa_reason: 'missing_verification_artifact' }),
