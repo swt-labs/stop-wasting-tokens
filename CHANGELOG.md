@@ -1,6 +1,26 @@
 # Changelog
 
-## Unreleased — Dashboard Options Menu + UX improvements — 2026-05-14
+## 3.0.0-alpha.6 — 2026-05-15
+
+_Published to npm under the `next` dist-tag. The prerelease that carries the post-v3.0 feature work — see the **Dashboard Options Menu + UX improvements**, **Multi-Provider Vendor Selection + Auth**, and **Phase G** subsections below — plus a round of release-pipeline hardening that paid down CI debt accumulated across a long run of commits that had never been exercised by CI._
+
+### Release-pipeline hardening
+
+Cutting the first release surfaced a wall of accumulated CI debt — lint / format / test gates had silently drifted red because a long stretch of commits never hit CI. Resolved:
+
+- **Lint + format** — repo-wide `prettier --write` + `eslint --fix` sweep (244 lint errors, 205 format-drifted files), plus 38 non-auto-fixable lint errors and 1 typecheck error fixed by hand.
+- **`check:offline` release gate** — stopped false-positiving on W3C XML namespace URIs (the `xmlns` constants `solid-js` emits — namespace identifiers, never network-fetched).
+- **`regression.yml`** — added the missing `pnpm build` step so `migration-boot-clean.test.ts` finds `dist/cli.mjs`.
+- **`migration-boot-clean.test.ts`** — `describe.skipIf` when no CLI bundle is built, instead of a hard throw that crashed the whole `pnpm test` suite in workflows that test before they build.
+- **`bench.test.ts`** — made the "no cassettes" case hermetic; it had depended on the ambient repo cassette dir, which went stale once a placeholder cassette was committed.
+- **Flaky timing suites** — scoped `retry: 2` on `events-tailer` and `cook-events` (FS-watch / IPC timing that flaked under full-suite parallel load).
+- **Hook dispatcher** — handle the asynchronous `EPIPE` on a hook child's stdin; a synchronous try/catch could not catch it, so it surfaced as an unhandled error that failed the run even when every test passed.
+- **`verify-install.sh`** — checks `swt help` for `cook`, not the long-renamed `vibe` verb (the post-publish install-smoke check had been failing on every build).
+- **`install-smoke.yml`** — retry the global install to absorb npm-registry propagation lag (a just-published version can briefly be invisible to bun's / pnpm's registry views).
+
+`3.0.0-alpha.4` → `alpha.5` → `alpha.6`: `alpha.5`'s release run was red on the stale `verify-install.sh`; `alpha.6` is the clean, fully-green release — publish plus the six-cell `ubuntu` / `macOS` × `npm` / `pnpm` / `bun` install-smoke matrix. The Windows CI legs (POSIX path-separator / file-permission / process-timing assertions) remain a separate, pre-existing, non-release-blocking item.
+
+### Dashboard Options Menu + UX improvements — 2026-05-14
 
 _A top-bar "Options" dropdown plus a run of dashboard UX improvements — surfacing SWT's commands and per-project settings as click-through controls instead of typed commands, and tightening how the dashboard refreshes. The Dashboard Options Menu shipped as a 3-phase VBW milestone (archived `06-dashboard-options-menu`); the rest landed as focused direct builds on top._
 
@@ -14,7 +34,7 @@ _A top-bar "Options" dropdown plus a run of dashboard UX improvements — surfac
 
 **Provenance:** all commits since the Multi-Provider changelog entry are on `main` (`b5ce768..HEAD`). Milestones `05-multi-provider-vendor-selection-auth` and `06-dashboard-options-menu` are archived under `.vbw-planning/milestones/`. Not yet published to npm — see the release note at the bottom of the next section.
 
-## Unreleased — Multi-Provider Vendor Selection + Auth — 2026-05-14
+### Multi-Provider Vendor Selection + Auth — 2026-05-14
 
 _A dashboard menu to pick the LLM vendor + auth mode (API key OR OAuth), wired so the selection genuinely propagates — spawned agents run on the chosen provider with the chosen credentials. Built on `@earendil-works/pi-ai` (OAuth subsystem) + `@earendil-works/pi-coding-agent`'s `AuthStorage`. Credentials live in the **OS keychain** (macOS Keychain / Linux libsecret), never a SWT-controlled file. 4 phases, 15 plans, 68 commits on `main`; not yet published to npm. User's bar: "fully working, no bugs — leave no stone unturned."_
 
@@ -30,7 +50,7 @@ _A dashboard menu to pick the LLM vendor + auth mode (API key OR OAuth), wired s
 
 **Verification:** `pnpm typecheck` clean · `pnpm test:regression` 115 passed / 27 files green · `pnpm build` exit 0, `dist/cli.mjs` boots · `pnpm test` 1789 passed (1 pre-existing failure — `packages/cli/test/commands/bench.test.ts`, G-M2-blocked, byte-identical to baseline `be16813`, out of scope); `test/docs/drift.test.ts` regenerated green via `pnpm docs:gen`. Cross-cutting invariant held: credentials (API keys + OAuth token blobs) never touch disk outside the OS keychain — never logged, never written to `.vbw-planning/`/`.swt-planning/` transcripts or events JSONL, never returned to the SPA.
 
-## Unreleased — Phase G (post-v3.0 follow-up milestone, executable subset) — 2026-05-14
+### Phase G (post-v3.0 follow-up milestone, executable subset) — 2026-05-14
 
 _Phase G is the post-v3.0 follow-up milestone. The user selected the 5 executable items from the `.vbw-planning/PHASE_G_ROADMAP.md` backlog (5 of 13; the other 8 are blocked on external prerequisites — Pi 0.75+, `ANTHROPIC_API_KEY`, customer use cases, an evidence window). All 5 phases shipped to `main`; ~67 commits, not yet published to npm. Targets the v3.1 quality bar._
 
