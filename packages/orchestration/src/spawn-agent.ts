@@ -111,7 +111,7 @@ import {
   type SwtSessionOptions,
   type ThinkingLevel,
 } from '@swt-labs/runtime';
-import type { AgentRole, TaskBrief, TaskResult } from '@swt-labs/shared';
+import type { AgentRole, AuthMode, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
 import { readRolePrompt } from './prompt-builder.js';
@@ -231,6 +231,18 @@ const defaultSpawnSessionFactory: SpawnAgentSessionFactory = async (config) => {
     taskId: config.taskId,
     ...(config.meter !== undefined ? { meter: config.meter } : {}),
     ...(config.meterContext !== undefined ? { meterContext: config.meterContext } : {}),
+    // Phase 2 — forward provider/model/resolvedCredential to `createSession`
+    // using the same conditional-spread pattern as meter/meterContext so an
+    // absent field stays absent (not `undefined`-valued) and a no-credential
+    // spawn produces a `SwtSessionOptions` byte-identical to pre-Phase-2.
+    // Symmetric with `defaultOrchestratorSessionFactory` — this is the link
+    // that carries the resolved credential into `createSession`'s in-memory
+    // AuthStorage-injection branch (02-02).
+    ...(config.provider !== undefined ? { provider: config.provider } : {}),
+    ...(config.model !== undefined ? { model: config.model } : {}),
+    ...(config.resolvedCredential !== undefined
+      ? { resolvedCredential: config.resolvedCredential }
+      : {}),
   };
   return createSession(sessionOpts);
 };
@@ -251,7 +263,14 @@ export interface SpawnAgentOptions {
   readonly role: AgentRole;
   /** Task prompt body (the "what to do" sent into the agent's first turn). */
   readonly prompt: string;
-  /** Override the role's default model id. Optional (Phase 1 ignores it — see Open Question 5). */
+  /**
+   * Override the role's default model id. Optional (Phase 1 ignores it —
+   * see Open Question 5).
+   *
+   * Phase 2 — now threaded through `resolveSpawnAgentConfig` →
+   * `defaultSpawnSessionFactory` → `createSession`, but Phase 2 still leaves
+   * it unset per Risk 8 (Pi's ModelRegistry resolves the default).
+   */
   readonly model?: string;
   /**
    * Optional provider id (e.g., `'openai'`, `'anthropic'`,
@@ -265,8 +284,22 @@ export interface SpawnAgentOptions {
    * spawn hits this no-op path). Resolved by the caller (R2: cook's
    * `runSpawnWithFallback` threads the router-selected provider here);
    * spawn paths do not re-instantiate the router. G-R1 / G-M1.
+   *
+   * Phase 2 — `provider` is now ALSO the provider id the resolved
+   * credential is `.set()` for in `createSession`.
    */
   readonly provider?: string;
+  /**
+   * Phase 2 (Selection → Spawn Wiring) — the keychain-resolved credential
+   * for `provider`, supplied by the cook spawn callsite (02-04). Same shape
+   * as `SwtSessionOptions.resolvedCredential`. `secret` is a SECRET — never
+   * log or serialize it. Forwarded to `createSession` for in-memory
+   * AuthStorage injection. `undefined` ⇒ byte-identical to pre-Phase-2.
+   */
+  readonly resolvedCredential?: {
+    readonly authMode: AuthMode;
+    readonly secret: string;
+  };
   /** Override the role's default max-turns. Optional (defaults to `agent_max_turns[role]`). */
   readonly maxTurns?: number;
   /** Working directory the spawned session is rooted at. */
@@ -393,6 +426,15 @@ export function resolveSpawnAgentConfig(
     ephemeral: true,
     enableResultProtocol: true,
     taskId,
+    // Phase 2 — `provider`/`model`/`resolvedCredential` are copied straight
+    // from `opts` onto the resolved config (the fields are optional on
+    // `SwtSessionOptions`, which `SpawnAgentSessionConfig` extends). `provider`
+    // ALSO still feeds `readProviderOverlay` above — the overlay code path is
+    // unchanged; `provider` now does double duty (overlay key + credential-
+    // injection provider id).
+    provider: opts.provider,
+    model: opts.model,
+    resolvedCredential: opts.resolvedCredential,
     systemPrompt: finalSystemPrompt,
     tools,
     extensions,
