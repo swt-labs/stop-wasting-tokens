@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  AuthStorage,
   createAgentSession,
+  InMemoryAuthStorageBackend,
   SessionManager,
   type AgentSession,
   type AgentSessionEvent,
@@ -44,16 +46,69 @@ import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './type
  * `taskId`, the adapter writes a `task-context` custom session entry
  * when the field is set, so the extension (once wired) can pick it up
  * via `getTaskIdFromCtx`.
+ *
+ * **`SwtSessionOptions.provider` + `.resolvedCredential` handling
+ * (Phase 2 — Selection → Spawn Wiring):** when BOTH are present,
+ * `createSession` injects the keychain-resolved credential into Pi via an
+ * `AuthStorage` backed by `InMemoryAuthStorageBackend` — RAM-only, freshly
+ * constructed per spawn, NEVER Pi's plaintext `~/.pi/agent/auth.json`
+ * (research §6). When either is absent, the call is byte-identical to the
+ * pre-Phase-2 path (Pi falls through to its own `auth.json` + env-var
+ * resolution). Phase 2 only handles the `'api_key'` auth mode; the
+ * `'oauth'` branch is a clearly-commented Phase 4 stub. `SwtSessionOptions.model`
+ * is a model-id *string*, but Pi's `createAgentSession` takes a resolved
+ * `Model<any>`; Phase 2 never sets `opts.model` (Risk 8) and never forwards
+ * it — Pi's `ModelRegistry` resolves the provider's default model.
  */
 export async function createSession(opts: SwtSessionOptions): Promise<SwtSession> {
   const sessionManager = opts.ephemeral
     ? SessionManager.inMemory(opts.cwd)
     : SessionManager.create(opts.cwd);
 
-  const { session: agentSession } = await createAgentSession({
-    cwd: opts.cwd,
-    sessionManager,
-  });
+  let agentSession: AgentSession;
+  if (opts.resolvedCredential !== undefined && opts.provider !== undefined) {
+    // Phase 2 — inject the keychain-resolved credential via an in-memory
+    // AuthStorage. InMemoryAuthStorageBackend keeps the secret RAM-only —
+    // it is NEVER written to Pi's plaintext ~/.pi/agent/auth.json
+    // (research §6). A fresh backend is constructed per spawn.
+    const authStorage = AuthStorage.fromStorage(new InMemoryAuthStorageBackend());
+    if (opts.resolvedCredential.authMode === 'api_key') {
+      authStorage.set(opts.provider, {
+        type: 'api_key',
+        key: opts.resolvedCredential.secret,
+      });
+    } else {
+      // Phase 4 — oauth credential injection (a serialized OAuthCredentials
+      // blob -> AuthStorage OAuthCredential). Phase 2 never produces an
+      // 'oauth' resolvedCredential, so this branch is unreachable today; it
+      // throws rather than silently mis-injecting an oauth blob as an
+      // api_key. SWT-owns-refresh wiring lands in Phase 4.
+      throw new Error(
+        'createSession: oauth credential injection is not implemented until Phase 4',
+      );
+    }
+    // `model` is intentionally NOT forwarded: Pi's `createAgentSession`
+    // wants a resolved `Model<any>`, while `opts.model` is a model-id
+    // string. Phase 2 never sets `opts.model` (Risk 8); omitting it lets
+    // Pi's `ModelRegistry` resolve the chosen provider's default model. The
+    // model-picker fast-follow owns the id -> `Model` resolution.
+    const { session } = await createAgentSession({
+      cwd: opts.cwd,
+      sessionManager,
+      authStorage,
+    });
+    agentSession = session;
+  } else {
+    // Pre-Phase-2 path — byte-identical to the original code. No `auth`
+    // block configured, or the cook callsite resolved nothing (headless
+    // host, env-fallback empty): Pi falls through to its own auth.json +
+    // env-var resolution.
+    const { session } = await createAgentSession({
+      cwd: opts.cwd,
+      sessionManager,
+    });
+    agentSession = session;
+  }
 
   return buildSwtSessionFromPi(agentSession, opts);
 }
