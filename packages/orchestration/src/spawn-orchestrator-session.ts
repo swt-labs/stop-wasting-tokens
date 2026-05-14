@@ -72,7 +72,7 @@ import {
   type SwtSessionOptions,
   type ThinkingLevel,
 } from '@swt-labs/runtime';
-import type { TaskBrief, TaskResult } from '@swt-labs/shared';
+import type { AuthMode, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
 import { createCodingTools } from '@swt-labs/runtime';
@@ -130,6 +130,17 @@ const defaultOrchestratorSessionFactory: SpawnOrchestratorSessionFactory = async
     taskId: config.taskId,
     ...(config.meter !== undefined ? { meter: config.meter } : {}),
     ...(config.meterContext !== undefined ? { meterContext: config.meterContext } : {}),
+    // Phase 2 — forward provider/model/resolvedCredential to `createSession`
+    // using the same conditional-spread pattern as meter/meterContext so an
+    // absent field stays absent (not `undefined`-valued) and a no-credential
+    // spawn produces a `SwtSessionOptions` byte-identical to pre-Phase-2.
+    // This is the load-bearing link: it carries the resolved credential into
+    // `createSession`'s in-memory AuthStorage-injection branch (02-02).
+    ...(config.provider !== undefined ? { provider: config.provider } : {}),
+    ...(config.model !== undefined ? { model: config.model } : {}),
+    ...(config.resolvedCredential !== undefined
+      ? { resolvedCredential: config.resolvedCredential }
+      : {}),
   };
   return createSession(sessionOpts);
 };
@@ -160,8 +171,31 @@ export interface SpawnOrchestratorSessionOptions {
    * author the orchestrator overlay file; the plumbing is symmetric so
    * future phases can drop in `orchestrator-<provider>.md` without code
    * change.
+   *
+   * Phase 2 — `provider` is now ALSO the provider id the resolved
+   * credential is `.set()` for in `createSession`'s AuthStorage injection,
+   * not only the overlay-prompt key.
    */
   readonly provider?: string;
+  /**
+   * Phase 2 (Selection → Spawn Wiring) — the keychain-resolved credential
+   * for `provider`, supplied by the cook spawn callsite (Phase 2 plan 02-04
+   * via Phase 1's `resolveCredentialStore`). Same shape as
+   * `SwtSessionOptions.resolvedCredential`. `secret` is a SECRET — never log
+   * it, never serialize it. Forwarded to `createSession`, which injects it
+   * into Pi's in-memory AuthStorage. When `undefined`, the spawn is
+   * byte-identical to pre-Phase-2.
+   */
+  readonly resolvedCredential?: {
+    readonly authMode: AuthMode;
+    readonly secret: string;
+  };
+  /**
+   * Phase 2 — OPTIONAL model-id override. Risk 8: Phase 2 never sets this;
+   * it stays `undefined` so Pi's ModelRegistry resolves the provider default.
+   * Threaded purely so the model-picker fast-follow needs no contract change.
+   */
+  readonly model?: string;
   readonly taskId?: string;
   readonly sessionFactory?: SpawnOrchestratorSessionFactory;
   readonly hookRegistrations?: ReadonlyArray<HookRegistration>;
@@ -242,6 +276,14 @@ export function resolveOrchestratorSessionConfig(
     ephemeral: true,
     enableResultProtocol: true,
     taskId,
+    // Phase 2 — `provider`/`model`/`resolvedCredential` are copied straight
+    // from `opts` onto the resolved config (the fields are optional on
+    // `SwtSessionOptions`, which `SpawnOrchestratorSessionConfig` extends).
+    // `provider` ALSO still feeds `readProviderOverlay` above — the overlay
+    // code path is unchanged; `provider` now does double duty.
+    provider: opts.provider,
+    model: opts.model,
+    resolvedCredential: opts.resolvedCredential,
     systemPrompt: finalSystemPrompt,
     tools,
     extensions,
