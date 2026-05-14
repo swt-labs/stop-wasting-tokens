@@ -50,7 +50,17 @@ else
   fail "commands/config.md: canonical prefer_teams values table missing"
 fi
 
-if grep -Fq '| `prefer_teams` | string | `auto` | `always` / `auto` / `never` |' "$ROOT/README.md"; then
+# Phase 4 / Plan 04-03 (G-M4): the README config-reference table was reshaped by
+# commit 36a1efd. The prefer_teams row is now a 4-column
+# key | values | default | description table, not the old 5-column
+# key | type | default | values shape. The contract intent (canonical values
+# documented, default = auto, no when_parallel alias) is unchanged; the assertion
+# is reconciled to the current README table format.
+PREFER_TEAMS_ROW=$(grep -F '| `prefer_teams`' "$ROOT/README.md" || true)
+if [ -n "$PREFER_TEAMS_ROW" ] \
+  && printf '%s' "$PREFER_TEAMS_ROW" | grep -Fq '`auto`' \
+  && printf '%s' "$PREFER_TEAMS_ROW" | grep -Fq '`always`' \
+  && printf '%s' "$PREFER_TEAMS_ROW" | grep -Fq '`never`'; then
   pass "README.md: canonical prefer_teams settings row"
 else
   fail "README.md: canonical prefer_teams settings row missing"

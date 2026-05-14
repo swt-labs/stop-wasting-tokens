@@ -9,7 +9,6 @@ set -euo pipefail
 # - Every agent has an explicit permissionMode in frontmatter
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-README_FILE="$ROOT/README.md"
 
 PASS=0
 FAIL=0
@@ -48,40 +47,14 @@ check_not_contains() {
   fi
 }
 
-markdown_table_cell() {
-  local row="$1"
-  local cell_index="$2"
-  printf '%s\n' "$row" | awk -F'|' -v cell_index="$cell_index" '{ cell=$cell_index; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell); print cell }'
-}
-
 normalize_tool_list() {
   local list="$1"
   printf '%s\n' "$list" \
     | sed 's/^[^:]*:[[:space:]]*//' \
-    | sed 's/^Explicit allowlist:[[:space:]]*//' \
-    | sed 's/^Outside explicit allowlist:[[:space:]]*//' \
     | tr ',' '\n' \
     | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
     | awk 'NF { print }' \
     | LC_ALL=C sort
-}
-
-print_tool_lines() {
-  local list="$1"
-  [ -n "$list" ] && printf '%s\n' "$list"
-}
-
-compare_tool_lists() {
-  local label="$1"
-  local actual="$2"
-  local expected="$3"
-
-  if [ "$actual" = "$expected" ]; then
-    pass "$label"
-  else
-    fail "$label"
-    printf 'EXPECTED:\n%s\nACTUAL:\n%s\n' "$expected" "$actual"
-  fi
 }
 
 echo "=== Agent permissionMode Contract Verification ==="
@@ -117,36 +90,23 @@ for agent in $AGENTS; do
   fi
 done
 
-README_DEV_ROW=$(grep -F '| **Dev** |' "$README_FILE" || true)
-README_SCOUT_ROW=$(grep -F '| **Scout** |' "$README_FILE" || true)
-README_PERMISSION_LEGEND=$(grep -F '**Denied / Omitted**' "$README_FILE" || true)
+# NOTE (Phase 4 / Plan 04-03, G-M4 assertion-drift reconciliation):
+# The README permission table (Dev/Scout rows, `Denied / Omitted` legend, inherited-tools
+# language) was intentionally removed by commit 36a1efd (`docs(readme): purge pre-v3 traces`).
+# The AUTHORITATIVE source of permission contracts is the `disallowedTools` frontmatter in
+# `agents/swt-*.md` — which this test still validates directly below. The stale
+# README-table assertions have been removed here; re-authoring a README permission table
+# is a decision-gated production edit escalated to Plan 04-06.
 DEV_DESCRIPTION=$(head -15 "$ROOT/agents/swt-dev.md" | grep '^description:' || true)
 DEV_DISALLOWED_FRONTMATTER=$(head -15 "$ROOT/agents/swt-dev.md" | awk '/^disallowedTools:/ { sub(/^disallowedTools:[[:space:]]*/, ""); print }')
 SCOUT_DISALLOWED_FRONTMATTER=$(head -15 "$ROOT/agents/swt-scout.md" | awk '/^disallowedTools:/ { sub(/^disallowedTools:[[:space:]]*/, ""); print }')
-README_DEV_DENIED_CELL=$(markdown_table_cell "$README_DEV_ROW" 5)
-README_SCOUT_TOOLS_CELL=$(markdown_table_cell "$README_SCOUT_ROW" 4)
-README_SCOUT_DENIED_CELL=$(markdown_table_cell "$README_SCOUT_ROW" 5)
 DEV_DENIED_NORMALIZED=$(normalize_tool_list "$DEV_DISALLOWED_FRONTMATTER")
-README_DENIED_NORMALIZED=$(normalize_tool_list "$README_DEV_DENIED_CELL")
 SCOUT_DENIED_NORMALIZED=$(normalize_tool_list "$SCOUT_DISALLOWED_FRONTMATTER")
-README_SCOUT_DENIED_NORMALIZED=$(normalize_tool_list "$README_SCOUT_DENIED_CELL")
-
-if [[ -n "$README_DEV_ROW" ]]; then
-  pass "README: Dev permission row exists"
-else
-  fail "README: Dev permission row missing"
-fi
 
 if [ -n "$DEV_DISALLOWED_FRONTMATTER" ]; then
   pass "swt-dev.md: frontmatter declares disallowedTools denylist"
 else
   fail "swt-dev.md: frontmatter must declare disallowedTools denylist"
-fi
-
-if [[ -n "$README_SCOUT_ROW" ]]; then
-  pass "README: Scout permission row exists"
-else
-  fail "README: Scout permission row missing"
 fi
 
 if [ -n "$SCOUT_DISALLOWED_FRONTMATTER" ]; then
@@ -180,11 +140,6 @@ for must_not_deny in Bash Read Edit Write Glob Grep LSP Skill WebFetch WebSearch
   fi
 done
 
-check_not_contains "README: Dev row no longer pins an explicit allowlist" "$README_DEV_ROW" "Explicit allowlist:"
-check_not_contains "README: Dev row no longer says Outside explicit allowlist" "$README_DEV_ROW" "Outside explicit allowlist"
-check_contains "README: Dev row uses inherited tools language" "$README_DEV_ROW" "Inherited (all except denied)"
-compare_tool_lists "README: Dev denied tokens exactly match disallowedTools frontmatter" "$README_DENIED_NORMALIZED" "$DEV_DENIED_NORMALIZED"
-
 for required_denied in Edit NotebookEdit Task TaskCreate Agent TeamCreate TeamDelete; do
   if printf '%s\n' "$SCOUT_DENIED_NORMALIZED" | grep -Fxq "$required_denied"; then
     pass "swt-scout.md: disallowedTools bans $required_denied"
@@ -200,17 +155,6 @@ for must_not_deny in Bash Read Write Glob Grep LSP Skill WebFetch WebSearch; do
     pass "swt-scout.md: disallowedTools does not ban $must_not_deny"
   fi
 done
-
-check_contains "README: Scout row documents read-only Bash" "$README_SCOUT_TOOLS_CELL" "Bash is read-only live-validation only"
-compare_tool_lists "README: Scout denied tokens exactly match disallowedTools frontmatter" "$README_SCOUT_DENIED_NORMALIZED" "$SCOUT_DENIED_NORMALIZED"
-
-check_contains "README: permission legend mentions disallowedTools" "$README_PERMISSION_LEGEND" 'disallowedTools'
-
-if grep -Fq 'Dev, Debugger' "$README_FILE" && grep -Fq 'Full access. The ones you actually worry about.' "$README_FILE"; then
-  fail "README: permission model no longer groups Dev with full-access agents"
-else
-  pass "README: permission model no longer groups Dev with full-access agents"
-fi
 
 echo ""
 echo "TOTAL  ${PASS} PASS, ${FAIL} FAIL"
