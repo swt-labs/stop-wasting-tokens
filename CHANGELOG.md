@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-alpha.9 — 2026-05-15
+
+_Published to npm under the `next` dist-tag. One bug fix: clicking "Initialize SWT project" no longer blanks the screen when you've authorized a provider first._
+
+- **`fix(core): initProject gates on PROJECT.md, not the .swt-planning/ dir`.** If you authorized a provider via the dashboard's "Provider ▾" menu before naming your project, `POST /api/provider-auth` wrote `.swt-planning/config.json` (the auth block) — and then `POST /api/init` failed because the dir already existed (`AlreadyInitializedError` from core). The client's optimistic `is_initialized: true` flip rolled back, the `InitScreen` re-rendered with empty form fields, and only the orphaned `config.json` survived. The fix changes the "already initialized" gate from "the `.swt-planning/` dir exists" to "`PROJECT.md` exists" — the dir can legitimately pre-exist from a provider-auth save, and init now fills in the missing scaffolding (`PROJECT.md` + `STATE.md` + `phases/`) alongside the pre-existing `config.json` (which is preserved untouched). New regression test suite (`init-project.test.ts`, 4 cases) covers the bug scenario, the fresh-cwd happy path, the genuine "already initialized" rejection, and the updated error message.
+
 ## 3.0.0-alpha.8 — 2026-05-15
 
 _Published to npm under the `next` dist-tag. Two small dashboard removals on top of alpha.7 — a noisy warning banner and a buggy init-screen path._
