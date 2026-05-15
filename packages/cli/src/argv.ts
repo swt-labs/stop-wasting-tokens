@@ -48,6 +48,14 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       // commands/init.md drives. Used by CI smoke tests and snapshot fixtures
       // that don't have an LLM available. Plan 03-03 T5 (REQ-13).
       'skip-lead': { type: 'boolean', default: false },
+      // swt init --skip-scaffold: bypass the scaffold step (initProject) and
+      // run the Lead step only. Used by the dashboard's /api/init route
+      // (Phase 02 of milestone 08) which has already scaffolded the
+      // .swt-planning/ dir synchronously before spawning the subprocess —
+      // without this flag the subprocess would re-invoke initProject() and
+      // crash on AlreadyInitializedError. The two flags are mutually
+      // exclusive: --skip-lead + --skip-scaffold together would be a no-op.
+      'skip-scaffold': { type: 'boolean', default: false },
       // swt bench [--fixture <name>] [--provider <name>] [--cassettes <path>]
       // [--output <file>] [--milestone <id>]: TPAC reference benchmark.
       // Per M2 PR-21 / TDD2 §3.2 + §14.9.

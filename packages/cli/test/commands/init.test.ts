@@ -157,6 +157,27 @@ describe('@swt-labs/cli — initHandler (Plan 03-03 T5)', () => {
     expect(h.stdout()).toContain('Skipping');
   });
 
+  it('--skip-scaffold bypasses initProject and goes straight to the Lead (alpha.15 dashboard contract)', async () => {
+    const h = buildInitHarness();
+    const exit = await h.run(['my-proj'], { 'skip-scaffold': true });
+    expect(exit).toBe(0);
+    expect(h.initProjectImpl).not.toHaveBeenCalled();
+    expect(h.spawnAgentImpl).toHaveBeenCalledTimes(1);
+    expect(h.stdout()).toContain('Skipping scaffold');
+  });
+
+  it('--skip-scaffold does NOT crash when .swt-planning/ already exists (regression for Phase 02 double-scaffold bug)', async () => {
+    const h = buildInitHarness({
+      initProjectThrows: new AlreadyInitializedError('/tmp/swt-init-test-repo/.swt-planning'),
+    });
+    const exit = await h.run(['my-proj'], { 'skip-scaffold': true });
+    // With --skip-scaffold, initProject is never called, so the
+    // AlreadyInitializedError it would have thrown does not surface.
+    expect(exit).toBe(0);
+    expect(h.initProjectImpl).not.toHaveBeenCalled();
+    expect(h.spawnAgentImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('AlreadyInitializedError surfaces as USAGE_ERROR (regression — pre-Plan-03-03 behaviour)', async () => {
     const h = buildInitHarness({
       initProjectThrows: new AlreadyInitializedError('/tmp/swt-init-test-repo/.swt-planning'),

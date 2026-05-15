@@ -181,12 +181,16 @@ describe('POST /api/init subprocess wiring', () => {
     expect(res.status).toBe(200);
     expect(recorded).toHaveLength(1);
 
-    // Argv tail: ...prefixArgs, 'init', 'foo' — no --description.
+    // Argv tail: ...prefixArgs, 'init', 'foo', '--skip-scaffold' — no --description.
+    // alpha.15 — --skip-scaffold is mandatory; the route already scaffolded
+    // synchronously above the spawn, so the subprocess must skip its own
+    // initProject() call or it would crash on AlreadyInitializedError.
     const args = recorded[0]?.args ?? [];
     const initIdx = args.indexOf('init');
     expect(initIdx).toBeGreaterThanOrEqual(0);
-    expect(args.slice(initIdx)).toEqual(['init', 'foo']);
+    expect(args.slice(initIdx)).toEqual(['init', 'foo', '--skip-scaffold']);
     expect(args).not.toContain('--description');
+    expect(args).toContain('--skip-scaffold');
 
     expect(recorded[0]?.detached).toBe(true);
     expect(recorded[0]?.stdio).toEqual(['ignore', 'ignore', 'pipe']);
@@ -222,7 +226,14 @@ describe('POST /api/init subprocess wiring', () => {
 
     const args = recorded[0]?.args ?? [];
     const initIdx = args.indexOf('init');
-    expect(args.slice(initIdx)).toEqual(['init', 'foo', '--description', 'bar baz']);
+    // alpha.15 — `--skip-scaffold` is appended AFTER `--description <value>`.
+    expect(args.slice(initIdx)).toEqual([
+      'init',
+      'foo',
+      '--description',
+      'bar baz',
+      '--skip-scaffold',
+    ]);
   });
 
   it('emits init.start to JSONL + bus.publish before subprocess exit', async () => {
@@ -478,6 +489,53 @@ describe('POST /api/init subprocess wiring', () => {
     // touched.
     const eventsDir = path.join(tmpProjectRoot, '.swt-planning', '.events');
     expect(existsSync(eventsDir)).toBe(false);
+  });
+
+  it('mirrors subprocess stderr to JSONL as log.append rows (alpha.15 diagnostic capture)', async () => {
+    const recorded: RecordedSpawn[] = [];
+    const { spawnFn, children } = makeFakeSpawn(recorded);
+    const { bus } = makeFakeBus();
+
+    const app = new Hono();
+    registerInitRoute(app, {
+      projectRoot: tmpProjectRoot,
+      onInitialized: vi.fn(),
+      getSnapshot: () => null,
+      bus,
+      spawnFn: spawnFn as unknown as InitSpawnFn,
+      initProject: makeFakeInitProject(),
+    });
+
+    await app.request('http://x/api/init', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'foo' }),
+    });
+
+    // Pump two stderr lines through the fake child's data callback.
+    const child = children[0];
+    expect(child).toBeDefined();
+    for (const cb of child!.stderr.dataCallbacks) {
+      cb('swt init: failed to load commands/init.md\n');
+      cb('Error: ENOENT: no such file\n');
+    }
+
+    // Find the events JSONL written by the route.
+    const eventsDir = path.join(tmpProjectRoot, '.swt-planning', '.events');
+    const files = readdirSync(eventsDir).filter((f) => f.startsWith('init-'));
+    expect(files).toHaveLength(1);
+    const lines = readFileSync(path.join(eventsDir, files[0]!), 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    // Should contain the original init.start row PLUS two log.append rows
+    // for the two stderr lines we pumped.
+    const logRows = lines.filter((l) => l.type === 'log.append');
+    expect(logRows).toHaveLength(2);
+    expect(logRows[0]?.channel).toBe('stderr');
+    expect(logRows[0]?.line).toBe('swt init: failed to load commands/init.md');
+    expect(logRows[1]?.line).toBe('Error: ENOENT: no such file');
   });
 });
 

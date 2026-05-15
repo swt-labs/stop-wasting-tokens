@@ -178,20 +178,61 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
       if (spawnFn) {
         const { command, prefixArgs } = resolveSwtCommand();
         const extraArgs = parsed.data.description ? ['--description', parsed.data.description] : [];
-        const child = spawnFn(command, [...prefixArgs, 'init', parsed.data.name, ...extraArgs], {
-          cwd: opts.projectRoot,
-          env: {
-            ...process.env,
-            SWT_SESSION_ID: sessionId,
-            SWT_PLANNING_ROOT: path.join(opts.projectRoot, PLANNING_DIR),
+        // alpha.15 — `--skip-scaffold` is mandatory: the route already
+        // scaffolded `.swt-planning/` synchronously via `initProjectFn()`
+        // above, so the subprocess MUST NOT re-invoke initProject()
+        // (which would throw AlreadyInitializedError and exit 1). The CLI
+        // honors --skip-scaffold by jumping straight to the Lead spawn.
+        const child = spawnFn(
+          command,
+          [...prefixArgs, 'init', parsed.data.name, ...extraArgs, '--skip-scaffold'],
+          {
+            cwd: opts.projectRoot,
+            env: {
+              ...process.env,
+              SWT_SESSION_ID: sessionId,
+              SWT_PLANNING_ROOT: path.join(opts.projectRoot, PLANNING_DIR),
+            },
+            detached: true,
+            // stdout ignored; stderr piped so we can mirror the
+            // subprocess's error output to the events JSONL — without this
+            // mirror, fast-exit failures show up as opaque
+            // INIT_SPAWN_FAILED entries with no diagnostic context.
+            stdio: ['ignore', 'ignore', 'pipe'],
           },
-          detached: true,
-          // stdio matches cook-start.ts: stderr piped for diagnostic
-          // capture in a future plan; stdout ignored (init's structured
-          // output flows through its own JSONL via emitCookEvent-style
-          // emission once the Lead is wired up to write events).
-          stdio: ['ignore', 'ignore', 'pipe'],
-        });
+        );
+
+        // alpha.15 — pipe child stderr into the events JSONL as `log.append`
+        // rows so dashboard users can see WHY the subprocess crashed.
+        // Mirrors cook-start.ts's pattern. Lines are buffered + flushed on
+        // \n so partial writes don't fragment a single error message.
+        const childWithStderr = child as { stderr?: NodeJS.ReadableStream | null };
+        if (childWithStderr.stderr) {
+          let stderrBuf = '';
+          childWithStderr.stderr.on('data', (chunk: Buffer | string) => {
+            stderrBuf += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+            let nl: number;
+            while ((nl = stderrBuf.indexOf('\n')) >= 0) {
+              const line = stderrBuf.slice(0, nl);
+              stderrBuf = stderrBuf.slice(nl + 1);
+              if (line.length === 0) continue;
+              try {
+                mkdirSync(daemonEventsDir, { recursive: true });
+                appendFileSync(
+                  daemonEventsPath,
+                  JSON.stringify({
+                    type: 'log.append',
+                    ts: new Date().toISOString(),
+                    channel: 'stderr',
+                    line,
+                  }) + '\n',
+                );
+              } catch {
+                // best-effort
+              }
+            }
+          });
+        }
 
         // 3. Fast-exit watchdog. Mirrors cook-start.ts: child.once('exit')
         //    fires when the process actually exits — NOT a setTimeout

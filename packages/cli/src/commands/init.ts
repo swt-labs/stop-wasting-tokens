@@ -44,7 +44,9 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
     // ── Step 1: bootstrap (unchanged from pre-Plan-03-03 behaviour). ──
     const name = parsed.positionals[0];
     if (name === undefined || name.trim().length === 0) {
-      io.stderr.write('Usage: swt init <name> [--description "..."] [--skip-lead]\n');
+      io.stderr.write(
+        'Usage: swt init <name> [--description "..."] [--skip-lead] [--skip-scaffold]\n',
+      );
       return EXIT.USAGE_ERROR;
     }
     const flagDescription = parsed.flags.description;
@@ -53,29 +55,39 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
       typeof flagDescription === 'string' && flagDescription.length > 0
         ? flagDescription
         : positionalDescription;
+    const skipScaffold = parsed.flags['skip-scaffold'] === true;
 
+    // alpha.15 — `--skip-scaffold` is the dashboard's Phase-02 contract: the
+    // route already scaffolded `.swt-planning/` synchronously before spawning
+    // this subprocess, so re-invoking `initProject()` would crash on
+    // `AlreadyInitializedError`. Skip step 1 and go straight to the Lead.
     let scaffoldRoot: string;
-    try {
-      const result = initProjectFn({
-        cwd: io.cwd,
-        name: name.trim(),
-        ...(description !== undefined && description.length > 0 ? { description } : {}),
-      });
-      scaffoldRoot = result.root;
-      io.stdout.write(`✓ Initialized .swt-planning/ at ${result.root}\n`);
-      for (const file of result.files) {
-        io.stdout.write(`  • ${file}\n`);
+    if (skipScaffold) {
+      scaffoldRoot = io.cwd;
+      io.stdout.write(`[--skip-scaffold] Skipping scaffold; cwd=${io.cwd}.\n`);
+    } else {
+      try {
+        const result = initProjectFn({
+          cwd: io.cwd,
+          name: name.trim(),
+          ...(description !== undefined && description.length > 0 ? { description } : {}),
+        });
+        scaffoldRoot = result.root;
+        io.stdout.write(`✓ Initialized .swt-planning/ at ${result.root}\n`);
+        for (const file of result.files) {
+          io.stdout.write(`  • ${file}\n`);
+        }
+      } catch (err: unknown) {
+        if (err instanceof AlreadyInitializedError) {
+          io.stderr.write(
+            `swt init: .swt-planning/ already exists at ${io.cwd}. Run \`swt vibe\` to continue, or remove the dir to re-initialize.\n`,
+          );
+          return EXIT.USAGE_ERROR;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        io.stderr.write(`swt init: failed to scaffold .swt-planning/: ${message}\n`);
+        return EXIT.RUNTIME_ERROR;
       }
-    } catch (err: unknown) {
-      if (err instanceof AlreadyInitializedError) {
-        io.stderr.write(
-          `swt init: .swt-planning/ already exists at ${io.cwd}. Run \`swt vibe\` to continue, or remove the dir to re-initialize.\n`,
-        );
-        return EXIT.USAGE_ERROR;
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      io.stderr.write(`swt init: failed to scaffold .swt-planning/: ${message}\n`);
-      return EXIT.RUNTIME_ERROR;
     }
 
     // ── Step 2: skip-lead escape-hatch for CI / smoke / snapshot tests. ──
