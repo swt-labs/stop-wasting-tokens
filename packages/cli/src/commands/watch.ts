@@ -128,6 +128,7 @@ function readRecentActivityDefault(cwd: string): readonly RecentCommit[] {
     const out = execSync('git log -3 --pretty=format:%H%x09%s%x09%cI', {
       cwd,
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     return out
       .split('\n')

@@ -1936,9 +1936,18 @@ function deriveTaskId(routing: RoutingDecision): string {
  * so emission falls back gracefully — the resume probe treats absence
  * the same as "task ran but no commit observed".
  */
-function tryReadHeadCommit(cwd: string, execSyncFn: typeof nodeExecSync): string | undefined {
+export function tryReadHeadCommit(
+  cwd: string,
+  execSyncFn: typeof nodeExecSync,
+): string | undefined {
   try {
-    return execSyncFn('git log -1 --format=%H', { cwd, encoding: 'utf8' }).toString().trim();
+    return execSyncFn('git log -1 --format=%H', {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+      .toString()
+      .trim();
   } catch {
     return undefined;
   }
