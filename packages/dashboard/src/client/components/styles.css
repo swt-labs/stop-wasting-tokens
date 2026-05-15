@@ -1,3 +1,25 @@
+/* Full-viewport reset. The dashboard is a fixed-to-viewport app: `.app-shell`
+   is `height: 100vh` and `.app-body` is `overflow: hidden`, so each panel
+   scrolls its OWN content and the page itself must never scroll. Without
+   this reset the browser-default `body { margin: 8px }` pushed the 100vh
+   shell partly off-screen, so the whole page scrolled and the bottom row of
+   cards fell below the fold. `html`/`body`/`#app` carry no margin and a full
+   100% height chain; `body { overflow: hidden }` guarantees no page scroll. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+}
+
 .app-shell {
   display: grid;
   grid-template-rows: 48px 1fr;
