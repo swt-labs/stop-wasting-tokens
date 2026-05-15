@@ -1268,11 +1268,16 @@ export function createDashboardStore(
       // populated with a provisional empty id closes the race window
       // between scaffold-success and the first SSE frame.
       const sessionIdFromResponse = (response as { session_id?: string }).session_id ?? '';
+      // Solid's setState with an object argument merges into the existing
+      // store entry — explicitly write the optional fields (description /
+      // errorMessage) so a re-submit after a prior init.error doesn't leak
+      // the previous error message or description onto the new attempt.
       setState('initSession', {
         session_id: sessionIdFromResponse,
         status: 'detecting',
         name: trimmedName,
-        ...(trimmedDesc.length > 0 ? { description: trimmedDesc } : {}),
+        description: trimmedDesc.length > 0 ? trimmedDesc : undefined,
+        errorMessage: undefined,
         started_at: new Date().toISOString(),
       });
       appendLogLine(`[ok] Initialized .swt-planning/ — type 'help' for available subcommands.`);
