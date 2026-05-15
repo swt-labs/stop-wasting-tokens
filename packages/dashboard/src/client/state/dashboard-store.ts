@@ -57,6 +57,31 @@ export interface DashboardErrorEntry {
   ts: string;
 }
 
+/**
+ * Plan 03-01 (milestone 08, Phase 03) — In-flight init Lead lifecycle. Set by
+ * `initProject` after a successful `POST /api/init` (status='detecting'),
+ * driven by the `init.*` SSE events from Phase 02's `/api/init` route, and
+ * cleared either by `init.complete` (success path → snapshot.is_initialized
+ * flips true; InitScreen unmounts via App.tsx's `<Show when={isInitialized()}>`)
+ * or by the catch path in `initProject` (scaffold 4xx). `init.error` keeps
+ * the slot SET with `status='error'` + `errorMessage` so InitScreen can
+ * surface the failure inline — only a fresh `initProject` call resets it.
+ *
+ * Dedicated slot (NOT a reuse of `activeSessionId`) — cook's pause/resume/
+ * cancel controls POST `/api/cook/:sessionId/control`; there is no
+ * `/api/init/:id/control` route, so leaking an init session into
+ * `activeSessionId` would expose unusable controls.
+ */
+export interface InitSessionState {
+  session_id: string;
+  status: 'detecting' | 'complete' | 'error';
+  name: string;
+  description?: string;
+  errorMessage?: string;
+  /** ISO-8601 datetime captured when `initProject` set the slot. */
+  started_at: string;
+}
+
 export interface LogLine {
   id: string;
   ts: string;
@@ -239,6 +264,16 @@ export interface DashboardState {
    * branch ignores any event whose `flow_id` does not match this flow.
    */
   oauthFlow: OAuthFlowState | null;
+  /**
+   * Plan 03-01 (milestone 08, Phase 03) — the in-flight init Lead lifecycle,
+   * or `null` when no init is running. Set by `initProject` after a
+   * successful scaffold POST, transitioned by the Phase 02 `init.*` SSE
+   * events. InitScreen renders a "Detecting stack…" overlay when
+   * `status === 'detecting'` and surfaces `errorMessage` when
+   * `status === 'error'`. See `InitSessionState` for the field semantics
+   * and lifecycle.
+   */
+  initSession: InitSessionState | null;
 }
 
 export interface DashboardActions {
@@ -407,6 +442,7 @@ export function createDashboardStore(
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
     oauthFlow: null,
+    initSession: null,
   });
 
   // Plan 04-03 T1 — pending clear timer scheduled by `cook.completion`. Held
@@ -723,7 +759,74 @@ export function createDashboardStore(
     }
   };
 
+  /**
+   * Plan 03-01 (milestone 08, Phase 03) — fold the three `init.*` SSE bridge
+   * events (Phase 02) into `state.initSession` + `recentLogLines` + (on
+   * error) `state.errors`.
+   *
+   *   - `init.start` appends a defensive `[init]` log line and adopts the
+   *     server-issued `session_id` onto `initSession` (the post-init HTTP
+   *     response strips unknowns via Zod, so this event is the canonical
+   *     source of the real id). Status stays at 'detecting'.
+   *   - `init.complete` flips `snapshot.is_initialized = true` (the actual
+   *     SSE signal that the Lead has finished — replaces the old optimistic
+   *     flip the initProject action used to do), clears `initSession`
+   *     back to null so InitScreen unmounts, and appends a bootstrap-
+   *     complete log line.
+   *   - `init.error` sets `initSession.status='error'` + `errorMessage`
+   *     and pushes to `state.errors` so the existing InitScreen error
+   *     paragraph surfaces the failure. Does NOT flip is_initialized
+   *     and does NOT clear `initSession` — the user can read the error
+   *     inline and resubmit (the resubmit `initProject` call replaces
+   *     the slot).
+   */
+  const handleInitEvent = (
+    evt: Extract<SnapshotEvent, { type: `init.${string}` }>,
+  ): void => {
+    switch (evt.type) {
+      case 'init.start': {
+        appendLogLine('[init] Lead detecting stack…');
+        // Adopt the server-issued session_id (the canonical id — postInit's
+        // Zod response parse strips unknown fields, so initProject can only
+        // set a provisional empty id at submit time). Do NOT mutate status:
+        // already 'detecting' from initProject. Guarded against a stray
+        // init.start arriving with no initSession set (defensive — should
+        // never happen because initProject runs first).
+        if (state.initSession) {
+          setState('initSession', 'session_id', evt.session_id);
+        }
+        return;
+      }
+      case 'init.complete': {
+        setState('snapshot', (prev) =>
+          prev ? { ...prev, is_initialized: true } : prev,
+        );
+        setState('initSession', null);
+        appendLogLine('[init] Lead bootstrap complete');
+        return;
+      }
+      case 'init.error': {
+        // Keep initSession set so InitScreen can surface the error and the
+        // user can resubmit without losing their typed name/description
+        // (Solid never unmounts the component because is_initialized stays
+        // false). Guarded: an init.error with no active initSession is a
+        // server-side bug, but pushError still fires so the developer sees
+        // it.
+        if (state.initSession) {
+          setState('initSession', 'status', 'error');
+          setState('initSession', 'errorMessage', evt.message);
+        }
+        pushError(`${evt.code}: ${evt.message}`);
+        return;
+      }
+    }
+  };
+
   const applyEvent = (evt: SnapshotEvent): void => {
+    if (evt.type.startsWith('init.')) {
+      handleInitEvent(evt as Extract<SnapshotEvent, { type: `init.${string}` }>);
+      return;
+    }
     if (evt.type.startsWith('cook.')) {
       handleCookEvent(evt as CookEvent);
       return;
