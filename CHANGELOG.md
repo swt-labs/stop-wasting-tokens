@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-alpha.7 — 2026-05-15
+
+_Published to npm under the `next` dist-tag. Dashboard UI polish on top of alpha.6 — surfacing the multi-provider vendor selector where users actually look for it, a viewport-reset fix that kept the page from scrolling below the fold, and the project/milestone summary card promoted to a proper resizable panel._
+
+- **Vendor selector surfaced.** The multi-provider `ProviderAuthPanel` (API key + OAuth — built in the Multi-Provider milestone) was buried as the 5th tools-column card. It now lives in a dedicated **"Provider ▾"** TopBar dropdown next to "Options ▾", and is completely new on the greenfield `InitScreen` as an **optional + skippable** provider / auth-mode section with full init → persist wiring (init scaffolds first; then the choice is persisted — API key → keychain + `auth` config block, OAuth → kicks off the flow). The redundant tools-column panel is removed. The dropdown popover mechanics share a new `<Popover>` primitive extracted from `OptionsMenu`, used by both `OptionsMenu` and the new `ProviderMenu`.
+- **Full-viewport reset.** The dashboard is a fixed-to-viewport app (`.app-shell` is `100vh`, `.app-body` is `overflow: hidden`, every panel scrolls its own content) — but no `html` / `body` / `#app` rules existed at all, so the browser-default `body { margin: 8px }` pushed the `100vh` shell partly off-screen and the whole page scrolled, dropping the bottom row of cards below the fold. Add the reset: zero margin, full 100% height chain, `body { overflow: hidden }` — the shell fills the viewport exactly.
+- **All 6 tools-column cards now resize proportionally.** `ProjectStatePanel` was a fixed card sitting above the 5-panel resizable group; folded into the inner `<Resizable>` as the 1st panel with a handle. Tools column is now 6 resizable panels: **ProjectState → Config → Doctor → Detect-Phase → Update → UserNotes**. Resize handles got a far more discoverable affordance — thicker visible bar at rest, hover / active scale + glow, and a `::after` overlay extending the hit area + cursor-change (`row-resize` / `col-resize`) zone 4px past each edge so the grab zone is ~16px wide while the layout footprint is unchanged. `layout-storage` schema bumped `v4` → `v5`.
+
 ## 3.0.0-alpha.6 — 2026-05-15
 
 _Published to npm under the `next` dist-tag. The prerelease that carries the post-v3.0 feature work — see the **Dashboard Options Menu + UX improvements**, **Multi-Provider Vendor Selection + Auth**, and **Phase G** subsections below — plus a round of release-pipeline hardening that paid down CI debt accumulated across a long run of commits that had never been exercised by CI._
