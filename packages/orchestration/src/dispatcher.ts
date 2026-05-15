@@ -1,5 +1,5 @@
 import { createSession, type SwtSession, type SwtSessionOptions } from '@swt-labs/runtime';
-import type { MeterContext, TokenMeter } from '@swt-labs/shared';
+import type { MeterContext, SwtEvent, TokenMeter } from '@swt-labs/shared';
 
 import type { ClaimRegistry } from './claim-registry.js';
 import {
@@ -8,6 +8,19 @@ import {
   type PiSessionEntryLike,
 } from './result-harvest.js';
 import type { Dispatcher, TaskBrief, TaskResult } from './types.js';
+
+/**
+ * Hard ceiling on the `summary` field of a failed TaskResult produced from
+ * a `session.prompt()` throw. Defends the JSONL event channel from multi-KB
+ * provider error payloads (e.g., stack-trace dumps) per Phase 02 / Plan
+ * 02-01's Decisions block. 500 chars covers the relevant first line + a
+ * short suffix without truncating mid-token in any expected format.
+ */
+const FAILED_SUMMARY_MAX_LEN = 500;
+
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
 
 /**
  * Session factory contract — extracted so tests can inject a mock without
@@ -87,17 +100,22 @@ export interface CreateDispatcherOptions {
 /**
  * Sequential dispatcher.
  *
- * PR-03 shipped a stub: it created a session, didn't prompt, returned a
- * synthetic success, and disposed the session. PR-09 (this PR) adds the
- * harvest surface: callers who wire a real Pi session (or replay a
- * recorded cassette) can switch `harvestStrategy` from `'stub'` to
- * `{ kind: 'entries' | 'file', ... }` so the dispatcher reads + validates
- * the `swt-task-result` custom session entry per ADR-002. Real prompting
- * + agent loop wiring lands in M2 PR-12 + PR-13.
+ * PR-03 shipped a stub that created a session, didn't prompt, returned a
+ * synthetic success, and disposed the session. PR-09 added the harvest
+ * surface (`'entries' | 'file'`) so callers driving a real Pi session (or
+ * replaying a recorded cassette) could validate the `swt-task-result`
+ * custom entry per ADR-002. Phase 02 / Plan 02-01 closes the loop: the
+ * default production path now calls `await session.prompt(...)`, subscribes
+ * to `TASK_TOKEN_USAGE` events to accumulate per-turn token deltas, and
+ * surfaces them on the returned `TaskResult.usage`. `'entries'` and
+ * `'file'` strategies are unchanged — they remain test-injection seams.
  *
  * The session lifecycle (`try/finally session.dispose()`) is real today
  * and survives the harvest path — failures during harvest don't leak a
- * live session handle.
+ * live session handle. A throw from `session.prompt()` is converted into
+ * a structured `{status: 'failed'}` TaskResult so cook.ts's existing
+ * failed-status pipeline fires (task_fail + completion-failed) instead of
+ * the dispatcher re-throwing past the caller's outer code.
  */
 export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher {
   const factory: SessionFactory = opts.sessionFactory ?? createSession;
@@ -144,19 +162,68 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
         ? { meterContext: { ...meterContext, task_id: task.taskId } }
         : {}),
     });
+    // Phase 02 / Plan 02-01 — production path: prompt + harvest
+    // TASK_TOKEN_USAGE deltas. Test paths (`'entries'`, `'file'`) stay
+    // declarative and run unchanged. The legacy no-prompt seam (no
+    // `promptContext.prompt`) keeps returning synthetic success so the
+    // existing `dispatcher.test.ts` shape needs no edits.
+    let unsubscribeUsage: (() => void) | undefined;
     try {
-      // PR-09: session.prompt() is still a no-op (createSession ships a
-      // mock until M2 swaps in real Pi wiring). The harvest path runs
-      // anyway when the strategy is non-stub — that path is exercised by
-      // the integration test in PR-09 via injected mock entries.
       if (strategy === 'stub') {
+        const promptText = extractPromptText(task);
+        if (promptText === undefined) {
+          // Legacy no-prompt test-seam path — NOT a production code path.
+          // Existing `dispatcher.test.ts` cases dispatch TaskBriefs without
+          // `promptContext`; preserving the synthetic success here keeps
+          // those tests green without coupling them to the prompt+harvest
+          // shape. Production callers (spawn-orchestrator-session,
+          // spawn-agent) always populate `promptContext.prompt`.
+          return {
+            schema_version: 1,
+            task_id: task.taskId,
+            status: 'success',
+            summary: '(dispatcher: legacy no-prompt test seam — promptContext.prompt absent)',
+            files_changed: [],
+            must_haves: [],
+          };
+        }
+        const accumulated = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+        unsubscribeUsage = session.subscribe((event: SwtEvent) => {
+          if (event.type !== 'TASK_TOKEN_USAGE') return;
+          accumulated.input += event.usage.input;
+          accumulated.output += event.usage.output;
+          accumulated.cacheRead += event.usage.cacheRead;
+          accumulated.cacheWrite += event.usage.cacheWrite;
+        });
+        try {
+          await session.prompt(promptText);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          return {
+            schema_version: 1,
+            task_id: task.taskId,
+            status: 'failed',
+            summary: truncate(
+              `session.prompt() threw: ${message}` || 'session.prompt() threw',
+              FAILED_SUMMARY_MAX_LEN,
+            ),
+            files_changed: [],
+            must_haves: [],
+          };
+        }
         return {
           schema_version: 1,
           task_id: task.taskId,
           status: 'success',
-          summary: '(M1 PR-09 stub dispatcher — real prompt wiring lands in M2 PR-12)',
+          summary: 'orchestrator session completed via dispatcher.prompt()',
           files_changed: [],
           must_haves: [],
+          usage: {
+            input_tokens: accumulated.input,
+            output_tokens: accumulated.output,
+            ...(accumulated.cacheRead > 0 ? { cache_read_tokens: accumulated.cacheRead } : {}),
+            ...(accumulated.cacheWrite > 0 ? { cache_write_tokens: accumulated.cacheWrite } : {}),
+          },
         };
       }
       if (strategy.kind === 'entries') {
@@ -171,6 +238,14 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
       assertTaskIdMatch(result.task_id, task.taskId);
       return result;
     } finally {
+      if (unsubscribeUsage !== undefined) {
+        try {
+          unsubscribeUsage();
+        } catch {
+          // Defensive: a misbehaving session subscribe() implementation
+          // must not stall session disposal. Swallow + continue.
+        }
+      }
       session.dispose();
       // Release claims AFTER the session disposes so the slot stays
       // locked through any harvest-side cleanup. Idempotent — safe
@@ -192,6 +267,23 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
       return results;
     },
   };
+}
+
+/**
+ * Pull the orchestrator's first-user-prompt text out of `TaskBrief.promptContext`.
+ *
+ * `promptContext` is typed as `Readonly<Record<string, unknown>>` (deliberately
+ * opaque — the shared `TaskBrief` doesn't want to import callsite-specific
+ * shapes), so we narrow defensively. Returns `undefined` when the brief
+ * carries no usable prompt — the dispatcher then falls back to the legacy
+ * no-prompt test-seam path.
+ */
+function extractPromptText(task: TaskBrief): string | undefined {
+  const ctx = task.promptContext;
+  if (ctx === undefined) return undefined;
+  const candidate = (ctx as { prompt?: unknown }).prompt;
+  if (typeof candidate !== 'string') return undefined;
+  return candidate.length > 0 ? candidate : undefined;
 }
 
 function assertTaskIdMatch(harvestedId: string, dispatchedId: string): void {

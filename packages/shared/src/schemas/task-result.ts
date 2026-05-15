@@ -37,6 +37,19 @@ export const TaskResultSchema = z.object({
   ),
   blockers: z.array(z.string()).optional(),
   notes: z.string().optional(),
+  // Phase 02 / Plan 02-01 — per-dispatch token accumulation. Populated by
+  // the dispatcher when `session.prompt()` runs (production path) by
+  // summing per-turn TASK_TOKEN_USAGE deltas. Absent on the legacy
+  // no-prompt test seam and on harvested envelopes that predate this
+  // field. Cache fields are provider-dependent.
+  usage: z
+    .object({
+      input_tokens: z.number().int().nonnegative(),
+      output_tokens: z.number().int().nonnegative(),
+      cache_read_tokens: z.number().int().nonnegative().optional(),
+      cache_write_tokens: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 export type TaskResultSchemaT = z.infer<typeof TaskResultSchema>;

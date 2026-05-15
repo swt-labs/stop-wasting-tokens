@@ -17,6 +17,15 @@ export interface TaskBrief {
  * Result envelope returned by `dispatcher.dispatch()`. Matches the shape of
  * `TaskResultSchema` in `shared/src/schemas/task-result.ts` (Zod schema is
  * the runtime validator; this type is its TS surface for compile-time use).
+ *
+ * Phase 02 / Plan 02-01 — `usage?` added as an optional per-dispatch token
+ * accumulation field. The dispatcher's production path (`session.prompt()`
+ * wired) populates it by subscribing to `TASK_TOKEN_USAGE` events and
+ * summing per-turn deltas. `cook.ts` reads this into the
+ * `cook.agent_result` event payload, replacing the prior hardcoded
+ * `{input_tokens: 0, output_tokens: 0}` sentinel. Cache fields are
+ * provider-dependent (Anthropic surfaces them; OpenAI doesn't always) so
+ * they remain optional even when the parent `usage` block is present.
  */
 export interface TaskResult {
   readonly schema_version: 1;
@@ -34,6 +43,12 @@ export interface TaskResult {
   }>;
   readonly blockers?: ReadonlyArray<string>;
   readonly notes?: string;
+  readonly usage?: {
+    readonly input_tokens: number;
+    readonly output_tokens: number;
+    readonly cache_read_tokens?: number;
+    readonly cache_write_tokens?: number;
+  };
 }
 
 /**
