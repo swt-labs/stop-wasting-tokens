@@ -1436,6 +1436,31 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
     const { args: argsAfterRef, refHash } = extractRefTag(rawArgs);
     const { args: argsAfterTodo, phaseTarget } = resolveTodoNumber(argsAfterRef, io.cwd);
 
+    // 2.5. Phase 02 / Plan 02-01 — read the dashboard cook bar's pre-seed
+    //      idea ONCE per cook invocation. Mirrors loadCookConfig's
+    //      graceful-fail discipline: absent file, unreadable file, or
+    //      whitespace-only contents all degrade to SEED_IDEA_SENTINEL. The
+    //      value is captured into a single `seedIdea` local that every
+    //      RunModeContext builder closes over. cook.md's Scope Step 2
+    //      branches textually on the sentinel literal — TS does NOT decide
+    //      whether to skip "What do you want to build?" (per 02-CONTEXT.md
+    //      separation of concerns).
+    const seedPath = resolvePath(io.cwd, '.swt-planning', '.pending-scope-idea.txt');
+    let seedIdea: string = SEED_IDEA_SENTINEL;
+    if (existsSyncFn(seedPath)) {
+      try {
+        const trimmed = readFileSyncFn(seedPath, 'utf8').trim();
+        if (trimmed.length > 0) {
+          seedIdea = trimmed;
+          // Length-only log — never echo the user-typed text to avoid
+          // accidentally surfacing in-flight ideas in logs / transcripts.
+          io.stderr.write(`[cook] seed idea loaded (${seedIdea.length} chars)\n`);
+        }
+      } catch {
+        // best-effort: any read failure falls back to the sentinel.
+      }
+    }
+
     // 3. Load config (auto_uat + QA gate overrides + orchestrator maxTurns).
     const config = loadCookConfig(io.cwd, {
       readFileSync: readFileSyncFn,
@@ -1474,7 +1499,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           phaseDetectOutput: '',
           refHash,
           startTs,
-          seedIdea: SEED_IDEA_SENTINEL,
+          seedIdea,
         },
         { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
       );
@@ -1521,7 +1546,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             phaseDetectOutput: '',
             refHash,
             startTs,
-            seedIdea: SEED_IDEA_SENTINEL,
+            seedIdea,
           },
           {
             askUserFn,
@@ -1636,7 +1661,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             phaseDetectOutput: '',
             refHash,
             startTs,
-            seedIdea: SEED_IDEA_SENTINEL,
+            seedIdea,
           },
           {
             askUserFn,
@@ -1669,7 +1694,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         phaseDetectOutput: stringifyPhaseDetect(state),
         refHash,
         startTs,
-        seedIdea: SEED_IDEA_SENTINEL,
+        seedIdea,
       },
       { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
     );
