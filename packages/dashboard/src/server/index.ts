@@ -39,9 +39,11 @@ import { registerSnapshotRoute } from './routes/snapshot.js';
 import { registerTpacRoute } from './routes/tpac.js';
 import { registerUatCheckpointRoute } from './routes/uat-checkpoint.js';
 import { registerUpdateRoute } from './routes/update.js';
+import { createUsageRollupRoute } from './routes/usage-rollup.js';
 import { registerUserNotesRoute } from './routes/user-notes.js';
 import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
+import { createUsageAggregator, type UsageAggregator } from './usage-aggregator.js';
 
 export interface DashboardServer {
   app: Hono;
@@ -107,6 +109,7 @@ export function createApp(
   snapshotter: Snapshotter | null;
   projectRoot: string | null;
   budgetWiring: BudgetWiring | null;
+  usageAggregator: UsageAggregator;
 } {
   const bus = opts.bus ?? createEventBus();
   const startedAt = opts.startedAt ?? Date.now();
@@ -243,6 +246,14 @@ export function createApp(
   // with cache-hits + budget routes — registers with a `() => null`
   // placeholder until the methodology layer wires a live meter.
   registerProviderCostRoute(app, () => null);
+  // Plan 02-01 T1 (milestone 08, Phase 02): instantiate Phase 01's
+  // local rolling-usage aggregator + mount `GET /api/usage-rollup`.
+  // The aggregator subscribes to the EventBus on construction
+  // (cook.agent_result fan-in → snapshot.usage_rollup partial) and
+  // owns its own cleanup via `usageAggregator.close()`, called in
+  // `createServer`'s close callback below.
+  const usageAggregator = createUsageAggregator({ bus });
+  app.route('/', createUsageRollupRoute({ aggregator: usageAggregator }));
   // Plan 01-05 (Phase 1): swt:askUser dashboard-mediated prompt routes.
   // POST /api/prompts/publish (orchestrator → dashboard),
   // POST /api/prompts/:id/respond (dashboard → orchestrator response),
@@ -285,7 +296,7 @@ export function createApp(
   // request hitting /api/vibe* now returns 404 from the Hono catch-all.
   // Regression test: packages/dashboard/test/vibe-shim-removed.test.ts.
   registerSpaRoutes(app);
-  return { app, bus, snapshotter, projectRoot, budgetWiring };
+  return { app, bus, snapshotter, projectRoot, budgetWiring, usageAggregator };
 }
 
 /**
@@ -394,7 +405,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
   // Plan 04-05 T1 (R7): the v2 `agentFactory` plumbing was gutted alongside
   // the rest of the `packages/dashboard/src/server/vibe/` subtree. The
   // only supported orchestrator entry is `swt cook` via /api/cook/start.
-  const { app, bus, snapshotter, budgetWiring } = createApp({
+  const { app, bus, snapshotter, budgetWiring, usageAggregator } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
     ...(authToken !== undefined ? { authToken } : {}),
@@ -419,6 +430,9 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
       if (budgetWiring !== null) {
         await budgetWiring.dispose();
       }
+      // Plan 02-01 T1: tear down the local usage aggregator's bus
+      // subscription. Synchronous; adjacent to budgetWiring.dispose().
+      usageAggregator.close();
       if (snapshotter) await snapshotter.close();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
