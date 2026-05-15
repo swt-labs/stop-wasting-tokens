@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/shared",
-  "version": "3.0.0-alpha.8",
+  "version": "3.0.0-alpha.9",
   "description": "Vendor-neutral types and Zod schemas shared across runtime, orchestration, methodology, dashboard, and cli. Leaf package — no internal workspace deps beyond zod/typebox.",
   "license": "MIT",
   "type": "module",
