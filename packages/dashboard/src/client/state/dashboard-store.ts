@@ -101,6 +101,18 @@ export interface VibeSessionState {
    * daemons), assume 'none' for back-compat.
    */
   agent_backend: 'none' | 'pi';
+  /**
+   * Phase 03 — lifecycle pill for the active vibe session. 'running' on
+   * spawn; transitions to 'completed' when cook emits cook.completion;
+   * 'crashed' when cook emits cook.error or the watchdog fires
+   * COOK_SPAWN_FAILED. The 10s activeAgents/activeSessionId clear timer
+   * keeps the conversation thread visible after status flips so the user
+   * can read the final agent.prompt; the NEXT startVibeSession replaces
+   * the whole vibeSession (new session_id, empty conversation,
+   * status='running'). Phase 04 may consume this field for the
+   * phase-aware placeholder/hint.
+   */
+  status?: 'running' | 'completed' | 'crashed';
 }
 
 /**
@@ -535,6 +547,16 @@ export function createDashboardStore(
         return;
       }
       case 'cook.completion': {
+        // Phase 03 GAP-01 — flip the lifecycle pill so the conversation
+        // thread shows 'completed' immediately while the 10s timer keeps
+        // the agent grid visible. Guarded: only flip if vibeSession
+        // refers to this session (defensive — should always be true at
+        // this point). Do NOT null vibeSession here — the conversation
+        // must stay readable. The replace happens on the next
+        // startVibeSession.
+        if (state.vibeSession?.session_id === evt.session_id) {
+          setState('vibeSession', 'status', 'completed');
+        }
         if (cookClearTimer !== null) clearTimeout(cookClearTimer);
         cookClearTimer = setTimeout(() => {
           setState('activeAgents', new Map<string, AgentLiveState>());
@@ -543,9 +565,21 @@ export function createDashboardStore(
         }, 10_000);
         return;
       }
+      case 'cook.error': {
+        // Phase 03 GAP-01 — flip the lifecycle pill to 'crashed' when
+        // cook emits an error event (typically COOK_SPAWN_FAILED from
+        // the cook-start watchdog or the orchestrator's uncaught-error
+        // path). activeAgents/activeSessionId are intentionally not
+        // touched here — they surface through the existing recent-events
+        // + log panels, and the conversation thread stays readable until
+        // the next startVibeSession replaces vibeSession.
+        if (state.vibeSession?.session_id === evt.session_id) {
+          setState('vibeSession', 'status', 'crashed');
+        }
+        return;
+      }
       case 'cook.file_write':
       case 'cook.commit':
-      case 'cook.error':
         // No store mutation — surfaced via the recent-events + log panels.
         return;
     }
@@ -726,12 +760,21 @@ export function createDashboardStore(
       return;
     }
     if (evt.type === 'agent.prompt') {
-      // Only append to the active session's conversation. Cross-session
-      // prompts (multi-tab daemon) are ignored at the client level — the
-      // server-side ?session_id= filter normally prevents them from
-      // arriving, but this guard keeps the store coherent if the SSE is
-      // unfiltered.
-      if (state.vibeSession?.session_id !== evt.session_id) return;
+      // Phase 03 GAP-01 — accept prompts whose session_id matches EITHER
+      // the current vibeSession (the conversation thread the user is
+      // reading) OR the activeSessionId set by the latest
+      // cook.priority_decision (the cook process currently running on
+      // disk). After a cook.completion + new startVibeSession the two
+      // session_ids diverge for the 10s clear window; both must be
+      // accepted so Plan/Execute confirmation gates surface to the user.
+      // Cross-session prompts whose session_id matches NEITHER are still
+      // ignored — the server-side ?session_id= filter normally prevents
+      // them from arriving, but this guard keeps the store coherent if
+      // the SSE is unfiltered.
+      const sid = evt.session_id;
+      const accept =
+        state.vibeSession?.session_id === sid || state.activeSessionId === sid;
+      if (!accept) return;
       const entry: ConversationEntry = {
         prompt_id: evt.prompt_id,
         session_id: evt.session_id,
@@ -747,7 +790,15 @@ export function createDashboardStore(
       return;
     }
     if (evt.type === 'agent.prompt.timeout') {
-      if (state.vibeSession?.session_id !== evt.session_id) return;
+      // Phase 03 GAP-01 — mirror the relaxed dual-source guard from the
+      // agent.prompt branch above so a timeout event for the currently-
+      // running cook process still marks the matching entry expired even
+      // when state.vibeSession.session_id has diverged from
+      // state.activeSessionId (the 10s clear-window race).
+      const sid = evt.session_id;
+      const accept =
+        state.vibeSession?.session_id === sid || state.activeSessionId === sid;
+      if (!accept) return;
       setState('vibeSession', 'conversation', (entries) =>
         entries.map((entry) =>
           entry.prompt_id === evt.prompt_id && entry.status === 'pending'
@@ -1168,12 +1219,18 @@ export function createDashboardStore(
       // detached. v3 ships Pi as the sole agent backend, so a successful
       // spawn implies `agent_backend: 'pi'`.
       const response = await postCookStart(undefined, trimmed);
+      // Phase 03 GAP-01 — full-object setState REPLACES vibeSession
+      // atomically (Solid's createStore semantics). On a second
+      // startVibeSession after a cook.completion + 10s clear, this drops
+      // the prior conversation and starts the lifecycle pill back at
+      // 'running'. Do NOT switch to a merge-style setState here.
       setState('vibeSession', {
         session_id: response.session_id,
         initial_prompt: trimmed,
         started_at: response.started_at,
         conversation: [],
         agent_backend: 'pi',
+        status: 'running',
       });
       appendLogLine(`[cook] started session ${response.session_id.slice(0, 8)} — "${trimmed}"`);
       return response.session_id;
