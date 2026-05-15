@@ -18,7 +18,7 @@ import { spawnAgent } from '@swt-labs/orchestration';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
+import { SEED_IDEA_SENTINEL, stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 export interface ResearchHandlerDeps {
   readonly spawnAgentImpl?: typeof spawnAgent;
@@ -55,7 +55,7 @@ export function makeResearchHandler(deps: ResearchHandlerDeps = {}): CommandHand
     }
 
     // 3. Substitute placeholders. ${SWT_TOPIC} carries the user's topic.
-    const prompt = substitutePlaceholders(body, installRoot, topic)
+    const prompt = substitutePlaceholders(body, installRoot, topic, SEED_IDEA_SENTINEL)
       .replace(/\$\{SWT_TOPIC\}/g, topic)
       .replace(/\$ARGUMENTS/g, topic);
 

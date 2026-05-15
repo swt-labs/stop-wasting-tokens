@@ -351,6 +351,16 @@ export type CookMode =
   | 'remove-phase'
   | 'archive';
 
+/**
+ * Phase 02 / Plan 02-01 — sentinel substituted into cook.md's
+ * `${SEED_IDEA}` placeholder when the dashboard cook bar's seed file
+ * (`.swt-planning/.pending-scope-idea.txt`) is absent, unreadable, or
+ * empty after trim. The Scope prompt branches on this exact literal
+ * string textually (see `commands/cook.md` Scope Step 2). Single-sourced
+ * so tests and future remediation rounds can reuse the same value.
+ */
+export const SEED_IDEA_SENTINEL = '(no idea provided yet)';
+
 /** Map of CookMode to the `### Mode: …` heading text inside commands/cook.md. */
 export const MODE_HEADING: Readonly<Record<CookMode, string>> = {
   bootstrap: '### Mode: Bootstrap',
@@ -1037,17 +1047,26 @@ export function extractModeSection(body: string, modeHeading: string): string {
 
 /**
  * Substitute placeholder strings (`${SWT_INSTALL_ROOT}`,
- * `${SWT_PHASE_DETECT_OUTPUT}`) in the prompt body. Other placeholders
- * pass through unmodified for the LLM to interpret.
+ * `${SWT_PHASE_DETECT_OUTPUT}`, `${SEED_IDEA}`) in the prompt body. Other
+ * placeholders pass through unmodified for the LLM to interpret.
+ *
+ * Phase 02 / Plan 02-01 — `seedIdea` is the contents of
+ * `.swt-planning/.pending-scope-idea.txt` (the dashboard cook bar's seed
+ * text), or the sentinel `(no idea provided yet)` when the file is absent
+ * or unreadable. TS owns the sentinel substitution; the prompt body in
+ * `cook.md` branches textually on the literal sentinel string (separation
+ * per 02-CONTEXT.md: human-editable prompt, no conditional logic in TS).
  */
 export function substitutePlaceholders(
   body: string,
   installRoot: string,
   phaseDetectOutput: string,
+  seedIdea: string,
 ): string {
   return body
     .replace(/\$\{SWT_INSTALL_ROOT\}/g, installRoot)
-    .replace(/\$\{SWT_PHASE_DETECT_OUTPUT\}/g, phaseDetectOutput);
+    .replace(/\$\{SWT_PHASE_DETECT_OUTPUT\}/g, phaseDetectOutput)
+    .replace(/\$\{SEED_IDEA\}/g, seedIdea);
 }
 
 /**
@@ -1059,6 +1078,7 @@ export function loadCookModeSection(
   installRoot: string,
   mode: CookMode,
   phaseDetectOutput: string,
+  seedIdea: string,
   fsImpl: { readFileSync: typeof readFileSync } = { readFileSync },
 ): string {
   const cookMdPath = resolvePath(installRoot, 'commands', 'cook.md');
@@ -1066,7 +1086,7 @@ export function loadCookModeSection(
   const body = stripFrontmatter(raw);
   const heading = MODE_HEADING[mode];
   const section = extractModeSection(body, heading);
-  return substitutePlaceholders(section, installRoot, phaseDetectOutput);
+  return substitutePlaceholders(section, installRoot, phaseDetectOutput, seedIdea);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1454,6 +1474,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           phaseDetectOutput: '',
           refHash,
           startTs,
+          seedIdea: SEED_IDEA_SENTINEL,
         },
         { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
       );
@@ -1500,6 +1521,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             phaseDetectOutput: '',
             refHash,
             startTs,
+            seedIdea: SEED_IDEA_SENTINEL,
           },
           {
             askUserFn,
@@ -1614,6 +1636,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             phaseDetectOutput: '',
             refHash,
             startTs,
+            seedIdea: SEED_IDEA_SENTINEL,
           },
           {
             askUserFn,
@@ -1646,6 +1669,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         phaseDetectOutput: stringifyPhaseDetect(state),
         refHash,
         startTs,
+        seedIdea: SEED_IDEA_SENTINEL,
       },
       { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
     );
@@ -1660,6 +1684,15 @@ interface RunModeContext {
   /** ISO timestamp captured when cookHandler starts — feeds the events
    *  JSONL filename so concurrent cook invocations don't collide. */
   readonly startTs: string;
+  /**
+   * Phase 02 / Plan 02-01 — Pre-seeded user idea from
+   * `.swt-planning/.pending-scope-idea.txt` at handler entry, OR the
+   * `(no idea provided yet)` sentinel when the file is absent or
+   * unreadable. Substituted into cook.md's `${SEED_IDEA}` placeholder so
+   * the Scope prompt can branch on whether the user typed something in
+   * the dashboard cook bar.
+   */
+  readonly seedIdea: string;
 }
 
 interface RunModeDeps {
@@ -2632,9 +2665,13 @@ async function runMode(
   const spawnCwd = worktreeSession?.absPath ?? io.cwd;
 
   // Load the cook.md mode section + substitute placeholders.
-  const prompt = loadCookModeSection(ctx.installRoot, routing.mode, ctx.phaseDetectOutput, {
-    readFileSync: deps.readFileSyncFn,
-  });
+  const prompt = loadCookModeSection(
+    ctx.installRoot,
+    routing.mode,
+    ctx.phaseDetectOutput,
+    ctx.seedIdea,
+    { readFileSync: deps.readFileSyncFn },
+  );
 
   const promptWithOpts = appendModeOptions(prompt, opts, routing, ctx.refHash);
 

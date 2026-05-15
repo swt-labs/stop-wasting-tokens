@@ -27,7 +27,7 @@ import { spawnAgent } from '@swt-labs/orchestration';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
+import { SEED_IDEA_SENTINEL, stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 export interface InitHandlerDeps {
   readonly spawnAgentImpl?: typeof spawnAgent;
@@ -107,7 +107,7 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
       return EXIT.RUNTIME_ERROR;
     }
 
-    const prompt = substitutePlaceholders(body, installRoot, '').replace(
+    const prompt = substitutePlaceholders(body, installRoot, '', SEED_IDEA_SENTINEL).replace(
       /\$\{SWT_PROJECT_NAME\}/g,
       name.trim(),
     );

@@ -21,7 +21,7 @@ import { spawnAgent } from '@swt-labs/orchestration';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
+import { SEED_IDEA_SENTINEL, stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 /**
  * Dependency-injection seam for tests.
@@ -68,10 +68,12 @@ export function makeQaHandler(deps: QaHandlerDeps = {}): CommandHandler {
 
     // 3. Substitute placeholders. ${SWT_PHASE_TARGET} carries the resolved
     //    phase id (or empty string if none); the LLM body can branch on it.
-    const prompt = substitutePlaceholders(body, installRoot, phaseTarget ?? '').replace(
-      /\$\{SWT_PHASE_TARGET\}/g,
+    const prompt = substitutePlaceholders(
+      body,
+      installRoot,
       phaseTarget ?? '',
-    );
+      SEED_IDEA_SENTINEL,
+    ).replace(/\$\{SWT_PHASE_TARGET\}/g, phaseTarget ?? '');
 
     // 4. Spawn the QA session. spawnAgent guards against role==='orchestrator'.
     try {

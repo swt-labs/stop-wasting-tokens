@@ -37,7 +37,7 @@ import type { TaskResult } from '@swt-labs/shared';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
-import { stripFrontmatter, substitutePlaceholders } from './cook.js';
+import { SEED_IDEA_SENTINEL, stripFrontmatter, substitutePlaceholders } from './cook.js';
 
 interface MapSlice {
   /** Short numeric id 1..4 used in logs + the prompt. */
@@ -110,7 +110,7 @@ export function makeMapHandler(deps: MapHandlerDeps = {}): CommandHandler {
       );
       return EXIT.RUNTIME_ERROR;
     }
-    body = substitutePlaceholders(body, installRoot, '');
+    body = substitutePlaceholders(body, installRoot, '', SEED_IDEA_SENTINEL);
 
     // 2. Spawn all 4 Scouts in parallel via Promise.all. Wrap each call so
     //    one rejection doesn't short-circuit the rest — we always want to
