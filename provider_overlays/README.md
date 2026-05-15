@@ -91,15 +91,21 @@ Rationale: shipping 3 overlays × 1 provider = 3 files is the minimum viable sur
 4. No code changes needed — the resolver picks up the new file on next spawn.
 5. Add a unit test if the overlay touches behavior the wiring tests don't already cover (most overlays don't need new tests — the resolver tests in `packages/orchestration/test/provider-overlay.test.ts` cover the resolution contract).
 
-## Phase 1 inventory
+## OpenAI overlay inventory
 
-Phase 1 ships exactly 3 overlays (plan 01-03):
+Per-OpenAI overlays for all 7 SDLC roles (May-13 baseline shipped dev/debugger/qa; 2026-05-15 milestone 01 added lead/scout/architect/docs):
 
-- `dev-openai.md`
-- `debugger-openai.md`
-- `qa-openai.md`
+- `lead-openai.md` — tool-sequencing for planning + concise rationale + file refs with `:line` + skip-preamble tone
+- `scout-openai.md` — read-only stance + exploration via Glob/Grep before Read + structured findings format
+- `architect-openai.md` — decision framing with alternatives + rejection rationale + dependency-graph hints
+- `dev-openai.md` — apply_patch grammar + shell PTY semantics + concise response shape
+- `qa-openai.md` — assertion-first verification + terse structured findings + read-only stance
+- `debugger-openai.md` — scientific-method + hypothesis-evidence cycle + per-effort tone + minimal-fix scope
+- `docs-openai.md` — reference paths over file dumps + bullets with `-` + monospace backticks
 
-All other roles + all other providers have NO overlay → fall through to today's role-prompt-only behavior.
+Coverage is asserted mechanically by `packages/orchestration/test/provider-overlay-coverage.test.ts` (all 7 roles × openai must resolve via `readProviderOverlay`).
+
+Anthropic / Google / OpenRouter / Ollama have NO overlays today → fall through to role-prompt-only behavior.
 
 ## See also
 
