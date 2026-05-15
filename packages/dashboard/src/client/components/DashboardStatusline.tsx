@@ -129,7 +129,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span class="dashboard-statusline-cell">
         {formatStatuslineProvider(providerAuth()?.selected_provider)}
       </span>
-      <span class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(providerAuth())}`}>
+      <span
+        class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(providerAuth())}`}
+      >
         ●
       </span>
       <span class="dashboard-statusline-cell">ctx —/—</span>
