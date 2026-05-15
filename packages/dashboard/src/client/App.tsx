@@ -333,10 +333,6 @@ export const App: Component = () => {
               minSize={0.08}
               class="resizable-panel resizable-stack"
             >
-              <ProjectStatePanel
-                project={state.snapshot?.project ?? null}
-                milestone={state.snapshot?.milestone ?? null}
-              />
               <Resizable
                 orientation="vertical"
                 initialSizes={initialLayout.tools}
@@ -346,8 +342,30 @@ export const App: Component = () => {
                 }}
                 class="resizable-root resizable-root-v"
               >
+                {/* ProjectStatePanel used to sit OUTSIDE this inner
+                    `<Resizable>` (as a direct child of the tools-column
+                    `<Resizable.Panel>`) which made it the only card in
+                    the column that didn't drag. Folding it in as the
+                    first panel — with its own handle — gets it onto the
+                    same proportional resize as its siblings. minSize is
+                    0.05 (vs 0.1 for the editable panels) because it's a
+                    compact summary card. */}
                 <Resizable.Panel
                   initialSize={initialLayout.tools[0]}
+                  minSize={0.05}
+                  class="resizable-panel"
+                >
+                  <ProjectStatePanel
+                    project={state.snapshot?.project ?? null}
+                    milestone={state.snapshot?.milestone ?? null}
+                  />
+                </Resizable.Panel>
+                <Resizable.Handle
+                  class="resizable-handle resizable-handle-v"
+                  aria-label="Resize project-state / config"
+                />
+                <Resizable.Panel
+                  initialSize={initialLayout.tools[1]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -365,7 +383,7 @@ export const App: Component = () => {
                   aria-label="Resize config / doctor"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[1]}
+                  initialSize={initialLayout.tools[2]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -382,7 +400,7 @@ export const App: Component = () => {
                   aria-label="Resize doctor / detect-phase"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[2]}
+                  initialSize={initialLayout.tools[3]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -399,7 +417,7 @@ export const App: Component = () => {
                   aria-label="Resize detect-phase / update"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[3]}
+                  initialSize={initialLayout.tools[4]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -418,9 +436,10 @@ export const App: Component = () => {
                 />
                 {/* ProviderAuthPanel was the 5th tools-column slot; it now
                     lives in the TopBar "Provider ▾" dropdown (no
-                    duplication). The tools column is back to 5 panels. */}
+                    duplication). UserNotes is the final panel; with the
+                    ProjectState fold-in the tools column has 6 panels. */}
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[4]}
+                  initialSize={initialLayout.tools[5]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
