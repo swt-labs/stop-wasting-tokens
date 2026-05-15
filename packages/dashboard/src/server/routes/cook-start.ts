@@ -59,7 +59,23 @@ interface CookStartBody {
   prompt?: string;
 }
 
-function resolveCookCommand(): { command: string; prefixArgs: string[] } {
+/**
+ * Resolve which `swt` executable to spawn from the dashboard daemon.
+ *
+ * Three-step triage (in order):
+ *   1. `SWT_BIN` env override (explicit, wins everything).
+ *   2. Sibling `cli.mjs` bundle (published-tarball layout) → spawn `node
+ *      <path>/cli.mjs`.
+ *   3. PATH lookup for the `swt` binary.
+ *
+ * Plan 02-01 T2 rename: was `resolveCookCommand` — exported under the
+ * generic `resolveSwtCommand` name so the dashboard's `/api/init` route
+ * (init.ts) can reuse the same triage instead of duplicating the
+ * SWT_BIN/cli.mjs/PATH logic. The function is the canonical single
+ * source of truth for "find the swt binary"; cook-start.ts and init.ts
+ * are the two consumers.
+ */
+export function resolveSwtCommand(): { command: string; prefixArgs: string[] } {
   // Prefer the sibling cli.mjs bundle when the daemon is running from the
   // published tarball; fall back to the PATH `swt` binary. Mirrors the
   // routes/command.ts resolution.
@@ -103,7 +119,7 @@ export function registerCookStartRoute(app: Hono, opts: CookStartOptions): void 
       writeFileSync(seedPath, body.prompt.trim(), 'utf8');
     }
 
-    const { command, prefixArgs } = resolveCookCommand();
+    const { command, prefixArgs } = resolveSwtCommand();
     const args = [...prefixArgs, 'cook', ...extraArgs];
 
     // Phase 01 (Cook IPC plumbing) — daemon-side cook-events filename for
