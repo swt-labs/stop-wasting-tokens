@@ -171,6 +171,40 @@ export const CostSummarySchema = z.object({
 });
 export type CostSummary = z.infer<typeof CostSummarySchema>;
 
+/**
+ * Plan 01-01 (milestone 08, Phase 01) — local rolling-usage rollup over
+ * `cook.agent_result` events. The aggregator (packages/dashboard/src/server/
+ * usage-aggregator.ts) maintains an in-memory 31-day sliding-window array
+ * keyed by event `ts` (UTC epoch ms) and synchronously recomputes 7d and
+ * 30d window sums on every event. The result is exposed via:
+ *   (a) a `state.changed` partial snapshot publish onto the dashboard
+ *       EventBus carrying `{ snapshot: { usage_rollup: ... } }`, and
+ *   (b) a plain `GET /api/usage-rollup` Hono route.
+ *
+ * The inner `window_*` fields are nullable so the aggregator can emit an
+ * unambiguous empty-state shape (`{ window_7d: null, window_30d: null,
+ * generated_at }`) when no `cook.agent_result` events have been observed.
+ * The outer `usage_rollup` field on `SnapshotSchema` is `.nullable().optional()`
+ * to keep pre-Phase-01 snapshots parseable.
+ *
+ * Field name `generated_at` (NOT Scout's draft `computed_at`) — single source
+ * of truth aligned with the prompt/route contract and parallel to
+ * `SnapshotSchema.generated_at`.
+ */
+export const UsageWindowSchema = z.object({
+  cost_usd: z.number().nonnegative(),
+  tokens_in: z.number().int().nonnegative(),
+  tokens_out: z.number().int().nonnegative(),
+});
+export type UsageWindow = z.infer<typeof UsageWindowSchema>;
+
+export const UsageRollupSchema = z.object({
+  window_7d: UsageWindowSchema.nullable(),
+  window_30d: UsageWindowSchema.nullable(),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type UsageRollup = z.infer<typeof UsageRollupSchema>;
+
 export const SnapshotSchema = z.object({
   schema_version: z.literal('1'),
   generated_at: z.string().datetime({ offset: true }),
@@ -190,6 +224,16 @@ export const SnapshotSchema = z.object({
   active_agents: z.array(AgentLiveStateSchema).default([]),
   recent_events: z.array(z.unknown()).max(100),
   cost_summary: CostSummarySchema.nullable(),
+  /**
+   * Plan 01-01 (milestone 08, Phase 01) — local rolling-usage rollup over
+   * `cook.agent_result` events. Top-level + parallel to `cost_summary` (NOT
+   * nested inside it — different data source: in-memory event-bus aggregation
+   * vs. `.metrics/*.json` walk). `.nullable().optional()` keeps pre-Phase-01
+   * snapshots parseable; the aggregator's `state.changed` publish overrides
+   * once the first event arrives. Empty-state inside the field uses the
+   * `{ window_7d: null, window_30d: null, generated_at }` shape.
+   */
+  usage_rollup: UsageRollupSchema.nullable().optional(),
   /**
    * False when the daemon's cwd has no `.swt-planning/` yet. The SPA uses
    * this to render the init flow. Required since v1.7.0 — every emitter
