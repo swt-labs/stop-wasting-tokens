@@ -46,10 +46,13 @@ export {
   buildPrompt,
   cacheableBlockCount,
   readRolePrompt,
+  readRolePromptWithMeta,
   serializeBlocks,
   type BuildPromptOptions,
   type BuiltPrompt,
   type PromptBlock,
+  type ReadRolePromptResult,
+  type RolePromptMeta,
 } from './prompt-builder.js';
 
 // Plan 01-01 T03 (Phase 1): `swt:spawnAgent` — TDD3 §14 primitive 1.

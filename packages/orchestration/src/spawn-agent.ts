@@ -113,7 +113,7 @@ import {
 import type { AgentRole, AuthMode, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
-import { readRolePrompt } from './prompt-builder.js';
+import { readRolePromptWithMeta } from './prompt-builder.js';
 import { readProviderOverlay } from './provider-overlay.js';
 import { toolsForRole, type AgentToolList } from './role-router.js';
 
@@ -192,10 +192,16 @@ export interface SpawnAgentSessionConfig extends SwtSessionOptions {
   readonly transcriptPath: string;
   /**
    * Maximum turns this session is allowed before the orchestrator forcibly
-   * ends it. Defaults to `config/defaults.json#agent_max_turns[role]`.
+   * ends it. Sourced from agent frontmatter (Phase 02) > caller opts
+   * (`SpawnAgentOptions.maxTurns`) > role default
+   * (`DEFAULT_AGENT_MAX_TURNS[role]`).
    */
   readonly maxTurns: number;
-  /** Pi `ThinkingLevel` from `resolveThinkingLevelForRole(role)`. */
+  /**
+   * Pi `ThinkingLevel`. Sourced from agent frontmatter `effort:` (Phase 02)
+   * > `resolveThinkingLevelForRole(role)` default. There is no caller-level
+   * override field today — `effort` is purely frontmatter-or-default.
+   */
   readonly thinkingLevel: ThinkingLevel;
   /** Provider sandbox mode (maps to Pi `permissionMode` semantics). */
   readonly sandboxMode: 'read-only' | 'workspace-write';
@@ -372,7 +378,21 @@ export function resolveSpawnAgentConfig(
   // after plan 01-01 T02's SDLCRole widening).
   const sdlcRole = opts.role;
 
-  const systemPrompt = readRolePrompt(resolve(opts.installRoot, 'agents'), `swt-${opts.role}.md`);
+  // Phase 02 (plan 02-01 T2) — switch from `readRolePrompt` (raw bytes) to
+  // `readRolePromptWithMeta` so YAML frontmatter is stripped from the
+  // LLM-visible body AND parsed `effort`/`maxTurns` populate the precedence
+  // chain below. This is a deliberate behavioural change: pre-Phase-02 the
+  // frontmatter (`name: swt-dev`, `permissionMode: acceptEdits`, etc.) was
+  // visible in the model context; from Phase 02 forward, only the body
+  // content reaches the model. The spawn-agent regression test asserts the
+  // stripping invariant (`config.systemPrompt` no longer matches `^---` or
+  // `^name:` patterns) AND that body content survives.
+  const promptResult = readRolePromptWithMeta(
+    resolve(opts.installRoot, 'agents'),
+    `swt-${opts.role}.md`,
+  );
+  const systemPrompt = promptResult.body;
+  const frontmatterMeta = promptResult.meta;
 
   // Phase G / Phase 1 / G-R1 — append the per-provider overlay if one
   // exists at `<installRoot>/provider_overlays/<role>-<provider>.md`.
@@ -417,8 +437,22 @@ export function resolveSpawnAgentConfig(
     { name: 'journal', factory: buildJournalExtension({ sink: journalSink }) },
   ];
 
-  const maxTurns = opts.maxTurns ?? DEFAULT_AGENT_MAX_TURNS[opts.role];
-  const thinkingLevel = resolveThinkingLevelForRole(sdlcRole);
+  // Phase 02 (plan 02-01 T2) — precedence: frontmatter > caller opts > role
+  // default. The TDD §4 Phase 02 frontmatter table is now the authoritative
+  // per-role turn budget AND reasoning depth; callers (tests, scripts) may
+  // still override `maxTurns` via `opts.maxTurns`, but the frontmatter wins
+  // when present. `DEFAULT_AGENT_MAX_TURNS` remains as a defensive fallback
+  // for any agent file that lacks `maxTurns:` frontmatter (out-of-shape
+  // greenfield agent file, partial migration).
+  //
+  // For `thinkingLevel`, there is no caller-level override field today, so
+  // the precedence collapses to frontmatter > `resolveThinkingLevelForRole`.
+  // The role-resolver default is left intact (TDD §4 Phase 02 Recommendation
+  // 6 — per-role defaults belong in agent frontmatter OR
+  // `DEFAULT_ROLE_THINKING_LEVELS`, never `quirks.json`).
+  const maxTurns =
+    frontmatterMeta.maxTurns ?? opts.maxTurns ?? DEFAULT_AGENT_MAX_TURNS[opts.role];
+  const thinkingLevel = frontmatterMeta.effort ?? resolveThinkingLevelForRole(sdlcRole);
   const sandboxMode = defaultSandboxModeForRole(opts.role);
 
   const taskId = opts.taskId ?? `spawn-${opts.role}-${opts.sessionId.slice(0, 8)}`;

@@ -36,7 +36,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { TaskBrief } from '@swt-labs/shared';
+import { THINKING_LEVELS, type TaskBrief, type ThinkingLevel } from '@swt-labs/shared';
 
 export interface PromptBlock {
   readonly kind:
@@ -169,6 +169,12 @@ export function serializeBlocks(prompt: BuiltPrompt): string {
  * the methodology profiles directory. The methodology layer hands the
  * resolved path; this is a thin readFileSync wrapper that errors clearly
  * when the file is missing.
+ *
+ * NOTE: `readRolePrompt` returns the raw file content *including* YAML
+ * frontmatter — preserved as a back-compat reader (other potential callers
+ * may want the raw bytes). Production `resolveSpawnAgentConfig` uses
+ * `readRolePromptWithMeta` (below), which strips the frontmatter from the
+ * LLM-visible body and parses `effort`/`maxTurns` into structured meta.
  */
 export function readRolePrompt(profilesDir: string, promptFilename: string): string {
   const fullPath = join(profilesDir, promptFilename);
@@ -177,4 +183,103 @@ export function readRolePrompt(profilesDir: string, promptFilename: string): str
   } catch (cause) {
     throw new Error(`prompt-builder: failed to read role prompt at ${fullPath}`, { cause });
   }
+}
+
+/**
+ * Phase 02 (plan 02-01 T2) — agent-frontmatter parsing for the Anthropic-SDK
+ * shape.
+ *
+ * Reads a role prompt file and returns:
+ *   - `body`: the LLM-visible content with YAML frontmatter stripped
+ *   - `meta`: parsed `{effort?, maxTurns?}` from the frontmatter
+ *
+ * Mirrors the `stripFrontmatter` precedent in
+ * `packages/orchestration/src/provider-overlay.ts:76-86` — no npm dependency
+ * is added. Only the two TDD §4 Phase 02 keys (`effort`, `maxTurns`) are
+ * extracted; every other frontmatter field passes through silently (Pi-tool
+ * frontmatter like `name:`, `tools:`, `permissionMode:` is consumed at
+ * agent-loading layers we don't own here).
+ *
+ * Throws when:
+ *   - `effort` is present but not one of `ThinkingLevel` enum values
+ *     (`off|minimal|low|medium|high|xhigh`).
+ *   - `maxTurns` is present but does not parse to a positive integer.
+ *
+ * Graceful degrade when:
+ *   - The file has no `---\n` delimiter → returns `{body: raw, meta: {}}`.
+ *   - Frontmatter exists but lacks `effort` / `maxTurns` → meta omits the
+ *     missing fields (caller falls back through the precedence chain).
+ */
+export interface RolePromptMeta {
+  readonly effort?: ThinkingLevel;
+  readonly maxTurns?: number;
+}
+
+export interface ReadRolePromptResult {
+  readonly body: string;
+  readonly meta: RolePromptMeta;
+}
+
+export function readRolePromptWithMeta(
+  profilesDir: string,
+  promptFilename: string,
+): ReadRolePromptResult {
+  const fullPath = join(profilesDir, promptFilename);
+  let raw: string;
+  try {
+    raw = readFileSync(fullPath, 'utf8');
+  } catch (cause) {
+    throw new Error(`prompt-builder: failed to read role prompt at ${fullPath}`, { cause });
+  }
+
+  if (!raw.startsWith('---\n')) {
+    return { body: raw, meta: {} };
+  }
+  // Find the closing `---\n` AFTER the opener (mirrors provider-overlay's
+  // `stripFrontmatter` lines 80-84).
+  const closeIdx = raw.indexOf('\n---\n', 4);
+  if (closeIdx === -1) {
+    return { body: raw, meta: {} };
+  }
+  const frontmatter = raw.slice(4, closeIdx);
+  const body = raw.slice(closeIdx + 5);
+
+  let effort: ThinkingLevel | undefined;
+  let maxTurns: number | undefined;
+  for (const line of frontmatter.split('\n')) {
+    const match = /^(effort|maxTurns)\s*:\s*(.+?)\s*$/.exec(line);
+    if (match === null) continue;
+    const key = match[1] as 'effort' | 'maxTurns';
+    const rawValue = match[2] ?? '';
+    if (key === 'effort') {
+      // Strip optional surrounding quotes (`effort: "high"`) before validating.
+      const value = rawValue.replace(/^["']|["']$/g, '');
+      if (!(THINKING_LEVELS as readonly string[]).includes(value)) {
+        throw new Error(
+          `prompt-builder: invalid \`effort\` value "${value}" in ${fullPath} — must be one of ${THINKING_LEVELS.join(', ')}`,
+        );
+      }
+      effort = value as ThinkingLevel;
+    } else {
+      // maxTurns: positive integer.
+      if (!/^-?\d+$/.test(rawValue)) {
+        throw new Error(
+          `prompt-builder: invalid \`maxTurns\` value "${rawValue}" in ${fullPath} — must be a positive integer`,
+        );
+      }
+      const parsed = Number.parseInt(rawValue, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error(
+          `prompt-builder: invalid \`maxTurns\` value "${rawValue}" in ${fullPath} — must be a positive integer`,
+        );
+      }
+      maxTurns = parsed;
+    }
+  }
+
+  const meta: RolePromptMeta = {
+    ...(effort !== undefined ? { effort } : {}),
+    ...(maxTurns !== undefined ? { maxTurns } : {}),
+  };
+  return { body, meta };
 }
