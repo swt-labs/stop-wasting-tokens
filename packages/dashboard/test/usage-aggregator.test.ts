@@ -38,8 +38,8 @@ import { UsageRollupSchema, type SnapshotEvent } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createEventBus, type EventBus } from '../src/server/event-bus.js';
-import { createEventsTailer, type EventsTailer } from '../src/server/snapshot/events-tailer.js';
 import { createUsageRollupRoute } from '../src/server/routes/usage-rollup.js';
+import { createEventsTailer, type EventsTailer } from '../src/server/snapshot/events-tailer.js';
 import { createUsageAggregator, type UsageAggregator } from '../src/server/usage-aggregator.js';
 
 const FIXED_NOW = Date.parse('2026-05-15T12:00:00.000Z');

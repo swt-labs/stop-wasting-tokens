@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/test-utils",
-  "version": "3.0.0-alpha.15",
+  "version": "3.0.0-alpha.16",
   "description": "Private test infrastructure for SWT v3: cassette recorder + replayer + format schemas + request normalisation. Never published to npm — `private: true` is the safety net. Cassettes may contain prompt content with sensitive context; the recorder is developer-local-only.",
   "license": "MIT",
   "type": "module",

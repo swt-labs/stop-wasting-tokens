@@ -1,5 +1,41 @@
 # Changelog
 
+## 3.0.0-alpha.16 — 2026-05-15
+
+_Milestone `09-dashboard-statusline-and-card-cleanup` shipped — three phases consolidating four scattered right-column cards (COST, BUDGET, CACHE HITS, TPAC) into a single full-width viewport-fixed bottom statusline mirroring the VBW CLI statusline pattern. New local rolling-usage aggregator (7d / 30d) backs the spend cells since telemetry events stream out today but never accumulate locally. The right column is now four cards lighter; the statusline is the single source of truth for "where am I burning tokens and at what rate."_
+
+### Phase 01 — Local usage aggregator backend
+
+- **`feat(shared): UsageRollupSchema + usage_rollup field on SnapshotSchema`** (`73ebe81`). New Zod schemas `UsageWindowSchema` (`cost_usd`, `tokens_in`, `tokens_out`, `sessions`) and `UsageRollupSchema` (`window_7d`, `window_30d`, `generated_at`) added to `@swt-labs/shared`. New top-level `usage_rollup` field on `SnapshotSchema` (parallel to `cost_summary`), `.nullable().optional()` so the field is backwards-compatible with snapshots that predate the aggregator.
+- **`feat(dashboard): UsageAggregator service over cook.agent_result events`** (`6dfb94d`). New `packages/dashboard/src/server/usage-aggregator.ts` — a factory that subscribes to the existing EventBus on `cook.agent_result` events only (the sole event variant carrying both `session_id` AND `usage.cost_usd`/`tokens_in`/`tokens_out`). Maintains an in-memory 31-day rolling array of `{ts_ms, cost_usd, tokens_in, tokens_out}` records; on each event appends, prunes entries older than 31d from `now()`, recomputes 7d/30d sums synchronously (sub-ms per Scout's calibration over ~1000 entries), publishes a `state.changed` partial with the updated `usage_rollup` directly via the bus. **Does NOT use chokidar / fs.watch** — the events-tailer already parses + validates + delivers events; spinning up a second watcher would duplicate work. Test seam: `now: () => number` lets unit tests freeze time for boundary-case coverage.
+- **`feat(dashboard): GET /api/usage-rollup route`** (`d507a9b`). Thin Hono route wrapping the aggregator's synchronous `compute()` method. Always returns HTTP 200; empty-state returns `{ window_7d: null, window_30d: null, generated_at }` so the SPA + external CLI callers both get a consistent shape.
+- **`test(dashboard): Pattern A regression coverage for UsageAggregator (11 cases)`** (`b092fcb`). Real EventBus + `mkdtempSync` + fake `now` seam. Coverage includes: window boundary cases (events at 6d/7d/8d/29d/30d/31d), multi-session sums, empty-state shape, 31d prune correctness, state.changed publish verification, retry-2 for FS-watch flake tolerance.
+
+### Phase 02 — Statusline component + entrypoint wiring
+
+- **`feat(dashboard): wire usage aggregator + route at server entrypoint`** (`3d04adb`). Phase 01's deferred mount — `createUsageAggregator({bus})` instantiated after EventBus construction in `server/index.ts`, `createUsageRollupRoute({aggregator})` mounted after `registerProviderCostRoute`, `aggregator.close()` wired into the `createServer` close callback so the bus unsubscription fires cleanly on daemon shutdown.
+- **`feat(dashboard): DashboardStatusline component + formatter helpers`** (`c3ba1c5`). New `<DashboardStatusline>` SolidJS component — pure display, no fetching/effects/store reads. Accepts 3 snapshot-derived props (`providerAuth`, `costSummary`, `usageRollup`). Renders 7 cells in fixed left-to-right order: `{provider} ●  ctx —/—  ${session_cost} ({in}↛{out})  7d:${week}  30d:${month}`. Five pure formatter helpers exported alongside the component (`formatStatuslineProvider`, `connectionDotState`, `formatStatuslineSessionCost`, `formatStatuslineTokens`, `formatStatuslineRollup`) since vitest+esbuild in this workspace can't render Solid JSX — same pattern as `active-agents-pane.test.ts`. All fallbacks use U+2014 em-dash; in→out separator is U+219B (rightwards arrow with stroke). **Format dropped `{model}` cell + renders `ctx —/—` as a static placeholder** because Pi 0.74 exposes neither a per-session model id nor context-window data; the em-dashes make the missing-data state visible until upstream surfaces appear.
+- **`feat(dashboard): mount DashboardStatusline + .app-shell padding-bottom`** (`687f129`). Component mounts in `App.tsx` as an unconditional sibling of `<UatModal>` / `<CommandPalette>` — outside the `isInitialized()` Show gate, so it renders over the greenfield InitScreen too. `.dashboard-statusline` CSS block in `styles.css` (position:fixed, bottom:0, height:24px, z-index:10). `.app-shell` `padding-bottom` widened 24→48px to clear the fixed bar. Connection-dot colour split (`terminal-green` connected, `warm-amber` disconnected) driven by `keychain_available`.
+- **`test(dashboard): unit coverage for formatter helpers (27 cases)`** (`f58acde`). 5 describe blocks (one per helper) + 3 end-to-end composition tests pinning the canonical statusline output against future spacing/separator drift. Covers null/undefined fallback, U+219B separator sentinel, K/M token compaction, 0/$0 renderable boundary, sub-$1 4-decimal formatting parity with `CostPanel`'s prior convention.
+
+### Phase 03 — Card removal + layout-storage v7 migration
+
+- **`refactor(dashboard): remove obsolete COST/BUDGET/CACHE/TPAC cards`** (`ca72c57`). Deleted 4 component files (`CostPanel.tsx`, `BudgetPanel.tsx`, `CacheHitPanel.tsx`, `TpacPanel.tsx`) + their imports/mounts from `App.tsx` + the `cost-panel-helpers.test.ts` test. Scope was much smaller than originally estimated because Scout proved the cards never used `state.tools.*` cells, never had `api.ts` fetcher functions, never appeared in the slow-tier poll-loop, and never had types in `@swt-labs/shared`. CostPanel was a pure prop-driven component reading `state.snapshot.cost_summary` directly; BudgetPanel/CacheHitPanel/TpacPanel each managed their own `EventSource` connection.
+- **`chore(dashboard): bump layout-storage key v6 → v7`** (`c89521a`). `STORAGE_KEY = 'swt:dashboard:layout-v7'`. Pure key rotation — no fraction-dropping or renormalization, because all 4 deleted cards lived as component siblings inside a single `right[1]` Resizable.Panel (not as separate resizable panels). The `right` array structure stays at 2 entries. `layout-storage.test.ts` updated for the v7 key string.
+- **Server routes PRESERVED:** `/api/cost`, `/api/budget`, `/api/cache-hits`, `/api/tpac`, `/api/provider-cost` remain mounted in `server/index.ts`. External tooling (and the new statusline's `cost_summary` field) still consume them.
+
+### Deferred (out of scope, captured for future)
+
+- Model-name cell — needs Pi (or runtime layer) to expose per-session model id
+- Context-window cell — needs Pi to expose `currentContextTokens` / `maxContextSize`
+- Per-provider rollup breakdown (anthropic 60% / openai 40% over 7d)
+- Spend-over-time sparkline / historical chart view
+- CLI `swt usage` verb to surface the aggregator from the command line
+
+**Verification:** `pnpm typecheck` clean · `pnpm vitest run packages/dashboard packages/shared` — **709 passed / 1 skipped / 0 failed** (was 676 pre-milestone; +33 new cases across the 3 phases). Hard archive UAT gate PASS. State-consistency gate PASS. Pre-archive 7-point audit PASS for all 3 phases.
+
+**Provenance:** Milestone `09-dashboard-statusline-and-card-cleanup` archived under `.vbw-planning/milestones/09-dashboard-statusline-and-card-cleanup/`. Three phases — `01-usage-aggregator-backend`, `02-statusline-component`, `03-card-removal-layout-migration`. Commit range `73ebe81..c89521a` on `main` (10 commits).
+
 ## 3.0.0-alpha.15 — 2026-05-15
 
 _Hotfix on top of alpha.14. User smoke-test of the milestone-08 dashboard init flow surfaced a sequencing bug: `POST /api/init` was double-scaffolding. The dashboard route called `initProject()` (scaffold landed), then spawned `swt init <name>` — and the subprocess's first step was ALSO to call `initProject()`, which crashed on `AlreadyInitializedError` and exited 1 within ~416ms. The fast-exit watchdog correctly detected it but the user saw an opaque `init exited with code 1 within 416ms` toast with no diagnostic context (because Phase 02's stderr was piped but never read). Both bugs are fixed; manual smoke confirmed end-to-end._
