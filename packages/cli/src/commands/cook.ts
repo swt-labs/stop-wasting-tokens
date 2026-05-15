@@ -54,7 +54,7 @@ import {
   existsSync,
   writeFileSync,
 } from 'node:fs';
-import { resolve as resolvePath, join as joinPath } from 'node:path';
+import { resolve as resolvePath, join as joinPath, dirname } from 'node:path';
 
 import {
   detectPhase,
@@ -1352,6 +1352,78 @@ const defaultBudgetGateFactory: BudgetGateFactory = ({ config, cwd }) => {
 };
 
 /**
+ * Plan 01-01 T2 — Conditional CLI positional → seed-file write.
+ *
+ * Called at each post-routing decision site (Path 1 flag, Path 2 NL,
+ * Path 3 state-detection) BEFORE the corresponding `runMode(...)` call.
+ * Writes `argsAfterTodo` to `.swt-planning/.pending-scope-idea.txt`
+ * ONLY when the resolved CookMode is `scope` — the only mode whose
+ * cook.md body branches on `${SEED_IDEA}` (per Plan 01-01 research Q2).
+ *
+ * Guards (ALL must hold to write):
+ *   - argsAfterTodo.trim().length > 0     — non-whitespace positional
+ *   - phaseTarget === undefined           — not `swt cook 3`
+ *   - refHash === undefined               — not `swt cook (ref:HASH)`
+ *   - resolvedMode === 'scope'            — only Scope reads ${SEED_IDEA}
+ *
+ * Newer-wins overwrite policy (per Plan 01-01 edge-case E decision):
+ * when a non-empty seed file already exists, overwrite it AND emit a
+ * stderr line `[cook] seed-file overwritten from CLI positional (was N
+ * chars)`. Length-only logging — never echoes the prior content.
+ *
+ * Returns the newly-written trimmed seed text on a successful write, or
+ * `undefined` when any guard fails (no write happens). Callers feed the
+ * return into `RunModeContext.seedIdea` so the same cook invocation that
+ * wrote the file sees the new value substituted into `${SEED_IDEA}`.
+ */
+function maybeWriteSeedFromPositional(args: {
+  argsAfterTodo: string;
+  phaseTarget: number | undefined;
+  refHash: string | undefined;
+  resolvedMode: CookMode;
+  seedPath: string;
+  existsSyncFn: typeof existsSync;
+  readFileSyncFn: typeof readFileSync;
+  writeFileSyncFn: typeof writeFileSync;
+  io: CommandIO;
+}): string | undefined {
+  const trimmed = args.argsAfterTodo.trim();
+  if (trimmed.length === 0) return undefined;
+  if (args.phaseTarget !== undefined) return undefined;
+  if (args.refHash !== undefined) return undefined;
+  if (args.resolvedMode !== 'scope') return undefined;
+
+  // Compute prior-length N (best-effort: any read failure → 0). The
+  // stderr notice only fires when N > 0 so an absent-or-empty prior
+  // seed is silently replaced.
+  let priorLength = 0;
+  if (args.existsSyncFn(args.seedPath)) {
+    try {
+      priorLength = Buffer.byteLength(
+        args.readFileSyncFn(args.seedPath, 'utf8'),
+        'utf8',
+      );
+    } catch {
+      priorLength = 0;
+    }
+  }
+
+  try {
+    mkdirSync(dirname(args.seedPath), { recursive: true });
+  } catch {
+    // best-effort: writeFileSync below will surface a real error if the
+    // dir truly doesn't exist after the mkdirSync attempt.
+  }
+  args.writeFileSyncFn(args.seedPath, trimmed, 'utf8');
+  if (priorLength > 0) {
+    args.io.stderr.write(
+      `[cook] seed-file overwritten from CLI positional (was ${priorLength} chars)\n`,
+    );
+  }
+  return trimmed;
+}
+
+/**
  * Dependency injection seam for tests. Production callers omit; tests
  * inject deterministic fakes.
  */
@@ -1391,10 +1463,6 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
   const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
   const existsSyncFn = deps.existsSyncImpl ?? existsSync;
   const writeFileSyncFn = deps.writeFileSyncImpl ?? writeFileSync;
-  // Plan 01-01 T1 — resolver wired ahead of T2's call sites. The reference
-  // below silences `noUnusedLocals` between T1's pure-plumbing commit and
-  // T2's first call-site use; T2 removes this line.
-  void writeFileSyncFn;
   const budgetGateFactoryFn = deps.budgetGateFactory ?? defaultBudgetGateFactory;
 
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
@@ -1504,6 +1572,19 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         priority: 0,
         mode: fromFlags.mode,
       });
+      // Plan 01-01 T2 — write CLI positional to seed file when the flag
+      // forces Scope (e.g. `swt cook --scope "snake game"`).
+      const flagWrittenSeed = maybeWriteSeedFromPositional({
+        argsAfterTodo,
+        phaseTarget,
+        refHash,
+        resolvedMode: fromFlags.mode,
+        seedPath,
+        existsSyncFn,
+        readFileSyncFn,
+        writeFileSyncFn,
+        io,
+      });
       return runMode(
         {
           mode: fromFlags.mode,
@@ -1519,7 +1600,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           phaseDetectOutput: '',
           refHash,
           startTs,
-          seedIdea,
+          seedIdea: flagWrittenSeed ?? seedIdea,
         },
         { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
       );
@@ -1547,6 +1628,21 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           priority: 0,
           mode: nlMode,
         });
+        // Plan 01-01 T2 — write CLI positional to seed file when NL
+        // routing resolves to Scope. Today no NL keyword maps to scope,
+        // so this guard short-circuits in current routing; the call is
+        // symmetric for future-proofing against NL_KEYWORD_TABLE additions.
+        const nlWrittenSeed = maybeWriteSeedFromPositional({
+          argsAfterTodo,
+          phaseTarget,
+          refHash,
+          resolvedMode: nlMode,
+          seedPath,
+          existsSyncFn,
+          readFileSyncFn,
+          writeFileSyncFn,
+          io,
+        });
         return runMode(
           {
             mode: nlMode,
@@ -1566,7 +1662,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             phaseDetectOutput: '',
             refHash,
             startTs,
-            seedIdea,
+            seedIdea: nlWrittenSeed ?? seedIdea,
           },
           {
             askUserFn,
@@ -1703,6 +1799,20 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       // verify mode body, not the TS handler's.
     }
 
+    // Plan 01-01 T2 — write CLI positional to seed file when state-detected
+    // routing resolves to Scope (the primary path the bug report targets:
+    // greenfield `swt cook "snake game"` → priority 6 Scope).
+    const stateWrittenSeed = maybeWriteSeedFromPositional({
+      argsAfterTodo,
+      phaseTarget,
+      refHash,
+      resolvedMode: routing.mode,
+      seedPath,
+      existsSyncFn,
+      readFileSyncFn,
+      writeFileSyncFn,
+      io,
+    });
     return runMode(
       routing,
       { skipQa: false, skipAudit: false, yolo: false },
@@ -1714,7 +1824,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         phaseDetectOutput: stringifyPhaseDetect(state),
         refHash,
         startTs,
-        seedIdea,
+        seedIdea: stateWrittenSeed ?? seedIdea,
       },
       { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
     );
