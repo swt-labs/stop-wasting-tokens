@@ -450,8 +450,7 @@ export function resolveSpawnAgentConfig(
   // The role-resolver default is left intact (TDD §4 Phase 02 Recommendation
   // 6 — per-role defaults belong in agent frontmatter OR
   // `DEFAULT_ROLE_THINKING_LEVELS`, never `quirks.json`).
-  const maxTurns =
-    frontmatterMeta.maxTurns ?? opts.maxTurns ?? DEFAULT_AGENT_MAX_TURNS[opts.role];
+  const maxTurns = frontmatterMeta.maxTurns ?? opts.maxTurns ?? DEFAULT_AGENT_MAX_TURNS[opts.role];
   const thinkingLevel = frontmatterMeta.effort ?? resolveThinkingLevelForRole(sdlcRole);
   const sandboxMode = defaultSandboxModeForRole(opts.role);
 

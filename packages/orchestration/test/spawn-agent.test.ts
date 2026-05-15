@@ -213,8 +213,26 @@ describe('@swt-labs/orchestration — swt:spawnAgent (Plan 01-01 T04)', () => {
       expect(config.maxTurns).toBe(80);
     });
 
-    it('honours an explicit maxTurns override', () => {
-      const config = resolveSpawnAgentConfig(baseOpts('dev', { maxTurns: 7 }));
+    it('honours an explicit maxTurns override when frontmatter omits maxTurns', () => {
+      // Phase 02 (plan 02-01 T2) — precedence is frontmatter > caller opts >
+      // role default. The real `agents/swt-dev.md` now declares
+      // `maxTurns: 75` in frontmatter, so a caller-supplied `opts.maxTurns: 7`
+      // would be overridden by frontmatter. To preserve the explicit-override
+      // semantic this test was written for, build a tmp installRoot with a
+      // synthetic agent file that has NO `maxTurns:` frontmatter line — then
+      // the precedence collapses to `opts.maxTurns ?? DEFAULT[role]` and the
+      // override wins as expected.
+      const root = mkdtempSync(join(tmpdir(), 'swt-spawn-agent-maxturns-override-'));
+      const agentsDir = resolve(root, 'agents');
+      mkdirSync(agentsDir, { recursive: true });
+      writeFileSync(
+        resolve(agentsDir, 'swt-dev.md'),
+        // No `maxTurns:` line — explicit opts must win against the role default.
+        '---\nname: swt-dev\neffort: high\n---\n# SWT Dev\n\nbody.\n',
+        'utf8',
+      );
+
+      const config = resolveSpawnAgentConfig(baseOpts('dev', { installRoot: root, maxTurns: 7 }));
       expect(config.maxTurns).toBe(7);
     });
   });
@@ -232,11 +250,23 @@ describe('@swt-labs/orchestration — swt:spawnAgent (Plan 01-01 T04)', () => {
       ).toThrow(/cannot spawn role "orchestrator"/);
     });
 
-    it('reads the role system prompt from `<installRoot>/agents/swt-{role}.md`', () => {
+    it('reads the role system prompt from `<installRoot>/agents/swt-{role}.md` with frontmatter stripped', () => {
+      // Phase 02 (plan 02-01 T2) — YAML frontmatter is now stripped from the
+      // LLM-visible body by `readRolePromptWithMeta`. The previous assertion
+      // (`/name:\s*swt-dev/`) tested that frontmatter leaked into systemPrompt;
+      // that behaviour is inverted here so the new contract ("frontmatter must
+      // NEVER reach the model") is documented in test form. The body content
+      // (the `# SWT Dev` heading) must still survive.
       const config = resolveSpawnAgentConfig(baseOpts('dev'));
-      // The systemPrompt is the full file body — non-empty + recognisable.
-      expect(config.systemPrompt.length).toBeGreaterThan(0);
-      expect(config.systemPrompt).toMatch(/name:\s*swt-dev/);
+      expect(config.systemPrompt.length).toBeGreaterThan(100);
+      // No frontmatter delimiter at the start.
+      expect(config.systemPrompt).not.toMatch(/^---/m);
+      // No frontmatter keys leaked.
+      expect(config.systemPrompt).not.toMatch(/^name:\s*swt-dev/m);
+      expect(config.systemPrompt).not.toMatch(/^effort:/m);
+      expect(config.systemPrompt).not.toMatch(/^maxTurns:/m);
+      // Body content survives (the file's H1 heading after the frontmatter).
+      expect(config.systemPrompt).toMatch(/# SWT Dev/);
     });
 
     it("sets sandbox_mode='workspace-write' for dev / lead / debugger / docs / architect", () => {
