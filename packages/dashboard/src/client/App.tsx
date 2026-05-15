@@ -2,7 +2,6 @@ import Resizable from '@corvu/resizable';
 import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
-import { AgentTimeline } from './components/AgentTimeline.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
 import { BudgetPanel } from './components/BudgetPanel.js';
@@ -317,8 +316,8 @@ export const App: Component = () => {
                   <ActiveAgentsPane
                     agents={() => state.activeAgents}
                     sessionId={() => state.activeSessionId}
+                    events={state.snapshot?.recent_events ?? []}
                   />
-                  <AgentTimeline events={state.snapshot?.recent_events ?? []} />
                 </Resizable.Panel>
                 <Resizable.Handle
                   class="resizable-handle resizable-handle-v"
