@@ -608,9 +608,11 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 **Steps:**
 
 1. Load context: PROJECT.md, REQUIREMENTS.md. If `.swt-planning/codebase/META.md` exists, read ARCHITECTURE.md and CONCERNS.md (whichever exist) from `.swt-planning/codebase/`.
-2. If $ARGUMENTS (excl. flags) provided, use as scope. Else ask: "What do you want to build?" Show uncovered requirements as suggestions.
+2. The dashboard cook bar's seed text (if any) is: `${SEED_IDEA}`
+   - If `${SEED_IDEA}` is not equal to the literal sentinel `(no idea provided yet)`, treat its contents as the user's stated goal — do NOT re-ask "What do you want to build?" The user just typed it in the dashboard. Proceed directly to clarifying questions (framework choice, scope size, milestone naming) via `swt_ask_user`. Show uncovered requirements as suggestions.
+   - If `${SEED_IDEA}` equals `(no idea provided yet)`, ask "What do you want to build?" via `swt_ask_user` first (or use `$ARGUMENTS` excluding flags if provided on the CLI). Show uncovered requirements as suggestions.
 3. Decompose into 3-5 phases (name, goal, success criteria). Each independently plannable. Map REQ-IDs.
-4. Write ROADMAP.md. Create `.swt-planning/phases/{NN}-{slug}/` dirs.
+4. Write ROADMAP.md. Create `.swt-planning/phases/{NN}-{slug}/` dirs. After ROADMAP.md is written, call the `swt_complete_scope_seed` Pi tool (no arguments) to delete the pending scope seed file. This signals that the seeded idea has been successfully consumed.
 5. Update STATE.md by calling bootstrap-state.sh. Extract `PROJECT_NAME` from PROJECT.md, derive `MILESTONE_NAME` from the scope description (step 2), and use the phase count from step 3. The script preserves existing project-level sections (Todos, Decisions, Blockers, Codebase Profile) while restoring the `## Current Phase` section:
    ```
    bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/bootstrap/bootstrap-state.sh .swt-planning/STATE.md "$PROJECT_NAME" "$MILESTONE_NAME" "$PHASE_COUNT"
