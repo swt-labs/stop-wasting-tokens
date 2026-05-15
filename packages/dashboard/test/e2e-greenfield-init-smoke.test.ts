@@ -101,7 +101,7 @@ afterEach(() => {
  * fetchSnapshotMock satisfies that precondition before any state.changed
  * pumps below.
  */
-function buildSnapshotPartial(
+function _buildSnapshotPartial(
   overrides: Partial<{
     is_initialized: boolean;
     phase_count: number;

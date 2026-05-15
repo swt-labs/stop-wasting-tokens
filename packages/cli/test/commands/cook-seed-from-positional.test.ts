@@ -209,7 +209,7 @@ function buildHarness(opts: HarnessOpts = {}) {
     execSyncImpl: execSyncImpl as never,
     readFileSyncImpl: readFileSyncImpl as never,
     existsSyncImpl,
-    writeFileSyncImpl: writeFileSyncImpl as never,
+    writeFileSyncImpl,
   });
 
   const stderr: string[] = [];

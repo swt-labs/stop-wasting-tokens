@@ -27,7 +27,7 @@
  * should see.
  */
 
-import { spawn as nodeSpawn } from 'node:child_process';
+import type { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import * as path from 'node:path';
@@ -49,6 +49,7 @@ import {
 import type { Hono } from 'hono';
 
 import type { EventBus } from '../event-bus.js';
+
 import { resolveSwtCommand } from './cook-start.js';
 
 const PLANNING_DIR = '.swt-planning';
