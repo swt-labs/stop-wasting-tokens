@@ -1,6 +1,6 @@
 {
   "name": "stop-wasting-tokens",
-  "version": "3.0.0-alpha.6",
+  "version": "3.0.0-alpha.7",
   "description": "Token-disciplined, methodology-first SDLC harness for AI coding agents. Vendor-neutral via Pi runtime — 25+ providers (Anthropic, OpenAI, OpenRouter, Google, Ollama, ...).",
   "license": "MIT",
   "author": "Tiago Serôdio (@yidakee)",
