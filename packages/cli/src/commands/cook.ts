@@ -46,7 +46,14 @@
  */
 
 import { execSync as nodeExecSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  existsSync,
+  writeFileSync,
+} from 'node:fs';
 import { resolve as resolvePath, join as joinPath } from 'node:path';
 
 import {
@@ -1356,6 +1363,14 @@ export interface CookHandlerDeps {
   readonly readFileSyncImpl?: typeof readFileSync;
   readonly existsSyncImpl?: typeof existsSync;
   /**
+   * Plan 01-01 T1 — Test seam for the CLI positional → seed-file write.
+   * Production omits; tests inject `vi.fn()` so the conditional seed-write
+   * at the Path-1/Path-2/Path-3 routing decision sites can be asserted
+   * without touching the real filesystem. Parallels readFileSyncImpl /
+   * existsSyncImpl above.
+   */
+  readonly writeFileSyncImpl?: typeof writeFileSync;
+  /**
    * Plan 06-02 T4 — Test seam for BudgetGate construction. Production
    * omits; tests inject a fake gate so the runMode budget-gate wiring can
    * be exercised without a chokidar fs watcher.
@@ -1375,6 +1390,11 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
   const execSyncFn = deps.execSyncImpl ?? nodeExecSync;
   const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
   const existsSyncFn = deps.existsSyncImpl ?? existsSync;
+  const writeFileSyncFn = deps.writeFileSyncImpl ?? writeFileSync;
+  // Plan 01-01 T1 — resolver wired ahead of T2's call sites. The reference
+  // below silences `noUnusedLocals` between T1's pure-plumbing commit and
+  // T2's first call-site use; T2 removes this line.
+  void writeFileSyncFn;
   const budgetGateFactoryFn = deps.budgetGateFactory ?? defaultBudgetGateFactory;
 
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
