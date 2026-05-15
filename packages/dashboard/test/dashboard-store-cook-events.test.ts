@@ -370,6 +370,154 @@ describe('cook event reducer', () => {
     });
   });
 
+  /* ── Phase 03 / Plan 03-01 — extended cases ────────────────────────────
+   * Four new it() blocks that target the store's GAP-01 + GAP-03 fixes
+   * at unit granularity (no Hono server in the loop — the sibling e2e
+   * test exercises the prompt-publish route separately). Mirror the
+   * existing harness: createRoot + applyEvent + mocked postCookStart
+   * for startVibeSession.
+   */
+
+  it('cook.resume: sets activeSessionId, cancels clear timer, appends log line', () => {
+    vi.useFakeTimers();
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      // Seed a pending clear by completing a prior session first.
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: '2026-05-15T10:00:00Z',
+        session_id: 'sess-old',
+        priority: 5,
+        mode: 'execute',
+      });
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: '2026-05-15T10:00:30Z',
+        session_id: 'sess-old',
+        status: 'success',
+      });
+      // Mid-clear-window, cook.resume fires for the recovered session.
+      actions.applyEvent({
+        type: 'cook.resume',
+        ts: '2026-05-15T10:00:35Z',
+        session_id: 'sess-resume-abc12345',
+        from_task: 'task-7',
+        last_commit_hash: 'abc123',
+      });
+      // Side effect 1: activeSessionId switched.
+      expect(state.activeSessionId).toBe('sess-resume-abc12345');
+      // Side effect 2: clear timer cancelled — advancing past 10s does
+      // not null activeSessionId (which is the cancel signal).
+      vi.advanceTimersByTime(15_000);
+      expect(state.activeSessionId).toBe('sess-resume-abc12345');
+      // Side effect 3: log line emitted with sid8 + from_task.
+      const lines = state.recentLogLines.map((l) => l.line);
+      expect(
+        lines.some((l) => l.includes('resuming session sess-res') && l.includes('task-7')),
+      ).toBe(true);
+      dispose();
+    });
+  });
+
+  it('cook.completion sets vibeSession.status to "completed" without nulling vibeSession', async () => {
+    postCookStartMock.mockResolvedValueOnce({
+      session_id: 'sess-1',
+      started_at: '2026-05-15T10:00:00Z',
+    });
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      await actions.startVibeSession('build a snake game');
+      expect(state.vibeSession?.session_id).toBe('sess-1');
+      expect(state.vibeSession?.status).toBe('running');
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: '2026-05-15T10:01:00Z',
+        session_id: 'sess-1',
+        status: 'success',
+      });
+      // vibeSession stays truthy — the 10s clear window must keep the
+      // conversation readable.
+      expect(state.vibeSession).not.toBeNull();
+      expect(state.vibeSession?.session_id).toBe('sess-1');
+      expect(state.vibeSession?.status).toBe('completed');
+      dispose();
+    });
+  });
+
+  it('cook.error sets vibeSession.status to "crashed"', async () => {
+    postCookStartMock.mockResolvedValueOnce({
+      session_id: 'sess-2',
+      started_at: '2026-05-15T10:00:00Z',
+    });
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      await actions.startVibeSession('hello world');
+      expect(state.vibeSession?.status).toBe('running');
+      actions.applyEvent({
+        type: 'cook.error',
+        ts: '2026-05-15T10:00:05Z',
+        session_id: 'sess-2',
+        code: 'COOK_SPAWN_FAILED',
+        message: 'cook process exited within 5s of spawn',
+      });
+      expect(state.vibeSession).not.toBeNull();
+      expect(state.vibeSession?.status).toBe('crashed');
+      dispose();
+    });
+  });
+
+  it('agent.prompt is accepted when session_id matches activeSessionId even if vibeSession.session_id differs', async () => {
+    postCookStartMock.mockResolvedValueOnce({
+      session_id: 'sess-A',
+      started_at: '2026-05-15T10:00:00Z',
+    });
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      await actions.startVibeSession('first prompt');
+      // First session completes; vibeSession.session_id is still 'sess-A'.
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: '2026-05-15T10:01:00Z',
+        session_id: 'sess-A',
+        status: 'success',
+      });
+      // A NEW cook session (sess-B) starts — cook.priority_decision
+      // arrives BEFORE the user has called startVibeSession again,
+      // which is the race the relaxed guard exists to handle.
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: '2026-05-15T10:01:01Z',
+        session_id: 'sess-B',
+        priority: 9,
+        mode: 'plan-and-execute',
+      });
+      expect(state.activeSessionId).toBe('sess-B');
+      // agent.prompt for sess-B arrives — vibeSession.session_id is
+      // still 'sess-A' but activeSessionId === 'sess-B', so the
+      // relaxed dual-source guard MUST accept it (pre-Phase-03 this
+      // was silently dropped).
+      const lengthBefore = state.vibeSession?.conversation.length ?? 0;
+      actions.applyEvent({
+        type: 'agent.prompt',
+        ts: '2026-05-15T10:01:02Z',
+        session_id: 'sess-B',
+        prompt_id: 'p-2',
+        subtype: 'choice',
+        question: 'Phase 01 needs planning and execution. Start?',
+        options: [
+          { label: 'Yes', isRecommended: true },
+          { label: 'No' },
+        ],
+      });
+      expect((state.vibeSession?.conversation.length ?? 0)).toBe(lengthBefore + 1);
+      const entry = state.vibeSession?.conversation[lengthBefore];
+      expect(entry?.session_id).toBe('sess-B');
+      expect(entry?.prompt_id).toBe('p-2');
+      expect(entry?.status).toBe('pending');
+      dispose();
+    });
+  });
+
   it('snapshot.replace hydrates activeAgents from snapshot.active_agents[]', () => {
     createRoot((dispose) => {
       const [state, actions] = createDashboardStore();
