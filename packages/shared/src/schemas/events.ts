@@ -459,6 +459,36 @@ const OAuthErrorEvent = z.object({
   message: z.string().min(1),
 });
 
+// Plan 02-01 (milestone 08, Phase 02) — Dashboard `/api/init` init Lead
+// subprocess lifecycle. Mirrors the `cook.*` watchdog contract from
+// cook-start.ts: the init route appends an `init.start` JSONL row +
+// bus.publish before spawning `swt init`, and the `child.once('exit', ...)`
+// watchdog fires `init.complete` (code 0) or `init.error` (non-zero).
+// `init.error.code` is `INIT_SPAWN_FAILED` for fast non-zero exits (<5s)
+// and `INIT_FAILED` for late non-zero exits — see plan 02-01 T3 Decisions.
+const InitStartEvent = z.object({
+  type: z.literal('init.start'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  name: z.string().optional(),
+  description: z.string().optional(),
+});
+
+const InitCompleteEvent = z.object({
+  type: z.literal('init.complete'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  status: z.enum(['success', 'failed']).optional(),
+});
+
+const InitErrorEvent = z.object({
+  type: z.literal('init.error'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  code: z.string().min(1),
+  message: z.string().min(1),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -496,6 +526,12 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   OAuthAwaitingCodeEvent,
   OAuthCompleteEvent,
   OAuthErrorEvent,
+  // Plan 02-01 (milestone 08, Phase 02) — Dashboard /api/init init Lead
+  // subprocess lifecycle (init.start before spawn; init.complete / init.error
+  // from the child.once('exit') watchdog).
+  InitStartEvent,
+  InitCompleteEvent,
+  InitErrorEvent,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -553,6 +589,11 @@ export const SNAPSHOT_EVENT_TYPES = [
   'oauth.awaiting_code',
   'oauth.complete',
   'oauth.error',
+  // Plan 02-01 (milestone 08, Phase 02) — Dashboard /api/init init Lead
+  // subprocess lifecycle.
+  'init.start',
+  'init.complete',
+  'init.error',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
@@ -578,6 +619,15 @@ export type OAuthProgressEvent = z.infer<typeof OAuthProgressEvent>;
 export type OAuthAwaitingCodeEvent = z.infer<typeof OAuthAwaitingCodeEvent>;
 export type OAuthCompleteEvent = z.infer<typeof OAuthCompleteEvent>;
 export type OAuthErrorEvent = z.infer<typeof OAuthErrorEvent>;
+// Plan 02-01 (milestone 08, Phase 02) — inferred TS types for the init
+// Lead subprocess lifecycle events. Phase 03 will add a client-side handler
+// (handleInitEvent) that narrows on these; Phase 02 only consumes them at the
+// server emit site (packages/dashboard/src/server/routes/init.ts). No
+// InitEvent helper alias yet — Phase 03 may add one if the client switch
+// wants it.
+export type InitStartEvent = z.infer<typeof InitStartEvent>;
+export type InitCompleteEvent = z.infer<typeof InitCompleteEvent>;
+export type InitErrorEvent = z.infer<typeof InitErrorEvent>;
 export {
   CookModeSchema,
   CookAgentRoleSchema,
@@ -605,4 +655,11 @@ export {
   OAuthAwaitingCodeEvent as OAuthAwaitingCodeEventSchema,
   OAuthCompleteEvent as OAuthCompleteEventSchema,
   OAuthErrorEvent as OAuthErrorEventSchema,
+  // Plan 02-01 (milestone 08, Phase 02) — Zod schema aliases for the init
+  // Lead subprocess lifecycle events. Phase 02's init route uses these to
+  // emit (typed) events into the JSONL channel + bus.publish; Phase 03's
+  // client fold can re-use them as runtime validators if it wants.
+  InitStartEvent as InitStartEventSchema,
+  InitCompleteEvent as InitCompleteEventSchema,
+  InitErrorEvent as InitErrorEventSchema,
 };
