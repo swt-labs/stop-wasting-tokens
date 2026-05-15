@@ -1246,44 +1246,46 @@ export function createDashboardStore(
 
   const initProject = async (body: InitBody): Promise<void> => {
     setState('initSubmitting', true);
-    // Capture the current snapshot so we can roll back if init fails.
-    // Shallow-spread to detach from the SolidJS store proxy — without this,
-    // the optimistic setState below would mutate the captured reference and
-    // the rollback would no-op. Phases/recent_events arrays are aliased,
-    // which is safe because rollback only restores top-level primitives.
-    const previousSnapshot: Snapshot | null = state.snapshot ? { ...state.snapshot } : null;
-    // Optimistically flip is_initialized: true so App.tsx unmounts InitScreen
-    // and mounts the 4-panel grid immediately — no waiting on POST + GET
-    // round-trips. Project/milestone stay null; TopBar's <Show> fallback
-    // already handles that case ("…" placeholder). The real values arrive
-    // when fetchSnapshot resolves below.
-    const optimisticSnap: Snapshot = previousSnapshot
-      ? { ...previousSnapshot, is_initialized: true, generated_at: new Date().toISOString() }
-      : {
-          schema_version: '1',
-          generated_at: new Date().toISOString(),
-          project: null,
-          milestone: null,
-          phases: [],
-          active_agents: [],
-          recent_events: [],
-          cost_summary: null,
-          is_initialized: true,
-        };
-    setState('snapshot', optimisticSnap);
-    appendLogLine(`[ok] Initialized .swt-planning/ — type 'help' for available subcommands.`);
+    // Plan 03-01 T2 — the old optimistic snapshot flip (setting
+    // is_initialized) is REMOVED. Phase 02 made `POST /api/init` spawn a detached Lead
+    // subprocess that runs for many seconds; flipping is_initialized at
+    // submit time unmounted InitScreen instantly, hiding the "Detecting
+    // stack…" overlay and breaking the audit Instance #1 contract. The
+    // canonical flip now happens in `handleInitEvent` on `init.complete`
+    // (the actual SSE signal that the Lead finished).
+    const trimmedName = body.name.trim();
+    const trimmedDesc = body.description?.trim() ?? '';
     try {
       const response = await postInit(body);
+      // Capture the server-issued init session id when present. The
+      // server-side init.ts mints a session_id and embeds it in the
+      // init.start SSE event; the HTTP response shape (InitResponseSchema)
+      // does NOT formally carry it (Zod's default object mode strips
+      // unknown fields), but tests can mock postInit to return one, and
+      // future schema additions are forward-compatible. The real id is
+      // adopted onto initSession.session_id in `handleInitEvent`'s
+      // init.start branch once that event arrives — keeping this slot
+      // populated with a provisional empty id closes the race window
+      // between scaffold-success and the first SSE frame.
+      const sessionIdFromResponse = (response as { session_id?: string }).session_id ?? '';
+      setState('initSession', {
+        session_id: sessionIdFromResponse,
+        status: 'detecting',
+        name: trimmedName,
+        ...(trimmedDesc.length > 0 ? { description: trimmedDesc } : {}),
+        started_at: new Date().toISOString(),
+      });
+      appendLogLine(`[ok] Initialized .swt-planning/ — type 'help' for available subcommands.`);
       appendLogLine(`[ok] Project ${body.name} ready at ${response.root}`);
-      // Replace the optimistic snapshot with the server's real one. After
-      // /api/init, the daemon's snapshotter is live and /api/snapshot returns
-      // populated project/milestone/phases.
-      const snap = await fetchSnapshot();
-      setState('snapshot', snap);
     } catch (err: unknown) {
-      // Roll back the optimistic flip — InitScreen reappears so the user can
-      // see the error and retry.
-      setState('snapshot', previousSnapshot);
+      // Scaffold-time failure (409 AlreadyInitialized, write error, etc.)
+      // — clear any provisional initSession that a prior call left behind
+      // and surface the error. No optimistic snapshot rollback needed
+      // because the optimistic flip is gone. InitScreen stays mounted
+      // (is_initialized was never flipped) with the user's typed
+      // name/description intact, and the error paragraph surfaces via
+      // state.errors / the InitScreen errorMessage prop wiring.
+      setState('initSession', null);
       const message = err instanceof Error ? err.message : String(err);
       pushError(`init failed: ${message}`);
       throw err;

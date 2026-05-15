@@ -101,42 +101,64 @@ afterEach(() => {
 });
 
 describe('initProject', () => {
-  it('optimistically flips is_initialized:true before the POST resolves', async () => {
+  // Plan 03-01 T2 — the old optimistic `is_initialized: true` flip was
+  // removed. On POST success, `initSession` is set to a `detecting` slot;
+  // `is_initialized` stays false until `init.complete` arrives via SSE.
+  // These tests are the regression cover for that contract change.
+  it('sets initSession to detecting on POST success without flipping is_initialized', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
+      // Seed the previous snapshot via snapshot.replace so we can verify
+      // is_initialized stays false through the whole action.
+      const previous = makeSnapshot({ is_initialized: false });
+      actions.applyEvent({ type: 'snapshot.replace', snapshot: previous });
+      expect(state.snapshot?.is_initialized).toBe(false);
+
       const initResponse: InitResponse = {
         initialized: true,
         root: '/tmp/proj',
         files: ['.swt-planning/PROJECT.md'],
       };
-      // Resolve postInit only after we observe the optimistic flip.
+      // Resolve postInit only after we observe the in-flight state.
       let resolveInit: (v: InitResponse) => void = () => {};
       postInitMock.mockReturnValue(
         new Promise<InitResponse>((resolve) => {
           resolveInit = resolve;
         }),
       );
-      fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: true }));
 
-      const initPromise = actions.initProject({ name: 'proj' });
-      // After awaiting a microtask, the optimistic flip should be visible.
+      const initPromise = actions.initProject({ name: 'proj', description: 'desc' });
+      // After awaiting a microtask, the in-flight `submitting` is on but
+      // the snapshot is NOT optimistically flipped — the old behaviour
+      // (immediate is_initialized=true) is what this regression covers.
       await Promise.resolve();
-      expect(state.snapshot?.is_initialized).toBe(true);
+      expect(state.snapshot?.is_initialized).toBe(false);
       expect(state.initSubmitting).toBe(true);
+      // initSession is null until postInit resolves (the setter fires
+      // after the await).
+      expect(state.initSession).toBeNull();
 
       resolveInit(initResponse);
       await initPromise;
+      // After the await: initSession is set to detecting, is_initialized
+      // still false. The init.complete SSE handler is what flips it true
+      // — covered by the e2e-greenfield-init-smoke regression test.
       expect(state.initSubmitting).toBe(false);
-      expect(fetchSnapshotMock).toHaveBeenCalledTimes(1);
+      expect(state.snapshot?.is_initialized).toBe(false);
+      expect(state.initSession?.status).toBe('detecting');
+      expect(state.initSession?.name).toBe('proj');
+      expect(state.initSession?.description).toBe('desc');
+      // No follow-up fetchSnapshot — the snapshot fetch is gone with the
+      // optimistic flip; the daemon's SSE drives the rest.
+      expect(fetchSnapshotMock).toHaveBeenCalledTimes(0);
       dispose();
     });
   });
 
-  it('rolls back the optimistic flip when postInit rejects', async () => {
+  it('clears initSession and pushes an error when postInit rejects (no snapshot rollback needed)', async () => {
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       const previous = makeSnapshot({ is_initialized: false });
-      // Seed the previous snapshot via applyEvent (snapshot.replace).
       actions.applyEvent({ type: 'snapshot.replace', snapshot: previous });
       expect(state.snapshot?.is_initialized).toBe(false);
 
@@ -144,7 +166,11 @@ describe('initProject', () => {
 
       await expect(actions.initProject({ name: 'proj' })).rejects.toThrow('init_failed');
 
+      // is_initialized stays false (it was never optimistically flipped).
       expect(state.snapshot?.is_initialized).toBe(false);
+      // initSession is cleared by the catch path (defensive — covers the
+      // case where a prior submission left a stale slot).
+      expect(state.initSession).toBeNull();
       expect(state.errors.at(-1)?.message).toContain('init_failed');
       dispose();
     });
