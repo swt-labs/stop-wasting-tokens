@@ -546,6 +546,31 @@ export function createDashboardStore(
         setState('activeAgents', next);
         return;
       }
+      case 'cook.resume': {
+        // Phase 03 GAP-03 — surface cook crash-recovery to the user. A
+        // resumed cook always fires cook.priority_decision next (which
+        // sets activeSessionId), but emitting the LOG line + cancelling
+        // any pending clear here makes the recovery legible even if the
+        // priority_decision is briefly delayed. Mirrors the timer-cancel
+        // half of the cook.priority_decision branch above.
+        if (cookClearTimer !== null) {
+          clearTimeout(cookClearTimer);
+          cookClearTimer = null;
+        }
+        setState('activeSessionId', evt.session_id);
+        // appendLogLine appears below in the store body; it is captured
+        // by closure (same channel startVibeSession + initProject use to
+        // surface inline UI log lines). Format mirrors the
+        // "[cook] started session {sid8} — \"{prompt}\"" line so the
+        // user sees a parallel "[cook] resuming session {sid8} from
+        // {from_task}" entry. from_task is required per the
+        // CookResumeEvent schema but the `?? 'unknown'` fallback survives
+        // any future schema drift at zero cost.
+        const sid8 = evt.session_id.slice(0, 8);
+        const fromTask = evt.from_task ?? 'unknown';
+        appendLogLine(`[cook] resuming session ${sid8} from ${fromTask}`);
+        return;
+      }
       case 'cook.completion': {
         // Phase 03 GAP-01 — flip the lifecycle pill so the conversation
         // thread shows 'completed' immediately while the 10s timer keeps
