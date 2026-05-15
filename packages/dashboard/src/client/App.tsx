@@ -4,12 +4,9 @@ import { Show, createMemo, createSignal, onCleanup, onMount, type Component } fr
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
-import { BudgetPanel } from './components/BudgetPanel.js';
-import { CacheHitPanel } from './components/CacheHitPanel.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
-import { CostPanel } from './components/CostPanel.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
 import { DoctorPanel } from './components/DoctorPanel.js';
@@ -20,7 +17,6 @@ import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
 import { SettingsSection, buildConfigPatch } from './components/SettingsSection.js';
 import { TopBar } from './components/TopBar.js';
-import { TpacPanel } from './components/TpacPanel.js';
 import { UatModal } from './components/UatModal.js';
 import { UserNotesPanel } from './components/UserNotesPanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
@@ -330,11 +326,7 @@ export const App: Component = () => {
                   minSize={0.15}
                   class="resizable-panel"
                 >
-                  <CostPanel cost={state.snapshot?.cost_summary ?? null} />
                   <WorktreesPanel />
-                  <CacheHitPanel />
-                  <BudgetPanel />
-                  <TpacPanel />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>
