@@ -630,16 +630,22 @@ export function createDashboardStore(
    */
   const handleOAuthEvent = (evt: Extract<SnapshotEvent, { type: `oauth.${string}` }>): void => {
     const flow = state.oauthFlow;
+    // Provisional-flow correlator — accept an event when the flow's real
+    // flowId hasn't yet been assigned (the POST /oauth/start response is
+    // still in flight). Without this, an early-failure event (e.g.
+    // EADDRINUSE on the loopback callback port) fires BEFORE the response
+    // sets `flow.flowId`, and a strict `flow.flowId === evt.flow_id` check
+    // rejects it — the UI then stays stuck at "Starting OAuth login…"
+    // because no event ever correlates. Originally only `oauth.auth_url`
+    // had this match; we now apply it uniformly so `oauth.error`,
+    // `oauth.progress`, and `oauth.awaiting_code` all surface during the
+    // race window too.
+    const matchesProvisional = (eventFlowId: string, eventProvider: string): boolean =>
+      flow?.flowId === eventFlowId ||
+      (flow?.status === 'starting' && flow.provider === eventProvider && flow.flowId.length === 0);
     switch (evt.type) {
       case 'oauth.auth_url': {
-        // Accept either an exact flow_id match, or a still-`starting`
-        // provisional entry for this provider (flowId not yet assigned).
-        const matches =
-          flow?.flowId === evt.flow_id ||
-          (flow?.status === 'starting' &&
-            flow.provider === evt.provider &&
-            flow.flowId.length === 0);
-        if (!matches) return;
+        if (!matchesProvisional(evt.flow_id, evt.provider)) return;
         setState('oauthFlow', (prev) => ({
           flowId: evt.flow_id,
           provider: evt.provider,
@@ -653,11 +659,13 @@ export function createDashboardStore(
         return;
       }
       case 'oauth.progress': {
-        if (flow?.flowId !== evt.flow_id) return;
+        if (!matchesProvisional(evt.flow_id, evt.provider)) return;
         setState('oauthFlow', (prev) =>
           prev
             ? {
                 ...prev,
+                // Adopt the real flow_id if this is a still-provisional entry.
+                flowId: prev.flowId.length === 0 ? evt.flow_id : prev.flowId,
                 progressMessage: evt.message,
                 status: prev.status === 'starting' ? 'awaiting_browser' : prev.status,
               }
@@ -666,11 +674,12 @@ export function createDashboardStore(
         return;
       }
       case 'oauth.awaiting_code': {
-        if (flow?.flowId !== evt.flow_id) return;
+        if (!matchesProvisional(evt.flow_id, evt.provider)) return;
         setState('oauthFlow', (prev) =>
           prev
             ? {
                 ...prev,
+                flowId: prev.flowId.length === 0 ? evt.flow_id : prev.flowId,
                 status: 'awaiting_code',
                 progressMessage: evt.message ?? prev.progressMessage,
               }
@@ -679,8 +688,16 @@ export function createDashboardStore(
         return;
       }
       case 'oauth.complete': {
-        if (flow?.flowId !== evt.flow_id) return;
-        setState('oauthFlow', 'status', 'complete');
+        if (!matchesProvisional(evt.flow_id, evt.provider)) return;
+        setState('oauthFlow', (prev) =>
+          prev
+            ? {
+                ...prev,
+                flowId: prev.flowId.length === 0 ? evt.flow_id : prev.flowId,
+                status: 'complete',
+              }
+            : prev,
+        );
         // Immediate refetch so the auth-status display reflects the
         // now-configured provider. The 04-02 route also publishes
         // `state.changed`, which 03-04's handler refetches `providerAuth`
@@ -689,11 +706,12 @@ export function createDashboardStore(
         return;
       }
       case 'oauth.error': {
-        if (flow?.flowId !== evt.flow_id) return;
+        if (!matchesProvisional(evt.flow_id, evt.provider)) return;
         setState('oauthFlow', (prev) =>
           prev
             ? {
                 ...prev,
+                flowId: prev.flowId.length === 0 ? evt.flow_id : prev.flowId,
                 status: 'error',
                 errorCode: evt.code,
                 errorMessage: evt.message,
