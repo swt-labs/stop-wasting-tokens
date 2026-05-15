@@ -178,6 +178,7 @@ export const App: Component = () => {
             <InitScreen
               submitting={state.initSubmitting}
               brownfield={isBrownfield()}
+              initSession={() => state.initSession}
               onInit={actions.initProject}
             />
           </main>

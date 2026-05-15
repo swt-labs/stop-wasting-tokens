@@ -1,6 +1,7 @@
 import { Show, createSignal, type Component } from 'solid-js';
 
 import type { InitBody } from '../services/api.js';
+import type { InitSessionState } from '../state/dashboard-store.js';
 
 export interface InitScreenProps {
   submitting: boolean;
@@ -10,6 +11,15 @@ export interface InitScreenProps {
    * Drives the headline + step copy + CTA wording.
    */
   brownfield: boolean;
+  /**
+   * Plan 03-01 T3 — the in-flight init Lead lifecycle, or `null` when no
+   * init is running. Drives the in-button status label when
+   * `status === 'detecting'` and the error paragraph fallback when
+   * `status === 'error'` (surfaces `errorMessage`). Accessor pattern
+   * (same shape App.tsx uses for `agents` / `sessionId` props on other
+   * panes) so Solid's reactivity tracks store mutations.
+   */
+  initSession: () => InitSessionState | null;
   onInit: (body: InitBody) => Promise<void>;
 }
 
@@ -53,12 +63,20 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   const [description, setDescription] = createSignal('');
   const [error, setError] = createSignal<string | null>(null);
 
+  // Plan 03-01 T3 — the form is disabled while either the scaffold POST
+  // is in flight (props.submitting from initSubmitting) OR the init Lead
+  // is running on the daemon (initSession.status === 'detecting'). Combined
+  // so the inputs + submit button stay locked from form-submit through
+  // init.complete / init.error.
+  const isBusy = (): boolean =>
+    props.submitting || props.initSession()?.status === 'detecting';
+
   const submit = async (e: Event): Promise<void> => {
     e.preventDefault();
     // Belt-and-suspenders against double-fire on rapid clicks. The button is
-    // also disabled via props.submitting, but the form itself can still
-    // submit on Enter when focus is in the textarea, so guard here too.
-    if (props.submitting) return;
+    // also disabled via isBusy(), but the form itself can still submit on
+    // Enter when focus is in the textarea, so guard here too.
+    if (isBusy()) return;
     const trimmedName = name().trim();
     if (trimmedName.length === 0) {
       setError('Project name is required.');
@@ -87,14 +105,19 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
 
   const steps = (): ReadonlyArray<Step> => (props.brownfield ? BROWNFIELD_STEPS : GREENFIELD_STEPS);
 
-  const submitLabel = (): string =>
-    props.brownfield
-      ? props.submitting
-        ? '◆ Initializing…'
-        : '✓ Initialize SWT for this codebase'
-      : props.submitting
-        ? '◆ Initializing…'
-        : '✓ Initialize SWT project';
+  const submitLabel = (): string => {
+    // Plan 03-01 T3 — surface the Lead-running state inline on the submit
+    // button. Keeps visual scope minimal: a single in-button label, no
+    // modal/spinner component. Submit-time + Lead-running are both
+    // surfaced through the same gate (isBusy) so the label flow is:
+    //   idle → "✓ Initialize…" → "◆ Initializing…" → detecting-state
+    //   → unmount (on init.complete).
+    if (props.initSession()?.status === 'detecting') return '◆ Detecting stack…';
+    if (props.submitting) return '◆ Initializing…';
+    return props.brownfield
+      ? '✓ Initialize SWT for this codebase'
+      : '✓ Initialize SWT project';
+  };
 
   return (
     <div
@@ -134,7 +157,7 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
               placeholder={props.brownfield ? 'my-existing-project' : 'my-swt-project'}
               autocomplete="off"
               spellcheck={false}
-              disabled={props.submitting}
+              disabled={isBusy()}
               value={name()}
               onInput={(e) => setName(e.currentTarget.value)}
               autofocus
@@ -146,18 +169,30 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
             <textarea
               class="init-textarea"
               placeholder="One or two sentences about what this project does."
-              disabled={props.submitting}
+              disabled={isBusy()}
               value={description()}
               onInput={(e) => setDescription(e.currentTarget.value)}
             />
           </label>
 
-          <Show when={error()}>
-            <p class="init-error">{error()}</p>
+          {/*
+           * Plan 03-01 T3 — surface either the local form-validation error
+           * (createSignal `error`) OR an init.error SSE event's
+           * `errorMessage` through the same existing paragraph. No new
+           * toast component; `state.errors` is also pushed to in the
+           * store, but is currently unrendered, so this paragraph is the
+           * user-visible surface for init failures. The accessor read
+           * order means a local error (e.g. "Project name is required.")
+           * still wins when both are set, which matches the user's
+           * mental model — their typo prompt is more recent than the
+           * earlier Lead failure.
+           */}
+          <Show when={error() ?? props.initSession()?.errorMessage}>
+            <p class="init-error">{error() ?? props.initSession()?.errorMessage}</p>
           </Show>
 
           <div class="init-actions">
-            <button type="submit" class="init-submit" disabled={props.submitting}>
+            <button type="submit" class="init-submit" disabled={isBusy()}>
               {submitLabel()}
             </button>
           </div>
