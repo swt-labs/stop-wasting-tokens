@@ -180,7 +180,9 @@ function buildHarness(opts: HarnessOpts = {}) {
   };
   const spawnImpl = vi.fn(async () => spawnResult);
   const detectPhaseImpl = vi.fn(async () => state);
-  const execSyncImpl = vi.fn(((_cmd: string, _opts: unknown) => '') as unknown as typeof ExecSyncFn);
+  const execSyncImpl = vi.fn(
+    ((_cmd: string, _opts: unknown) => '') as unknown as typeof ExecSyncFn,
+  );
 
   const readFileSyncImpl = vi.fn((p: PathOrFileDescriptor, _enc?: unknown) => {
     if (opts.priorSeedContent !== undefined && String(p).endsWith(SEED_PATH_SUFFIX)) {

@@ -1,5 +1,38 @@
 # Changelog
 
+## 3.0.0-alpha.14 — 2026-05-15
+
+_Milestone `08-init-and-cook-text-parity` shipped — three phases closing the two remaining surfaces of the "UI promises, backend drops" anti-pattern that the 07-milestone audit had flagged. After this release, typing an idea into the dashboard cook bar (alpha.10), running `swt cook "<idea>"` from a terminal, and clicking Initialize on the greenfield InitScreen all produce a real agent-driven lifecycle — no more silent drops of typed user input._
+
+### Phase 01 — CLI cook positional → seed-file write
+
+- **`feat(cook): write CLI positional to seed file when routing resolves to Scope`** (`a833685` + `d6935fc` plumbing + `b05c1fe` regression). `swt cook "build a snake game from scratch"` from a terminal now writes the free-form positional to `.swt-planning/.pending-scope-idea.txt` **only when cook routing resolves to Scope mode** (the only seed-consuming mode per the alpha.10 contract). The post-routing gate honors edge case A — `"build a snake game"` natural-language-matches Execute via Path 2 keyword routing, and writing the seed before NL routing decided the mode would lock stale data into the wrong mode. Newer-wins overwrite of an existing seed file emits a `[cook] seed-file overwritten from CLI positional (was N chars)` stderr notice. The orchestrator's first askUser call ("What do you want to build?") then auto-answers with the typed text via the `swt_complete_scope_seed` Pi tool registered in alpha.10. `writeFileSyncImpl` added to `CookHandlerDeps` as an injectable test seam (`d6935fc`). 7-case regression test in `cook-seed-from-positional.test.ts` covers Scope-route write, stale-seed overwrite notice, NL-routed Execute skip, bare phase-number skip, ref-tag skip, flag-only skip, whitespace-only skip. The `--allow-empty` `ba7f037` commit is the QA-remediation audit trail for plan-amending T1's done-criteria to acknowledge a one-line `void writeFileSyncFn;` `noUnusedLocals` bridge between the plumbing commit and T2's first call-site use.
+
+### Phase 02 — Dashboard `/api/init` Lead subprocess
+
+- **`feat(shared): init.start / init.complete / init.error event variants`** (`cc63ad6`). Three new variants added to `SnapshotEventSchema`'s discriminated union (`packages/shared/src/schemas/events.ts`). `session_id` + `ts` on all three; `init.error` carries `code` (`INIT_SPAWN_FAILED` for fast-exit, `INIT_FAILED` for late non-zero) + `message`. The existing events-tailer + EventBus picks them up automatically — no tailer changes required.
+- **`refactor(dashboard): rename resolveCookCommand → resolveSwtCommand for reuse`** (`2017038`). One source of truth for `swt`-binary resolution (SWT_BIN env override → sibling `cli.mjs` bundle → PATH `swt`). Shared by `cook-start.ts` (existing) and `init.ts` (new).
+- **`feat(dashboard): spawn swt init Lead subprocess from /api/init with init.* event emission`** (`b9ba8cd`). After `initProject()` returns successfully, the `/api/init` route spawns `swt init <name> [--description "..."]` as a detached subprocess (`stdio: ['ignore', 'ignore', 'pipe']`, `child.unref()`), with `SWT_SESSION_ID` + `SWT_PLANNING_ROOT` env. Events JSONL path is `.swt-planning/.events/init-{sessionId}-{startTs}.jsonl` mirroring the cook-events convention. Double-channel emission for `init.start` / `init.complete` / `init.error` (JSONL append + `bus.publish`). Fast-exit watchdog is `child.once('exit', cb)` with internal `Date.now() - spawnTime < 5000` check — exactly mirrors `cook-start.ts`. HTTP response returns immediately after scaffold + spawn registration (non-blocking). Graceful degradation: missing `bus` or `spawnFn` (test injection) still scaffolds + responds 200.
+- **`test(dashboard): pattern A regression for /api/init subprocess wiring`** (`6ab1ac7`). Real-Hono + FakeChild + FakeStderr + fake EventBus, mirroring `cook-start.test.ts`. 8 cases covering argv shape (with + without `--description`), event emission, watchdog timing, graceful degradation, non-blocking response, no-spawn-on-scaffold-failure.
+
+### Phase 03 — Dashboard client-side init UI surfacing
+
+- **`feat(dashboard): InitSessionState type + handleInitEvent dispatch in store`** (`e4e9691`). New `state.initSession: InitSessionState | null` slot **parallel to** `state.vibeSession` — NOT a reuse of `state.activeSessionId` (which is wired to cook controls; an init session in that slot would have Pause/Resume/Cancel buttons POST to a non-existent `/api/init/{id}/control`). `handleInitEvent` with discriminated switch over `init.start | init.complete | init.error`; `applyEvent` routes via `evt.type.startsWith('init.')` guard.
+- **`fix(dashboard): remove optimistic is_initialized flip; gate on init.complete`** (`1b9fad1`). The `initProject` store action used to optimistically flip `state.snapshot.is_initialized = true` BEFORE the POST resolved — that's what caused the InitScreen to disappear immediately on form submit. Removed. `is_initialized` now flips only when `init.complete` fires from the subprocess. On POST success, `initSession = { status: 'detecting', session_id, name, description, started_at, errorMessage: undefined }`.
+- **`feat(dashboard): InitScreen detecting overlay + initSession prop wiring`** (`cf7888c`). New `initSession` prop; "Detecting stack…" label/spinner state when `initSession?.status === 'detecting'`; error surfacing through the existing inline `<Show when={error()}>` paragraph when `initSession?.status === 'error'` — no new toast component. Typed `name` + `description` survive `init.error` automatically because InitScreen stays mounted (the local `createSignal` values are preserved).
+- **`test(dashboard): e2e-greenfield-init-smoke regression (7 cases)`** (`35cf4ef`). Pattern B (mocked `fetch` + mocked SSE pumped via direct `applyEvent` calls). Covers the full happy-path chain (greenfield → detecting → init.start → init.complete → ready), the bug-fix regression (no optimistic flip), `init.error` keeping the screen mounted with values intact, and re-submit-after-error resetting `initSession` cleanly.
+
+### What this milestone does NOT include (deferred)
+
+- ActiveAgentsPane init-Lead row — Phase 02 emits only `init.start`/`init.complete` (no per-agent events), so the init Lead surfaces only as InitScreen overlay text. Future follow-up if streaming sub-states are added.
+- Streaming Lead findings ("Detected Python project ✓") — possible follow-up; requires more event types.
+- Init resume after crash — analogous to cook's `probeForResume`. Land later if init proves long enough to warrant it.
+- Cancel-init-while-detecting UI — no Phase 02 endpoint for it.
+
+**Verification:** `pnpm typecheck` clean · `pnpm vitest run packages/dashboard packages/shared` — **675 passed / 1 skipped / 0 failed** (was 668 pre-milestone; +7 new regression cases). Hard archive UAT gate PASS. State-consistency gate PASS. Pre-archive 7-point audit PASS for all 3 phases (Phase 01 after R01 plan-amend remediation).
+
+**Provenance:** Milestone `08-init-and-cook-text-parity` archived under `.vbw-planning/milestones/08-init-and-cook-text-parity/`. Three phases — `01-cli-cook-positional-seed-file`, `02-dashboard-init-lead-subprocess`, `03-dashboard-init-ui-surfacing`. Commit range `d6935fc..35cf4ef` on `main` (12 commits incl. 1 R01 audit-trail commit). Closes audit Instances #1 and #2 from `.vbw-planning/research/swt-v2-source/a_non_production_files/audit.md`.
+
 ## 3.0.0-alpha.13 — 2026-05-15
 
 _Sibling fix to alpha.12. While alpha.12 fixed the missing markdown directories (`commands/` / `agents/` / `provider_overlays/`), the runtime audit surfaced two more files the bundled CLI invokes via shell-exec at runtime that were never shipping. Both are now SWT-owned and ship in the tarball._

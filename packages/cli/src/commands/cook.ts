@@ -1399,10 +1399,7 @@ function maybeWriteSeedFromPositional(args: {
   let priorLength = 0;
   if (args.existsSyncFn(args.seedPath)) {
     try {
-      priorLength = Buffer.byteLength(
-        args.readFileSyncFn(args.seedPath, 'utf8'),
-        'utf8',
-      );
+      priorLength = Buffer.byteLength(args.readFileSyncFn(args.seedPath, 'utf8'), 'utf8');
     } catch {
       priorLength = 0;
     }

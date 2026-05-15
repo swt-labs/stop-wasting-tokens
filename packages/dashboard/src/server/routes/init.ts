@@ -176,9 +176,7 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
       //    but conflict-detects when it's present with an empty value.
       if (spawnFn) {
         const { command, prefixArgs } = resolveSwtCommand();
-        const extraArgs = parsed.data.description
-          ? ['--description', parsed.data.description]
-          : [];
+        const extraArgs = parsed.data.description ? ['--description', parsed.data.description] : [];
         const child = spawnFn(command, [...prefixArgs, 'init', parsed.data.name, ...extraArgs], {
           cwd: opts.projectRoot,
           env: {

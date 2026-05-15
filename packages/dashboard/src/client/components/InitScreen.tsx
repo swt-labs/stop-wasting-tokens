@@ -68,8 +68,7 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   // is running on the daemon (initSession.status === 'detecting'). Combined
   // so the inputs + submit button stay locked from form-submit through
   // init.complete / init.error.
-  const isBusy = (): boolean =>
-    props.submitting || props.initSession()?.status === 'detecting';
+  const isBusy = (): boolean => props.submitting || props.initSession()?.status === 'detecting';
 
   const submit = async (e: Event): Promise<void> => {
     e.preventDefault();
@@ -114,9 +113,7 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
     //   → unmount (on init.complete).
     if (props.initSession()?.status === 'detecting') return '◆ Detecting stack…';
     if (props.submitting) return '◆ Initializing…';
-    return props.brownfield
-      ? '✓ Initialize SWT for this codebase'
-      : '✓ Initialize SWT project';
+    return props.brownfield ? '✓ Initialize SWT for this codebase' : '✓ Initialize SWT project';
   };
 
   return (

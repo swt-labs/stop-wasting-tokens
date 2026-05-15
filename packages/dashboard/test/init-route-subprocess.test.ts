@@ -135,9 +135,7 @@ function makeFakeInitProject(): ReturnType<typeof vi.fn> {
 function readInitEventsFile(projectRoot: string): string[] {
   const eventsDir = path.join(projectRoot, '.swt-planning', '.events');
   if (!existsSync(eventsDir)) return [];
-  const files = readdirSync(eventsDir).filter(
-    (f) => f.startsWith('init-') && f.endsWith('.jsonl'),
-  );
+  const files = readdirSync(eventsDir).filter((f) => f.startsWith('init-') && f.endsWith('.jsonl'));
   if (files.length === 0) return [];
   const filePath = path.join(eventsDir, files[0] as string);
   const raw = readFileSync(filePath, 'utf8');
@@ -259,7 +257,9 @@ describe('POST /api/init subprocess wiring', () => {
       expect(parsed.data.session_id).toMatch(/^[0-9a-f-]{36}$/);
       expect(parsed.data.name).toBe('foo');
     } else {
-      throw new Error(`expected init.start, got ${(parsed as { data?: { type: string } }).data?.type ?? 'parse error'}`);
+      throw new Error(
+        `expected init.start, got ${(parsed as { data?: { type: string } }).data?.type ?? 'parse error'}`,
+      );
     }
 
     // bus.publish double-channel — the init.start object should also
@@ -350,7 +350,9 @@ describe('POST /api/init subprocess wiring', () => {
       expect(second.data.code).toBe('INIT_SPAWN_FAILED');
       expect(second.data.message).toMatch(/exited with code 3 within \d+ms/);
     } else {
-      throw new Error(`expected init.error, got ${(second as { data?: { type: string } }).data?.type ?? 'parse error'}`);
+      throw new Error(
+        `expected init.error, got ${(second as { data?: { type: string } }).data?.type ?? 'parse error'}`,
+      );
     }
 
     // bus.publish carries the init.error object (double-channel).

@@ -780,9 +780,7 @@ export function createDashboardStore(
    *     inline and resubmit (the resubmit `initProject` call replaces
    *     the slot).
    */
-  const handleInitEvent = (
-    evt: Extract<SnapshotEvent, { type: `init.${string}` }>,
-  ): void => {
+  const handleInitEvent = (evt: Extract<SnapshotEvent, { type: `init.${string}` }>): void => {
     switch (evt.type) {
       case 'init.start': {
         appendLogLine('[init] Lead detecting stack…');
@@ -798,9 +796,7 @@ export function createDashboardStore(
         return;
       }
       case 'init.complete': {
-        setState('snapshot', (prev) =>
-          prev ? { ...prev, is_initialized: true } : prev,
-        );
+        setState('snapshot', (prev) => (prev ? { ...prev, is_initialized: true } : prev));
         setState('initSession', null);
         appendLogLine('[init] Lead bootstrap complete');
         return;
