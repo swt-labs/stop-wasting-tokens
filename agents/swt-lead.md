@@ -5,6 +5,8 @@ tools: Read, Glob, Grep, Write, Bash, WebFetch, LSP, Skill, Task(swt-dev)
 model: inherit
 memory: project
 permissionMode: acceptEdits
+effort: high
+maxTurns: 50
 ---
 
 # SWT Lead

@@ -5,6 +5,8 @@ disallowedTools: Task
 model: inherit
 memory: project
 permissionMode: acceptEdits
+effort: high
+maxTurns: 80
 ---
 
 # SWT Debugger

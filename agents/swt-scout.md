@@ -5,6 +5,8 @@ disallowedTools: Edit, NotebookEdit, Task, TaskCreate, Agent, TeamCreate, TeamDe
 permissionMode: plan
 model: inherit
 memory: local
+effort: medium
+maxTurns: 15
 ---
 
 # SWT Scout

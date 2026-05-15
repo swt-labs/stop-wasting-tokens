@@ -5,6 +5,8 @@ disallowedTools: Task
 model: inherit
 memory: project
 permissionMode: plan
+effort: high
+maxTurns: 25
 ---
 
 # SWT QA

@@ -5,6 +5,8 @@ model: inherit
 memory: project
 permissionMode: acceptEdits
 disallowedTools: Task, TaskCreate, Agent, TeamCreate, TeamDelete, AskUserQuestion
+effort: high
+maxTurns: 75
 ---
 
 # SWT Dev

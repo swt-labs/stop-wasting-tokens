@@ -5,6 +5,8 @@ tools: Read, Glob, Grep, Write, LSP, Skill
 model: inherit
 memory: project
 permissionMode: acceptEdits
+effort: xhigh
+maxTurns: 30
 ---
 
 # SWT Architect

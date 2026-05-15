@@ -5,6 +5,8 @@ tools: Read, Grep, Glob, Bash, Write, Edit, LSP, Skill
 model: inherit
 memory: local
 permissionMode: acceptEdits
+effort: medium
+maxTurns: 20
 ---
 
 # SWT Docs
