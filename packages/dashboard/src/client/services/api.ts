@@ -458,12 +458,17 @@ export async function postCommand(body: CommandBody): Promise<CommandResponse> {
 /**
  * G-D3 — `POST /api/cook/start`. The v3 successor to the removed v2
  * vibe-start helper that targeted the `/api/vibe` shim (deleted in commit
- * 860b59d). Spawns `swt cook` as a detached subprocess server-side; the daemon mints the
- * session_id. Cook is plan-driven and non-interactive — there is no
- * per-call free-text "prompt" in v3, so the dashboard's TopBar prompt is
- * kept only for the local session log line / `initial_prompt` display and
- * is NOT forwarded on the wire. Optional `args` flow straight through to
+ * 860b59d). Spawns `swt cook` as a detached subprocess server-side; the
+ * daemon mints the session_id. Optional `args` flow straight through to
  * the `swt cook` CLI invocation.
+ *
+ * Phase 01 (Cook IPC plumbing) added the `prompt` parameter: when the
+ * caller passes a non-empty trimmed string, the server writes it as a
+ * seed file (`.swt-planning/.pending-scope-idea.txt`) before spawning
+ * cook so cook can pre-fill the Scope-mode "what to build?" answer.
+ * Empty / undefined / whitespace prompts are omitted from the body
+ * entirely (the server's no-prompt branch leaves any prior seed file
+ * untouched).
  *
  * No zod schema in `@swt-labs/shared` for this route's response yet — the
  * server-side shape is locked by `cook-start.ts` + its route test; we do a
@@ -475,11 +480,18 @@ export interface CookStartResponse {
   started_at: string;
 }
 
-export async function postCookStart(args?: ReadonlyArray<string>): Promise<CookStartResponse> {
+export async function postCookStart(
+  args?: ReadonlyArray<string>,
+  prompt?: string,
+): Promise<CookStartResponse> {
+  const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+  const body: { args?: ReadonlyArray<string>; prompt?: string } = {};
+  if (args && args.length > 0) body.args = args;
+  if (trimmedPrompt.length > 0) body.prompt = trimmedPrompt;
   const res = await fetch('/api/cook/start', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(args && args.length > 0 ? { args } : {}),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const message = await readErrorMessage(res);

@@ -1160,14 +1160,14 @@ export function createDashboardStore(
     if (trimmed.length === 0) return null;
     setState('vibeStarting', true);
     try {
-      // G-D3 — ported from the removed v2 vibe-start helper (`/api/vibe`
-      // shim) to the live `POST /api/cook/start` route. v3's cook is
-      // plan-driven and non-interactive: there is no per-call free-text
-      // prompt on the wire, so `trimmed` is kept only for the local
-      // session log line + `initial_prompt` display. The daemon mints the
-      // session_id and spawns `swt cook` detached. v3 ships Pi as the sole
-      // agent backend, so a successful spawn implies `agent_backend: 'pi'`.
-      const response = await postCookStart();
+      // Phase 01 (Cook IPC plumbing) — forward the typed prompt to the
+      // server so it can write `.swt-planning/.pending-scope-idea.txt`
+      // BEFORE spawning `swt cook`. Cook's Scope mode (Phase 02 wiring)
+      // pre-fills the "what to build?" askUser answer from that seed
+      // file. The daemon still mints the session_id and spawns
+      // detached. v3 ships Pi as the sole agent backend, so a successful
+      // spawn implies `agent_backend: 'pi'`.
+      const response = await postCookStart(undefined, trimmed);
       setState('vibeSession', {
         session_id: response.session_id,
         initial_prompt: trimmed,
