@@ -3002,19 +3002,38 @@ async function runMode(
     });
     const result = fallbackResult.result;
 
-    // TaskResult (TDD2 §9.4 swt_report_result envelope) does not carry a
-    // `usage` payload today — Pi's per-turn token deltas are plumbed in
-    // Phase 5 parity testing (research §Recommendation 5). Emit zero-token
-    // sentinels here; plan 04-04 / Phase 5 will replace this with the
-    // real Pi usage payload once it's exposed through the harvest channel.
-    // TODO(Phase 5 parity): plumb usage from Pi session handle.
+    // Phase 02 / Plan 02-01 — real Pi usage now flows through
+    // `TaskResult.usage` (dispatcher.prompt wire-up). The dispatcher
+    // subscribes to TASK_TOKEN_USAGE events for the duration of the
+    // orchestrator prompt and accumulates per-turn deltas into the
+    // returned envelope. Cache deltas are optional / provider-dependent —
+    // Anthropic typically reports them, OpenAI does not always, so we
+    // only emit the cache fields when the dispatcher saw a positive
+    // count (avoid surfacing a misleading `0` when the provider stayed
+    // silent).
     const resultStatus: 'completed' | 'failed' | 'blocked' =
       result.status === 'success' || result.status === 'partial'
         ? 'completed'
         : result.status === 'blocked'
           ? 'blocked'
           : 'failed';
-    const resultUsage = { input_tokens: 0, output_tokens: 0 };
+    // Field-name remap: dispatcher's TaskResult.usage uses the canonical
+    // `cache_read_tokens` / `cache_write_tokens` shape (provider-neutral),
+    // but the on-wire CookUsageSchema (events.ts:161) is locked to the
+    // Anthropic-style names `cache_read_input_tokens` /
+    // `cache_creation_input_tokens` because the dashboard's cost
+    // aggregator and statusline pipeline have read them this way since
+    // alpha.10. Map at the emit boundary so neither schema has to churn.
+    const resultUsage = {
+      input_tokens: result.usage?.input_tokens ?? 0,
+      output_tokens: result.usage?.output_tokens ?? 0,
+      ...(result.usage?.cache_read_tokens !== undefined
+        ? { cache_read_input_tokens: result.usage.cache_read_tokens }
+        : {}),
+      ...(result.usage?.cache_write_tokens !== undefined
+        ? { cache_creation_input_tokens: result.usage.cache_write_tokens }
+        : {}),
+    };
     emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
       type: 'cook.agent_result',
       ts: new Date().toISOString(),
