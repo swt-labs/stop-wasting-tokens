@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.0.0-alpha.10 — 2026-05-15
+
+_Milestone `07-dashboard-vibe-end-to-end` shipped — the dashboard's cook bar now drives a full vibe lifecycle (type idea → ROADMAP → PLAN → EXECUTE) without touching a terminal. Four phases of plumbing + UX polish + automated coverage. Pre-publish; the `next` dist-tag remains on `3.0.0-alpha.9` until `npm publish` runs._
+
+### Phase 01 — Cook IPC plumbing
+
+- **`feat(dashboard,cli): cook-bar text → cook seed file → spawned cook process`.** A new `.swt-planning/.pending-scope-idea.txt` seed file mechanism replaces the silent text-drop that dropped every user idea before this milestone (`dashboard-store.ts` admission "v3's cook is plan-driven and non-interactive: there is no per-call free-text prompt on the wire"). `POST /api/cook/start`'s `spawn(..., {stdio: 'ignore'})` is replaced with a piped path that feeds cook stdout/stderr into the existing cook-events file (single SSE channel, no new route). Cook spawn failures (nonzero exit <5 s) surface as a dashboard error toast rather than vanishing.
+- **`test(dashboard): cook-start.ts stdio tuple + seed-file + fast-exit invariants`.** Six new regression cases (`cook-start.test.ts`) pin the spawn tuple, the seed-file lifecycle, and the watchdog's fast-exit publish path.
+
+### Phase 02 — Scope seed + askUser ↔ PromptCard roundtrip
+
+- **`feat(runtime): swt_complete_scope_seed Pi custom tool`.** A new Pi extension tool registered at Scope-mode entry that reads the seed file, deletes it after consumption (single-use), and pre-fills the answer to cook's opening "what do you want to build?" askUser call. Preserves the FSM invariant that every scope decision flows through askUser — the seed is the user's first answer, not a bypass. Follow-up clarifications continue through the standard `swt_ask_user` → `/api/prompts/publish` → SSE → `PromptCard` → `/api/prompts/:id/respond` chain.
+- **`feat(cli): cook.md Scope Step 2 ${SEED_IDEA} branch + Step 4 completion call`.** The Scope mode prompt body now reads the seed-injected idea when present and calls `swt_complete_scope_seed` after the first askUser resolves, closing the lifecycle.
+- **`test(dashboard): e2e-scope-seed-roundtrip regression`.** A new hermetic test (real Hono daemon + real askUser + fake-dashboard responder, no LLM in the loop, no API key) covering the full seed-write → askUser-prefill → reply-roundtrip cycle. Three cases.
+
+### Phase 03 — Plan + Execute driven from the dashboard
+
+- **`fix(dashboard): vibeSession lifecycle replace-on-new-spawn + relaxed agent.prompt session-id guard (GAP-01)`.** Two latent state-machine gaps that blocked Plan + Execute from working end-to-end after Phase 02. The `agent.prompt` session-id filter is relaxed to accept either `state.vibeSession.session_id` OR `state.activeSessionId` — the second cook session's confirmation gate no longer dropped silently. `startVibeSession` now replaces `vibeSession` atomically (new session_id, empty conversation, `status='running'`); `cook.completion` flips status to `'completed'` without nulling the session so the conversation stays readable during the 10 s clear window.
+- **`feat(dashboard): handleCookEvent case 'cook.resume' surfaces crash recovery (GAP-03)`.** A new `case 'cook.resume':` cancels the pending clear timer, sets `activeSessionId`, and appends a "[cook] resuming session {sid8} from {from_task}" line to `recentLogLines`.
+- **`docs(03-01): document GAP-02 UI double-spawn deferral above controlsDisabled`.** `controlsDisabled` deliberately NOT gated on `vibeSession !== null` or `activeSessionId !== null`; the 10 s clear-window would lock the Run button at exactly the moment the user is most likely to type the next prompt. Double-spawn protection is reactive instead — cook's `probeForResume` → `COOK_SPAWN_FAILED` watchdog → toast chain.
+- **`test(dashboard): e2e-plan-execute-roundtrip regression`.** A store-level e2e test covering the three contract cases (vibeSession atomic replace, cross-session prompt acceptance, cook.resume handler effects).
+
+### Phase 04 — Phase-aware cook-bar UX + greenfield smoke
+
+- **`feat(dashboard): phase-aware placeholder + hint string on the cook bar`.** The cook bar now shows contextual text matching the current workflow state. Five states (`greenfield`, `scoped_unplanned`, `planned_unexecuted`, `cook_running`, `all_done`) derived from existing store fields (`is_initialized`, `milestone.phase_count`, `phases[0].state`, `vibeSession.status`) — no new store fields, no new SSE events, no new server routes. The derivation memo lives in `App.tsx`; `TopBar.tsx`'s `placeholderForVerb`/`hintForVerb` consult it via a new required `workflowState` prop (plus an `activePhasePosition` companion for `{NN}` interpolation). Verbatim strings: `Describe what you want to build` / `Press Enter to plan the next phase` / `Press Enter to execute` / `Cook session running…` / `Run /vbw:status`. The 6th candidate `cook_crashed` is intentionally deferred — the existing VibeCard lifecycle pill + `cook.error` toast already surface that signal.
+- **`test(dashboard): e2e-greenfield-smoke regression`.** Greenfield smoke covering the four workflow-state transitions + a `cook_running` mid-flight assertion. Pattern B (mocked api + mocked SSE + direct `createDashboardStore`), no real Hono daemon, no real Pi session, no API key — runs in <1 s. 21 cases (11 `deriveWorkflowState` units + 4 `firstActivePhasePosition` units + 5 placeholder/hint matrix + 1 reactive-chain integration).
+
+**Verification:** `pnpm typecheck` clean · `pnpm test` full dashboard suite green (566 passed / 1 skipped across 61 files; up from the pre-milestone 538 baseline + 8 Phase 03 + 21 new Phase 04 cases) · three new regression tests (`e2e-scope-seed-roundtrip`, `e2e-plan-execute-roundtrip`, `e2e-greenfield-smoke`) covering the milestone's three new contract surfaces. Pre-existing lint baseline (550 errors / 461 warnings — largely `parserOptions.project` config drift) unchanged by Phase 04. Pre-existing failure (`packages/cli/test/commands/bench.test.ts`, G-M2-blocked) unchanged.
+
+**Provenance:** Milestone `07-dashboard-vibe-end-to-end` will be archived under `.vbw-planning/milestones/` once UAT signs off. Four phases — `01-cook-bar-text-stdio`, `02-scope-seed-roundtrip`, `03-plan-execute-dashboard`, `04-polish-e2e-smoke`. Commit range `e1d1b74..HEAD` on `main`. Not yet published to npm — `package.json` remains at `3.0.0-alpha.9` until `npm publish` runs (user-driven per CLAUDE.md).
+
 ## 3.0.0-alpha.9 — 2026-05-15
 
 _Published to npm under the `next` dist-tag. One bug fix: clicking "Initialize SWT project" no longer blanks the screen when you've authorized a provider first._
