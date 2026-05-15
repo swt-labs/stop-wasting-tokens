@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-alpha.8 — 2026-05-15
+
+_Published to npm under the `next` dist-tag. Two small dashboard removals on top of alpha.7 — a noisy warning banner and a buggy init-screen path._
+
+- **Removed the "BROWSER EXTENSION DETECTED" warning banner** from the dashboard. The server-side CSP header (`packages/dashboard/src/server/lib/csp.ts`) remains the real defense against extension-injected scripts — the amber banner was the cosmetic safety-net and was confusing more than it helped. Component (`ExtensionDefenseBanner.tsx`), the `detect-extension-interference` helper + its test, the `App.tsx` import / setup / render, and the `.ext-banner*` CSS are all gone.
+- **Removed the optional provider/auth section from the greenfield `InitScreen`.** It had a bug — picking Anthropic + OAuth and clicking "Initialize project" blanked the page (most likely the OAuth flow attempting to render before the dashboard transitioned out of the InitScreen fallback). The working **"Provider ▾"** TopBar dropdown stays — vendor / auth setup happens after init from there. `InitScreen.tsx` is back to its pre-provider-section state (name + description only); the `App.tsx` provider callbacks, the `.init-provider-*` CSS, and the orphaned test went with it.
+
 ## 3.0.0-alpha.7 — 2026-05-15
 
 _Published to npm under the `next` dist-tag. Dashboard UI polish on top of alpha.6 — surfacing the multi-provider vendor selector where users actually look for it, a viewport-reset fix that kept the page from scrolling below the fold, and the project/milestone summary card promoted to a proper resizable panel._
