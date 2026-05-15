@@ -1,6 +1,7 @@
 import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
+import type { WorkflowState } from '../App.js';
 import type { ConnectionState } from '../state/dashboard-store.js';
 
 import { OptionsMenu } from './OptionsMenu.js';
@@ -12,6 +13,23 @@ export interface TopBarProps {
   connection: ConnectionState;
   commandSubmitting: boolean;
   vibeStarting: boolean;
+  /**
+   * Phase 04 — the current workflow state driving the cook-bar
+   * placeholder/hint matrix. Required: App.tsx must always pass it
+   * (compile-time guarantee that the placeholder/hint cannot silently
+   * regress to the verb-only fallback). Derivation lives in App.tsx
+   * `deriveWorkflowState`; the 5-state matrix is documented in
+   * 04-01-PLAN.md. Only consulted when the selected verb is 'cook'.
+   */
+  workflowState: WorkflowState;
+  /**
+   * Phase 04 — the two-digit `position` of the first non-done phase,
+   * or null when no such phase exists. Interpolated into the hint
+   * string (`↵ plan phase {NN}` / `↵ execute phase {NN}`). When null
+   * the hint falls back to a generic `↵ plan next phase` /
+   * `↵ execute next phase`.
+   */
+  activePhasePosition: string | null;
   onCommand: (input: string) => Promise<unknown>;
   onVibe: (input: string) => Promise<unknown>;
   /**
@@ -118,8 +136,31 @@ export function canSubmit(verb: string, input: string): boolean {
   return true;
 }
 
-/** Verb-aware hint text describing what pressing ↵ / Run will do. */
-function hintForVerb(verb: string): string {
+/** Verb-aware hint text describing what pressing ↵ / Run will do.
+ *  Cook-verb branches on workflow state when supplied (Phase 04). */
+export function hintForVerb(
+  verb: string,
+  workflowState?: WorkflowState,
+  activePhasePosition?: string | null,
+): string {
+  if (verb === 'cook' && workflowState !== undefined) {
+    switch (workflowState) {
+      case 'greenfield':
+        return '↵ scope your first phase';
+      case 'scoped_unplanned':
+        return activePhasePosition
+          ? `↵ plan phase ${activePhasePosition}`
+          : '↵ plan next phase';
+      case 'planned_unexecuted':
+        return activePhasePosition
+          ? `↵ execute phase ${activePhasePosition}`
+          : '↵ execute next phase';
+      case 'cook_running':
+        return '↵ double-Enter for a new session';
+      case 'all_done':
+        return '↵ milestone complete';
+    }
+  }
   switch (verb) {
     case 'cook':
       return '↵ start a cook session';
@@ -136,8 +177,23 @@ function hintForVerb(verb: string): string {
   }
 }
 
-/** Verb-aware input placeholder. */
-function placeholderForVerb(verb: string): string {
+/** Verb-aware input placeholder. Cook-verb branches on workflow state
+ *  when supplied (Phase 04); all other verbs ignore it. */
+export function placeholderForVerb(verb: string, workflowState?: WorkflowState): string {
+  if (verb === 'cook' && workflowState !== undefined) {
+    switch (workflowState) {
+      case 'greenfield':
+        return 'Describe what you want to build';
+      case 'scoped_unplanned':
+        return 'Press Enter to plan the next phase';
+      case 'planned_unexecuted':
+        return 'Press Enter to execute';
+      case 'cook_running':
+        return 'Cook session running…';
+      case 'all_done':
+        return 'Run /vbw:status';
+    }
+  }
   switch (verb) {
     case 'cook':
       return 'Describe what you want built…';
@@ -159,8 +215,8 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // persisted (keep it simple, mirroring the `input` signal). cook default.
   const [verb, setVerb] = createSignal<string>('cook');
 
-  const hint = createMemo(() => hintForVerb(verb()));
-  const placeholder = createMemo(() => placeholderForVerb(verb()));
+  const hint = createMemo(() => hintForVerb(verb(), props.workflowState, props.activePhasePosition));
+  const placeholder = createMemo(() => placeholderForVerb(verb(), props.workflowState));
 
   // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so
   // `App.tsx` (out of this plan's files_modified) needs no edit; when they
