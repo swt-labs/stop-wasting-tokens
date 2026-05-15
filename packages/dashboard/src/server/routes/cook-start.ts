@@ -20,7 +20,7 @@
 
 import { spawn } from 'node:child_process';
 import * as crypto from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +36,15 @@ export interface CookStartOptions {
 interface CookStartBody {
   /** Optional positional/flag arguments to forward to `swt cook`. */
   args?: ReadonlyArray<string>;
+  /**
+   * Phase 01 (Cook IPC plumbing) — when present and non-empty after trim,
+   * the route writes the trimmed value to
+   * `.swt-planning/.pending-scope-idea.txt` BEFORE spawning `swt cook`.
+   * Cook's Scope mode pre-fills its "what to build?" askUser answer
+   * from that seed file (Phase 02 consumption wiring). Empty / absent
+   * prompts leave any prior seed file untouched.
+   */
+  prompt?: string;
 }
 
 function resolveCookCommand(): { command: string; prefixArgs: string[] } {
@@ -67,6 +76,21 @@ export function registerCookStartRoute(app: Hono, opts: CookStartOptions): void 
       ? body.args.filter((a: unknown): a is string => typeof a === 'string')
       : [];
     const sessionId = crypto.randomUUID();
+
+    // Phase 01 (Cook IPC plumbing) — seed-file write.
+    // When the dashboard's cook-bar carries a non-empty prompt, persist it
+    // to `.swt-planning/.pending-scope-idea.txt` so cook can pre-fill its
+    // Scope-mode "what to build?" askUser answer on any entry path (Phase
+    // 02 wires the actual consumption + deletion). Empty / whitespace
+    // prompts intentionally do NOT create or overwrite the file — a prior
+    // un-consumed seed survives so the user can retry without retyping.
+    if (typeof body.prompt === 'string' && body.prompt.trim().length > 0) {
+      const seedDir = path.join(opts.projectRoot, '.swt-planning');
+      const seedPath = path.join(seedDir, '.pending-scope-idea.txt');
+      mkdirSync(seedDir, { recursive: true });
+      writeFileSync(seedPath, body.prompt.trim(), 'utf8');
+    }
+
     const { command, prefixArgs } = resolveCookCommand();
     const args = [...prefixArgs, 'cook', ...extraArgs];
 
