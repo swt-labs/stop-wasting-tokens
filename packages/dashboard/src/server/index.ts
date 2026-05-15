@@ -1,3 +1,4 @@
+import { spawn as nodeSpawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -248,10 +249,9 @@ export function createApp(
   // GET /api/prompts/pending (replay for reconnects). All in-memory; no
   // file IO. Mirrors registerUatCheckpointRoute's mount pattern.
   registerPromptsRoute(app, bus);
-  registerInitRoute(
-    app,
-    cwd,
-    (root) => {
+  registerInitRoute(app, {
+    projectRoot: cwd,
+    onInitialized: (root) => {
       // After a successful init, spin up a snapshotter on the new root so
       // subsequent /api/snapshot polls + SSE state.changed events flow.
       if (snapshotter) return; // someone else got there first
@@ -260,8 +260,16 @@ export function createApp(
     },
     // Read the snapshot AFTER onInitialized has spun up the snapshotter so
     // the route can include it inline in the response (B-08 / S-02).
-    () => snapshotter?.current() ?? null,
-  );
+    getSnapshot: () => snapshotter?.current() ?? null,
+    // Plan 02-01 T3 — bus + spawnFn wire the Lead-subprocess lifecycle.
+    // The bus carries init.start / init.complete / init.error to the SPA;
+    // spawnFn defaults to node:child_process.spawn at the route's use-site
+    // because passing the import here keeps the production wiring
+    // explicit (and tests register WITHOUT spawnFn to verify graceful
+    // degradation).
+    bus,
+    spawnFn: nodeSpawn,
+  });
   registerCommandRoute(app, cwd);
   // Plan 04-02 T3 — REQ-17 cook control surface. Cook is intentionally NOT
   // routed through /api/command's allowlist: it spawns a long-lived agent
