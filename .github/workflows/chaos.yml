@@ -21,7 +21,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Windows removed from the chaos matrix — same rationale as ci.yml:
+        # pre-existing POSIX-path test failures unrelated to actual chaos
+        # behavior. Restore when Windows becomes a real support target.
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
