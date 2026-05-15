@@ -504,12 +504,9 @@ describe('cook event reducer', () => {
         prompt_id: 'p-2',
         subtype: 'choice',
         question: 'Phase 01 needs planning and execution. Start?',
-        options: [
-          { label: 'Yes', isRecommended: true },
-          { label: 'No' },
-        ],
+        options: [{ label: 'Yes', isRecommended: true }, { label: 'No' }],
       });
-      expect((state.vibeSession?.conversation.length ?? 0)).toBe(lengthBefore + 1);
+      expect(state.vibeSession?.conversation.length ?? 0).toBe(lengthBefore + 1);
       const entry = state.vibeSession?.conversation[lengthBefore];
       expect(entry?.session_id).toBe('sess-B');
       expect(entry?.prompt_id).toBe('p-2');

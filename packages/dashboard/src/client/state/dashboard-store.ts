@@ -799,8 +799,7 @@ export function createDashboardStore(
       // them from arriving, but this guard keeps the store coherent if
       // the SSE is unfiltered.
       const sid = evt.session_id;
-      const accept =
-        state.vibeSession?.session_id === sid || state.activeSessionId === sid;
+      const accept = state.vibeSession?.session_id === sid || state.activeSessionId === sid;
       if (!accept) return;
       const entry: ConversationEntry = {
         prompt_id: evt.prompt_id,
@@ -823,8 +822,7 @@ export function createDashboardStore(
       // when state.vibeSession.session_id has diverged from
       // state.activeSessionId (the 10s clear-window race).
       const sid = evt.session_id;
-      const accept =
-        state.vibeSession?.session_id === sid || state.activeSessionId === sid;
+      const accept = state.vibeSession?.session_id === sid || state.activeSessionId === sid;
       if (!accept) return;
       setState('vibeSession', 'conversation', (entries) =>
         entries.map((entry) =>

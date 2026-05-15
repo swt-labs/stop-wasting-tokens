@@ -82,10 +82,7 @@ vi.mock('../src/client/services/sse.js', () => ({
 // module can be imported under `environment: 'node'` without triggering
 // the @corvu/resizable client-only crash).
 import { hintForVerb, placeholderForVerb } from '../src/client/components/TopBar.jsx';
-import {
-  deriveWorkflowState,
-  firstActivePhasePosition,
-} from '../src/client/lib/workflow-state.js';
+import { deriveWorkflowState, firstActivePhasePosition } from '../src/client/lib/workflow-state.js';
 import { createDashboardStore } from '../src/client/state/dashboard-store.js';
 
 beforeEach(() => {
@@ -242,9 +239,7 @@ describe('deriveWorkflowState — pure helper (Plan 04-01 T1)', () => {
 
 describe('firstActivePhasePosition — pure helper (Plan 04-01 T1)', () => {
   it('returns "01" when phases[0] is the first non-done', () => {
-    expect(
-      firstActivePhasePosition([{ state: 'needs_execute', position: '01' }]),
-    ).toBe('01');
+    expect(firstActivePhasePosition([{ state: 'needs_execute', position: '01' }])).toBe('01');
   });
 
   it('skips done phases — returns "02" when phases[0] is all_done', () => {

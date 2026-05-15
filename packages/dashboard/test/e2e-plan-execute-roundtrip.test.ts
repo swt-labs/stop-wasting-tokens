@@ -208,10 +208,7 @@ describe('e2e: dashboard Plan + Execute roundtrip (Phase 03 / Plan 03-01)', () =
         prompt_id: 'p-priority9',
         subtype: 'choice',
         question: 'Phase 01 needs planning and execution. Start?',
-        options: [
-          { label: 'Yes', isRecommended: true },
-          { label: 'No' },
-        ],
+        options: [{ label: 'Yes', isRecommended: true }, { label: 'No' }],
       });
       expect(state.vibeSession?.conversation.length).toBe(lenBefore + 1);
       const entry = state.vibeSession?.conversation[lenBefore];
@@ -284,9 +281,7 @@ describe('e2e: dashboard Plan + Execute roundtrip (Phase 03 / Plan 03-01)', () =
       const expectedSid8 = resumedSessionId.slice(0, 8);
       expect(
         lines.some(
-          (l) =>
-            l.includes(`resuming session ${expectedSid8}`) &&
-            l.includes('from task-7'),
+          (l) => l.includes(`resuming session ${expectedSid8}`) && l.includes('from task-7'),
         ),
       ).toBe(true);
 

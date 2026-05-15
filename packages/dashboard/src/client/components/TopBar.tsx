@@ -148,9 +148,7 @@ export function hintForVerb(
       case 'greenfield':
         return '↵ scope your first phase';
       case 'scoped_unplanned':
-        return activePhasePosition
-          ? `↵ plan phase ${activePhasePosition}`
-          : '↵ plan next phase';
+        return activePhasePosition ? `↵ plan phase ${activePhasePosition}` : '↵ plan next phase';
       case 'planned_unexecuted':
         return activePhasePosition
           ? `↵ execute phase ${activePhasePosition}`
@@ -215,7 +213,9 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // persisted (keep it simple, mirroring the `input` signal). cook default.
   const [verb, setVerb] = createSignal<string>('cook');
 
-  const hint = createMemo(() => hintForVerb(verb(), props.workflowState, props.activePhasePosition));
+  const hint = createMemo(() =>
+    hintForVerb(verb(), props.workflowState, props.activePhasePosition),
+  );
   const placeholder = createMemo(() => placeholderForVerb(verb(), props.workflowState));
 
   // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so

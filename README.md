@@ -55,7 +55,7 @@ npm install -g stop-wasting-tokens@next
 Verify the install:
 
 ```bash
-swt --version        # 3.0.0-alpha.9 (prerelease) or 3.0.0 once stable
+swt --version        # 3.0.0-alpha.10 (prerelease) or 3.0.0 once stable
 swt doctor           # checks Node ≥ 20.18, runtime, .swt-planning/ presence
 ```
 

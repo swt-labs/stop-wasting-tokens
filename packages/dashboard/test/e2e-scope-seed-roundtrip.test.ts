@@ -98,10 +98,7 @@ describe('e2e: askUser ↔ /api/prompts/* roundtrip (Phase 02)', () => {
       {
         header: 'Phase 02 scope-seed test (choice)',
         question: 'Which framework?',
-        options: [
-          { label: 'Solid', isRecommended: true },
-          { label: 'React' },
-        ],
+        options: [{ label: 'Solid', isRecommended: true }, { label: 'React' }],
       },
       {
         dashboardHost: server.hostname,
@@ -112,15 +109,18 @@ describe('e2e: askUser ↔ /api/prompts/* roundtrip (Phase 02)', () => {
 
     // Fake-dashboard side: poll the pending list, then POST a response.
     const pending = await waitForPendingPrompt(base, sessionId, 2000);
-    const respondRes = await fetch(`${base}/api/prompts/${encodeURIComponent(pending.prompt_id)}/respond`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        prompt_id: pending.prompt_id,
-        selectedOption: 'Solid',
-        freeform: null,
-      }),
-    });
+    const respondRes = await fetch(
+      `${base}/api/prompts/${encodeURIComponent(pending.prompt_id)}/respond`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          prompt_id: pending.prompt_id,
+          selectedOption: 'Solid',
+          freeform: null,
+        }),
+      },
+    );
     expect(respondRes.status).toBe(200);
 
     // The orchestrator's floating askUser() resolves with the
@@ -149,15 +149,18 @@ describe('e2e: askUser ↔ /api/prompts/* roundtrip (Phase 02)', () => {
 
     const pending = await waitForPendingPrompt(base, sessionId, 2000);
     const freeformText = 'a snake game in Solid with high-score tracking';
-    const respondRes = await fetch(`${base}/api/prompts/${encodeURIComponent(pending.prompt_id)}/respond`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        prompt_id: pending.prompt_id,
-        selectedOption: null,
-        freeform: freeformText,
-      }),
-    });
+    const respondRes = await fetch(
+      `${base}/api/prompts/${encodeURIComponent(pending.prompt_id)}/respond`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          prompt_id: pending.prompt_id,
+          selectedOption: null,
+          freeform: freeformText,
+        }),
+      },
+    );
     expect(respondRes.status).toBe(200);
 
     const answer = await answerPromise;
@@ -217,26 +220,14 @@ describe('swt_complete_scope_seed: idempotent filesystem effect (Phase 02)', () 
 
     // First call: deletes the file, returns {ok: true}.
     const ctx = { cwd: tmpRoot, sessionManager: { getEntries: () => [] } };
-    const first = await captured.execute(
-      'call-1',
-      {},
-      undefined,
-      undefined,
-      ctx,
-    );
+    const first = await captured.execute('call-1', {}, undefined, undefined, ctx);
     expect(existsSync(seedPath)).toBe(false);
     expect(first.content).toEqual([{ type: 'text', text: 'seed file deleted' }]);
     expect(first.details).toEqual({ ok: true });
 
     // Second call on the already-gone file: MUST NOT throw, MUST return
     // the same shape (idempotency contract — ENOENT swallowed).
-    const second = await captured.execute(
-      'call-2',
-      {},
-      undefined,
-      undefined,
-      ctx,
-    );
+    const second = await captured.execute('call-2', {}, undefined, undefined, ctx);
     expect(existsSync(seedPath)).toBe(false);
     expect(second.content).toEqual([{ type: 'text', text: 'seed file deleted' }]);
     expect(second.details).toEqual({ ok: true });
