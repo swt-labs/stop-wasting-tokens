@@ -206,6 +206,7 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
       'journal',
       'resultProtocol',
       'swtAskUser',
+      'swtCompleteScopeSeed',
     ]);
   });
 
