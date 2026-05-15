@@ -212,6 +212,24 @@ export const TopBar: Component<TopBarProps> = (props) => {
     await props.onCommand(composed.value);
   };
 
+  // Phase 03 GAP-02 — DELIBERATELY NOT gating on vibeSession !== null or
+  // activeSessionId !== null. Rationale: the dashboard-store keeps the
+  // vibeSession + activeSessionId populated for 10s AFTER cook.completion
+  // (the activeAgents clear timer at dashboard-store.ts:537-544) so the
+  // user can read the final agent.prompt + agent grid. Extending
+  // controlsDisabled to gate on those signals would lock the Run button
+  // for that 10s window, which is the worst time to lock it — the user
+  // is most likely to type the next prompt RIGHT THEN. Double-spawn
+  // protection lives downstream: cook.ts:probeForResume detects an
+  // already-running cook process (live PID + status='in_progress' in
+  // .execution-state.json) and aborts with abort_another_cook_running →
+  // EXIT.RUNTIME_ERROR. The cook-start.ts watchdog (lines 185-213)
+  // catches the early exit and publishes cook.error(COOK_SPAWN_FAILED)
+  // which the event bus surfaces as a toast. This is reactive, not
+  // preventive — but the toast text is informative and the user
+  // immediately understands why their second Enter didn't start a new
+  // session. See .vbw-planning/phases/03-plan-execute-dashboard/03-RESEARCH.md
+  // §C.2 + §C.3 for the full chain.
   const controlsDisabled = (): boolean => props.commandSubmitting || props.vibeStarting;
 
   return (
