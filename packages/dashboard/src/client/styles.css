@@ -41,8 +41,56 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 24px;
+  /* Padding-bottom widened to 48px to clear the 24px viewport-fixed
+     `.dashboard-statusline` plus a small visual gap. All other sides
+     keep the original 24px (Phase 02 T3). */
+  padding: 24px 24px 48px 24px;
   gap: 16px;
+}
+
+/* Plan 02-01 T3 — viewport-fixed bottom statusline. Sits ON TOP of the
+   panel grid (z-index: 10) so it doesn't push layout sizes. The 24px
+   height + `.app-shell { padding-bottom: 48px }` together keep panel
+   content from hiding underneath. Renders unconditionally — also on
+   top of the greenfield InitScreen (normal-flow, no z-index). */
+.dashboard-statusline {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--deep-void);
+  border-top: 1px solid var(--slate-muted-15);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--terminal-green);
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dashboard-statusline-cell {
+  white-space: nowrap;
+}
+
+/* Connection-dot — keychain_available drives the green/amber split.
+   Both states render the same glyph (●); only the colour changes so
+   the dot reads at-a-glance against the dark statusline backdrop. */
+.dashboard-statusline-dot {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.dashboard-statusline-dot-connected {
+  color: var(--terminal-green);
+}
+
+.dashboard-statusline-dot-disconnected {
+  color: var(--warm-amber);
 }
 
 .app-shell h1 {

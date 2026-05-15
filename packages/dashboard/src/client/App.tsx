@@ -10,6 +10,7 @@ import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
 import { CostPanel } from './components/CostPanel.js';
+import { DashboardStatusline } from './components/DashboardStatusline.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
 import { DoctorPanel } from './components/DoctorPanel.js';
 import { InitScreen } from './components/InitScreen.js';
@@ -445,6 +446,15 @@ export const App: Component = () => {
           await actions.runCommand(verb);
         }}
         verbs={state.tools.commands.data?.verbs ?? []}
+      />
+      {/* Phase 02 T3 — viewport-fixed bottom statusline. Mounts UNCONDITIONALLY
+          outside the `isInitialized()` Show gate per Scout Q6 + CONTEXT.md;
+          `z-index: 10` on `.dashboard-statusline` clears the normal-flow
+          InitScreen. The 3 snapshot-derived props are the only inputs. */}
+      <DashboardStatusline
+        providerAuth={state.tools.providerAuth.data ?? null}
+        costSummary={state.snapshot?.cost_summary ?? null}
+        usageRollup={state.snapshot?.usage_rollup ?? null}
       />
     </div>
   );
