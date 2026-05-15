@@ -16,15 +16,12 @@ import { DoctorPanel } from './components/DoctorPanel.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
-import { ProjectStatePanel } from './components/ProjectStatePanel.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
-import { ProviderCostPanel } from './components/ProviderCostPanel.js';
 import { SettingsSection, buildConfigPatch } from './components/SettingsSection.js';
 import { TopBar } from './components/TopBar.js';
 import { TpacPanel } from './components/TpacPanel.js';
 import { UatModal } from './components/UatModal.js';
-import { UpdatePanel } from './components/UpdatePanel.js';
 import { UserNotesPanel } from './components/UserNotesPanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
@@ -337,7 +334,6 @@ export const App: Component = () => {
                   <CacheHitPanel />
                   <BudgetPanel />
                   <TpacPanel />
-                  <ProviderCostPanel />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>
@@ -359,30 +355,14 @@ export const App: Component = () => {
                 }}
                 class="resizable-root resizable-root-v"
               >
-                {/* ProjectStatePanel used to sit OUTSIDE this inner
-                    `<Resizable>` (as a direct child of the tools-column
-                    `<Resizable.Panel>`) which made it the only card in
-                    the column that didn't drag. Folding it in as the
-                    first panel — with its own handle — gets it onto the
-                    same proportional resize as its siblings. minSize is
-                    0.05 (vs 0.1 for the editable panels) because it's a
-                    compact summary card. */}
+                {/* Tools column: 4 resizable panels.
+                    ProjectStatePanel (was index 0), UpdatePanel (was
+                    index 4) and ProviderCostPanel (middle-column inline
+                    stack) were removed by user request — the remaining
+                    panels renumber to [0..3]. ProviderAuthPanel still
+                    lives in the TopBar "Provider ▾" dropdown. */}
                 <Resizable.Panel
                   initialSize={initialLayout.tools[0]}
-                  minSize={0.05}
-                  class="resizable-panel"
-                >
-                  <ProjectStatePanel
-                    project={state.snapshot?.project ?? null}
-                    milestone={state.snapshot?.milestone ?? null}
-                  />
-                </Resizable.Panel>
-                <Resizable.Handle
-                  class="resizable-handle resizable-handle-v"
-                  aria-label="Resize project-state / config"
-                />
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[1]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -400,7 +380,7 @@ export const App: Component = () => {
                   aria-label="Resize config / doctor"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[2]}
+                  initialSize={initialLayout.tools[1]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -417,7 +397,7 @@ export const App: Component = () => {
                   aria-label="Resize doctor / detect-phase"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[3]}
+                  initialSize={initialLayout.tools[2]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -431,32 +411,10 @@ export const App: Component = () => {
                 </Resizable.Panel>
                 <Resizable.Handle
                   class="resizable-handle resizable-handle-v"
-                  aria-label="Resize detect-phase / update"
+                  aria-label="Resize detect-phase / user-notes"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[4]}
-                  minSize={0.1}
-                  class="resizable-panel"
-                >
-                  <UpdatePanel
-                    data={state.tools.update.data}
-                    loading={state.tools.update.loading}
-                    error={state.tools.update.error}
-                    lastFetched={state.tools.update.lastFetched}
-                    onRefresh={() => void actions.refreshToolsCell('update')}
-                    onApply={() => actions.applyUpdate()}
-                  />
-                </Resizable.Panel>
-                <Resizable.Handle
-                  class="resizable-handle resizable-handle-v"
-                  aria-label="Resize update / user-notes"
-                />
-                {/* ProviderAuthPanel was the 5th tools-column slot; it now
-                    lives in the TopBar "Provider ▾" dropdown (no
-                    duplication). UserNotes is the final panel; with the
-                    ProjectState fold-in the tools column has 6 panels. */}
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[5]}
+                  initialSize={initialLayout.tools[3]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
