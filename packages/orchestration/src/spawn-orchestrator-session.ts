@@ -58,6 +58,7 @@ import {
   buildJournalExtension,
   buildResultProtocolExtension,
   buildSwtAskUserExtension,
+  buildSwtCompleteScopeSeedExtension,
   createHookDispatcher,
   createSession,
   FileJournalSink,
@@ -105,7 +106,7 @@ export interface SpawnOrchestratorSessionConfig extends SwtSessionOptions {
 
 export interface OrchestratorExtension {
   /** Human-readable name for test assertions / debugging. */
-  readonly name: 'swtAskUser' | 'resultProtocol' | 'journal';
+  readonly name: 'swtAskUser' | 'swtCompleteScopeSeed' | 'resultProtocol' | 'journal';
   /** Pi extension factory — invoked once at session start with `PiExtensionAPI`. */
   readonly factory: (pi: PiExtensionAPI) => void;
 }
@@ -239,12 +240,21 @@ export function resolveOrchestratorSessionConfig(
   // before the Result Protocol / Journal extensions run their setup. The
   // ordering matters because Pi's `registerTool` is synchronous within the
   // factory call — earlier registrations win if names ever collided.
+  //
+  // Phase 02 / Plan 02-01 — swt_complete_scope_seed is registered
+  // immediately after swt_ask_user, preserving the "user-facing tools
+  // first, infrastructure tools after" ordering intent. Both are
+  // orchestrator-only by ADR-002.
   const extensions: ReadonlyArray<OrchestratorExtension> = [
     {
       name: 'swtAskUser',
       factory: buildSwtAskUserExtension(
         opts.askUserImpl !== undefined ? { askUserImpl: opts.askUserImpl } : {},
       ),
+    },
+    {
+      name: 'swtCompleteScopeSeed',
+      factory: buildSwtCompleteScopeSeedExtension({ projectRoot: opts.cwd }),
     },
     { name: 'resultProtocol', factory: buildResultProtocolExtension() },
     { name: 'journal', factory: buildJournalExtension({ sink: journalSink }) },

@@ -237,6 +237,20 @@ export {
   type SwtAskUserToolResult,
 } from './ask-user/swt-ask-user-tool.js';
 
+// Phase 02 / Plan 02-01: `swt_complete_scope_seed` Pi custom-tool bridge.
+// Deletes the dashboard's pre-seeded idea file
+// (.swt-planning/.pending-scope-idea.txt) after the orchestrator writes
+// ROADMAP.md in Scope mode (cook.md Step 4). The tool's execute() is
+// idempotent — calling it after the file is already gone is a no-op
+// (ENOENT swallowed). ORCHESTRATOR-ONLY: registered in
+// spawn-orchestrator-session.ts only, never in spawn-agent.ts (preserves
+// ADR-002 boundary, parity with swt_ask_user).
+export {
+  buildSwtCompleteScopeSeedExtension,
+  SWT_COMPLETE_SCOPE_SEED_TOOL_NAME,
+  type BuildSwtCompleteScopeSeedExtensionOptions,
+} from './ask-user/swt-complete-scope-seed-tool.js';
+
 // Phase 1 (Keychain Credential Adapter): the OS-keychain credential store.
 // `resolveCredentialStore` is the Phase 2+ entry point — probe-driven backend
 // selection between the native @napi-rs/keyring keychain and the read-only
