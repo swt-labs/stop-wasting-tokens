@@ -1,26 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  swt wordmark favicon.
+  swt wordmark favicon — v2 (font-independent).
 
-  Square viewBox so browser tab slots (16x16 / 32x32 / 180x180) get a
-  well-centered render. Transparent background so the mark adapts to both
-  light and dark browser chrome. Color is `--terminal-green` (#00ff41) —
-  matches the in-app `.topbar-brand-mark` so the favicon and the on-screen
-  wordmark read as the same identity. Font stack mirrors the dashboard's
-  monospace stack; falls back to system monospace when JetBrains Mono is
-  not installed (favicons render fine on the OS monospace fallback at
-  these sizes).
+  The previous version used `<text font-family="JetBrains Mono, …">` which
+  browsers render in a sandbox where web/system fonts can't be reached;
+  the text fell through to nothing visible and the browser tab looked
+  empty. This rebuild uses SVG stroke paths for the three letters so the
+  glyphs render identically across every browser without needing any
+  font installed.
+
+  Design:
+  - 64×64 square viewBox so tab slots (16/32/180) get a clean centered
+    render.
+  - Dark rounded-square background (#0a0a0a, rx=10) so the favicon is
+    always visible against any browser-tab chrome (light or dark).
+  - Three green stroke paths for 's', 'w', 't' in the terminal-green
+    brand color (#00ff41). 6 px stroke + round caps/joins → reads at
+    even the smallest 16×16 favicon size.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="swt">
   <title>swt</title>
-  <text
-    x="32"
-    y="44"
-    font-family="ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace"
-    font-size="28"
-    font-weight="900"
-    text-anchor="middle"
-    fill="#00ff41"
-    letter-spacing="-1"
-  >swt</text>
+  <!-- Background tile — always visible, gives the tab a recognizable dark
+       green-marked indicator even if a future glyph change ever fails. -->
+  <rect width="64" height="64" rx="10" fill="#0a0a0a"/>
+  <!-- Glyphs: stroke-only paths in the brand terminal-green. The three
+       letters share a baseline at y≈44 and a cap at y≈22. -->
+  <g
+    fill="none"
+    stroke="#00ff41"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <!-- 's' — top hook + middle bridge + bottom hook, zigzag fill at
+         alternating sides reads as a lowercase s at small sizes. -->
+    <path d="M 18 24 L 8 24 L 8 32 L 18 32 L 18 42 L 8 42" />
+    <!-- 'w' — classic zigzag: down-up-down-up. The two outer strokes
+         are taller and the inner V is shallower, mirroring a
+         typographic w's stress. -->
+    <path d="M 24 22 L 27 44 L 32 32 L 37 44 L 40 22" />
+    <!-- 't' — vertical stem with a short crossbar near the top. Smaller
+         crossbar so the t reads as compact next to the wider s and w. -->
+    <path d="M 50 22 L 50 44 M 46 26 L 54 26" />
+  </g>
 </svg>
