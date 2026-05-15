@@ -268,7 +268,7 @@ export function createApp(
   // loop with its own session lifecycle, so it gets its own
   // POST /api/cook/start (detached spawn) + POST /api/cook/:sessionId/control
   // (signal-file via writePendingSignal).
-  registerCookStartRoute(app, { projectRoot: cwd });
+  registerCookStartRoute(app, { projectRoot: cwd, bus });
   registerCookControlRoute(app, { projectRoot: cwd });
   // Phase 6 plan 06-06 T3: the /api/vibe + /api/vibe/:session_id/reply
   // shim layer (Phase 4 R7 carry-forward through plan 06-03 carve-out) was
