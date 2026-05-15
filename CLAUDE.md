@@ -5,8 +5,8 @@
 ## Active Context
 
 **Work:** No active milestone
-**Last shipped:** `06-dashboard-options-menu` — Dashboard Options Menu (archived 2026-05-14, 3 phases, 3 plans, 13 commits). Top-bar "Options ▾" dropdown: clickable command actions + per-project settings. The 13 commits sit on `main` on top of the prior `05-multi-provider-vendor-selection-auth` milestone — **all UNPUSHED** (origin/main is at `7409637`); `git push` + version bump + `npm publish` remain user-driven. Open Phase G backlog (8 items + 4 G-M4 follow-ups) still lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
-**Next action:** Run /vbw:vibe to start a new milestone, or /vbw:status to review progress
+**Last shipped:** `07-dashboard-vibe-end-to-end` — Dashboard cook = end-to-end VBW vibe (archived 2026-05-15, 4 phases, 4 plans, 18 commits, tag `milestone/07-dashboard-vibe-end-to-end`). Dashboard's top-bar cook bar now drives the entire scope→plan→execute lifecycle without leaving the dashboard: seed-file plumbing (`.swt-planning/.pending-scope-idea.txt`), `swt_complete_scope_seed` Pi custom tool, `vibeSession` session-boundary fix + `cook.resume` handler, phase-aware placeholder/hint with 5-state `WorkflowState` derivation, two-sided fake test + greenfield E2E smoke. CHANGELOG `3.0.0-alpha.10` entry written (version bump deferred — user-driven). UAT artifacts NOT created (user typed `--archive` explicitly to skip UAT). The 18 commits sit on `main` on top of the prior `06-dashboard-options-menu` milestone — **all UNPUSHED** (origin/main is at `7409637`); `git push` + version bump + `npm publish` remain user-driven. Open Phase G backlog (8 items + 4 G-M4 follow-ups) still lives in `.vbw-planning/PHASE_G_ROADMAP.md`.
+**Next action:** Smoke-test the cook bar in the live dashboard (UAT was skipped); then `bash scripts/bump-version.sh 3.0.0-alpha.10` + `git push` + tag publish + `npm publish --tag next`. Or run /vbw:vibe to start a new milestone.
 
 ## Commands
 
