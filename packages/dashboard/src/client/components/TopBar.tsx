@@ -1,7 +1,7 @@
 import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
-import type { WorkflowState } from '../App.js';
+import type { WorkflowState } from '../lib/workflow-state.js';
 import type { ConnectionState } from '../state/dashboard-store.js';
 
 import { OptionsMenu } from './OptionsMenu.js';
