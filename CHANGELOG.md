@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.0-alpha.13 — 2026-05-15
+
+_Sibling fix to alpha.12. While alpha.12 fixed the missing markdown directories (`commands/` / `agents/` / `provider_overlays/`), the runtime audit surfaced two more files the bundled CLI invokes via shell-exec at runtime that were never shipping. Both are now SWT-owned and ship in the tarball._
+
+- **`fix(release): vendor scripts/bash-guard.sh + scripts/prepare-reverification.sh into SWT (incl. transitive deps)`**. Two runtime shell scripts were gitignored (VBW-vendored — porter regenerates them locally) so the release CI, running from a fresh clone, never saw them and they never landed in the published tarball.
+  - **`scripts/prepare-reverification.sh`** — invoked by `swt verify` after a UAT remediation round (`packages/cli/src/commands/verify.ts:454`). Without it, `swt verify` after a UAT-issues round dies with ENOENT in the re-verify preparation step.
+  - **`scripts/bash-guard.sh`** — the Bash PreToolUse guard the runtime sets up via `packages/runtime/src/hooks/dispatcher.ts`. Currently advisory-only because Pi 0.74 has no consumer-facing PreToolUse intercept (per CLAUDE.md "Platform Constraints"), but the path becomes a real gating surface as soon as Pi exposes it — so plugging the gap now avoids a re-fire later.
+  - **Transitive deps** also un-gitignored + carved out: `scripts/uat-utils.sh` (sourced by `prepare-reverification.sh`) and `scripts/lib/active-agent-state.sh` (sourced by `bash-guard.sh`). Plus three lib helpers that were already SWT-carved but were missing from `files:` (`swt-config-root.sh`, `swt-target-root.sh`, `swt-cache-key.sh`) — added explicitly so the bash sources don't ENOENT.
+  - **`package.json` `files:`** now lists the 7 scripts explicitly (per-file allow-list, not a wholesale `scripts/` include) so dev-only scripts (record-cassette, public-benchmark, refresh-rate-card, …) stay out of the tarball. Tarball goes from 54 → 61 files; size unchanged at 21.3 MB packed.
+  - **Trade-off:** the four newly-tracked scripts are now SWT's responsibility to keep in sync with VBW upstream — the porter's `cp -n` already won't overwrite them. Same pattern already established for §6.3 rewrites under `scripts/lib/swt-*` (see `.gitignore` carve-outs).
+
+**Verification:** `npm pack --dry-run` lists `bash-guard.sh` (20.8 kB), `prepare-reverification.sh` (13.2 kB), `uat-utils.sh` (18.8 kB), `lib/active-agent-state.sh` (31.3 kB). `pnpm format:check` clean.
+
 ## 3.0.0-alpha.12 — 2026-05-15
 
 _Hotfix on top of alpha.11. The published tarball was missing the `commands/`, `agents/`, and `provider_overlays/` directories — the CLI bundle reads these markdown files at runtime, so a global install (e.g. `npm i -g stop-wasting-tokens@next`) couldn't load **any** cook mode. Typing an idea in the dashboard cook bar produced a 446 ms crash with `ENOENT: no such file or directory, open '/opt/homebrew/lib/node_modules/stop-wasting-tokens/commands/cook.md'`. Upgrade required if you're running globally._

@@ -168,3 +168,13 @@ scripts/lib/*
 # Phase 04 plan 04-01 T1: SWT-owned cook command contract test
 # (renamed from the never-carved-out scripts/verify-vibe.sh).
 !scripts/verify-cook.sh
+# alpha.13: promote to SWT-owned because the published CLI bundle invokes
+# them at runtime (verify.ts:454 → prepare-reverification.sh; runtime's
+# Bash PreToolUse hook → bash-guard.sh). Both pull in transitive deps —
+# uat-utils.sh and lib/active-agent-state.sh — so the full closure ships.
+# Without these carve-outs the release CI runs from a fresh clone where
+# they don't exist, so they never made it into the npm tarball.
+!scripts/bash-guard.sh
+!scripts/prepare-reverification.sh
+!scripts/uat-utils.sh
+!scripts/lib/active-agent-state.sh
