@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  swt wordmark favicon.
+
+  Square viewBox so browser tab slots (16x16 / 32x32 / 180x180) get a
+  well-centered render. Transparent background so the mark adapts to both
+  light and dark browser chrome. Color is `--terminal-green` (#00ff41) —
+  matches the in-app `.topbar-brand-mark` so the favicon and the on-screen
+  wordmark read as the same identity. Font stack mirrors the dashboard's
+  monospace stack; falls back to system monospace when JetBrains Mono is
+  not installed (favicons render fine on the OS monospace fallback at
+  these sizes).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="swt">
+  <title>swt</title>
+  <text
+    x="32"
+    y="44"
+    font-family="ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace"
+    font-size="28"
+    font-weight="900"
+    text-anchor="middle"
+    fill="#00ff41"
+    letter-spacing="-1"
+  >swt</text>
+</svg>
