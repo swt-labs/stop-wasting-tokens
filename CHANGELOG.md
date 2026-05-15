@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-alpha.12 — 2026-05-15
+
+_Hotfix on top of alpha.11. The published tarball was missing the `commands/`, `agents/`, and `provider_overlays/` directories — the CLI bundle reads these markdown files at runtime, so a global install (e.g. `npm i -g stop-wasting-tokens@next`) couldn't load **any** cook mode. Typing an idea in the dashboard cook bar produced a 446 ms crash with `ENOENT: no such file or directory, open '/opt/homebrew/lib/node_modules/stop-wasting-tokens/commands/cook.md'`. Upgrade required if you're running globally._
+
+- **`fix(release): pack commands/ + agents/ + provider_overlays/ in the npm tarball`**. The root `package.json` `files` allow-list shipped only `dist/`, the dashboard client bundle, and the top-level READMEs — but `dist/cli.mjs` does runtime `readFileSync(installRoot + '/commands/cook.md')` for the Scope-mode prompt body (`packages/cli/src/commands/cook.ts:1084`), runtime reads of `agents/swt-{role}.md` (`packages/orchestration/src/spawn-agent.ts:171`), and per-provider overlays at `provider_overlays/{role}-{provider}.md`. All three dirs are now in the `files` allow-list. Tarball goes from 16 → 54 files (~0.2 MB larger, 21.1 MB → 21.3 MB packed). No code changes — purely a packaging fix. Pre-existing bug present since alpha.1; it stayed latent because earlier prereleases never exercised the cook-from-global path that alpha.10 wired up (dashboard cook-bar → spawned cook subprocess running from the global install root).
+
+**Verification:** `npm pack --dry-run` confirms `commands/cook.md` (180 kB) + every `agents/swt-*.md` + every `provider_overlays/*.md` now ship. Drop-in upgrade — `npm i -g stop-wasting-tokens@next` is all you need.
+
 ## 3.0.0-alpha.11 — 2026-05-15
 
 _Post-alpha.10 cleanup release on the `next` dist-tag — four direct fixes on top of the `07-dashboard-vibe-end-to-end` milestone: an OAuth race that left "Anthropic + OAuth" stuck on `Starting OAuth login…`, the redundant "Active Agents" + "Agents" cards merged into one, Windows dropped from the CI matrix, and the favicon rebuilt so browser tabs actually show it._

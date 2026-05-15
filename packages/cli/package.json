@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/cli",
-  "version": "3.0.0-alpha.11",
+  "version": "3.0.0-alpha.12",
   "description": "The `swt` command surface — entrypoint for the published stop-wasting-tokens binary.",
   "license": "MIT",
   "type": "module",
