@@ -1,4 +1,5 @@
 import type { TokenMeter } from './meter.js';
+import type { ThinkingLevel } from './thinking-level.js';
 
 /**
  * Credential kind. MUST stay byte-identical to `@swt-labs/runtime`'s
@@ -117,6 +118,15 @@ export interface SwtSessionOptions {
     readonly authMode: AuthMode;
     readonly secret: string;
   };
+  /**
+   * Pi-native thinking level — forwarded to `createAgentSession({thinkingLevel})`
+   * on Pi 0.74 (sdk.d.ts:23). Resolved by `resolveThinkingLevelForRole` or
+   * overridden by agent frontmatter (Phase 02, plan 02-01). Closes the silent-
+   * drop bug where `SpawnAgentSessionConfig.thinkingLevel` was resolved but
+   * dropped at `defaultSpawnSessionFactory` before reaching `createSession`.
+   * The mock path `void`s it.
+   */
+  readonly thinkingLevel?: ThinkingLevel;
 }
 
 /**

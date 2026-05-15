@@ -111,6 +111,13 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       cwd: opts.cwd,
       sessionManager,
       authStorage,
+      // Phase 02 (plan 02-01 T1) — forward `thinkingLevel` to Pi's native
+      // `createAgentSession({thinkingLevel})` option (sdk.d.ts:23). Closes the
+      // silent-drop bug where `SpawnAgentSessionConfig.thinkingLevel` was
+      // resolved at `resolveSpawnAgentConfig` but stripped at
+      // `defaultSpawnSessionFactory`. Conditional-spread mirrors the
+      // provider/model precedent above so absent stays absent.
+      ...(opts.thinkingLevel !== undefined ? { thinkingLevel: opts.thinkingLevel } : {}),
     });
     agentSession = session;
   } else {
@@ -121,6 +128,11 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
+      // Phase 02 (plan 02-01 T1) — same `thinkingLevel` forwarding as the
+      // Phase-2 auth branch. Both call sites must include it so spawns
+      // without resolved credentials still receive the frontmatter-driven
+      // reasoning depth.
+      ...(opts.thinkingLevel !== undefined ? { thinkingLevel: opts.thinkingLevel } : {}),
     });
     agentSession = session;
   }
@@ -160,6 +172,10 @@ function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptio
   void opts.provider;
   void opts.model;
   void opts.resolvedCredential;
+  // Phase 02 (plan 02-01 T1) — `thinkingLevel` is consumed at the
+  // `createAgentSession` call site above; void here mirrors the precedent
+  // so the builder's typecheck covers the new field without re-consuming.
+  void opts.thinkingLevel;
 
   let disposed = false;
 
@@ -208,6 +224,10 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   void opts.provider;
   void opts.model;
   void opts.resolvedCredential;
+  // Phase 02 (plan 02-01 T1) — `thinkingLevel` is inert on the mock path
+  // (no real Pi session is constructed). `void`-ed so the new field still
+  // typechecks against `SwtSessionOptions` for every test fixture.
+  void opts.thinkingLevel;
 
   let disposed = false;
 

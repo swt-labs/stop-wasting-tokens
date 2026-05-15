@@ -242,6 +242,13 @@ const defaultSpawnSessionFactory: SpawnAgentSessionFactory = async (config) => {
     ...(config.resolvedCredential !== undefined
       ? { resolvedCredential: config.resolvedCredential }
       : {}),
+    // Phase 02 (plan 02-01 T1) — propagate `thinkingLevel` from the resolved
+    // `SpawnAgentSessionConfig` (already required on the config since plan
+    // 01-01) into `SwtSessionOptions`. Mirrors the provider/model conditional-
+    // spread precedent above. Closes the silent-drop bug: pre-Phase-02 the
+    // factory stripped `thinkingLevel` before reaching `createSession`, so the
+    // Pi-native option was never set on the session.
+    ...(config.thinkingLevel !== undefined ? { thinkingLevel: config.thinkingLevel } : {}),
   };
   return createSession(sessionOpts);
 };
