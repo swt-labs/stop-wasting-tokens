@@ -7,24 +7,35 @@
 // tools-column inner `<Resizable>` as the first resizable panel,
 // taking the `tools` array up to 6 slots.
 //
-// This bumps to `-v6` because three cards were removed by user request:
+// It bumped to `-v6` because three cards were removed by user request:
 // ProjectStatePanel (was tools[0]), UpdatePanel (was tools[4]), and
 // ProviderCostPanel (middle-column inline stack — wasn't in the tools
-// array). The `tools` array shrinks from 6 → 4 entries:
-// [Config, Doctor, DetectPhase, UserNotes]. An old `-v5` value has a
-// 6-element `tools` array that would now fail
-// `isFractionArray(..., 4)` and silently fall through to
-// `DEFAULT_LAYOUT`; bumping the key makes the reset explicit. Old keys
-// become orphaned but don't break — `getStorage` only reads the current
-// key and falls through to `DEFAULT_LAYOUT` when it's absent.
-const STORAGE_KEY = 'swt:dashboard:layout-v6';
+// array). The `tools` array shrunk from 6 → 4 entries:
+// [Config, Doctor, DetectPhase, UserNotes].
+//
+// This bumps to `-v7` (milestone 09 / Phase 03 — 2026-05-15) because
+// four right-column cards were removed: CostPanel, BudgetPanel,
+// CacheHitPanel, TpacPanel. Their data is now surfaced by the Phase 02
+// viewport-fixed DashboardStatusline (cost/tokens) and consumed
+// externally via the preserved /api/budget, /api/cache-hits, /api/tpac,
+// /api/provider-cost routes. The 4 cards lived as component siblings
+// inside the same right[1] Resizable.Panel (NOT as separate resizable
+// panels), so no array shape changes — `right` stays 2 entries, and
+// `right[1]` now renders only WorktreesPanel. This is a pure key
+// rotation following the established pattern: old keys become orphaned
+// but don't break — `getStorage` only reads the current key and falls
+// through to `DEFAULT_LAYOUT` when it's absent.
+const STORAGE_KEY = 'swt:dashboard:layout-v7';
 
 export type DashboardLayout = {
   /** 5 entries: [phaseStepper, artifactTree, center, right, tools]. */
   main: number[];
   /** 2 entries: [preview, log]. */
   center: number[];
-  /** 2 entries: [agentTimeline, costPanel]. */
+  /** 2 entries: [agentTimeline, worktreesPanel].
+   *  Was [agentTimeline, costPanel] in v6 — the 4 right-column cards
+   *  (CostPanel/BudgetPanel/CacheHitPanel/TpacPanel) were removed in
+   *  Phase 03; right[1] now holds WorktreesPanel only. */
   right: number[];
   /** 4 entries: vertical split inside the tools column —
    *  [Config, Doctor, DetectPhase, UserNotes]. ProjectState and Update

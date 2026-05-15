@@ -1,7 +1,14 @@
-// Covers the v6 layout storage shape (tools array went 6 -> 4 when
-// ProjectStatePanel and UpdatePanel were removed by user request).
-// A previously-stored v5 6-element tools array must fall through to
-// DEFAULT_LAYOUT cleanly — never feed a 6-element array to the 4-panel
+// Covers the v7 layout storage shape (milestone 09 / Phase 03 —
+// CostPanel, BudgetPanel, CacheHitPanel, TpacPanel removed from
+// right[1], which now stacks WorktreesPanel only). No array shape
+// changes from v6: `right` is still 2 entries, `tools` is still 4
+// entries [Config, Doctor, DetectPhase, UserNotes]. Pure key rotation.
+//
+// Older v5/v6 entries become orphaned under their own keys; loadLayout
+// only reads the current v7 key and falls through to DEFAULT_LAYOUT
+// when it's absent. The v5 6-element tools shape would still be
+// silently rejected by `isFractionArray(..., 4)` if it ever leaked
+// into the v7 key — never feed a 6-element array to the 4-panel
 // component, that would silently de-sync the persisted fractions and
 // some panel(s) wouldn't get a size.
 
@@ -9,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DEFAULT_LAYOUT, loadLayout, saveLayout } from '../src/client/lib/layout-storage.ts';
 
-const STORAGE_KEY = 'swt:dashboard:layout-v6';
+const STORAGE_KEY = 'swt:dashboard:layout-v7';
 const OLD_V5_KEY = 'swt:dashboard:layout-v5';
 
 class MemoryStorage {
@@ -52,7 +59,7 @@ describe('DEFAULT_LAYOUT', () => {
     }
   });
 
-  it('main has 5 entries, center and right have 2 entries (unchanged from v5)', () => {
+  it('main has 5 entries, center and right have 2 entries (unchanged from v5/v6)', () => {
     expect(DEFAULT_LAYOUT.main).toHaveLength(5);
     expect(DEFAULT_LAYOUT.center).toHaveLength(2);
     expect(DEFAULT_LAYOUT.right).toHaveLength(2);
@@ -69,7 +76,7 @@ describe('loadLayout', () => {
     expect(loadLayout()).toEqual(DEFAULT_LAYOUT);
   });
 
-  it('round-trips a valid v6 layout', () => {
+  it('round-trips a valid v7 layout', () => {
     const layout = {
       main: [0.12, 0.15, 0.45, 0.13, 0.15],
       center: [0.6, 0.4],
@@ -81,7 +88,7 @@ describe('loadLayout', () => {
   });
 
   it('falls through to DEFAULT_LAYOUT.tools when stored tools array is 6 entries (v5 shape)', () => {
-    // An old v5 layout might have made it into the v6 key by direct
+    // An old v5 layout might have made it into the v7 key by direct
     // user edit / dev console — the validator must reject it.
     const oldShape = {
       main: [0.12, 0.15, 0.45, 0.13, 0.15],
@@ -100,7 +107,7 @@ describe('loadLayout', () => {
 
   it('a v5 key (6-entry tools) is orphaned: loadLayout returns DEFAULT_LAYOUT', () => {
     // Old v5 data lives under a different STORAGE_KEY entirely; the
-    // current loadLayout only reads the v6 key, so a stranded v5
+    // current loadLayout only reads the v7 key, so a stranded v5
     // entry must NOT bleed into the result.
     memStorage.setItem(
       OLD_V5_KEY,
@@ -152,7 +159,7 @@ describe('loadLayout', () => {
 });
 
 describe('saveLayout', () => {
-  it('writes to the v6 storage key', () => {
+  it('writes to the v7 storage key', () => {
     const layout = {
       main: [0.12, 0.15, 0.45, 0.13, 0.15],
       center: [0.65, 0.35],
