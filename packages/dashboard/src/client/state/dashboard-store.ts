@@ -337,11 +337,13 @@ export interface CreateDashboardStoreOptions {
   now?: () => Date;
 }
 
-// Slow-tier tools poll — the fallback cadence for cells that are cheap to
-// leave stale: `commands` is a static verb registry, `update` is a 24 h-cached
-// npm version check, `doctor` spawns toolchain checks. None benefit from a
-// fast poll.
-const DEFAULT_TOOLS_SLOW_POLL_INTERVAL_MS = 60_000;
+// Slow-tier tools poll — was 60_000 (60 s) for cells that are cheap to leave
+// stale (`commands` static verb registry, `update` 24 h-cached npm version
+// check, `doctor` toolchain checks). Reduced to 5 s by user request so every
+// tools cell refreshes on the same fast cadence. The two-tier split is now
+// effectively a single tier; kept as two constants for surgical reversibility
+// if the all-fast cost ever bites on idle laptops.
+const DEFAULT_TOOLS_SLOW_POLL_INTERVAL_MS = 5_000;
 // Fast-tier tools poll — the volatile cells (`config`, `detectPhase`,
 // `providerAuth`) where an out-of-band change (a hand-edited config.json, a
 // `swt` command in a terminal) can land at any time. These also get an
