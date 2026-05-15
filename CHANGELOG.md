@@ -6,6 +6,8 @@
 
 - **Orchestrator no-op fix:** `dispatcher.ts` now calls `session.prompt()` in the production path (the M1 PR-09 `'stub'` short-circuit that returned a synthetic success without ever prompting is removed). Token usage now flows from real `TASK_TOKEN_USAGE` events into `TaskResult.usage`, which `cook.ts` then emits as `cook.agent_result.usage` (replacing the prior hardcoded `{input_tokens: 0, output_tokens: 0}` sentinel). A throw inside `session.prompt()` is converted into a `{status: 'failed', summary: <err>}` TaskResult so cook.ts's existing failed-status pipeline fires `task_fail` + `completion-failed` instead of the dispatcher re-throwing. The `HarvestStrategy` union (`'stub' | 'entries' | 'file'`) is preserved as a test-injection surface; existing dispatcher tests pass unchanged. Closes the dashboard-cook smoke-test no-op observed on 2026-05-15 (Phase 02 / Plan 02-01).
 
+**Verification:** `pnpm typecheck` clean · `pnpm vitest run packages/orchestration packages/cli` — **543 passed / 11 skipped / 0 failed** (was 536 pre-plan; +7 new cases in `dispatcher-prompt.test.ts`) · `pnpm format:check` clean. No `git push` / `npm publish` executed.
+
 ## 3.0.0-alpha.16 — 2026-05-15
 
 _Milestone `09-dashboard-statusline-and-card-cleanup` shipped — three phases consolidating four scattered right-column cards (COST, BUDGET, CACHE HITS, TPAC) into a single full-width viewport-fixed bottom statusline mirroring the VBW CLI statusline pattern. New local rolling-usage aggregator (7d / 30d) backs the spend cells since telemetry events stream out today but never accumulate locally. The right column is now four cards lighter; the statusline is the single source of truth for "where am I burning tokens and at what rate."_
