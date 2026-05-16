@@ -110,25 +110,23 @@ function makeFakeSession(sessionId = 'fake-sid'): FakeSession {
 /** Cheap in-memory EventBus that records every publish. */
 function makeRecordingBus(): { bus: EventBus; published: Array<{ type: string }> } {
   const published: Array<{ type: string }> = [];
-  const listeners = new Set<(e: unknown) => void>();
-  return {
-    bus: {
-      subscribe(listener) {
-        listeners.add(listener);
-        return () => {
-          listeners.delete(listener);
-        };
-      },
-      publish(event) {
-        published.push(event as { type: string });
-        for (const l of listeners) l(event);
-      },
-      size() {
-        return listeners.size;
-      },
-    } as EventBus,
-    published,
+  const listeners = new Set<Parameters<EventBus['subscribe']>[0]>();
+  const bus: EventBus = {
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    publish(event) {
+      published.push(event);
+      for (const l of listeners) l(event);
+    },
+    size() {
+      return listeners.size;
+    },
   };
+  return { bus, published };
 }
 
 /**
@@ -143,17 +141,16 @@ interface BuildAppArgs {
    * for "explicit miss" (resolveCredential returns undefined), or
    * omit entirely for the default api_key happy-path stub.
    */
-  resolveCredentialResult?:
-    | { provider: string; resolvedCredential: { authMode: 'api_key' | 'oauth'; secret: string } }
-    | null;
+  resolveCredentialResult?: {
+    provider: string;
+    resolvedCredential: { authMode: 'api_key' | 'oauth'; secret: string };
+  } | null;
   createSessionFn?: (opts: SwtSessionOptions) => Promise<SwtSession>;
   registry?: ChatSessionRegistry;
   now?: () => number;
 }
 
-function buildApp(
-  args: BuildAppArgs = {},
-): {
+function buildApp(args: BuildAppArgs = {}): {
   app: Hono;
   bus: EventBus;
   published: Array<{ type: string }>;
@@ -174,8 +171,7 @@ function buildApp(
       clearIntervalFn,
       now: args.now ?? (() => 0),
     });
-  const authConfig: AuthConfig =
-    args.authConfig ?? ({ anthropic: { mode: 'api_key' } } as AuthConfig);
+  const authConfig: AuthConfig = args.authConfig ?? { anthropic: { mode: 'api_key' } };
   // `null` sentinel → resolveCredential returns undefined (explicit miss).
   // Omitted → default api_key happy-path stub.
   const resolveCredentialResult =
@@ -194,9 +190,9 @@ function buildApp(
     projectRoot: '/fake-project-root',
     bus,
     registry,
-    createSessionFn: createSessionFn as unknown as ChatRouteOptions['createSessionFn'],
-    resolveCredentialFn: resolveCredentialFn as unknown as ChatRouteOptions['resolveCredentialFn'],
-    readAuthConfigFn: readAuthConfigFn as unknown as ChatRouteOptions['readAuthConfigFn'],
+    createSessionFn,
+    resolveCredentialFn,
+    readAuthConfigFn,
   };
 
   const app = new Hono();
@@ -255,7 +251,7 @@ describe('POST /api/chat', () => {
   });
 
   it('2. no auth block configured → chat.error CHAT_AUTH_FAILED + chat.complete (no chat.start)', async () => {
-    const { app, createSessionFn } = buildApp({ authConfig: {} as AuthConfig });
+    const { app, createSessionFn } = buildApp({ authConfig: {} });
     const { events } = await postChat(app, { prompt: 'hello' });
     expect(events.map((e) => e.event)).toEqual(['chat.error', 'chat.complete']);
     expect(events[0]?.data['code']).toBe('CHAT_AUTH_FAILED');
@@ -519,10 +515,7 @@ describe('POST /api/chat', () => {
     // might use.
     const here = fileURLToPath(import.meta.url);
     // here = .../packages/dashboard/test/chat-route.test.ts
-    const routePath = here.replace(
-      /test\/chat-route\.test\.ts$/,
-      'src/server/routes/chat.ts',
-    );
+    const routePath = here.replace(/test\/chat-route\.test\.ts$/, 'src/server/routes/chat.ts');
     const source = readFileSync(routePath, 'utf8');
     // The route MUST NOT call appendFileSync or import node:fs — bus.publish
     // + streamSSE are the only emit channels. The JSDoc may mention these
@@ -548,12 +541,14 @@ describe('POST /api/chat', () => {
     const ttlMs = 1000;
     const { setIntervalFn, clearIntervalFn, fireSweep } = (() => {
       const registered: Array<{ handler: () => void; ms: number }> = [];
+      const setIntervalFn = ((handler: () => void, ms: number) => {
+        registered.push({ handler, ms });
+        return { __fake__: true };
+      }) as unknown as typeof setInterval;
+      const clearIntervalFn = (() => undefined) as typeof clearInterval;
       return {
-        setIntervalFn: ((handler: () => void, ms: number) => {
-          registered.push({ handler, ms });
-          return { __fake__: true };
-        }) as unknown as typeof setInterval,
-        clearIntervalFn: (() => undefined) as unknown as typeof clearInterval,
+        setIntervalFn,
+        clearIntervalFn,
         fireSweep: () => {
           registered[0]?.handler();
         },

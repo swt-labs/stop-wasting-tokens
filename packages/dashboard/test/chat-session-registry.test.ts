@@ -1,6 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-
 import type { SwtSession } from '@swt-labs/runtime';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ChatSessionRegistry } from '../src/server/chat-session-registry.js';
 
@@ -26,7 +25,7 @@ function makeFakeSession(id = 'fake-session'): FakeSession {
     prompt: vi.fn(async () => undefined),
     subscribe: vi.fn(() => () => undefined),
     dispose: vi.fn(),
-  } as FakeSession;
+  };
 }
 
 /**

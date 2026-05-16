@@ -551,7 +551,12 @@ const ChatError = z.object({
   type: z.literal('chat.error'),
   ts: TimestampSchema,
   chat_session_id: z.string().min(1),
-  code: z.enum(['CHAT_AUTH_FAILED', 'CHAT_SESSION_ERROR', 'CHAT_PROMPT_ERROR', 'CHAT_INVALID_REQUEST']),
+  code: z.enum([
+    'CHAT_AUTH_FAILED',
+    'CHAT_SESSION_ERROR',
+    'CHAT_PROMPT_ERROR',
+    'CHAT_INVALID_REQUEST',
+  ]),
   message: z.string(),
 });
 

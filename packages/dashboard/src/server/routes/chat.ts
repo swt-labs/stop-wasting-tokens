@@ -65,7 +65,6 @@ import type {
   ChatStartEvent,
   ChatTokenUsageEvent,
   ChatToolCallEvent,
-  SnapshotEvent,
 } from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
@@ -142,7 +141,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
        */
       const emit = async (evt: ChatSseEvent): Promise<void> => {
         try {
-          opts.bus.publish(evt as SnapshotEvent);
+          opts.bus.publish(evt);
         } catch {
           // Bus listeners that throw are already swallowed by the bus
           // implementation; this catch is defense-in-depth.
@@ -160,9 +159,8 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
       // explicitly sent a `chat_session_id` — a fresh randomUUID() can't
       // possibly match an existing entry, so skip the lookup to keep the
       // create-path linear when no id is provided.
-      let session: SwtSession | undefined = requestedId !== undefined
-        ? opts.registry.get(chatSessionId)
-        : undefined;
+      let session: SwtSession | undefined =
+        requestedId !== undefined ? opts.registry.get(chatSessionId) : undefined;
       let unsubscribe: (() => void) | undefined;
 
       try {
