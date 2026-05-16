@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/verification",
-  "version": "3.0.0-alpha.16",
+  "version": "3.0.0-alpha.18",
   "description": "Goal-backward QA pipeline with three tiers (quick / standard / deep) and traceability checks.",
   "license": "MIT",
   "type": "module",

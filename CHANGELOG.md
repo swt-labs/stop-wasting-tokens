@@ -1,12 +1,62 @@
 # Changelog
 
-## [Unreleased]
+## 3.0.0-alpha.18 — 2026-05-16
 
-### Fixed
+_Milestones `10-cook-orchestrator-noop-and-git-stderr-leak` (2 phases) **and** `11-best-in-class-provider-prompts-and-tools` (4 phases) both ship in this release — alpha.17 was bumped between them but never published; alpha.18 carries both. Highlights: cook orchestrator now actually calls the LLM (was a 47ms no-op stub since milestone 03); both Anthropic and OpenAI run with their best-in-class tuning; monthly upstream-drift CI cron prevents the overlays from going stale._
 
-- **Orchestrator no-op fix:** `dispatcher.ts` now calls `session.prompt()` in the production path (the M1 PR-09 `'stub'` short-circuit that returned a synthetic success without ever prompting is removed). Token usage now flows from real `TASK_TOKEN_USAGE` events into `TaskResult.usage`, which `cook.ts` then emits as `cook.agent_result.usage` (replacing the prior hardcoded `{input_tokens: 0, output_tokens: 0}` sentinel). A throw inside `session.prompt()` is converted into a `{status: 'failed', summary: <err>}` TaskResult so cook.ts's existing failed-status pipeline fires `task_fail` + `completion-failed` instead of the dispatcher re-throwing. The `HarvestStrategy` union (`'stub' | 'entries' | 'file'`) is preserved as a test-injection surface; existing dispatcher tests pass unchanged. Closes the dashboard-cook smoke-test no-op observed on 2026-05-15 (Phase 02 / Plan 02-01).
+### Milestone 10 — Cook orchestrator no-op + git stderr leak
 
-**Verification:** `pnpm typecheck` clean · `pnpm vitest run packages/orchestration packages/cli` — **543 passed / 11 skipped / 0 failed** (was 536 pre-plan; +7 new cases in `dispatcher-prompt.test.ts`) · `pnpm format:check` clean. No `git push` / `npm publish` executed.
+- **`fix(cli): suppress git stderr leak in tryReadHeadCommit and readRecentActivityDefault`** (`be9c33a`). `execSync('git log -1 …')` and `execSync('git log -3 …')` inherited parent stderr by default. Against non-git project dirs, git's `fatal: not a git repository` bled into the cook subprocess's stderr → the dashboard log → users saw a "crash"-looking log line that was actually a no-op caught error. Both call sites now use `stdio: ['ignore', 'pipe', 'pipe']`. New `cook-stderr-leak.test.ts` asserts no leak against non-git tmp dirs (Pattern A, vi.spyOn).
+- **`fix(dispatcher): wire session.prompt() + usage harvest + failed-on-throw`** (`f46bfa0`). The cook orchestrator had **never actually called the LLM in production** since milestone 03. `dispatcher.ts:152-160` was a stub branch that created the Pi session but returned synthetic `completed` with 0 tokens in ~47ms. File's own comment read "real prompt wiring lands in M2 PR-12" — that PR was never completed. Phase 02 implements the deferred wiring: `await session.prompt(task.promptContext.prompt)` in the dispatch path; real `TASK_TOKEN_USAGE` events flow into `TaskResult.usage`; throws convert to `{status: 'failed', summary: <500-char-truncated>}` so cook.ts's existing failed-status pipeline fires `task_fail` + `completion-failed` instead of silent success. `HarvestStrategy` union preserved as test-injection surface.
+- **`fix(cook): emit real token usage from dispatcher TaskResult`** (`3a52132`). Replaced `cook.ts:3027`'s hardcoded `usage: { input_tokens: 0, output_tokens: 0 }` with real accumulated counts from the dispatcher return.
+- **`test(dispatcher): regression coverage for prompt-wiring + failed-on-throw + stub-regression guard`** (`c707c36`). 7 new cases. Stub-regression guard asserts no legacy stub markers in summary AND `promptCalls.length === 1` so a future refactor fails loudly.
+
+### Milestone 11 — Best-in-class provider prompts + tools
+
+Mission: _"SWT is King, and Claude and Codex are supposed to be slaves to SWT's mission and instructions. Both Claude and Codex must work at their own best in class system prompts. Research and respect them."_ Builds on the May-13 work in `codex_cli_fix.md` (3 OpenAI overlays + overlay seam) and finishes the job for both providers.
+
+#### Phase 01 — Complete OpenAI overlay coverage
+
+- **`feat(provider_overlays): author lead/scout/architect/docs OpenAI overlays`** (`58db8a6`). All 7 SDLC roles now have `provider_overlays/<role>-openai.md` files (was 3 — dev, debugger, qa). Each overlay paraphrases Codex CLI intent from `gpt_5_codex_prompt.md` + handlers; frontmatter cites upstream paths for traceability. License hygiene clean — no verbatim text.
+- **`test(orchestration): coverage regression test for all 7 OpenAI overlays`** (`2560bbc`). 14-case parameterized test (`test.each(ALL_SDLC_ROLES) × 2 describes`) asserts every SDLC role × `openai` overlay exists + loads via `readProviderOverlay`. Prevents quiet coverage gaps in future milestones.
+- **`docs(provider_overlays): list all 7 openai overlays in README inventory`** (`c945518`).
+
+#### Phase 02 — Anthropic SDK frontmatter modernization
+
+- **`fix(runtime): plumb thinkingLevel through SwtSessionOptions and defaultSpawnSessionFactory`** (`64d8f76`). The `thinkingLevel` field existed in `CreateAgentSessionOptions` but was silently dropped by `defaultSpawnSessionFactory` before reaching Pi. Both `createAgentSession` call sites (Phase-2 auth branch + pre-Phase-2 branch) now conditional-spread `opts.thinkingLevel`. Pre-existing bug fixed as a prerequisite of Phase 02.
+- **`feat(orchestration): readRolePromptWithMeta + frontmatter precedence in resolveSpawnAgentConfig`** (`98dae1c`). New `readRolePromptWithMeta()` helper strips frontmatter from the LLM-visible body AND parses meta `{effort?, maxTurns?, ...}`. No npm dependency added (hand-rolled, mirrors `stripFrontmatter` precedent). `resolveSpawnAgentConfig` precedence chain: frontmatter > opts > defaults. Validates `effort` against the `ThinkingLevel` enum (one-to-one passthrough, `effort: medium` → `thinkingLevel: 'medium'`).
+- **`feat(agents): declare effort + maxTurns frontmatter on all 7 swt-* roles`** (`7f6a539`). Per-role values per the TDD §4 Phase 02 table: lead/dev/qa/debugger all use `effort: high`; architect uses `xhigh`; scout + docs use `medium`. `maxTurns` matches existing `config.agent_max_turns` defaults (lead:50, dev:75, scout:15, qa:25, architect:30, debugger:80, docs:20).
+- **`test(orchestration): update spawn-agent test + new agent-frontmatter regression`** (`deec8e7`). Inverted the broken `spawn-agent.test.ts:239` assertion (frontmatter is now STRIPPED from LLM-visible prompt, not present). 11 new cases in `agent-frontmatter.test.ts`.
+
+#### Phase 03 — Codex apply_patch tool + extension wiring activation
+
+- **`feat(runtime): apply_patch parser (line-oriented state machine)`** (`2130d2e`). Hand-rolled TypeScript parser for the Codex apply_patch grammar (`*** Begin Patch` / `*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:` / `@@` context / `*** End of File`). Pure — no fs IO, no side effects. ~280 LOC, 14 test cases including CRLF rejection, absolute-path rejection, malformed-sentinel handling, empty-hunk edge cases. Pi 0.74 has no freeform-grammar tool variant (Scout-confirmed), so this is the server-side parse path for the JSON-schema tool's `patch: string` parameter.
+- **`feat(runtime): buildApplyPatchExtension factory (registerTool + execute)`** (`a2f55b3`). Factory mirroring `buildResultProtocolExtension()` shape. Registers `apply_patch` via Pi's `registerTool` with a paraphrased grammar description (cites upstream path in source comment, no verbatim text). Execute callback parses the patch then dispatches `fs.readFileSync` / `fs.writeFileSync` / `fs.unlinkSync` directly — does NOT re-enter Pi's built-in Edit tool. Closure-captured fs for testability.
+- **`feat(runtime): activate extensions[] passthrough in createSession for agent sessions`** (`dcbe958`). **Closes the M2 PR-12 deferred state.** Previously `extensions[]` was a field on `SpawnAgentSessionConfig` but was never passed through to real Pi sessions (only the orchestrator session honored it). New `materializeExtensionsToCustomTools` helper translates extension factories → recording-PiExtensionAPI → captured `PiToolDefinition[]` → Pi `customTools[]`. Field renamed `extensions` → `extensionFactories` on `SwtSessionOptions` to disambiguate from the pre-existing named-extension list.
+- **`feat(orchestration): inject apply_patch extension when provider=openai`** (`4eae986`). Strict `opts.provider === 'openai'` guard before appending `buildApplyPatchExtension()` to the session's extension factories. Mirrors the conditional-spread precedent from Phase 02's thinkingLevel work. 6 test cases in `spawn-agent-tool-shape.test.ts` cover all isolation boundaries (anthropic/openrouter/google/ollama/undefined all skip apply_patch).
+- **`chore(03-01): prettier + remove unnecessary type assertions in apply_patch files`** (`4c0a9b3`).
+
+#### Phase 04 — Upstream-drift audit automation
+
+- **`feat(audit): upstream-prompt drift audit script + .gitignore carve-outs`** (`c7ce71d`). New `scripts/audit-upstream-prompts.sh` — bash script with `--verify` (read-only) and `--update` (refresh-baseline) modes. Cross-platform sha256 detection (macOS `shasum -a 256` vs Linux `sha256sum`). EXIT-trap cleanup; only sha256 baselines stored long-term (never upstream content). `.gitignore` rewritten `.vbw-planning/` → `.vbw-planning/*` so the trailing-slash directory-ignore doesn't block per-subpath negation rules; narrow `!.vbw-planning/upstream-prompt-snapshots/` carve-out tracks ONLY the baselines.
+- **`feat(audit): initial upstream-prompt baselines (2026-05-16)`** (`a9d6785`). Pinned sha256 baselines for `gpt_5_codex_prompt.md` (Codex CLI base prompt) + `claude-agent-sdk@0.3.142` `sdk.d.ts`.
+- **`chore(audit): monthly upstream-prompt-drift workflow + issue posting`** (`d835a99`). New `.github/workflows/upstream-prompt-audit.yml` — monthly cron (`0 0 1 * *`, 1st of each month, 00:00 UTC) + `workflow_dispatch` manual trigger. Permissions: `issues: write` + `contents: read` only (no `pull-requests` scope — detection only, no auto-PR). Uses `actions/github-script@v7` to create a GitHub Issue labeled `upstream-drift` + `audit` when drift is detected; closes prior open drift issues with a "clean" comment on subsequent clean runs.
+- **`test(audit): fixture-driven test seam + provider_overlays README cadence docs`** (`c0078b9`). `scripts/test-audit-upstream-prompts.sh` — 3 assertions (clean fixture / drift fixture / missing sha256 binary). README documents cadence + maintainer response procedure when a drift issue arrives.
+
+### Verification
+
+- `pnpm typecheck` clean
+- `pnpm vitest run` — **2088 passed / 67 skipped / 0 failed** across 257 test files (was 2030 pre-milestone-11; +58 new across the 4 phases)
+- `pnpm format:check` clean
+- All 6 QA gates across both milestones passed `qa-result-gate.sh` to `PROCEED_TO_UAT` (auto_uat=false; UAT step skipped)
+- `bash scripts/audit-upstream-prompts.sh --verify` exit 0 silently against pinned baselines
+- `bash scripts/test-audit-upstream-prompts.sh` 3/3 assertions PASS
+
+### Provenance
+
+Milestones `10-cook-orchestrator-noop-and-git-stderr-leak` and `11-best-in-class-provider-prompts-and-tools` archived under `.vbw-planning/milestones/`. Commit range `be9c33a..HEAD` on `main` (28 commits across the two milestones + this release commit). TDD source for milestone 11: `a_non_production_files/best_in_class_prompts_TDD.md` (drafted 2026-05-15). Builds on the May-13 work in `a_non_production_files/codex_cli_fix.md`.
+
+**Note on version numbering:** alpha.17 was bumped during milestone-10's close-out but never published — the conversation pivoted to milestone-11 mid-release sequence. alpha.18 carries both milestones to keep the npm `next` channel monotonic.
 
 ## 3.0.0-alpha.16 — 2026-05-15
 
