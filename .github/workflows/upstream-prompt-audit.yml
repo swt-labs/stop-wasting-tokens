@@ -1,0 +1,109 @@
+name: Upstream Prompt Audit
+
+# Detects drift between SWT's overlay citations (TDD §4 Phase 04) and the
+# current upstream artifacts (Codex CLI base prompt, Claude Agent SDK types).
+# Detection-only — opens a GitHub Issue on drift; does NOT auto-PR.
+#
+# Cadence: monthly (1st of month, 00:00 UTC) per TDD §11.6. Escalate to
+# weekly if drift is faster than monthly (see provider_overlays/README.md
+# "Upstream-drift audit" section for the escalation criterion).
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # monthly, 1st of month, 00:00 UTC
+  workflow_dispatch: {} # manual trigger from Actions tab
+
+permissions:
+  issues: write # create + close + comment on drift issues
+  contents: read # checkout repo + baseline files
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (for `npm view`)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run drift audit
+        id: audit
+        run: |
+          set -euo pipefail
+          set +e
+          REPORT=$(bash scripts/audit-upstream-prompts.sh --verify 2>&1)
+          AUDIT_RC=$?
+          set -e
+          if [ "$AUDIT_RC" -ne 0 ]; then
+            echo "::error::audit-upstream-prompts.sh exited $AUDIT_RC"
+            echo "$REPORT"
+            exit 1
+          fi
+          if [ -n "$REPORT" ]; then
+            echo "drift_detected=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "report<<EOF"
+              echo "$REPORT"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "drift_detected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open drift issue
+        if: steps.audit.outputs.drift_detected == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date().toISOString().slice(0, 10);
+            const title = `[Upstream Drift] Codex CLI / Claude Agent SDK prompt audit — ${today}`;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const report = `${{ steps.audit.outputs.report }}`;
+            const body = [
+              `Drift detected by monthly audit (see [run](${runUrl})).`,
+              ``,
+              '```',
+              report,
+              '```',
+              ``,
+              `Maintainer response procedure: see [provider_overlays/README.md](../blob/main/provider_overlays/README.md#upstream-drift-audit).`,
+              ``,
+              `tl;dr: review the diff context upstream, decide whether the overlays need updating, then run \`bash scripts/audit-upstream-prompts.sh --update\` locally to refresh the baseline and close this issue.`,
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['upstream-drift', 'audit'],
+            });
+
+      - name: Close prior drift issue on clean
+        if: steps.audit.outputs.drift_detected == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-drift',
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Subsequent audit run is clean — no drift detected. Closing. (See [run](${runUrl}).)`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
