@@ -9,7 +9,14 @@ import chokidar from 'chokidar';
 import { Hono } from 'hono';
 
 import { createLiveBudgetWiring, type BudgetWiring } from './budget-routes.js';
+import { ChatSessionRegistry } from './chat-session-registry.js';
 import { createEventBus, type EventBus } from './event-bus.js';
+
+// Plan 01-03 (milestone 12, Phase 01) — re-export so dashboard-side tests
+// + future external consumers can construct seamed registries (test mode)
+// or reach into the server's chat-session lifecycle without dotted-path
+// imports.
+export { ChatSessionRegistry } from './chat-session-registry.js';
 import { requireToken, resolveDashboardToken } from './lib/auth.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
@@ -20,6 +27,7 @@ import { registerArtifactHistoryRoute } from './routes/artifact-history.js';
 import { registerArtifactRoute } from './routes/artifact.js';
 import { registerBudgetRoute } from './routes/budget.js';
 import { registerCacheHitsRoute } from './routes/cache-hits.js';
+import { createChatRoute } from './routes/chat.js';
 import { registerCommandRoute } from './routes/command.js';
 import { registerCommandsRoute } from './routes/commands.js';
 import { registerConfigRoute } from './routes/config.js';
@@ -102,6 +110,19 @@ export function createApp(
      * calls `resolveDashboardToken()` upstream in `createServer`.
      */
     authToken?: string;
+    /**
+     * Plan 01-03 (milestone 12, Phase 01) — optional pre-constructed
+     * ChatSessionRegistry. Tests inject a registry built with
+     * `setIntervalFn` / `now` seams so they can drive TTL sweeps
+     * deterministically; production wiring constructs a default
+     * registry (10-min TTL, `setInterval(...).unref()`).
+     */
+    chatRegistry?: ChatSessionRegistry;
+    /**
+     * Plan 01-03 — optional TTL override for the default chat
+     * registry. Ignored when `chatRegistry` is provided.
+     */
+    chatSessionTtlMs?: number;
   } = {},
 ): {
   app: Hono;
@@ -110,9 +131,21 @@ export function createApp(
   projectRoot: string | null;
   budgetWiring: BudgetWiring | null;
   usageAggregator: UsageAggregator;
+  chatRegistry: ChatSessionRegistry;
 } {
   const bus = opts.bus ?? createEventBus();
   const startedAt = opts.startedAt ?? Date.now();
+  // Plan 01-03 (milestone 12, Phase 01) — ChatSessionRegistry holds live
+  // SwtSession handles for the Free-talk Mode chat route. Tests inject a
+  // pre-built registry (with seamed setInterval / now) so they can drive
+  // TTL sweeps deterministically; production wiring builds a default with
+  // the 10-min idle TTL + setInterval(...).unref() so the daemon's event
+  // loop is not pinned by the chat registry's sweep timer.
+  const chatRegistry =
+    opts.chatRegistry ??
+    new ChatSessionRegistry(
+      opts.chatSessionTtlMs !== undefined ? { ttlMs: opts.chatSessionTtlMs } : {},
+    );
   const app = new Hono();
   // v2.3.4: defense-in-depth security headers — must be registered before
   // any route so every response (incl. static SPA assets + 404s) is covered.
@@ -289,6 +322,20 @@ export function createApp(
   // (signal-file via writePendingSignal).
   registerCookStartRoute(app, { projectRoot: cwd, bus });
   registerCookControlRoute(app, { projectRoot: cwd });
+  // Plan 01-03 (milestone 12, Phase 01) — POST /api/chat Free-talk Mode
+  // route. The factory mirrors the cook-start / init pattern: a
+  // self-contained Hono sub-app mounted at /api/chat. The registry holds
+  // SwtSession handles across turns so multi-turn POSTs with the same
+  // chat_session_id reuse the same Pi AgentSession (history accumulates
+  // natively via SessionManager.inMemory — Scout RESEARCH §Q3).
+  app.route(
+    '/api/chat',
+    createChatRoute({
+      projectRoot: cwd,
+      bus,
+      registry: chatRegistry,
+    }),
+  );
   // Phase 6 plan 06-06 T3: the /api/vibe + /api/vibe/:session_id/reply
   // shim layer (Phase 4 R7 carry-forward through plan 06-03 carve-out) was
   // removed. `swt cook` via POST /api/cook/start is the canonical v3 entry;
@@ -296,7 +343,7 @@ export function createApp(
   // request hitting /api/vibe* now returns 404 from the Hono catch-all.
   // Regression test: packages/dashboard/test/vibe-shim-removed.test.ts.
   registerSpaRoutes(app);
-  return { app, bus, snapshotter, projectRoot, budgetWiring, usageAggregator };
+  return { app, bus, snapshotter, projectRoot, budgetWiring, usageAggregator, chatRegistry };
 }
 
 /**
@@ -405,7 +452,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
   // Plan 04-05 T1 (R7): the v2 `agentFactory` plumbing was gutted alongside
   // the rest of the `packages/dashboard/src/server/vibe/` subtree. The
   // only supported orchestrator entry is `swt cook` via /api/cook/start.
-  const { app, bus, snapshotter, budgetWiring, usageAggregator } = createApp({
+  const { app, bus, snapshotter, budgetWiring, usageAggregator, chatRegistry } = createApp({
     startedAt,
     ...(projectRoot && !options.skipSnapshotter ? { projectRoot } : {}),
     ...(authToken !== undefined ? { authToken } : {}),
@@ -433,6 +480,10 @@ export async function createServer(options: CreateServerOptions = {}): Promise<D
       // Plan 02-01 T1: tear down the local usage aggregator's bus
       // subscription. Synchronous; adjacent to budgetWiring.dispose().
       usageAggregator.close();
+      // Plan 01-03 (milestone 12, Phase 01): stop the chat-session TTL
+      // sweep + dispose any still-registered SwtSession handles so Pi
+      // releases its underlying resources at daemon shutdown.
+      chatRegistry.close();
       if (snapshotter) await snapshotter.close();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
