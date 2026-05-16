@@ -368,6 +368,54 @@ body {
   cursor: not-allowed;
 }
 
+/* === TopBar neutral chat mode (Phase 02 — milestone 12) ===
+ * Applied when verb() === null. Overrides the command-mode green accent
+ * family with the slate-muted family so the user reads the bar as "in
+ * chat / no workflow selected". Border + prompt + clear-button + submit
+ * all swap to slate-muted; the input text stays ghost-white (typing in
+ * chat is the same visual weight as typing a command). */
+.topbar-cmd-neutral {
+  border-color: rgba(90, 101, 128, 0.35);
+}
+.topbar-cmd-neutral:focus-within {
+  border-color: var(--slate-muted);
+}
+.topbar-cmd-neutral .topbar-cmd-prompt {
+  color: var(--slate-muted);
+}
+.topbar-cmd-neutral .topbar-cmd-submit {
+  background: var(--slate-muted-15);
+  border-color: rgba(90, 101, 128, 0.35);
+  color: var(--slate-muted);
+}
+.topbar-cmd-neutral .topbar-cmd-submit:disabled {
+  color: var(--slate-muted);
+  border-color: rgba(90, 101, 128, 0.15);
+}
+
+/* The × clear button — visible only when a verb IS selected (so it
+ * exists in command mode, not neutral mode). Sized to match the verb
+ * select height; clicking returns the bar to neutral. */
+.topbar-cmd-clear {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  border-radius: 3px;
+  color: var(--terminal-green);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  margin-right: 4px;
+}
+.topbar-cmd-clear:hover:not(:disabled) {
+  background: rgba(0, 255, 65, 0.1);
+}
+.topbar-cmd-clear:disabled {
+  color: var(--slate-muted);
+  border-color: rgba(0, 255, 65, 0.12);
+  cursor: not-allowed;
+}
+
 /* alpha.20 — `.topbar-cmd-hint` + `[data-hint='verb']` removed with the
    hint chip JSX in TopBar.tsx. */
 

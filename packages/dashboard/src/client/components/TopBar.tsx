@@ -337,7 +337,12 @@ export const TopBar: Component<TopBarProps> = (props) => {
         <span class="topbar-brand-cursor">_</span>
       </h1>
       <div class="topbar-cmd-wrapper">
-        <form class="topbar-cmd" onSubmit={(e) => void onSubmit(e)} aria-label="Run swt command">
+        <form
+          class="topbar-cmd"
+          classList={{ 'topbar-cmd-neutral': verb() === null }}
+          onSubmit={(e) => void onSubmit(e)}
+          aria-label="Run swt command"
+        >
           <select
             class="topbar-cmd-verb"
             aria-label="Command"
@@ -345,9 +350,25 @@ export const TopBar: Component<TopBarProps> = (props) => {
             value={verb() ?? ''}
             onChange={(e) => setVerb(e.currentTarget.value || null)}
           >
+            <option value="" disabled>
+              chat
+            </option>
             <For each={ACTION_VERBS}>{(v) => <option value={v.value}>{v.label}</option>}</For>
           </select>
+          <Show when={verb() !== null}>
+            <button
+              type="button"
+              class="topbar-cmd-clear"
+              aria-label="Clear verb (return to chat)"
+              onClick={() => setVerb(null)}
+              disabled={controlsDisabled()}
+            >
+              ×
+            </button>
+          </Show>
           <span class="topbar-cmd-prompt">$</span>
+          {/* TODO(milestone-12): defer multiline/textarea to a follow-up phase per CONTEXT.md
+              "Multi-line input + markdown rendering — defer until base UX is validated". */}
           <input
             type="text"
             class="topbar-cmd-input"
@@ -363,7 +384,7 @@ export const TopBar: Component<TopBarProps> = (props) => {
             class="topbar-cmd-submit"
             disabled={controlsDisabled() || !canSubmit(verb(), input())}
           >
-            Run
+            {verb() === null ? 'Send' : 'Run'}
           </button>
         </form>
         {/* alpha.20 — verb hint row removed at user request. Placeholder
