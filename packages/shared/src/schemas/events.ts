@@ -489,6 +489,78 @@ const InitErrorEvent = z.object({
   message: z.string().min(1),
 });
 
+// Plan 01-02 (milestone 12, Phase 01) — Free-talk Mode chat event schemas.
+// Lead decisions recorded inline (Scout's RESEARCH §Q6 + Open Questions):
+//
+//   1. Correlation field is `chat_session_id` (NOT `session_id`). Chat
+//      sessions are a separate namespace from cook/init; using a distinct
+//      field name keeps the reducer switch clear and avoids accidental
+//      cross-contamination with `events.ts:32` cook/init session-id
+//      filtering. Resolves Scout Open Question #1.
+//   2. `ChatErrorEvent.code` is a CLOSED Zod enum (4 values) so the
+//      dashboard reducer can exhaustively switch on it without an
+//      unknown-code fallback path. Resolves Scout Open Question #3 (closed
+//      enum vs. free-form string).
+//   3. `ChatTokenUsageEvent` matches the SwtEvent `TASK_TOKEN_USAGE`
+//      `usage` shape (input/output/cacheRead/cacheWrite/provider/model)
+//      so the existing meter pipeline (REQ-05) can consume chat usage
+//      with NO shape translation.
+//   4. Schema additions are purely additive (per the R5 comment at
+//      events.ts:383): no downstream `handleInitEvent` / `handleCookEvent`
+//      reducers need to change to accommodate chat events.
+const ChatStartEvent = z.object({
+  type: z.literal('chat.start'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+  prompt: z.string(),
+});
+
+const ChatMessageDelta = z.object({
+  type: z.literal('chat.message_delta'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+  text: z.string(),
+});
+
+const ChatToolCall = z.object({
+  type: z.literal('chat.tool_call'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+  tool: z.string(),
+});
+
+const ChatMessageEnd = z.object({
+  type: z.literal('chat.message_end'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+});
+
+const ChatTokenUsage = z.object({
+  type: z.literal('chat.token_usage'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+  input: z.number().int().nonnegative(),
+  output: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheWrite: z.number().int().nonnegative(),
+  provider: z.string(),
+  model: z.string(),
+});
+
+const ChatError = z.object({
+  type: z.literal('chat.error'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+  code: z.enum(['CHAT_AUTH_FAILED', 'CHAT_SESSION_ERROR', 'CHAT_PROMPT_ERROR', 'CHAT_INVALID_REQUEST']),
+  message: z.string(),
+});
+
+const ChatComplete = z.object({
+  type: z.literal('chat.complete'),
+  ts: TimestampSchema,
+  chat_session_id: z.string().min(1),
+});
+
 export const SnapshotEventSchema = z.discriminatedUnion('type', [
   SnapshotReplaceEvent,
   StateChangedEvent,
@@ -532,6 +604,17 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   InitStartEvent,
   InitCompleteEvent,
   InitErrorEvent,
+  // Plan 01-02 (milestone 12, Phase 01) — Free-talk Mode chat lifecycle.
+  // The dashboard /api/chat SSE route emits these in real time via direct
+  // session.subscribe() fan-out (no orchestrator). chat_session_id is the
+  // correlation field (see header comment above the schema block).
+  ChatStartEvent,
+  ChatMessageDelta,
+  ChatToolCall,
+  ChatMessageEnd,
+  ChatTokenUsage,
+  ChatError,
+  ChatComplete,
 ]);
 export type SnapshotEvent = z.infer<typeof SnapshotEventSchema>;
 export type AgentPromptEvent = z.infer<typeof AgentPromptEvent>;
@@ -594,6 +677,14 @@ export const SNAPSHOT_EVENT_TYPES = [
   'init.start',
   'init.complete',
   'init.error',
+  // Plan 01-02 (milestone 12, Phase 01) — Free-talk Mode chat lifecycle.
+  'chat.start',
+  'chat.message_delta',
+  'chat.tool_call',
+  'chat.message_end',
+  'chat.token_usage',
+  'chat.error',
+  'chat.complete',
 ] as const;
 
 // Plan 04-01 — CookEvent surface. Inferred from the discriminated-union so
@@ -628,6 +719,21 @@ export type OAuthErrorEvent = z.infer<typeof OAuthErrorEvent>;
 export type InitStartEvent = z.infer<typeof InitStartEvent>;
 export type InitCompleteEvent = z.infer<typeof InitCompleteEvent>;
 export type InitErrorEvent = z.infer<typeof InitErrorEvent>;
+// Plan 01-02 (milestone 12, Phase 01) — inferred TS types for the Free-talk
+// Mode chat lifecycle events. Plan 01-03's dashboard /api/chat route narrows
+// on these when fanning Pi session events out to the SSE stream; Phase 03's
+// ChatPanel store fold narrows on the same types client-side.
+export type ChatStartEvent = z.infer<typeof ChatStartEvent>;
+export type ChatMessageDeltaEvent = z.infer<typeof ChatMessageDelta>;
+export type ChatToolCallEvent = z.infer<typeof ChatToolCall>;
+export type ChatMessageEndEvent = z.infer<typeof ChatMessageEnd>;
+export type ChatTokenUsageEvent = z.infer<typeof ChatTokenUsage>;
+export type ChatErrorEvent = z.infer<typeof ChatError>;
+export type ChatCompleteEvent = z.infer<typeof ChatComplete>;
+// Plan 01-02 — ChatEvent surface mirrors the CookEvent precedent at line 602:
+// Extract the chat.* variants from SnapshotEvent so dashboard reducers /
+// route handlers get exhaustive narrowing on the chat lifecycle.
+export type ChatEvent = Extract<SnapshotEvent, { type: `chat.${string}` }>;
 export {
   CookModeSchema,
   CookAgentRoleSchema,
@@ -662,4 +768,15 @@ export {
   InitStartEvent as InitStartEventSchema,
   InitCompleteEvent as InitCompleteEventSchema,
   InitErrorEvent as InitErrorEventSchema,
+  // Plan 01-02 (milestone 12, Phase 01) — Zod schema aliases for the
+  // Free-talk Mode chat lifecycle events. Plan 01-03's /api/chat route uses
+  // these to validate event payloads before bus.publish + writeSSE; Phase 03's
+  // ChatPanel store fold may re-use them as runtime validators.
+  ChatStartEvent as ChatStartEventSchema,
+  ChatMessageDelta as ChatMessageDeltaSchema,
+  ChatToolCall as ChatToolCallSchema,
+  ChatMessageEnd as ChatMessageEndSchema,
+  ChatTokenUsage as ChatTokenUsageSchema,
+  ChatError as ChatErrorSchema,
+  ChatComplete as ChatCompleteSchema,
 };
