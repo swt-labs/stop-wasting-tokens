@@ -316,6 +316,22 @@ const CookBudgetResumeEvent = z.object({
   ceiling_usd: z.number().nonnegative(),
 });
 
+// Plan 02-01 (milestone 13, Phase 02) — Cook askUser UI timeout.
+// UI-cosmetic only: dashboard tracks its own setTimeout per cook-correlated
+// prompt.request and emits this on expiry to mark the CookAskUserEntry
+// `status: 'expired'`. The cook-side askUser promise (10-min default in
+// ask-user.ts:74) times out independently and surfaces via cook.error —
+// Phase 02 does NOT try to resolve cook's promise from this event.
+// `cook.ask_user` / `cook.user_responded` are deliberately NOT added: the
+// emit + answer halves reuse the existing prompt.request / prompt.response
+// schemas (see Scout §5 Option A and the convention comment at events.ts:129).
+const CookAskUserTimeoutEvent = z.object({
+  type: z.literal('cook.ask_user_timeout'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  prompt_id: z.string().min(1),
+});
+
 // Plan 06-03 T1 (R6) — one-time warning at cook start when the active phase
 // carries 2+ same-wave plans AND `worktree_isolation` is `'off'`. The
 // dashboard surfaces this on the Worktrees panel so operators see the
@@ -593,6 +609,7 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookResumeEvent,
   CookBudgetExceededEvent,
   CookBudgetResumeEvent,
+  CookAskUserTimeoutEvent,
   CookWorktreeIsolationWarningEvent,
   CookProviderSelectedEvent,
   CookProviderFallbackEvent,
@@ -664,6 +681,10 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.resume',
   'cook.budget_exceeded',
   'cook.budget_resume',
+  // Plan 02-01 (milestone 13, Phase 02) — UI-cosmetic timeout marker emitted
+  // by the dashboard when its per-prompt setTimeout expires; the reducer
+  // sets the matching CookAskUserEntry to `status: 'expired'`.
+  'cook.ask_user_timeout',
   'cook.worktree_isolation_warning',
   'cook.provider_selected',
   'cook.provider_fallback',
@@ -704,6 +725,11 @@ export type CookUsage = z.infer<typeof CookUsageSchema>;
 // on these.
 export type CookProviderSelectedEvent = z.infer<typeof CookProviderSelectedEvent>;
 export type CookProviderFallbackEvent = z.infer<typeof CookProviderFallbackEvent>;
+// Plan 02-01 (milestone 13, Phase 02) — inferred TS type for the cook
+// askUser UI-timeout event. Plan's P02 dashboard-store reducer narrows on
+// this when clearing cookAwaitingUser + marking the matching
+// CookAskUserEntry `status: 'expired'`.
+export type CookAskUserTimeoutEvent = z.infer<typeof CookAskUserTimeoutEvent>;
 // Plan 03-02 (Phase 3 / G-R4) — inferred TS type for the pre-spawn cost
 // forecast event; plan 03-04's cook.ts emitter narrows on this. The
 // CookBudgetProjectedEventSchema const is already exported at its declaration.
@@ -759,6 +785,10 @@ export {
   CookResumeEvent as CookResumeEventSchema,
   CookProviderSelectedEvent as CookProviderSelectedEventSchema,
   CookProviderFallbackEvent as CookProviderFallbackEventSchema,
+  // Plan 02-01 (milestone 13, Phase 02) — Zod schema alias for the
+  // `cook.ask_user_timeout` UI-cosmetic timeout event so route emitters and
+  // tests can validate payloads before publishing onto the EventBus.
+  CookAskUserTimeoutEvent as CookAskUserTimeoutEventSchema,
   // Plan 04-01 (Phase 4) — Zod schema aliases so plan 04-02's route can
   // validate the `oauth.*` payloads it publishes onto the EventBus.
   OAuthAuthUrlEvent as OAuthAuthUrlEventSchema,

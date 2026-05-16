@@ -46,6 +46,9 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       // a manual ceiling bump via /api/budget/bump.
       'cook.budget_exceeded',
       'cook.budget_resume',
+      // Plan 02-01 (milestone 13, Phase 02) — Cook askUser UI timeout marker
+      // emitted by the dashboard when its per-prompt setTimeout expires.
+      'cook.ask_user_timeout',
       // Plan 06-03 T1 (R6) — one-time worktree-isolation warning emitted
       // at runMode start when `worktree_isolation: 'off'` AND the active
       // phase carries 2+ parallel plans (Phase 4 Wave 2 staging-race
@@ -330,6 +333,49 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       question: 'x',
     });
     expect(bad.success).toBe(false);
+  });
+
+  // Plan 02-01 (milestone 13, Phase 02) — cook.ask_user_timeout is the ONLY
+  // new SSE variant added; the emit + answer halves reuse prompt.request /
+  // prompt.response (Scout §5 Option A). UI-cosmetic only: cook-side timeout
+  // surfaces independently via cook.error.
+  it('cook.ask_user_timeout parses with required session_id + prompt_id', () => {
+    const ok = SnapshotEventSchema.safeParse({
+      type: 'cook.ask_user_timeout',
+      ts: TS,
+      session_id: SID,
+      prompt_id: 'p1',
+    });
+    expect(ok.success).toBe(true);
+  });
+
+  it('cook.ask_user_timeout rejects missing prompt_id', () => {
+    const bad = SnapshotEventSchema.safeParse({
+      type: 'cook.ask_user_timeout',
+      ts: TS,
+      session_id: SID,
+    });
+    expect(bad.success).toBe(false);
+  });
+
+  it('cook.ask_user_timeout rejects empty prompt_id', () => {
+    const bad = SnapshotEventSchema.safeParse({
+      type: 'cook.ask_user_timeout',
+      ts: TS,
+      session_id: SID,
+      prompt_id: '',
+    });
+    expect(bad.success).toBe(false);
+  });
+
+  it('CookEvent type alias narrows to include cook.ask_user_timeout', () => {
+    const ev: CookEvent = {
+      type: 'cook.ask_user_timeout',
+      ts: TS,
+      session_id: SID,
+      prompt_id: 'p1',
+    };
+    expect(ev.type).toBe('cook.ask_user_timeout');
   });
 });
 
