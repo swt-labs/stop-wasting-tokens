@@ -11,12 +11,6 @@ import { Hono } from 'hono';
 import { createLiveBudgetWiring, type BudgetWiring } from './budget-routes.js';
 import { ChatSessionRegistry } from './chat-session-registry.js';
 import { createEventBus, type EventBus } from './event-bus.js';
-
-// Plan 01-03 (milestone 12, Phase 01) — re-export so dashboard-side tests
-// + future external consumers can construct seamed registries (test mode)
-// or reach into the server's chat-session lifecycle without dotted-path
-// imports.
-export { ChatSessionRegistry } from './chat-session-registry.js';
 import { requireToken, resolveDashboardToken } from './lib/auth.js';
 import { assertSafeBinding } from './lib/binding-guard.js';
 import { securityHeadersMiddleware } from './lib/csp.js';
@@ -52,6 +46,12 @@ import { registerUserNotesRoute } from './routes/user-notes.js';
 import { registerWorktreesRoute } from './routes/worktrees.js';
 import { createSnapshotter, type Snapshotter } from './snapshot/snapshotter.js';
 import { createUsageAggregator, type UsageAggregator } from './usage-aggregator.js';
+
+// Plan 01-03 (milestone 12, Phase 01) — re-export so dashboard-side tests
+// + future external consumers can construct seamed registries (test mode)
+// or reach into the server's chat-session lifecycle without dotted-path
+// imports.
+export { ChatSessionRegistry } from './chat-session-registry.js';
 
 export interface DashboardServer {
   app: Hono;

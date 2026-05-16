@@ -1,5 +1,66 @@
 # Changelog
 
+## 3.0.0-alpha.24 — 2026-05-16
+
+_Milestone **`12-free-talk-mode-dashboard-chat`** ships (4 phases, 7 plans, 30 commits) — the dashboard's command bar now has a free-talk default mode that bypasses the orchestrator entirely. Verb-chip selection still routes through cook/qa/verify/research/map for methodology-driven work. This release also rolls up alpha.20–.23 hotfixes that landed in mid-session and a CI lint fix that blocked the alpha.24 tag's first publish attempt._
+
+### Milestone 12 — Free-talk Mode in the Dashboard Cook Bar
+
+_User intent (verbatim): "People need to be able to speak with the LLM without the instructions, so maybe we can have the command box before the dialog box in a color that nothing is selected (free talk) — then if the user wants to 'cook' or do whatever else, they just push the button to select to command and type away."_
+
+#### Phase 01 — Backend chat route + session registry
+
+- **`feat(01-01-03): POST /api/chat SSE route handler factory`** (`7dadc02`). New endpoint that spawns an ephemeral `SwtSession` (not the cook orchestrator), subscribes to Pi events, and streams `chat.*` SSE events to the dashboard. Emits `chat.start`, `chat.message_delta` (per Pi `MESSAGE_DELTA`), `chat.tool_call` (per `TOOL_CALL`), `chat.message_end`, `chat.token_usage` (per `TASK_TOKEN_USAGE`), `chat.error` (per `TASK_ERROR` / promote/auth failure), and `chat.complete` (turn ended). Empty prompt fails fast with synchronous 400 before SSE headers fly.
+- **`feat(01-01-03): ChatSessionRegistry — in-memory chat-session handle store with TTL sweep`** (`ffe99b4`). Per-`chat_session_id` Map<id, {session, lastUsed}> with `setInterval(...).unref()`-driven TTL sweep (default 10min idle). Pi's `SessionManager.inMemory` retains conversation history natively, so multi-turn dialogue "just works" by calling `session.prompt(text)` on the same registered handle.
+- **`refactor(runtime): move resolveSpawnCredential + auth-config to runtime (L2)`** (`39b919b`), **`refactor(runtime): add readProjectAuthConfig`** (`30c1652`), **`refactor(cli): switch cook + init to import from @swt-labs/runtime`** (`c57b8c5`). Extracted credential resolution from `packages/cli/src/commands/cook.ts` to `packages/runtime/src/credentials/` so the L7 dashboard can import them without violating the layer order. OAuth/API-key resolution is byte-identical to cook/init's existing behavior.
+- **`feat(01-01-02): add chat.* event schemas to SnapshotEventSchema union`** (`b2a632a`). 7 new Zod schemas with closed enum for `ChatError.code` (`CHAT_AUTH_FAILED`, `CHAT_SESSION_ERROR`, `CHAT_PROMPT_ERROR`, `CHAT_INVALID_REQUEST`).
+- 22 new tests across runtime + dashboard (registry unit, route integration, schema round-trip, E2E smoke). Commits: `70fe1b4`, `691700e`, `bae3d87`, `2d1bd20`. Hygiene cleanup in `2e3712e`.
+
+#### Phase 02 — TopBar neutral / chat default mode
+
+- **`feat(dashboard): TopBar verb signal widens to string|null + onChat prop`** (`efa7afa`). `verb()` signal default is now `null` (was `'cook'`). Optional `onChat?: (text) => Promise<unknown>` prop wires to Phase 03's startChat action.
+- **`feat(dashboard): TopBar neutral-mode JSX + slate-muted CSS modifier`** (`2ac9bd2`). New `.topbar-cmd-neutral` class (`--slate-muted` tokens) visually distinguishes neutral state from verb-selected state. × clear button returns to neutral after a verb was chosen.
+- **`test(dashboard): TopBar null-branch coverage for free-talk mode`** (`f66e1cb`). +10 null-branch assertions on `canSubmit`, submit routing, and visual class checks.
+
+#### Phase 03 — ChatPanel + conversation state
+
+- **`feat(03-01): ChatMessage + ChatSession types + chatSession/chatStarting state slots`** (`b723432`).
+- **`feat(03-01): postChatStart API helper for POST /api/chat`** (`d18e5c6`).
+- **`feat(03-01): startChat + clearChat actions with optimistic chat_session_id`** (`0f354c4`). `POST /api/chat` returns the SSE stream directly with no JSON body, so `startChat` sets an optimistic `chatSession` with `chat_session_id: ''` and the global `/api/events` channel's `chat.start` event adopts the real id via the reducer.
+- **`feat(03-01): handleChatEvent SSE reducer for all 7 chat.* events`** (`a119467`). Routed at the top of `applyEvent` so chat session state transitions before any cook/init/oauth branch fires.
+- **`feat(dashboard): 03-02 P02 — ChatPanel.tsx Solid component`** (`9a015a1`), **`feat(dashboard): 03-02 P03 — App.tsx mode-switch + onChat wiring`** (`5e7ca24`). App.tsx flips between `<ChatPanel/>` and `<LogPanel/>` via `<Show when={state.chatSession}>`.
+- **`test(dashboard): 03-02 P01 — chat-panel-helpers + helper tests`** (`c049099`), **`test(03-01): dashboard-store.chat.test.ts`** (`4027b87`). Pure helpers (`formatMessage`, `splitMessageByRole`, `mergeStreamingDelta`, `shouldDisableClear`) tested in node-env vitest, +22 tests total.
+
+#### Phase 04 — Docs + onboarding hints
+
+- **`docs(readme): chat vs cook quick-start subsection`** (`5994156`). `### Chat vs Cook` inside `## Quick start: a real session` — one concrete chat example, one cook example, one trailing sentence on the shared credential model.
+- **`feat(init): stdout note advertising chat mode`** (`77e84d8`). `swt init` now emits "Dashboard now supports free-talk chat (default) and workflow verbs (cook/qa/...). Type to start chatting; pick a verb to drive a phase." between the existing `✓ Lead bootstrap complete` and `Next: run swt vibe` lines.
+- **`feat(dashboard): first-run hint banner for chat vs cook`** (`2f4046a`), **`test(dashboard): first-run-hint helpers (TDD)`** (`5a55639`). `FirstRunHint.tsx` shows on greenfield state (`state.chatSession === null && state.vibeSession === null && state.snapshot.is_initialized && !dismissed`), persists dismissal via project-scoped localStorage key (`swt-dashboard-first-run-hint-dismissed:{projectRoot}`). +12 tests on the pure helpers.
+- **`fix(dashboard): persist first-run hint dismissal on first session start`** (`5ef5ced`). QA caught a missed must_have — original commit persisted on the explicit × button only. Added a `createEffect` watching chat/vibe session signals + shared `persistDismissal()` helper.
+
+### Rolled up: alpha.20–.23 hotfixes
+
+These mid-session hotfixes were tagged but never reached the npm `next` dist-tag because alpha.20 introduced a publish-time issue and the user pivoted to milestone 12 before fixing it. The published artifact at alpha.24 carries the cumulative result.
+
+- **alpha.20** — `fix(init): inherit globally-stored keychain credentials into new projects` (`a383d45`); `fix(dashboard): surface subprocess stderr cause in init.error message` (`504f2ec`); `refactor(dashboard): remove redundant cook-bar affordances` (`07a8b32`). The init flow was only consulting project-local `cookConfig.auth` and ignoring the global keychain on greenfield projects — a fresh `swt init` against an OAuth-authenticated machine failed with `init exited with code 3 within 452ms`. Now enumerates `resolveCredentialStore().list()` and writes the resolved credential to `.swt-planning/config.json`.
+- **alpha.21** — `fix(orchestrator): surface Pi upstream LLM-call failures via TASK_ERROR` (`1c34aba`). Pi was firing `turn_end` events with `stopReason='error'` + `message.errorMessage` carrying real upstream failures (e.g. "out of extra usage"), but the dispatcher classified them as `status: 'success'` with 0 tokens. New `TASK_ERROR` SwtEvent variant + dispatcher subscription + status flip.
+- **alpha.22** — `feat(auth): bridge UX for Anthropic OAuth Max-plan allowlist gap` (`72bf01c`). Anthropic's per-`client_id` allowlist for Max-plan routing means SWT's OAuth client (Pi's `9d1c250a-…`) doesn't get the same billing-pool treatment as Claude Code's first-party client. Dashboard now surfaces this gap clearly + offers an API-key fallback path. (Pending Anthropic's reply on the SWT client_id allowlist request.)
+- **alpha.23** — `feat(orchestrator): surface LLM assistant text + tool calls in dashboard log` (`851007b`). The dashboard Log pane now mirrors what Pi sees — assistant turn text + tool-call descriptions stream into the central log via the existing `spawn-orchestrator-session.ts` traceWriter.
+
+### CI lint fix (post-tag)
+
+- **`fix(dashboard): move ChatSessionRegistry re-export below import block`** (this release). The Phase 01 dev landed a `export { ChatSessionRegistry }` re-export between the local-imports group and `import './lib/auth.js'`, which violated `import/order`'s "no empty line within import group" rule. CI caught it on the alpha.24 tag's first run; re-export now sits after all imports, before the type declarations. No functional change.
+
+### Test totals + verification
+
+`pnpm test`: 2156 → **2214 passed / 67 skipped / 0 failed** (+58 new). `pnpm typecheck` clean. `pnpm lint` clean (no errors; pre-existing `import/no-restricted-paths` warnings on test files importing vitest are documented in milestone-11's repo-wide demotion to warn pending the pnpm-workspace resolver). `pnpm format --check` clean. Only known issue: pre-existing `Popover.tsx:138` TS2322 ARIA-role-union error in the dashboard typecheck — file not modified by this milestone; tracked in STATE.md Todos.
+
+### To take it
+
+```bash
+npm i -g stop-wasting-tokens@next
+```
+
 ## 3.0.0-alpha.19 — 2026-05-16
 
 _Hotfix on top of alpha.18. User smoke-test of the dashboard Init flow against a fresh project failed with `init exited with code 3 within 468ms`. Root-cause investigation surfaced two compounding bugs in `packages/cli/src/commands/init.ts`: (1) **`init.ts` was never resolving provider credentials before spawning the Lead** — `spawnAgent({role, prompt, cwd, sessionId, installRoot})` was called WITHOUT `provider` or `resolvedCredential`, so session.ts fell through to Pi's own auth.json + env-var path. That silently worked for users with `ANTHROPIC_API_KEY` in env or `~/.pi/agent/auth.json`, but broke for OAuth-only users whose credentials live in SWT's keychain. (2) **The error path only logged `result.status`** — `Lead spawn returned status="failed"` — without surfacing `result.summary` (the 500-char-truncated error message that milestone 10's dispatcher fix populates on `session.prompt()` throws). Users saw the symptom (`init exited with code 3`) with zero diagnostic detail. Both bugs are pre-existing — they shipped with the dashboard's Init-subprocess wiring in milestone 08 and have been hiding until milestone 11 raised the surface visibility._
