@@ -329,7 +329,7 @@ export function materializeExtensionsToCustomTools(
   const collected: PiToolDefinition[] = [];
   const recordingPi: PiExtensionAPI = {
     registerTool(def) {
-      collected.push(def as unknown as PiToolDefinition);
+      collected.push(def);
     },
     on() {
       // No-op: the agent-session adapter does not bind `pi.on` listeners

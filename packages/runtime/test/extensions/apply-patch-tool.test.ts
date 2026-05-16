@@ -29,7 +29,7 @@ function makeRecordingPi(): {
   const appended: Array<{ customType: string; data: unknown }> = [];
   const pi: PiExtensionAPI = {
     registerTool<TParams = unknown>(def: PiToolDefinition<TParams>): void {
-      registered.push(def as PiToolDefinition);
+      registered.push(def);
     },
     on() {
       // unused by apply_patch
