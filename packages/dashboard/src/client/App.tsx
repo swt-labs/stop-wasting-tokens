@@ -196,21 +196,12 @@ export const App: Component = () => {
               minSize={0.08}
               class="panel resizable-panel"
             >
-              <Show
-                when={phases().length > 0}
-                fallback={
-                  <div class="preview-panel-empty empty-state-cta">
-                    <p class="empty-state-headline">Describe what you want to build</p>
-                    <p class="empty-state-arrow" aria-hidden="true">
-                      ↑
-                    </p>
-                    <p class="empty-state-hint">
-                      Type your idea in the command bar above. The agent will ask follow-up
-                      questions if it needs anything from you.
-                    </p>
-                  </div>
-                }
-              >
+              {/* alpha.20 — empty-state CTA card removed at user request.
+                  The TopBar's cook-bar placeholder + workflow-state hint
+                  already cue the user toward the next action; this card
+                  was redundant in the left column. When `phases().length === 0`
+                  the panel renders empty. */}
+              <Show when={phases().length > 0} fallback={<div class="preview-panel-empty" />}>
                 <PhaseStepper
                   phases={phases()}
                   currentIndex={state.snapshot?.milestone?.phase_index ?? 1}

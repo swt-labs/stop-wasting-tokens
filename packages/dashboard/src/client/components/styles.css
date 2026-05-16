@@ -255,15 +255,8 @@ body {
   gap: 8px;
 }
 
-.topbar-pill {
-  padding: 2px 10px;
-  border-radius: 11px;
-  background: var(--slate-muted-15);
-  color: var(--slate-muted);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-}
+/* alpha.20 — `.topbar-pill` removed alongside the `backend: pi` chip.
+   Restore here when a second backend ships. */
 
 /* Wrapper holds the form + the hint row below. Position relative so the
    hint row can absolute-anchor against the wrapper. */
@@ -285,20 +278,9 @@ body {
   font-family: 'Fira Code', ui-monospace, monospace;
 }
 
-/* Hint row sits below the form, absolute-positioned so long hints can't
-   clip the input. Only one hint child renders at a time per the
-   classification, so the row is always a single chip. */
-.topbar-cmd-hint-row {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  pointer-events: none;
-  z-index: 5;
-}
+/* alpha.20 — `.topbar-cmd-hint-row` removed alongside the cook-bar hint
+   chip (e.g. `↵ plan next phase`). Restore here if a hint affordance is
+   reintroduced beneath the cook bar. */
 
 .topbar-cmd:focus-within {
   border-color: var(--terminal-green);
@@ -386,21 +368,8 @@ body {
   cursor: not-allowed;
 }
 
-/* Inline hint chip — verb-aware affordance describing what submit will do */
-.topbar-cmd-hint {
-  font-size: 11px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  padding: 2px 8px;
-  border-radius: 3px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.topbar-cmd-hint[data-hint='verb'] {
-  color: var(--terminal-green);
-  background: rgba(0, 255, 65, 0.06);
-  border: 1px solid rgba(0, 255, 65, 0.2);
-}
+/* alpha.20 — `.topbar-cmd-hint` + `[data-hint='verb']` removed with the
+   hint chip JSX in TopBar.tsx. */
 
 /* Init screen — greenfield onboarding */
 
@@ -1042,40 +1011,9 @@ body {
   cursor: pointer;
 }
 
-/* Empty-state CTA (phase column) */
-
-.empty-state-cta {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 12px;
-  padding: 24px 16px;
-}
-
-.empty-state-headline {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 14px;
-  color: var(--ghost-white);
-  margin: 0;
-}
-
-.empty-state-arrow {
-  font-size: 32px;
-  color: var(--terminal-green);
-  margin: 0;
-  line-height: 1;
-}
-
-.empty-state-hint {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 12px;
-  color: var(--slate-muted);
-  line-height: 1.5;
-  margin: 0;
-  max-width: 280px;
-}
+/* alpha.20 — `.empty-state-cta` / `-headline` / `-arrow` / `-hint`
+   removed alongside the "Describe what you want to build" left-column
+   card. The cook bar in the topbar now carries that affordance. */
 
 /* No-backend banner — shows in LogPanel when a vibe session was created
    but the daemon has no agent backend wired (SWT_VIBE_AGENT unset). */
@@ -2650,8 +2588,9 @@ body {
   display: inline-flex;
 }
 
-/* The "Options ▾" trigger — visually consistent with `.topbar-pill` and the
- * topbar control group (same pill sizing + monospace face). */
+/* The "Options ▾" trigger — pill sizing + monospace face matching the
+ * topbar control group. (Originally aligned with `.topbar-pill`, which
+ * was removed in alpha.20 along with the `backend: pi` chip.) */
 .options-menu-trigger {
   padding: 2px 10px;
   border-radius: 11px;
@@ -2675,8 +2614,8 @@ body {
 }
 
 /* The popover — anchored UNDER the trigger, right-aligned so it cannot
- * overflow the viewport edge (the dashboard is desktop-first). z-index sits
- * clearly above the topbar (`.topbar-cmd-hint-row` is z-index 5). */
+ * overflow the viewport edge (the dashboard is desktop-first). z-index
+ * stays high (50) so the popover floats over the topbar control row. */
 .options-menu {
   position: absolute;
   top: 100%;

@@ -1,4 +1,4 @@
-import type { Backend, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
+import type { MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
 import type { WorkflowState } from '../lib/workflow-state.js';
@@ -81,9 +81,8 @@ const PILL_LABEL: Record<ConnectionState, string> = {
   error: '✗ DISCONNECTED',
 };
 
-const BACKEND_LABEL: Record<Backend, string> = {
-  pi: 'pi',
-};
+// alpha.20 — BACKEND_LABEL removed alongside the `backend: pi` chip.
+// Restore here when a second backend ships.
 
 // The verb dropdown's curated action-verb set. cook is the orchestrator
 // (routes via onVibe); the rest are dashboard-safe CLI verbs (route via
@@ -213,9 +212,8 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // persisted (keep it simple, mirroring the `input` signal). cook default.
   const [verb, setVerb] = createSignal<string>('cook');
 
-  const hint = createMemo(() =>
-    hintForVerb(verb(), props.workflowState, props.activePhasePosition),
-  );
+  // alpha.20 — `hint` memo removed alongside the hint row in JSX. The
+  // `hintForVerb` helper stays exported (consumed by test files).
   const placeholder = createMemo(() => placeholderForVerb(verb(), props.workflowState));
 
   // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so
@@ -324,11 +322,9 @@ export const TopBar: Component<TopBarProps> = (props) => {
             Run
           </button>
         </form>
-        <div class="topbar-cmd-hint-row">
-          <span class="topbar-cmd-hint" data-hint="verb" role="status">
-            {hint()}
-          </span>
-        </div>
+        {/* alpha.20 — verb hint row removed at user request. Placeholder
+            text inside the input already cues the next action; the
+            duplicate hint chip below the input was noise. */}
       </div>
       <div class="topbar-status">
         <Show when={props.project} fallback={<span class="topbar-placeholder">project: …</span>}>
@@ -359,9 +355,10 @@ export const TopBar: Component<TopBarProps> = (props) => {
         </Show>
       </div>
       <div class="topbar-controls">
-        <Show when={props.project}>
-          <span class="topbar-pill">backend: {BACKEND_LABEL[props.project!.backend]}</span>
-        </Show>
+        {/* alpha.20 — `backend: pi` chip removed at user request. SWT
+            only has one backend today, so the label was redundant.
+            Restore (with BACKEND_LABEL kept for that path) when a
+            second backend ships. */}
         <span class="connection-pill" data-state={props.connection}>
           {PILL_LABEL[props.connection]}
         </span>
