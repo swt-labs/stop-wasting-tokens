@@ -8,9 +8,11 @@ import {
   SessionManager,
   type AgentSession,
   type AgentSessionEvent,
+  type ToolDefinition as PiSdkToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
 import { mapPiEvent } from './events.js';
+import type { PiExtensionAPI, PiToolDefinition } from './extensions/pi-types.js';
 import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
 
 /**
@@ -37,16 +39,23 @@ import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './type
  *   - `dispose()` → `agentSession.dispose()` + clears internal state.
  *   - `sessionId` → reads from Pi's `agentSession.sessionId` getter.
  *
- * **`SwtSessionOptions.enableResultProtocol` + `.taskId` handling:**
- * Recorded by the adapter but NOT yet wired through Pi's extension
- * loader. Pi's `customTools` field on `createAgentSession` accepts
- * `ToolDefinition[]` — NOT extension-factory functions like
- * `buildResultProtocolExtension()` (which returns
- * `(pi: PiExtensionAPI) => void`). Wiring the extension factory
- * through Pi's extension-discovery path is a separate follow-up. For
- * `taskId`, the adapter writes a `task-context` custom session entry
- * when the field is set, so the extension (once wired) can pick it up
- * via `getTaskIdFromCtx`.
+ * **`SwtSessionOptions.extensions` handling (Phase 03 plan 03-01 T3):**
+ * The previously-deferred extension wiring is now ACTIVE for agent
+ * sessions. Each factory `(pi: PiExtensionAPI) => void` is invoked once
+ * against a recording `PiExtensionAPI` shim at the `createAgentSession`
+ * call site; the captured `registerTool` definitions are forwarded as
+ * Pi's `customTools[]`. Mirrors the orchestrator-session wiring slot at
+ * `spawn-orchestrator-session.ts:~299` (the resolved-config `extensions`
+ * field) — closes Scout's Phase 03 risk #1. Empty / absent extensions
+ * keep the call byte-identical to pre-Phase-03 (no `customTools` set).
+ *
+ * **`SwtSessionOptions.enableResultProtocol` + `.taskId` handling:** the
+ * dispatcher / spawn layer always supplies a `buildResultProtocolExtension()`
+ * factory in `extensions[]` when `enableResultProtocol` is true, so the
+ * boolean and the taskId travel together with the extension that consumes
+ * them via `getTaskIdFromCtx`. The flags remain on `SwtSessionOptions`
+ * for structural compatibility but the extension path is now the load-
+ * bearing wire.
  *
  * **`SwtSessionOptions.provider` + `.resolvedCredential` handling
  * (Phase 2 — Selection → Spawn Wiring):** when BOTH are present,
@@ -107,6 +116,7 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     // string. Phase 2 never sets `opts.model` (Risk 8); omitting it lets
     // Pi's `ModelRegistry` resolve the chosen provider's default model. The
     // model-picker fast-follow owns the id -> `Model` resolution.
+    const customTools = materializeExtensionsToCustomTools(opts.extensions);
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
@@ -118,6 +128,17 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       // `defaultSpawnSessionFactory`. Conditional-spread mirrors the
       // provider/model precedent above so absent stays absent.
       ...(opts.thinkingLevel !== undefined ? { thinkingLevel: opts.thinkingLevel } : {}),
+      // Phase 03 plan 03-01 T3 — activated extensions[] passthrough. The
+      // factories were resolved at the spawn-agent / spawn-orchestrator
+      // layer; we materialize them here (recording PiExtensionAPI shim →
+      // captured PiToolDefinition[] → Pi customTools[]). Absent / empty
+      // input ⇒ no customTools key set (byte-identical to pre-Phase-03).
+      // Cast through `unknown` because `PiToolDefinition` is a local
+      // structural mirror of Pi's `ToolDefinition` (see pi-types.ts head
+      // comment) and `readonly` reflects ownership in our runtime layer.
+      ...(customTools.length > 0
+        ? { customTools: customTools as unknown as PiSdkToolDefinition[] }
+        : {}),
     });
     agentSession = session;
   } else {
@@ -125,6 +146,7 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     // block configured, or the cook callsite resolved nothing (headless
     // host, env-fallback empty): Pi falls through to its own auth.json +
     // env-var resolution.
+    const customTools = materializeExtensionsToCustomTools(opts.extensions);
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
@@ -133,6 +155,12 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       // without resolved credentials still receive the frontmatter-driven
       // reasoning depth.
       ...(opts.thinkingLevel !== undefined ? { thinkingLevel: opts.thinkingLevel } : {}),
+      // Phase 03 plan 03-01 T3 — same extensions activation as the
+      // Phase-2 branch; both code paths must materialize so spawns without
+      // resolved credentials still receive the registered custom tools.
+      ...(customTools.length > 0
+        ? { customTools: customTools as unknown as PiSdkToolDefinition[] }
+        : {}),
     });
     agentSession = session;
   }
@@ -176,6 +204,11 @@ function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptio
   // `createAgentSession` call site above; void here mirrors the precedent
   // so the builder's typecheck covers the new field without re-consuming.
   void opts.thinkingLevel;
+  // Phase 03 plan 03-01 T3 — `extensions` materialized into `customTools`
+  // BEFORE `buildSwtSessionFromPi` runs (the call sites above invoke
+  // `materializeExtensionsToCustomTools(opts.extensions)`). Voided here for
+  // symmetry with the precedent.
+  void opts.extensions;
 
   let disposed = false;
 
@@ -228,6 +261,10 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   // (no real Pi session is constructed). `void`-ed so the new field still
   // typechecks against `SwtSessionOptions` for every test fixture.
   void opts.thinkingLevel;
+  // Phase 03 plan 03-01 T3 — `extensions` is inert on the mock path: no
+  // real Pi `customTools[]` materialization happens because no real Pi
+  // session is constructed. The factories are silently dropped.
+  void opts.extensions;
 
   let disposed = false;
 
@@ -261,6 +298,59 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
       listeners.length = 0;
     },
   };
+}
+
+/**
+ * Phase 03 plan 03-01 T3 — invoke each session extension factory once
+ * against a recording `PiExtensionAPI` shim and collect the resulting
+ * `PiToolDefinition`s into a Pi `customTools[]`-shaped array.
+ *
+ * Each factory is the `(pi: PiExtensionAPI) => void` shape exported by
+ * `buildResultProtocolExtension` / `buildJournalExtension` /
+ * `buildApplyPatchExtension` / `buildSwtAskUserExtension`. The recording
+ * shim captures `registerTool` calls; `on` and `appendEntry` are recorded
+ * as no-ops on this code path (the Phase 03 extensions register tools
+ * synchronously and only result-protocol's defensive `agent_end` listener
+ * uses `on` — the listener is not wired in this pass; it remains a
+ * deferred follow-up since Pi's per-session event listener attachment
+ * happens via `agentSession.subscribe`, not `pi.on`).
+ *
+ * The cast to `customTools` at the call site is intentional: Pi's
+ * `ToolDefinition` type lives behind the SDK boundary and is structurally
+ * compatible with our `PiToolDefinition` mirror (see `pi-types.ts` head
+ * comment).
+ */
+export function materializeExtensionsToCustomTools(
+  extensions: SwtSessionOptions['extensions'],
+): ReadonlyArray<PiToolDefinition> {
+  if (extensions === undefined || extensions.length === 0) {
+    return [];
+  }
+  const collected: PiToolDefinition[] = [];
+  const recordingPi: PiExtensionAPI = {
+    registerTool(def) {
+      collected.push(def as unknown as PiToolDefinition);
+    },
+    on() {
+      // No-op: the agent-session adapter does not bind `pi.on` listeners
+      // today. The only existing on('agent_end') user is the result-
+      // protocol defensive harvester, whose activation is a separate
+      // follow-up. Recording silently here keeps the materialization
+      // total: factories that call `pi.on(...)` are not blocked.
+    },
+    appendEntry() {
+      // No-op for the same reason — the closure-captured appendEntry path
+      // requires an active Pi session entry stream; the recording phase
+      // runs BEFORE the AgentSession exists.
+    },
+  };
+  for (const factory of extensions) {
+    // Cast through `unknown` because `SessionExtensionFactory`'s parameter
+    // is `unknown` (shared/L0 cannot reference PiExtensionAPI). The
+    // runtime knows the concrete shape.
+    (factory as unknown as (pi: PiExtensionAPI) => void)(recordingPi);
+  }
+  return collected;
 }
 
 /**

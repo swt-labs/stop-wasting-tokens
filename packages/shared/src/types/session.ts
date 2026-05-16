@@ -127,7 +127,38 @@ export interface SwtSessionOptions {
    * The mock path `void`s it.
    */
   readonly thinkingLevel?: ThinkingLevel;
+  /**
+   * Phase 03 plan 03-01 T3 — Pi extension factories to register on the
+   * agent session at construction. Each factory is invoked once with a
+   * recording `PiExtensionAPI` shim; the captured `registerTool` calls
+   * become `customTools[]` on Pi's `createAgentSession`. Closes the
+   * deferred-state hole called out in Scout Phase 03 risk #1
+   * (the orchestrator-session path threads `extensions` on the resolved
+   * config but the runtime adapter had never materialized them — same
+   * story for the agent path until now).
+   *
+   * Shape is structural: `(pi: unknown) => void`. The runtime narrows
+   * `unknown` to its locally-typed `PiExtensionAPI` at the call boundary —
+   * shared/ (L0) cannot import runtime/extensions/pi-types.ts (L2) without
+   * an upward-cycle layering violation. Tests and orchestration use the
+   * proper `PiExtensionAPI` shape and assign here via structural
+   * compatibility.
+   *
+   * Risk: OPTIONAL — absent (or empty array) ⇒ `createSession` is
+   * byte-identical to pre-Phase-03 (`customTools` not set, Pi falls
+   * through to its built-in tools only).
+   */
+  readonly extensions?: ReadonlyArray<SessionExtensionFactory>;
 }
+
+/**
+ * Structural shape of a Pi extension factory at the `SwtSessionOptions`
+ * boundary. The factory body calls `pi.registerTool({...})` (and possibly
+ * `pi.on(...)` / `pi.appendEntry(...)`); the runtime adapter materializes
+ * the captured registrations into Pi's `customTools[]` at
+ * `createAgentSession` time.
+ */
+export type SessionExtensionFactory = (pi: unknown) => void;
 
 /**
  * Per-turn token usage extracted from a Pi `turn_end` event. Lives on
