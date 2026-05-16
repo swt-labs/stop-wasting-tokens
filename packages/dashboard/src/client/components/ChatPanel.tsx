@@ -78,8 +78,8 @@ export const ChatPanel: Component<ChatPanelProps> = (props) => {
 
   return (
     <section class="panel chat-panel" aria-label="Chat Panel">
-      <div class="panel-header chat-panel-header">
-        <h2>Chat</h2>
+      <header class="chat-panel-header">
+        <h2 class="panel-header">Chat</h2>
         <button
           type="button"
           class="chat-panel-clear-btn"
@@ -88,7 +88,7 @@ export const ChatPanel: Component<ChatPanelProps> = (props) => {
         >
           Clear conversation
         </button>
-      </div>
+      </header>
       <div ref={scrollerRef} class="chat-panel-scroller">
         <Show
           when={props.session.messages.length > 0}

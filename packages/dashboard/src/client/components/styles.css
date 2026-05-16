@@ -3071,3 +3071,143 @@ body {
   border: 0;
   background: transparent;
 }
+
+/* ---------------------------------------------------------------------- *
+ * Plan 03-02 (milestone 12, Phase 03) — Free-talk Mode `<ChatPanel>`     *
+ *                                                                        *
+ * Mirrors the log-panel rule set (.log-panel / .log-panel-scroller) for  *
+ * the outer chrome — same `panel` base, same scroller flex/overflow      *
+ * semantics — and reuses the existing palette tokens (`--terminal-green` *
+ * for accents, `--slate-muted` for de-emphasised text, `--danger-red`    *
+ * for errors, `--slate-muted-15` for the in-bubble background, etc).     *
+ * No new color tokens are introduced; the existing `:root` palette in    *
+ * src/client/styles.css covers everything the panel needs.               *
+ *                                                                        *
+ * Layout: `.chat-panel-header` is a flex-row wrapper that lays out the   *
+ * `<h2 class="panel-header">Chat</h2>` title and the right-aligned       *
+ * "Clear conversation" button (mirrors `.tools-panel-header`'s pattern). *
+ * `.chat-panel-scroller` carries the conversation thread with auto-      *
+ * scroll handled in the component's createEffect.                        *
+ *                                                                        *
+ * Messages: a `.chat-msg` row carries a `.chat-msg-user` (right-aligned, *
+ * muted background) or `.chat-msg-assistant` (left-aligned, subtle       *
+ * border) variant; per-message annotations (`.chat-msg-tool-call`,       *
+ * `.chat-msg-usage`, `.chat-msg-error`) render inline below the text.    *
+ * ---------------------------------------------------------------------- */
+
+.chat-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chat-panel-header .panel-header {
+  /* `.panel-header` already sets margin: 0 0 8px — but inside the flex
+   * header we want the row to drive vertical spacing, not the h2. */
+  margin: 0;
+}
+
+.chat-panel-clear-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.chat-panel-clear-btn:hover:not(:disabled) {
+  background: var(--terminal-green-15);
+}
+
+.chat-panel-clear-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chat-panel-scroller {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--deep-void);
+  border: 1px solid rgba(0, 255, 65, 0.12);
+  border-radius: 4px;
+  padding: 8px;
+  scroll-behavior: smooth;
+}
+
+.chat-panel-empty {
+  padding: 16px;
+  color: var(--slate-muted);
+  text-align: center;
+  font-style: italic;
+  font-size: 12px;
+}
+
+.chat-msg {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  max-width: 85%;
+  word-wrap: break-word;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-msg-user {
+  background: var(--slate-muted-15);
+  color: var(--ghost-white);
+  margin-left: auto;
+  text-align: right;
+}
+
+.chat-msg-assistant {
+  background: transparent;
+  color: var(--ghost-white);
+  border: 1px solid rgba(0, 255, 65, 0.18);
+  margin-right: auto;
+}
+
+.chat-msg-text {
+  white-space: pre-wrap;
+}
+
+.chat-msg-tools {
+  margin-top: 4px;
+}
+
+.chat-msg-tool-call {
+  display: inline-block;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--slate-muted);
+  margin-right: 6px;
+}
+
+.chat-msg-usage {
+  display: inline-block;
+  margin-top: 4px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--slate-muted);
+}
+
+.chat-msg-error {
+  margin-top: 4px;
+  padding: 4px 6px;
+  border-left: 2px solid var(--danger-red);
+  font-size: 12px;
+  color: var(--danger-red);
+}
