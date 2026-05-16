@@ -18,6 +18,15 @@ export { createEnvFallbackBackend } from './env-fallback-backend.js';
 export { probeKeychain } from './probe.js';
 export { resolveCredentialStore } from './resolve-store.js';
 export { encodeAccount, decodeAccount, SWT_KEYCHAIN_SERVICE } from './namespace.js';
+// Plan 01-01 (Milestone 12) — auth-config schema + parser moved from
+// @swt-labs/cli to @swt-labs/runtime so the dashboard L7 chat route can
+// consume them without violating the layer rules.
+export { parseAuthConfig, DEFAULT_AUTH_CONFIG } from './auth-config.js';
+export type { AuthConfig, AuthProviderEntry } from './auth-config.js';
+// Plan 01-01 (Milestone 12) — `resolveSpawnCredential` moved from
+// @swt-labs/cli `cook.ts:2349-2413` to @swt-labs/runtime so the L7 chat
+// route can resolve credentials without importing L6 cli (layer rule).
+export { resolveSpawnCredential } from './resolve-spawn-credential.js';
 
 export type {
   AuthMode,

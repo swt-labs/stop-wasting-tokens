@@ -281,9 +281,18 @@ export {
   encodeAccount,
   decodeAccount,
   SWT_KEYCHAIN_SERVICE,
+  // Plan 01-01 (Milestone 12) — auth-config + spawn credential resolver
+  // moved from @swt-labs/cli to @swt-labs/runtime so the dashboard L7 chat
+  // route can consume them without a layer violation. The cli's cook.ts and
+  // init.ts now import these from `@swt-labs/runtime`.
+  parseAuthConfig,
+  DEFAULT_AUTH_CONFIG,
+  resolveSpawnCredential,
 } from './credentials/index.js';
 export type {
   AuthMode,
+  AuthConfig,
+  AuthProviderEntry,
   CredentialRef,
   CredentialBackend,
   CredentialStore,
