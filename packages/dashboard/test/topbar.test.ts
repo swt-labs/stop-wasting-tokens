@@ -22,6 +22,8 @@ import {
   TopBar,
   canSubmit,
   composeCommand,
+  hintForVerb,
+  placeholderForVerb,
 } from '../src/client/components/TopBar.jsx';
 
 describe('composeCommand', () => {
@@ -127,5 +129,57 @@ describe('ACTION_VERBS', () => {
 describe('TopBar component', () => {
   it('exports a callable Solid component function', () => {
     expect(typeof TopBar).toBe('function');
+  });
+});
+
+// === Phase 02 (milestone 12 — free-talk mode) ===
+// null-branch coverage for the neutral chat sentinel. The TopBar's verb
+// signal now defaults to `null` (chat mode); these tests defend the
+// load-bearing invariants: canSubmit treats empty input as un-submittable,
+// the helpers return chat-mode copy, and ACTION_VERBS does NOT include a
+// 'chat' pseudo-entry (null is the sentinel, not a string value).
+
+describe('canSubmit — neutral chat mode (Phase 02)', () => {
+  it('blocks submit when verb is null and input is empty', () => {
+    expect(canSubmit(null, '')).toBe(false);
+  });
+  it('blocks submit when verb is null and input is whitespace-only', () => {
+    expect(canSubmit(null, '   ')).toBe(false);
+    expect(canSubmit(null, '\t\n')).toBe(false);
+  });
+  it('allows submit when verb is null and input is non-empty', () => {
+    expect(canSubmit(null, 'hello')).toBe(true);
+  });
+  it('allows submit when verb is null and input has leading/trailing whitespace', () => {
+    expect(canSubmit(null, '  hi  ')).toBe(true);
+  });
+});
+
+describe('placeholderForVerb — neutral chat mode (Phase 02)', () => {
+  it('returns a chat placeholder when verb is null', () => {
+    expect(placeholderForVerb(null)).toBe('Chat with the LLM…');
+  });
+  it('returns the chat placeholder regardless of workflow state', () => {
+    expect(placeholderForVerb(null, 'greenfield')).toBe('Chat with the LLM…');
+    expect(placeholderForVerb(null, 'cook_running')).toBe('Chat with the LLM…');
+  });
+});
+
+describe('hintForVerb — neutral chat mode (Phase 02)', () => {
+  it('returns the chat hint when verb is null', () => {
+    expect(hintForVerb(null)).toBe('↵ chat');
+  });
+  it('returns the chat hint when verb is null regardless of workflow state', () => {
+    expect(hintForVerb(null, 'greenfield')).toBe('↵ chat');
+    expect(hintForVerb(null, 'cook_running', '02')).toBe('↵ chat');
+  });
+});
+
+describe('ACTION_VERBS — neutral-sentinel discipline (Phase 02)', () => {
+  it('does not include `chat` as a verb (null is the chat sentinel, not a string)', () => {
+    expect(ACTION_VERBS.map((v) => v.value)).not.toContain('chat');
+  });
+  it('still leads with cook as the first selectable verb', () => {
+    expect(ACTION_VERBS[0].value).toBe('cook');
   });
 });
