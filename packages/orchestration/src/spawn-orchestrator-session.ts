@@ -221,6 +221,19 @@ export interface SpawnOrchestratorSessionOptions {
       ? F
       : never
     : never;
+  /**
+   * alpha.23 — pluggable trace sink for LLM assistant text + tool calls.
+   * Defaults to `process.stderr.write` so the cook subprocess's stderr
+   * carries the LLM's actual responses + tool-call activity onto
+   * `cook-start.ts`'s `log.append` event channel → dashboard Log panel.
+   * Tests inject a recorder; setting `null` disables tracing entirely.
+   *
+   * Closes the visibility gap where users could spend tokens (cook.
+   * provider_selected + cook.agent_result fire) without ever seeing the
+   * LLM's actual response text in the dashboard — the dispatcher counts
+   * tokens but never surfaces prose.
+   */
+  readonly traceWriter?: ((line: string) => void) | null;
 }
 
 /**
@@ -338,6 +351,18 @@ export async function spawnOrchestratorSession(
     role: 'orchestrator',
   });
 
+  // alpha.23 — default trace sink: write to the cook subprocess's stderr,
+  // which cook-start.ts captures and forwards onto `log.append` events for
+  // the dashboard Log panel. Setting `traceWriter: null` disables tracing
+  // (used by tests to avoid stderr noise). Default is suppressed when
+  // SWT_NO_LLM_TRACE=1 (vitest env can opt out without per-test wiring).
+  const defaultTrace = (line: string): void => {
+    if (process.env['SWT_NO_LLM_TRACE'] === '1') return;
+    process.stderr.write(line);
+  };
+  const traceWriter: ((line: string) => void) | null =
+    opts.traceWriter === undefined ? defaultTrace : opts.traceWriter;
+
   // Wrap the user-supplied factory so the dispatcher's per-task meter
   // context still propagates. Mirrors `spawn-agent.ts` 1:1.
   const sessionFactory: SessionFactory = async (dispatcherOpts) => {
@@ -349,6 +374,56 @@ export async function spawnOrchestratorSession(
         : {}),
     });
     const unsubscribe = hookDispatcher.subscribeToSession(session);
+
+    // alpha.23 — LLM visibility trace. Accumulate MESSAGE_DELTA text per
+    // turn; flush a single readable `[llm turn N] …` line on turn-end
+    // (which mapPiEvent surfaces as TASK_TOKEN_USAGE or TASK_ERROR).
+    // TOOL_CALL events fire inline as `[tool] toolName` so the user can
+    // watch the orchestrator's Read/Glob/Bash activity in real time.
+    // Truncation cap (2000 chars) keeps a chatty turn from flooding the
+    // Log panel — full text stays in Pi's session history regardless.
+    //
+    // Closes the gap surfaced in user testing: dashboard shows tokens
+    // spent + agent_spawn/agent_result but ZERO assistant prose, making
+    // it impossible to follow what the LLM is actually saying or doing.
+    let messageBuffer = '';
+    let turnIndex = 0;
+    const TRUNCATE_AT = 2000;
+    const flushMessage = (): void => {
+      if (traceWriter === null || messageBuffer.length === 0) return;
+      turnIndex += 1;
+      const truncated =
+        messageBuffer.length > TRUNCATE_AT
+          ? `${messageBuffer.slice(0, TRUNCATE_AT)}…[truncated, ${messageBuffer.length - TRUNCATE_AT} more chars]`
+          : messageBuffer;
+      traceWriter(`[llm turn ${turnIndex}] ${truncated}\n`);
+      messageBuffer = '';
+    };
+    const unsubscribeTrace =
+      traceWriter !== null
+        ? session.subscribe((event) => {
+            try {
+              if (event.type === 'MESSAGE_DELTA') {
+                messageBuffer += event.text;
+              } else if (event.type === 'TASK_TOKEN_USAGE' || event.type === 'TASK_ERROR') {
+                flushMessage();
+              } else if (event.type === 'TOOL_CALL') {
+                // Flush any pending message text BEFORE the tool-call
+                // line so the chronological order reads correctly: LLM
+                // said X, then called tool Y.
+                flushMessage();
+                traceWriter(`[tool] ${event.name}\n`);
+              }
+            } catch {
+              // Trace must never crash the session — best-effort. A
+              // misbehaving writer (e.g., stderr pipe closed) silently
+              // degrades to "no trace" rather than killing the orchestrator.
+            }
+          })
+        : (): void => {
+            /* no-op when tracing disabled */
+          };
+
     const originalDispose = session.dispose.bind(session);
     return {
       sessionId: session.sessionId,
@@ -356,9 +431,16 @@ export async function spawnOrchestratorSession(
       subscribe: session.subscribe.bind(session),
       dispose: () => {
         try {
-          unsubscribe();
+          // alpha.23 — flush any tail message text that didn't get a
+          // terminating turn_end (rare; e.g., session disposed mid-turn).
+          flushMessage();
         } finally {
-          originalDispose();
+          try {
+            unsubscribe();
+            unsubscribeTrace();
+          } finally {
+            originalDispose();
+          }
         }
       },
     };

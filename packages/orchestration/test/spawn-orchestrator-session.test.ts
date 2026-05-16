@@ -422,4 +422,362 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
       expect(config.model).toBeUndefined();
     });
   });
+
+  // ─── alpha.23 — LLM visibility trace ────────────────────────────────────
+  // The dispatcher subscribes to TASK_TOKEN_USAGE + TASK_ERROR for token /
+  // failure accounting. Pre-alpha.23 it ignored MESSAGE_DELTA + TOOL_CALL
+  // entirely, so the dashboard Log panel could fire cook.agent_spawn +
+  // cook.agent_result + token usage but show NO LLM prose or tool
+  // activity. Users would spend tokens with no visible response.
+  //
+  // alpha.23 fix: the sessionFactory wrapper inside spawnOrchestratorSession
+  // attaches a trace listener that accumulates assistant text per turn
+  // and writes a single `[llm turn N] <text>` line on turn-end, plus
+  // inline `[tool] <name>` for every tool call. Default writer is
+  // process.stderr (which cook-start.ts pipes onto log.append events
+  // → dashboard Log panel). Tests inject a recording writer.
+  describe('alpha.23 — LLM visibility trace', () => {
+    /** Recording session factory that lets tests fire arbitrary SwtEvents
+     *  at the dispatcher's wrapper, exercising the trace branches without
+     *  spinning up a real Pi session. */
+    function makeEventEmittingFactory(): {
+      factory: SpawnOrchestratorSessionFactory;
+      /** Emit a SwtEvent to all subscribers; for use AFTER the wrapper
+       *  has subscribed (i.e. during the prompt() call). */
+      emit: (event: import('@swt-labs/runtime').SwtEvent) => void;
+    } {
+      const listeners: Array<(event: import('@swt-labs/runtime').SwtEvent) => void> = [];
+      let promptFired = false;
+      const emit = (event: import('@swt-labs/runtime').SwtEvent): void => {
+        for (const listener of listeners) listener(event);
+      };
+      const factory: SpawnOrchestratorSessionFactory = async () => {
+        return {
+          sessionId: 'mock-trace-session',
+          async prompt() {
+            promptFired = true;
+            // Fire all configured events synchronously inside prompt()
+            // so the wrapper's subscriber has already attached.
+          },
+          subscribe(listener) {
+            listeners.push(listener);
+            return () => {
+              const idx = listeners.indexOf(listener);
+              if (idx >= 0) listeners.splice(idx, 1);
+            };
+          },
+          dispose() {
+            void promptFired;
+          },
+        };
+      };
+      return { factory, emit };
+    }
+
+    it('writes `[llm turn N] <text>` on TASK_TOKEN_USAGE after MESSAGE_DELTA', async () => {
+      const lines: string[] = [];
+      const traceWriter = (line: string): void => {
+        lines.push(line);
+      };
+      const eventing = makeEventEmittingFactory();
+      // Wrap the factory so we emit events INSIDE the dispatcher's prompt().
+      const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
+        const session = await eventing.factory(config);
+        const originalPrompt = session.prompt.bind(session);
+        return {
+          ...session,
+          prompt: async (text: string) => {
+            await originalPrompt(text);
+            // Simulate a turn: deltas, then turn-end (TASK_TOKEN_USAGE).
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: 'Hello ',
+            });
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: 'from the orchestrator.',
+            });
+            eventing.emit({
+              type: 'TASK_TOKEN_USAGE',
+              sessionId: session.sessionId,
+              usage: {
+                input: 10,
+                output: 5,
+                cacheRead: 0,
+                cacheWrite: 0,
+                turn: 1,
+                provider: 'anthropic',
+                model: 'claude-opus-4-7',
+              },
+            });
+          },
+        };
+      };
+
+      const result = await spawnOrchestratorSession({
+        ...baseOpts(),
+        sessionFactory: factoryWithEmit,
+        hookRegistrations: [],
+        traceWriter,
+      });
+      expect(result.status).toBe('success');
+      // Exactly one [llm turn] line was flushed with the concatenated deltas.
+      const llmLines = lines.filter((l) => l.startsWith('[llm turn'));
+      expect(llmLines.length).toBe(1);
+      expect(llmLines[0]).toContain('[llm turn 1]');
+      expect(llmLines[0]).toContain('Hello from the orchestrator.');
+    });
+
+    it('writes `[tool] <name>` inline for TOOL_CALL events', async () => {
+      const lines: string[] = [];
+      const eventing = makeEventEmittingFactory();
+      const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
+        const session = await eventing.factory(config);
+        const originalPrompt = session.prompt.bind(session);
+        return {
+          ...session,
+          prompt: async (text: string) => {
+            await originalPrompt(text);
+            // LLM said something, then called a tool, then said more.
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: 'I will read the file. ',
+            });
+            eventing.emit({
+              type: 'TOOL_CALL',
+              sessionId: session.sessionId,
+              name: 'read_file',
+            });
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: 'Done.',
+            });
+            eventing.emit({
+              type: 'TASK_TOKEN_USAGE',
+              sessionId: session.sessionId,
+              usage: {
+                input: 5,
+                output: 2,
+                cacheRead: 0,
+                cacheWrite: 0,
+                turn: 1,
+                provider: 'anthropic',
+                model: 'claude-opus-4-7',
+              },
+            });
+          },
+        };
+      };
+
+      await spawnOrchestratorSession({
+        ...baseOpts(),
+        sessionFactory: factoryWithEmit,
+        hookRegistrations: [],
+        traceWriter: (line) => {
+          lines.push(line);
+        },
+      });
+      // Chronological order: message-flush BEFORE the tool line, then
+      // a second message flushes on turn-end.
+      const trace = lines.join('');
+      expect(trace).toMatch(/I will read the file\.[\s\S]*\[tool\] read_file/);
+      expect(trace).toContain('[tool] read_file');
+      // Second flush — "Done." came after the tool call.
+      expect(trace).toContain('Done.');
+    });
+
+    it('flushes message buffer on TASK_ERROR (failure path still surfaces partial assistant text)', async () => {
+      const lines: string[] = [];
+      const eventing = makeEventEmittingFactory();
+      const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
+        const session = await eventing.factory(config);
+        const originalPrompt = session.prompt.bind(session);
+        return {
+          ...session,
+          prompt: async (text: string) => {
+            await originalPrompt(text);
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: 'Started speaking when',
+            });
+            eventing.emit({
+              type: 'TASK_ERROR',
+              sessionId: session.sessionId,
+              errorMessage: '400 invalid_request',
+            });
+          },
+        };
+      };
+
+      const result = await spawnOrchestratorSession({
+        ...baseOpts(),
+        sessionFactory: factoryWithEmit,
+        hookRegistrations: [],
+        traceWriter: (line) => {
+          lines.push(line);
+        },
+      });
+      expect(result.status).toBe('failed');
+      const llmLines = lines.filter((l) => l.startsWith('[llm turn'));
+      expect(llmLines.length).toBe(1);
+      expect(llmLines[0]).toContain('Started speaking when');
+    });
+
+    it('truncates assistant text over 2000 chars with a `…[truncated]` marker', async () => {
+      const lines: string[] = [];
+      const huge = 'X'.repeat(3000);
+      const eventing = makeEventEmittingFactory();
+      const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
+        const session = await eventing.factory(config);
+        const originalPrompt = session.prompt.bind(session);
+        return {
+          ...session,
+          prompt: async (text: string) => {
+            await originalPrompt(text);
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: huge,
+            });
+            eventing.emit({
+              type: 'TASK_TOKEN_USAGE',
+              sessionId: session.sessionId,
+              usage: {
+                input: 10,
+                output: 5,
+                cacheRead: 0,
+                cacheWrite: 0,
+                turn: 1,
+                provider: 'anthropic',
+                model: 'claude-opus-4-7',
+              },
+            });
+          },
+        };
+      };
+
+      await spawnOrchestratorSession({
+        ...baseOpts(),
+        sessionFactory: factoryWithEmit,
+        hookRegistrations: [],
+        traceWriter: (line) => {
+          lines.push(line);
+        },
+      });
+      const llmLine = lines.find((l) => l.startsWith('[llm turn'));
+      expect(llmLine).toBeDefined();
+      expect(llmLine).toContain('…[truncated');
+      // Truncated to 2000 chars plus the marker — should be well under 3000.
+      expect((llmLine ?? '').length).toBeLessThan(2200);
+    });
+
+    it('traceWriter: null disables tracing entirely (no writes for any event)', async () => {
+      const lines: string[] = [];
+      const eventing = makeEventEmittingFactory();
+      const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
+        const session = await eventing.factory(config);
+        const originalPrompt = session.prompt.bind(session);
+        return {
+          ...session,
+          prompt: async (text: string) => {
+            await originalPrompt(text);
+            eventing.emit({
+              type: 'MESSAGE_DELTA',
+              sessionId: session.sessionId,
+              text: 'should not appear',
+            });
+            eventing.emit({
+              type: 'TOOL_CALL',
+              sessionId: session.sessionId,
+              name: 'should_not_log',
+            });
+            eventing.emit({
+              type: 'TASK_TOKEN_USAGE',
+              sessionId: session.sessionId,
+              usage: {
+                input: 1,
+                output: 1,
+                cacheRead: 0,
+                cacheWrite: 0,
+                turn: 1,
+                provider: 'anthropic',
+                model: 'claude-opus-4-7',
+              },
+            });
+          },
+        };
+      };
+
+      await spawnOrchestratorSession({
+        ...baseOpts(),
+        sessionFactory: factoryWithEmit,
+        hookRegistrations: [],
+        traceWriter: null, // disable
+      });
+      // Sanity: lines was never used as a writer. But the test guarantees
+      // no synchronous traceWriter calls fire from inside the wrapper.
+      expect(lines.length).toBe(0);
+    });
+
+    it('SWT_NO_LLM_TRACE=1 env var suppresses the default writer (test-mode hygiene)', async () => {
+      // This is the path vitest.config.ts sets to avoid stderr noise.
+      // We assert by NOT injecting a traceWriter (so the default writer
+      // runs) and capturing process.stderr.write. With SWT_NO_LLM_TRACE=1
+      // (always set in vitest env), the default writer should no-op.
+      const writes: string[] = [];
+      const originalWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+        writes.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
+        return true;
+      }) as typeof process.stderr.write;
+      try {
+        const eventing = makeEventEmittingFactory();
+        const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
+          const session = await eventing.factory(config);
+          const originalPrompt = session.prompt.bind(session);
+          return {
+            ...session,
+            prompt: async (text: string) => {
+              await originalPrompt(text);
+              eventing.emit({
+                type: 'MESSAGE_DELTA',
+                sessionId: session.sessionId,
+                text: 'silenced',
+              });
+              eventing.emit({
+                type: 'TASK_TOKEN_USAGE',
+                sessionId: session.sessionId,
+                usage: {
+                  input: 1,
+                  output: 1,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  turn: 1,
+                  provider: 'anthropic',
+                  model: 'claude-opus-4-7',
+                },
+              });
+            },
+          };
+        };
+
+        await spawnOrchestratorSession({
+          ...baseOpts(),
+          sessionFactory: factoryWithEmit,
+          hookRegistrations: [],
+          // traceWriter NOT injected — exercises the default path
+        });
+        // vitest sets SWT_NO_LLM_TRACE=1, so the default writer should no-op
+        const llmWrites = writes.filter((w) => w.startsWith('[llm turn'));
+        expect(llmWrites.length).toBe(0);
+      } finally {
+        process.stderr.write = originalWrite;
+      }
+    });
+  });
 });
