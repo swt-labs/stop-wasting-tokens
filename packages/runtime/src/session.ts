@@ -39,7 +39,7 @@ import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './type
  *   - `dispose()` → `agentSession.dispose()` + clears internal state.
  *   - `sessionId` → reads from Pi's `agentSession.sessionId` getter.
  *
- * **`SwtSessionOptions.extensions` handling (Phase 03 plan 03-01 T3):**
+ * **`SwtSessionOptions.extensionFactories` handling (Phase 03 plan 03-01 T3):**
  * The previously-deferred extension wiring is now ACTIVE for agent
  * sessions. Each factory `(pi: PiExtensionAPI) => void` is invoked once
  * against a recording `PiExtensionAPI` shim at the `createAgentSession`
@@ -116,7 +116,7 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     // string. Phase 2 never sets `opts.model` (Risk 8); omitting it lets
     // Pi's `ModelRegistry` resolve the chosen provider's default model. The
     // model-picker fast-follow owns the id -> `Model` resolution.
-    const customTools = materializeExtensionsToCustomTools(opts.extensions);
+    const customTools = materializeExtensionsToCustomTools(opts.extensionFactories);
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
@@ -146,7 +146,7 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     // block configured, or the cook callsite resolved nothing (headless
     // host, env-fallback empty): Pi falls through to its own auth.json +
     // env-var resolution.
-    const customTools = materializeExtensionsToCustomTools(opts.extensions);
+    const customTools = materializeExtensionsToCustomTools(opts.extensionFactories);
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
@@ -204,11 +204,11 @@ function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptio
   // `createAgentSession` call site above; void here mirrors the precedent
   // so the builder's typecheck covers the new field without re-consuming.
   void opts.thinkingLevel;
-  // Phase 03 plan 03-01 T3 — `extensions` materialized into `customTools`
+  // Phase 03 plan 03-01 T3 — `extensionFactories` materialized into `customTools`
   // BEFORE `buildSwtSessionFromPi` runs (the call sites above invoke
-  // `materializeExtensionsToCustomTools(opts.extensions)`). Voided here for
+  // `materializeExtensionsToCustomTools(opts.extensionFactories)`). Voided here for
   // symmetry with the precedent.
-  void opts.extensions;
+  void opts.extensionFactories;
 
   let disposed = false;
 
@@ -261,10 +261,10 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   // (no real Pi session is constructed). `void`-ed so the new field still
   // typechecks against `SwtSessionOptions` for every test fixture.
   void opts.thinkingLevel;
-  // Phase 03 plan 03-01 T3 — `extensions` is inert on the mock path: no
+  // Phase 03 plan 03-01 T3 — `extensionFactories` is inert on the mock path: no
   // real Pi `customTools[]` materialization happens because no real Pi
   // session is constructed. The factories are silently dropped.
-  void opts.extensions;
+  void opts.extensionFactories;
 
   let disposed = false;
 
@@ -321,7 +321,7 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
  * comment).
  */
 export function materializeExtensionsToCustomTools(
-  extensions: SwtSessionOptions['extensions'],
+  extensions: SwtSessionOptions['extensionFactories'],
 ): ReadonlyArray<PiToolDefinition> {
   if (extensions === undefined || extensions.length === 0) {
     return [];

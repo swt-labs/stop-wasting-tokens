@@ -137,18 +137,25 @@ export interface SwtSessionOptions {
    * config but the runtime adapter had never materialized them — same
    * story for the agent path until now).
    *
-   * Shape is structural: `(pi: unknown) => void`. The runtime narrows
-   * `unknown` to its locally-typed `PiExtensionAPI` at the call boundary —
+   * Shape is structural: `(pi: any) => void`. The runtime narrows
+   * `any` to its locally-typed `PiExtensionAPI` at the call boundary —
    * shared/ (L0) cannot import runtime/extensions/pi-types.ts (L2) without
    * an upward-cycle layering violation. Tests and orchestration use the
    * proper `PiExtensionAPI` shape and assign here via structural
    * compatibility.
    *
+   * Field name is `extensionFactories` (not `extensions`) to avoid
+   * colliding with `SpawnAgentSessionConfig.extensions` /
+   * `SpawnOrchestratorSessionConfig.extensions`, both of which already
+   * existed as `ReadonlyArray<{name, factory}>` named-extension lists
+   * for test introspection. The orchestration layer maps those into bare
+   * factory functions before forwarding here.
+   *
    * Risk: OPTIONAL — absent (or empty array) ⇒ `createSession` is
    * byte-identical to pre-Phase-03 (`customTools` not set, Pi falls
    * through to its built-in tools only).
    */
-  readonly extensions?: ReadonlyArray<SessionExtensionFactory>;
+  readonly extensionFactories?: ReadonlyArray<SessionExtensionFactory>;
 }
 
 /**
@@ -157,8 +164,17 @@ export interface SwtSessionOptions {
  * `pi.on(...)` / `pi.appendEntry(...)`); the runtime adapter materializes
  * the captured registrations into Pi's `customTools[]` at
  * `createAgentSession` time.
+ *
+ * The parameter is typed `any` (not `unknown`) so concrete
+ * `(pi: PiExtensionAPI) => void` factories from `runtime/extensions/`
+ * remain assignable here without an explicit cast at every assignment
+ * site. Function parameters are contravariant — a factory expecting a
+ * narrower `PiExtensionAPI` cannot satisfy a `(pi: unknown) => void`
+ * signature, but `any` opts out of variance checking and lets the
+ * concrete shape flow through. The runtime knows the actual shape.
  */
-export type SessionExtensionFactory = (pi: unknown) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type SessionExtensionFactory = (pi: any) => void;
 
 /**
  * Per-turn token usage extracted from a Pi `turn_end` event. Lives on

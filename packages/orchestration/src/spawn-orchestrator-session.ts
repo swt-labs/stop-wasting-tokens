@@ -142,6 +142,15 @@ const defaultOrchestratorSessionFactory: SpawnOrchestratorSessionFactory = async
     ...(config.resolvedCredential !== undefined
       ? { resolvedCredential: config.resolvedCredential }
       : {}),
+    // Phase 03 plan 03-01 T3 — forward resolved extension factories to
+    // `createSession`, which materializes them into Pi's `customTools[]`.
+    // Symmetric with `defaultSpawnSessionFactory` in spawn-agent.ts. The
+    // SwtSessionOptions boundary uses the disambiguated name
+    // `extensionFactories`; this config's `extensions` slot is the
+    // named-extension introspection list.
+    ...(config.extensions !== undefined && config.extensions.length > 0
+      ? { extensionFactories: config.extensions.map((e) => e.factory) }
+      : {}),
   };
   return createSession(sessionOpts);
 };

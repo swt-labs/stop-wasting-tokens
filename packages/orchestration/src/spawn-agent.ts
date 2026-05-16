@@ -94,6 +94,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
+  buildApplyPatchExtension,
   buildJournalExtension,
   buildResultProtocolExtension,
   createHookDispatcher,
@@ -211,10 +212,25 @@ export interface SpawnAgentSessionConfig extends SwtSessionOptions {
 
 export interface SpawnAgentExtension {
   /** Human-readable name for test assertions / debugging. */
-  readonly name: 'resultProtocol' | 'journal';
+  readonly name: 'resultProtocol' | 'journal' | 'applyPatch';
   /** Pi extension factory — invoked once at session start with `PiExtensionAPI`. */
   readonly factory: (pi: PiExtensionAPI) => void;
 }
+
+/**
+ * Phase 03 plan 03-01 T4 — roles permitted to receive the Codex-shape
+ * `apply_patch` extension. We mirror role-router's coding-vs-readonly
+ * split: read-only roles (scout, architect) do NOT get a write primitive.
+ * The role check is layered on top of the provider check so an
+ * accidental future addition of a read-only role can't open a write hole.
+ */
+const APPLY_PATCH_ELIGIBLE_ROLES: ReadonlySet<AgentRole> = new Set<AgentRole>([
+  'lead',
+  'dev',
+  'qa',
+  'debugger',
+  'docs',
+]);
 
 /** Factory used internally by spawnAgent to create the per-task Pi session. */
 export type SpawnAgentSessionFactory = (config: SpawnAgentSessionConfig) => Promise<SwtSession>;
@@ -255,6 +271,20 @@ const defaultSpawnSessionFactory: SpawnAgentSessionFactory = async (config) => {
     // factory stripped `thinkingLevel` before reaching `createSession`, so the
     // Pi-native option was never set on the session.
     ...(config.thinkingLevel !== undefined ? { thinkingLevel: config.thinkingLevel } : {}),
+    // Phase 03 plan 03-01 T3/T4 — forward the resolved extension factories
+    // to `createSession`, which materializes them into Pi's `customTools[]`.
+    // Without this passthrough the resolved-config `extensions[]` (the
+    // result-protocol / journal / optional apply_patch trio) would be
+    // silently dropped at the runtime boundary (the pre-Phase-03 hole).
+    // Map each extension entry to its bare factory `(pi) => void` since
+    // `SwtSessionOptions.extensionFactories` carries the structural-shape only;
+    // the runtime invokes them against a recording PiExtensionAPI shim.
+    // The field is named `extensionFactories` (not `extensions`) at the
+    // SwtSessionOptions boundary to avoid colliding with the named-extension
+    // list on this resolved config.
+    ...(config.extensions !== undefined && config.extensions.length > 0
+      ? { extensionFactories: config.extensions.map((e) => e.factory) }
+      : {}),
   };
   return createSession(sessionOpts);
 };
@@ -432,9 +462,28 @@ export function resolveSpawnAgentConfig(
 
   const journalSink: JournalSink = injectedSink ?? new FileJournalSink(transcriptPath);
 
+  // Phase 03 plan 03-01 T4 — conditional Codex-shape tool injection. When
+  // the resolved provider is OpenAI AND the role is in the coding-tool
+  // eligible set, append the apply_patch extension. Mirrors the
+  // conditional-spread precedent from Phase 02's thinkingLevel wiring
+  // (this file head comment notes the pattern). Strict equality on
+  // `provider === 'openai'`: openrouter/openai/* routes via OpenRouter,
+  // not OpenAI direct, and is intentionally left untouched for now —
+  // the conservative default keeps vendor neutrality. Other providers
+  // (anthropic, undefined, google, …) follow the same no-op path.
+  const includeApplyPatch =
+    opts.provider === 'openai' && APPLY_PATCH_ELIGIBLE_ROLES.has(opts.role);
   const extensions: ReadonlyArray<SpawnAgentExtension> = [
     { name: 'resultProtocol', factory: buildResultProtocolExtension() },
     { name: 'journal', factory: buildJournalExtension({ sink: journalSink }) },
+    ...(includeApplyPatch
+      ? [
+          {
+            name: 'applyPatch' as const,
+            factory: buildApplyPatchExtension(),
+          },
+        ]
+      : []),
   ];
 
   // Phase 02 (plan 02-01 T2) — precedence: frontmatter > caller opts > role
