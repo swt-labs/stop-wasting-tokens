@@ -26,35 +26,38 @@ import type { DashboardState } from '../src/client/state/dashboard-store.js';
 
 /**
  * Build a minimal DashboardState fixture for shouldShowHint coverage.
- * Only the fields the predicate reads (`snapshot`, `chatSession`,
+ * Only the fields the predicate reads (`snapshot`, `chat_session_id`,
  * `vibeSession`) need real values; the rest is cast through `unknown`
  * to satisfy the structural type without populating two dozen
  * irrelevant slots. Matches the chat-panel-helpers.test.ts pattern.
+ *
+ * Milestone 13 / Phase 01 — the `chatSession` slot is gone; the predicate
+ * now reads `chat_session_id` (top-level). Fixture updated in lockstep.
  */
 function makeFakeState(opts: {
   isInitialized: boolean | null;
-  chatSession: unknown;
+  chat_session_id: string | null;
   vibeSession: unknown;
 }): DashboardState {
   const snapshot =
     opts.isInitialized === null ? null : ({ is_initialized: opts.isInitialized } as unknown);
   return {
     snapshot,
-    chatSession: opts.chatSession,
+    chat_session_id: opts.chat_session_id,
     vibeSession: opts.vibeSession,
   } as unknown as DashboardState;
 }
 
 describe('shouldShowHint', () => {
   it('returns false when state.snapshot is null (greenfield daemon, not yet initialized)', () => {
-    const state = makeFakeState({ isInitialized: null, chatSession: null, vibeSession: null });
+    const state = makeFakeState({ isInitialized: null, chat_session_id: null, vibeSession: null });
     expect(shouldShowHint(state, false)).toBe(false);
   });
 
-  it('returns false when initialized but chatSession is set (auto-hide once chat starts)', () => {
+  it('returns false when initialized but chat_session_id is set (auto-hide once chat starts)', () => {
     const state = makeFakeState({
       isInitialized: true,
-      chatSession: { chat_session_id: 'c-123' },
+      chat_session_id: 'c-123',
       vibeSession: null,
     });
     expect(shouldShowHint(state, false)).toBe(false);
@@ -63,19 +66,19 @@ describe('shouldShowHint', () => {
   it('returns false when initialized but vibeSession is set (auto-hide once cook starts)', () => {
     const state = makeFakeState({
       isInitialized: true,
-      chatSession: null,
+      chat_session_id: null,
       vibeSession: { session_id: 'v-456' },
     });
     expect(shouldShowHint(state, false)).toBe(false);
   });
 
   it('returns true on a greenfield initialized dashboard with neither session active and not dismissed', () => {
-    const state = makeFakeState({ isInitialized: true, chatSession: null, vibeSession: null });
+    const state = makeFakeState({ isInitialized: true, chat_session_id: null, vibeSession: null });
     expect(shouldShowHint(state, false)).toBe(true);
   });
 
   it('returns false when both sessions are null but the user already dismissed the hint', () => {
-    const state = makeFakeState({ isInitialized: true, chatSession: null, vibeSession: null });
+    const state = makeFakeState({ isInitialized: true, chat_session_id: null, vibeSession: null });
     expect(shouldShowHint(state, true)).toBe(false);
   });
 });

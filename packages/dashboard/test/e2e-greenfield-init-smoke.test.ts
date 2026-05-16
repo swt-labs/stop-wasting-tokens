@@ -223,9 +223,13 @@ describe('e2e: dashboard init Lead lifecycle (Plan 03-01 T4)', () => {
       });
 
       expect(state.initSession?.status).toBe('detecting');
-      // The defensive log line — `[init]` prefix, mirrors the server JSONL.
-      const hasInitLogLine = state.recentLogLines.some((l) => /\[init\]/i.test(l.line));
-      expect(hasInitLogLine).toBe(true);
+      // Milestone 13 / Phase 01 — the init.start defensive log line is now
+      // an `init` LogEntry in unifiedLog (replaces the legacy recentLogLines
+      // write). Message body carries the same "Lead detecting stack…" copy.
+      const hasInitLogEntry = state.unifiedLog.some(
+        (e) => e.kind === 'init' && e.status === 'start',
+      );
+      expect(hasInitLogEntry).toBe(true);
 
       dispose();
     });
@@ -260,12 +264,17 @@ describe('e2e: dashboard init Lead lifecycle (Plan 03-01 T4)', () => {
 
       expect(state.snapshot?.is_initialized).toBe(true);
       expect(state.initSession).toBeNull();
-      // The bootstrap-complete log line — accepts either "[init] Lead
-      // bootstrap complete" verbatim or any `[init]` + "complete" pair.
-      const hasCompleteLogLine = state.recentLogLines.some(
-        (l) => /bootstrap complete/i.test(l.line) || /\[init\].*complete/i.test(l.line),
+      // Milestone 13 / Phase 01 — bootstrap-complete is now an `init`
+      // LogEntry with status='complete' in unifiedLog. Accepts either the
+      // canonical "Lead bootstrap complete" message body or any `init`-kind
+      // entry whose status is `complete` (forward-compatible).
+      const hasCompleteLogEntry = state.unifiedLog.some(
+        (e) =>
+          e.kind === 'init' &&
+          e.status === 'complete' &&
+          (/bootstrap complete/i.test(e.message) || true),
       );
-      expect(hasCompleteLogLine).toBe(true);
+      expect(hasCompleteLogEntry).toBe(true);
 
       dispose();
     });

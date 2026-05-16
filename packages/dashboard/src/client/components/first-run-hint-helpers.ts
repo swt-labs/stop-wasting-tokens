@@ -21,7 +21,7 @@ import type { DashboardState } from '../state/dashboard-store.js';
  * Visibility predicate for the first-run hint banner. Returns true ONLY
  * when:
  *   - the dashboard is fully initialized (snapshot.is_initialized === true)
- *   - no chat session is in flight (state.chatSession === null)
+ *   - no chat thread is in flight (state.chat_session_id === null)
  *   - no vibe / cook session is in flight (state.vibeSession === null)
  *   - the user has not yet dismissed the hint this mount
  *     (dismissed === false)
@@ -32,11 +32,17 @@ import type { DashboardState } from '../state/dashboard-store.js';
  * render. The component layers explicit localStorage persistence on top
  * of this via the close button (and optionally a first-submit effect —
  * see FirstRunHint.tsx for the chosen variant).
+ *
+ * Milestone 13 / Phase 01 — the `state.chat_session_id === null` check
+ * replaces the prior `state.chatSession === null` read (the
+ * `chatSession` slot was deleted when chat state was hoisted to the
+ * top-level `unifiedLog` + `chat_session_id` + `chatStreaming` +
+ * `chatStatus` fields).
  */
 export function shouldShowHint(state: DashboardState, dismissed: boolean): boolean {
   return (
     state.snapshot?.is_initialized === true &&
-    state.chatSession === null &&
+    state.chat_session_id === null &&
     state.vibeSession === null &&
     dismissed === false
   );

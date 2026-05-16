@@ -33,7 +33,7 @@
 import { For, Show, createEffect, onMount } from 'solid-js';
 import type { Component } from 'solid-js';
 
-import type { ChatSession } from '../state/dashboard-store.js';
+import type { ChatStatus } from '../state/dashboard-store.js';
 
 import {
   buildToolAnnotation,
@@ -41,6 +41,42 @@ import {
   formatUsage,
   shouldDisableClear,
 } from './chat-panel-helpers.js';
+
+/**
+ * Milestone 13 / Phase 01 — DEPRECATED legacy shape. The canonical
+ * `ChatSession` interface was deleted in Plan 01-03 when chat state was
+ * hoisted to top-level `unifiedLog` + `chat_session_id` + `chatStreaming` +
+ * `chatStatus`. App.tsx's transitional adapter synthesizes this shape from
+ * `unifiedLog` so the legacy `<Show>` branch keeps mounting until Plan
+ * 01-04 swaps in `UnifiedLogPanel`. Deleted alongside this file in Plan
+ * 01-05.
+ */
+interface LegacyChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  completed: boolean;
+  tools_called?: string[];
+  usage?: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    provider: string;
+    model: string;
+  };
+  error?: { code: string; message: string };
+}
+
+interface LegacyChatSession {
+  chat_session_id: string;
+  started_at: string;
+  messages: LegacyChatMessage[];
+  streaming: boolean;
+  status: ChatStatus;
+}
+
+type ChatSession = LegacyChatSession;
 
 export interface ChatPanelProps {
   session: ChatSession;

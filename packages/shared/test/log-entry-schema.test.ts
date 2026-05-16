@@ -10,11 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 
-import {
-  LogEntrySchema,
-  type CookStatusEntry,
-  type LogEntry,
-} from '../src/types/log-entry.js';
+import { LogEntrySchema, type CookStatusEntry, type LogEntry } from '../src/types/log-entry.js';
 
 describe('@swt-labs/shared — LogEntrySchema', () => {
   it('parses an init entry (status: start)', () => {
@@ -194,7 +190,7 @@ describe('@swt-labs/shared — LogEntrySchema', () => {
         kind: 'bogus',
         id: 'x',
         ts: 'x',
-      } as unknown as LogEntry),
+      }),
     ).toThrow(ZodError);
   });
 
@@ -203,7 +199,7 @@ describe('@swt-labs/shared — LogEntrySchema', () => {
       LogEntrySchema.parse({
         id: 'x',
         ts: 'x',
-      } as unknown as LogEntry),
+      }),
     ).toThrow(ZodError);
   });
 
@@ -216,7 +212,7 @@ describe('@swt-labs/shared — LogEntrySchema', () => {
         chat_session_id: 'x',
         code: 'CHAT_TOTALLY_MADE_UP',
         message: 'x',
-      } as unknown as LogEntry),
+      }),
     ).toThrow(ZodError);
   });
 
@@ -228,7 +224,7 @@ describe('@swt-labs/shared — LogEntrySchema', () => {
         ts: 'x',
         channel: 'nonsense',
         line: 'x',
-      } as unknown as LogEntry),
+      }),
     ).toThrow(ZodError);
   });
 });

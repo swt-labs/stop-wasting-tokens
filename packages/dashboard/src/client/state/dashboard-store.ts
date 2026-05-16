@@ -1,3 +1,8 @@
+// Milestone 13 / Phase 01 — LogEntry imported on a dedicated single line
+// for the plan's grep verify gate (`^import type \{ LogEntry`). Keeping it
+// separate from the broader shared-type bundle below also documents the
+// L7 → L0 downward import direction at a glance.
+import type { LogEntry } from '@swt-labs/shared';
 import type {
   AgentLiveState,
   AgentPromptContext,
@@ -214,55 +219,17 @@ export interface ToolsState {
 export type ToolsCellKey = keyof ToolsState;
 
 /**
- * Plan 03-01 (milestone 12, Phase 03) — a single message in a Free-talk Mode
- * chat conversation. User messages carry `completed: true` immediately on
- * submit. Assistant messages start `completed: false` (the `chat.start →
- * chat.message_delta* → chat.message_end` SSE sequence flips them to true).
+ * Milestone 13 / Phase 01 — `state.chatStatus` discriminator.
  *
- * `id` is CLIENT-GENERATED for Solid `<For>` keying — it never reaches the
- * server. `tools_called` accumulates as `chat.tool_call` events arrive;
- * `usage` is set once on `chat.token_usage`; `error` is set on `chat.error`.
+ * Replaces the prior `ChatSession.status` slot. Top-level field on
+ * `DashboardState` so the TopBar's chat-streaming gate + the panel's
+ * "Clear conversation" button + future chat affordances can subscribe
+ * without dereferencing a nullable `chat-session`. `'idle'` is the
+ * greenfield state; `'streaming'` is in-flight; `'error'` is set when a
+ * `chat.error` SSE event landed; `'done'` is set when `chat.complete`
+ * lands (terminal, until the next `startChat`).
  */
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-  tools_called?: string[];
-  usage?: {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheWrite: number;
-    provider: string;
-    model: string;
-  };
-  error?: { code: string; message: string };
-  completed: boolean;
-}
-
-/**
- * Plan 03-01 (milestone 12, Phase 03) — the in-flight Free-talk Mode chat
- * session, or `null` when no chat is active. `chat_session_id` is set
- * OPTIMISTICALLY to `''` on the first `startChat()` call and adopted from the
- * server-issued id when the first `chat.start` SSE event arrives (via the
- * `/api/events` bus channel — POST /api/chat returns text/event-stream, not
- * JSON). On subsequent (multi-turn) `startChat` calls, the action reads
- * `state.chatSession?.chat_session_id` and passes it back so the server reuses
- * the registered SwtSession (Pi's `SessionManager.inMemory` accumulates
- * conversation history natively).
- *
- * `streaming` gates the panel's Clear button while a turn is in-progress;
- * `status` carries richer terminal states (`error` / `done`) so the panel can
- * render an error banner without losing the streaming flag's semantics. The
- * slight redundancy is intentional v1 (see Lead's plan §context).
- */
-export interface ChatSession {
-  chat_session_id: string;
-  started_at: string;
-  messages: ChatMessage[];
-  streaming: boolean;
-  status: 'idle' | 'streaming' | 'error' | 'done';
-}
+export type ChatStatus = 'idle' | 'streaming' | 'error' | 'done';
 
 export interface DashboardState {
   connection: ConnectionState;
@@ -272,7 +239,36 @@ export interface DashboardState {
   artifactCache: Map<string, RenderedArtifact>;
   artifactLoading: boolean;
   artifactError: string | null;
-  recentLogLines: LogLine[];
+  /**
+   * Milestone 13 / Phase 01 — the unified chronological feed consumed by
+   * `UnifiedLogPanel`. Replaces the prior `recent-log-lines` + `chat-session.messages`
+   * dual slots. Init / cook / chat / system events all push `LogEntry`s here
+   * via the reducer-by-reducer migration in `handleInitEvent` /
+   * `handleCookEvent` / `handleChatEvent` / `applyEvent.log.append` /
+   * `appendLogLine`. Capped at `UNIFIED_LOG_LIMIT` on every push.
+   */
+  unifiedLog: LogEntry[];
+  /**
+   * Milestone 13 / Phase 01 — the in-flight chat-thread id, or `null` when
+   * no chat is active. Hoisted from `chat-session.chat_session_id` so it
+   * survives verb-chip mode switches (a `startVibeSession` does NOT reset
+   * this — the chat thread is continuous across cook turns). Adopted
+   * optimistically as `''` on first `startChat()` and replaced with the
+   * server-issued id when `chat.start` arrives. `clearChat()` resets to
+   * `null`.
+   */
+  chat_session_id: string | null;
+  /**
+   * Milestone 13 / Phase 01 — true while a chat turn is streaming. Hoisted
+   * from `chat-session.streaming` so the TopBar's Send-button gate + the
+   * unified panel's Clear-button gate read it without a nullable deref.
+   */
+  chatStreaming: boolean;
+  /**
+   * Milestone 13 / Phase 01 — replaces `chat-session.status`. See
+   * `ChatStatus` for the four-state vocabulary.
+   */
+  chatStatus: ChatStatus;
   uatModal: UatModalState | null;
   uatSubmitting: boolean;
   initSubmitting: boolean;
@@ -281,17 +277,12 @@ export interface DashboardState {
   vibeStarting: boolean;
   vibeReplying: boolean;
   /**
-   * Plan 03-01 (milestone 12, Phase 03) — the in-flight Free-talk Mode chat
-   * session, or `null` when no chat is active. See `ChatSession` for the
-   * lifecycle (optimistic `chat_session_id=''` → adopted on `chat.start`;
-   * multi-turn reuse via `state.chatSession?.chat_session_id`; cleared
-   * synchronously by `clearChat()` — server-side TTL handles cleanup).
-   */
-  chatSession: ChatSession | null;
-  /**
    * Plan 03-01 (milestone 12, Phase 03) — mirrors `vibeStarting`. Set to
    * `true` while `startChat()` awaits the `postChatStart` POST; cleared in
-   * `finally`. Gates the TopBar Send button against double-submit.
+   * `finally`. Gates the TopBar Send button against double-submit. Kept
+   * separate from `chatStreaming` per Scout Cross-Cutting Finding #8 —
+   * `chatStarting` is the POST-in-flight race-protection flag; `chatStreaming`
+   * is the SSE-in-progress signal.
    */
   chatStarting: boolean;
   /**
@@ -357,10 +348,10 @@ export interface DashboardActions {
    * Plan 03-01 (milestone 12, Phase 03) — Free-talk Mode turn submission.
    * Trims `prompt`; returns `null` immediately on empty input. Sets
    * `chatStarting=true` then fires `postChatStart(trimmed,
-   * state.chatSession?.chat_session_id)` — passing the existing id on
+   * state.chat-session?.chat_session_id)` — passing the existing id on
    * multi-turn so the server reuses the registered SwtSession.
    *
-   * **Optimistic state pattern.** First turn: `chatSession === null`, so
+   * **Optimistic state pattern.** First turn: `chat-session === null`, so
    * the action full-object-replaces it with `{chat_session_id: '',
    * started_at, messages: [userMsg], streaming: true, status: 'streaming'}`.
    * Multi-turn: appends `userMsg` to the existing `messages[]` and flips
@@ -368,7 +359,7 @@ export interface DashboardActions {
    * arrives via the first `chat.start` SSE event and is adopted by the
    * `handleChatEvent` reducer (P04).
    *
-   * **Error handling.** First-turn failure rolls back `chatSession` to
+   * **Error handling.** First-turn failure rolls back `chat-session` to
    * `null` so the empty optimistic state doesn't linger. Multi-turn
    * failure keeps `messages[]` intact and flips `status: 'error'` +
    * `streaming: false` so the panel surfaces the failure inline. Both
@@ -381,7 +372,7 @@ export interface DashboardActions {
   startChat: (prompt: string) => Promise<string | null>;
   /**
    * Plan 03-01 (milestone 12, Phase 03) — wipe the local chat conversation.
-   * Synchronous: `setState('chatSession', null)`. NO HTTP call — the
+   * Synchronous: `setState('chat-session', null)`. NO HTTP call — the
    * server's `ChatSessionRegistry` has a 10-minute TTL sweep that handles
    * cleanup (Lead's v1 decision; Phase 04 may add `DELETE /api/chat/:id`).
    */
@@ -492,7 +483,13 @@ function emptyToolsCell<T>(): ToolsCellState<T> {
 
 const ARTIFACT_CACHE_LIMIT = 32;
 const RECENT_EVENTS_LIMIT = 100;
-const RECENT_LOG_LIMIT = 200;
+/**
+ * Milestone 13 / Phase 01 — cap on `state.unifiedLog.length`. Replaces the
+ * prior `RECENT_LOG_LIMIT = 200`. Bumped to 500 to absorb the cook-agent /
+ * cook-tool / cook-status entries now folded into the same array (Scout §5
+ * "Pagination/virtualization" — tunable; defer real virtualization).
+ */
+export const UNIFIED_LOG_LIMIT = 500;
 
 // Verbs whose execution mutates `.swt-planning/` and warrants a deterministic
 // snapshot re-fetch. Read-only verbs rely on SSE state.changed events instead.
@@ -519,7 +516,10 @@ export function createDashboardStore(
     artifactCache: new Map<string, RenderedArtifact>(),
     artifactLoading: false,
     artifactError: null,
-    recentLogLines: [],
+    unifiedLog: [],
+    chat_session_id: null,
+    chatStreaming: false,
+    chatStatus: 'idle',
     uatModal: null,
     uatSubmitting: false,
     initSubmitting: false,
@@ -527,7 +527,6 @@ export function createDashboardStore(
     vibeSession: null,
     vibeStarting: false,
     vibeReplying: false,
-    chatSession: null,
     chatStarting: false,
     optionsMenuOpen: false,
     providerMenuOpen: false,
@@ -586,6 +585,18 @@ export function createDashboardStore(
     });
   };
 
+  /**
+   * Milestone 13 / Phase 01 — push a `LogEntry` onto `state.unifiedLog`,
+   * applying the `UNIFIED_LOG_LIMIT` cap on every push. Centralized so the
+   * reducers and the `appendLogLine` helper share one mutation site.
+   */
+  const pushLogEntry = (entry: LogEntry): void => {
+    setState('unifiedLog', (prev) => {
+      const next = [...prev, entry];
+      return next.slice(-UNIFIED_LOG_LIMIT);
+    });
+  };
+
   const pushRecentEvent = (event: SnapshotEvent): void => {
     setState('snapshot', (prev) => {
       if (!prev) return prev;
@@ -619,6 +630,21 @@ export function createDashboardStore(
           cookClearTimer = null;
         }
         setState('activeSessionId', evt.session_id);
+        // Milestone 13 / Phase 01 — surface the priority-decision as a
+        // started-subtype cook-status entry in the unified log. The
+        // initial-prompt context arrives separately via the vibeSession
+        // slot (startVibeSession already wrote it); the inline message
+        // here mirrors the historical appendLogLine format.
+        const sid8 = evt.session_id.slice(0, 8);
+        pushLogEntry({
+          kind: 'cook-status',
+          id: `log-cook-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          subtype: 'started',
+          message: `started session ${sid8}`,
+          mode: evt.mode,
+        });
         return;
       }
       case 'cook.agent_spawn': {
@@ -636,6 +662,18 @@ export function createDashboardStore(
           started_at: evt.ts,
         });
         setState('activeAgents', next);
+        // Milestone 13 / Phase 01 — also surface the spawn as a cook-agent
+        // LogEntry. activeAgents stays the authoritative grid source; the
+        // unified-log entry is the chronological breadcrumb.
+        pushLogEntry({
+          kind: 'cook-agent',
+          id: `log-agent-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          sub_session_id: evt.sub_session_id,
+          role: evt.role,
+          event: 'spawn',
+        });
         return;
       }
       case 'cook.agent_result': {
@@ -662,6 +700,20 @@ export function createDashboardStore(
         };
         next.set(evt.sub_session_id, updated);
         setState('activeAgents', next);
+        // Milestone 13 / Phase 01 — cook-agent result entry. Carries
+        // result_status + cost/elapsed for richer monospace rendering.
+        pushLogEntry({
+          kind: 'cook-agent',
+          id: `log-agent-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          sub_session_id: evt.sub_session_id,
+          role: existing.role,
+          event: 'result',
+          result_status: evt.status,
+          cost_usd: evt.usage.cost_usd ?? 0,
+          elapsed_ms: updated.elapsed_ms,
+        });
         return;
       }
       case 'cook.tool_call': {
@@ -674,6 +726,18 @@ export function createDashboardStore(
           current_tool_input_excerpt: evt.input_excerpt,
         });
         setState('activeAgents', next);
+        // Milestone 13 / Phase 01 — cook-tool call entry. Renders as an
+        // inline chip in the unified log.
+        pushLogEntry({
+          kind: 'cook-tool',
+          id: `log-tool-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          sub_session_id: evt.sub_session_id,
+          tool: evt.tool,
+          event: 'call',
+          ...(evt.input_excerpt !== undefined ? { input_excerpt: evt.input_excerpt } : {}),
+        });
         return;
       }
       case 'cook.tool_result': {
@@ -690,6 +754,18 @@ export function createDashboardStore(
           current_tool_input_excerpt: undefined,
         });
         setState('activeAgents', next);
+        // Milestone 13 / Phase 01 — cook-tool result entry.
+        pushLogEntry({
+          kind: 'cook-tool',
+          id: `log-tool-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          sub_session_id: evt.sub_session_id,
+          tool: evt.tool,
+          event: 'result',
+          ...(evt.result_excerpt !== undefined ? { result_excerpt: evt.result_excerpt } : {}),
+          ...(evt.duration_ms !== undefined ? { duration_ms: evt.duration_ms } : {}),
+        });
         return;
       }
       case 'cook.resume': {
@@ -697,34 +773,31 @@ export function createDashboardStore(
         // resumed cook always fires cook.priority_decision next (which
         // sets activeSessionId), but emitting the LOG line + cancelling
         // any pending clear here makes the recovery legible even if the
-        // priority_decision is briefly delayed. Mirrors the timer-cancel
-        // half of the cook.priority_decision branch above.
+        // priority_decision is briefly delayed.
         if (cookClearTimer !== null) {
           clearTimeout(cookClearTimer);
           cookClearTimer = null;
         }
         setState('activeSessionId', evt.session_id);
-        // appendLogLine appears below in the store body; it is captured
-        // by closure (same channel startVibeSession + initProject use to
-        // surface inline UI log lines). Format mirrors the
-        // "[cook] started session {sid8} — \"{prompt}\"" line so the
-        // user sees a parallel "[cook] resuming session {sid8} from
-        // {from_task}" entry. from_task is required per the
-        // CookResumeEvent schema but the `?? 'unknown'` fallback survives
-        // any future schema drift at zero cost.
+        // Milestone 13 / Phase 01 — cook-status resumed entry replaces
+        // the prior appendLogLine call. Message format mirrors the
+        // historical "[cook] resuming session {sid8} from {from_task}" line.
         const sid8 = evt.session_id.slice(0, 8);
         const fromTask = evt.from_task ?? 'unknown';
-        appendLogLine(`[cook] resuming session ${sid8} from ${fromTask}`);
+        pushLogEntry({
+          kind: 'cook-status',
+          id: `log-cook-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          subtype: 'resumed',
+          message: `resuming session ${sid8} from ${fromTask}`,
+        });
         return;
       }
       case 'cook.completion': {
         // Phase 03 GAP-01 — flip the lifecycle pill so the conversation
         // thread shows 'completed' immediately while the 10s timer keeps
-        // the agent grid visible. Guarded: only flip if vibeSession
-        // refers to this session (defensive — should always be true at
-        // this point). Do NOT null vibeSession here — the conversation
-        // must stay readable. The replace happens on the next
-        // startVibeSession.
+        // the agent grid visible.
         if (state.vibeSession?.session_id === evt.session_id) {
           setState('vibeSession', 'status', 'completed');
         }
@@ -734,19 +807,68 @@ export function createDashboardStore(
           setState('activeSessionId', null);
           cookClearTimer = null;
         }, 10_000);
+        // Milestone 13 / Phase 01 — surface completion as a cook-status entry
+        // whose `subtype` mirrors the wire `status` (success → completed).
+        // `status: 'success'` maps to subtype `'completed'`; explicit
+        // 'failed' / 'cancelled' pass through.
+        const subtype =
+          evt.status === 'success' ? 'completed' : evt.status === 'failed' ? 'failed' : 'cancelled';
+        pushLogEntry({
+          kind: 'cook-status',
+          id: `log-cook-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          subtype,
+          message: `session ${evt.session_id.slice(0, 8)} ${subtype}`,
+          status: evt.status,
+        });
         return;
       }
       case 'cook.error': {
         // Phase 03 GAP-01 — flip the lifecycle pill to 'crashed' when
-        // cook emits an error event (typically COOK_SPAWN_FAILED from
-        // the cook-start watchdog or the orchestrator's uncaught-error
-        // path). activeAgents/activeSessionId are intentionally not
-        // touched here — they surface through the existing recent-events
-        // + log panels, and the conversation thread stays readable until
-        // the next startVibeSession replaces vibeSession.
+        // cook emits an error event.
         if (state.vibeSession?.session_id === evt.session_id) {
           setState('vibeSession', 'status', 'crashed');
         }
+        // Milestone 13 / Phase 01 — surface the error as a cook-status
+        // failed entry. activeAgents/activeSessionId are intentionally
+        // not touched — they keep flowing through the existing path.
+        pushLogEntry({
+          kind: 'cook-status',
+          id: `log-cook-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          subtype: 'failed',
+          message: evt.message,
+        });
+        return;
+      }
+      case 'cook.budget_exceeded': {
+        // Milestone 13 / Phase 01 — Scout Cross-Cutting Finding #1: surface
+        // the previously-invisible budget_exceeded lifecycle event. No
+        // session-state mutation (the orchestrator owns the pause); the
+        // unified-log entry is purely observational.
+        pushLogEntry({
+          kind: 'cook-status',
+          id: `log-cook-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          subtype: 'budget_exceeded',
+          message: `budget exceeded — session ${evt.session_id.slice(0, 8)} paused`,
+        });
+        return;
+      }
+      case 'cook.budget_resume': {
+        // Milestone 13 / Phase 01 — Scout Cross-Cutting Finding #1: surface
+        // the previously-invisible budget_resume lifecycle event.
+        pushLogEntry({
+          kind: 'cook-status',
+          id: `log-cook-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          subtype: 'budget_resume',
+          message: `budget refilled — session ${evt.session_id.slice(0, 8)} resuming`,
+        });
         return;
       }
       case 'cook.file_write':
@@ -869,7 +991,7 @@ export function createDashboardStore(
 
   /**
    * Plan 03-01 (milestone 08, Phase 03) — fold the three `init.*` SSE bridge
-   * events (Phase 02) into `state.initSession` + `recentLogLines` + (on
+   * events (Phase 02) into `state.initSession` + `recent-log-lines` + (on
    * error) `state.errors`.
    *
    *   - `init.start` appends a defensive `[init]` log line and adopts the
@@ -891,13 +1013,17 @@ export function createDashboardStore(
   const handleInitEvent = (evt: Extract<SnapshotEvent, { type: `init.${string}` }>): void => {
     switch (evt.type) {
       case 'init.start': {
-        appendLogLine('[init] Lead detecting stack…');
-        // Adopt the server-issued session_id (the canonical id — postInit's
-        // Zod response parse strips unknown fields, so initProject can only
-        // set a provisional empty id at submit time). Do NOT mutate status:
-        // already 'detecting' from initProject. Guarded against a stray
-        // init.start arriving with no initSession set (defensive — should
-        // never happen because initProject runs first).
+        // Milestone 13 / Phase 01 — surface the init-start event as an init
+        // LogEntry (replaces the prior appendLogLine call). InitSession
+        // continues to drive the InitScreen overlay gate.
+        pushLogEntry({
+          kind: 'init',
+          id: `log-init-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          status: 'start',
+          message: 'Lead detecting stack…',
+        });
         if (state.initSession) {
           setState('initSession', 'session_id', evt.session_id);
         }
@@ -906,21 +1032,36 @@ export function createDashboardStore(
       case 'init.complete': {
         setState('snapshot', (prev) => (prev ? { ...prev, is_initialized: true } : prev));
         setState('initSession', null);
-        appendLogLine('[init] Lead bootstrap complete');
+        // Milestone 13 / Phase 01 — init-complete LogEntry.
+        pushLogEntry({
+          kind: 'init',
+          id: `log-init-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          status: 'complete',
+          message: 'Lead bootstrap complete',
+        });
         return;
       }
       case 'init.error': {
         // Keep initSession set so InitScreen can surface the error and the
-        // user can resubmit without losing their typed name/description
-        // (Solid never unmounts the component because is_initialized stays
-        // false). Guarded: an init.error with no active initSession is a
-        // server-side bug, but pushError still fires so the developer sees
-        // it.
+        // user can resubmit without losing their typed name/description.
         if (state.initSession) {
           setState('initSession', 'status', 'error');
           setState('initSession', 'errorMessage', evt.message);
         }
         pushError(`${evt.code}: ${evt.message}`);
+        // Milestone 13 / Phase 01 — init-error LogEntry. pushError still
+        // fires for the errors[] pill.
+        pushLogEntry({
+          kind: 'init',
+          id: `log-init-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          status: 'error',
+          message: evt.message,
+          errorCode: evt.code,
+        });
         return;
       }
     }
@@ -929,10 +1070,10 @@ export function createDashboardStore(
   /**
    * Plan 03-01 (milestone 12, Phase 03) — fold the 7 `chat.*` SSE events
    * from Phase 01's `/api/chat` route (published via `bus.publish` onto the
-   * shared `/api/events` bus channel) into `state.chatSession`.
+   * shared `/api/events` bus channel) into `state.chat-session`.
    *
    * **Correlation guard.** Every branch checks
-   * `evt.chat_session_id === state.chatSession?.chat_session_id` and
+   * `evt.chat_session_id === state.chat-session?.chat_session_id` and
    * silently drops mismatches. The single exception is `chat.start` during
    * OPTIMISTIC ADOPTION — when the current `chat_session_id` is the empty
    * placeholder `''` set by `startChat`, the branch adopts the
@@ -947,26 +1088,79 @@ export function createDashboardStore(
    * silently.
    *
    * All array mutations use the functional-update pattern
-   * (`setState('chatSession', 'messages', (msgs) => [...])`) so Solid's
+   * (`setState('chat-session', 'messages', (msgs) => [...])`) so Solid's
    * fine-grained reactivity re-renders only the affected message.
    */
+  /**
+   * Milestone 13 / Phase 01 — find the index of the last in-progress chat-
+   * assistant entry in `state.unifiedLog`. Returns -1 if none. Helper used
+   * by `handleChatEvent` to update the streaming bubble in place (Scout §5
+   * streaming optimization).
+   */
+  const findLastAssistantIndex = (log: LogEntry[], threadId: string): number => {
+    for (let i = log.length - 1; i >= 0; i--) {
+      const entry = log[i];
+      if (entry === undefined) continue;
+      if (entry.kind === 'chat-assistant' && entry.chat_session_id === threadId) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  /**
+   * Milestone 13 / Phase 01 — synthesize a new chat-assistant LogEntry at
+   * the tail of `state.unifiedLog`. Used by the four chat reducers when no
+   * in-progress assistant entry exists yet (defensive: chat.message_delta /
+   * tool_call / token_usage / error may arrive before chat.start in
+   * out-of-order delivery — keeps the reducer total).
+   */
+  const synthAssistantEntry = (
+    threadId: string,
+    ts: string,
+    init: {
+      text?: string;
+      tools_called?: string[];
+      usage?: Extract<LogEntry, { kind: 'chat-assistant' }>['usage'];
+    } = {},
+  ): Extract<LogEntry, { kind: 'chat-assistant' }> => ({
+    kind: 'chat-assistant',
+    id: `chat-msg-${++chatMsgSeq}`,
+    ts,
+    chat_session_id: threadId,
+    text: init.text ?? '',
+    completed: false,
+    ...(init.tools_called !== undefined ? { tools_called: init.tools_called } : {}),
+    ...(init.usage !== undefined ? { usage: init.usage } : {}),
+  });
+
   const handleChatEvent = (evt: ChatEvent): void => {
     // chat.start has its own adoption path — handle it first.
     if (evt.type === 'chat.start') {
-      if (state.chatSession === null) {
-        // No active session — likely a tab reload mid-stream. Silently drop.
+      if (state.chat_session_id === null) {
+        // No active chat thread — likely a tab reload mid-stream. Silently drop.
         return;
       }
-      const currentId = state.chatSession.chat_session_id;
+      const currentId = state.chat_session_id;
       if (currentId.length === 0) {
         // Optimistic adoption: startChat set chat_session_id='' before the
         // POST; this is the canonical SSE frame that delivers the real id.
-        setState('chatSession', 'chat_session_id', evt.chat_session_id);
+        setState('chat_session_id', evt.chat_session_id);
+        // Backfill the optimistic chat-user entry (and any synthesized
+        // chat-assistant entry) with the real id so future correlation
+        // guards match.
+        setState('unifiedLog', (prev) =>
+          prev.map((e) =>
+            (e.kind === 'chat-user' || e.kind === 'chat-assistant' || e.kind === 'chat-error') &&
+            e.chat_session_id === ''
+              ? { ...e, chat_session_id: evt.chat_session_id }
+              : e,
+          ),
+        );
         return;
       }
       if (currentId === evt.chat_session_id) {
-        // Re-broadcast (server replayed an event for the same session).
-        // No-op.
+        // Re-broadcast — no-op.
         return;
       }
       // Stale — drop.
@@ -975,59 +1169,58 @@ export function createDashboardStore(
     // Correlation guard for the remaining 6 events. A `chat.*` event
     // arriving with no active session OR a mismatched id is silently
     // dropped (no pushError — this is a known race).
-    if (state.chatSession === null) return;
-    if (evt.chat_session_id !== state.chatSession.chat_session_id) return;
+    if (state.chat_session_id === null) return;
+    if (evt.chat_session_id !== state.chat_session_id) return;
+    const threadId = state.chat_session_id;
+    // Helper closure: update the streaming chat-assistant entry by index.
+    // Solid's path-based setter cannot narrow across the LogEntry union,
+    // so we use the array-level updater + spread the entry. This still
+    // produces a fine-grained array diff at the <For> level — only the
+    // single mutated entry's identity changes.
+    const updateAssistantAt = (
+      idx: number,
+      patch: Partial<Extract<LogEntry, { kind: 'chat-assistant' }>>,
+    ): void => {
+      setState('unifiedLog', (prev) =>
+        prev.map((e, i) => {
+          if (i !== idx || e.kind !== 'chat-assistant') return e;
+          return { ...e, ...patch };
+        }),
+      );
+    };
     switch (evt.type) {
       case 'chat.message_delta': {
-        setState('chatSession', 'messages', (msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === 'assistant' && !last.completed) {
-            // Append to the in-progress assistant message.
-            return [...msgs.slice(0, -1), { ...last, text: last.text + evt.text }];
-          }
-          // Defensive: no in-progress assistant message — synthesize one.
-          const synth: ChatMessage = {
-            id: `chat-msg-${++chatMsgSeq}`,
-            role: 'assistant',
-            text: evt.text,
-            completed: false,
-            tools_called: [],
-          };
-          return [...msgs, synth];
-        });
+        const idx = findLastAssistantIndex(state.unifiedLog, threadId);
+        const target = idx >= 0 ? state.unifiedLog[idx] : undefined;
+        if (idx >= 0 && target?.kind === 'chat-assistant' && target.completed === false) {
+          updateAssistantAt(idx, { text: target.text + evt.text });
+        } else {
+          // Defensive: synthesize an in-progress assistant entry.
+          pushLogEntry(synthAssistantEntry(threadId, evt.ts, { text: evt.text, tools_called: [] }));
+        }
         return;
       }
       case 'chat.tool_call': {
-        setState('chatSession', 'messages', (msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === 'assistant' && !last.completed) {
-            const tools = last.tools_called ?? [];
-            return [...msgs.slice(0, -1), { ...last, tools_called: [...tools, evt.tool] }];
-          }
-          // Defensive: synthesize assistant message holding the tool call.
-          const synth: ChatMessage = {
-            id: `chat-msg-${++chatMsgSeq}`,
-            role: 'assistant',
-            text: '',
-            completed: false,
-            tools_called: [evt.tool],
-          };
-          return [...msgs, synth];
-        });
+        const idx = findLastAssistantIndex(state.unifiedLog, threadId);
+        const target = idx >= 0 ? state.unifiedLog[idx] : undefined;
+        if (idx >= 0 && target?.kind === 'chat-assistant' && target.completed === false) {
+          updateAssistantAt(idx, { tools_called: [...(target.tools_called ?? []), evt.tool] });
+        } else {
+          pushLogEntry(synthAssistantEntry(threadId, evt.ts, { tools_called: [evt.tool] }));
+        }
         return;
       }
       case 'chat.message_end': {
-        // Seal the in-progress assistant message. Does NOT clear
-        // streaming — chat.complete owns that transition.
-        setState('chatSession', 'messages', (msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (!last || last.role !== 'assistant') return msgs;
-          return [...msgs.slice(0, -1), { ...last, completed: true }];
-        });
+        // Seal the in-progress assistant entry. Does NOT clear streaming —
+        // chat.complete owns that transition.
+        const idx = findLastAssistantIndex(state.unifiedLog, threadId);
+        if (idx >= 0) {
+          updateAssistantAt(idx, { completed: true });
+        }
         return;
       }
       case 'chat.token_usage': {
-        const usage: NonNullable<ChatMessage['usage']> = {
+        const usage = {
           input: evt.input,
           output: evt.output,
           cacheRead: evt.cacheRead,
@@ -1035,51 +1228,33 @@ export function createDashboardStore(
           provider: evt.provider,
           model: evt.model,
         };
-        setState('chatSession', 'messages', (msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === 'assistant') {
-            return [...msgs.slice(0, -1), { ...last, usage }];
-          }
-          // Defensive: synthesize an assistant message carrying the usage.
-          const synth: ChatMessage = {
-            id: `chat-msg-${++chatMsgSeq}`,
-            role: 'assistant',
-            text: '',
-            completed: false,
-            usage,
-          };
-          return [...msgs, synth];
-        });
+        const idx = findLastAssistantIndex(state.unifiedLog, threadId);
+        if (idx >= 0) {
+          updateAssistantAt(idx, { usage });
+        } else {
+          pushLogEntry(synthAssistantEntry(threadId, evt.ts, { usage }));
+        }
         return;
       }
       case 'chat.error': {
-        const errPayload = { code: evt.code, message: evt.message };
-        setState('chatSession', 'messages', (msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === 'assistant') {
-            return [...msgs.slice(0, -1), { ...last, error: errPayload }];
-          }
-          // Defensive: no assistant message yet — synthesize one carrying
-          // the error so the panel surfaces it inline.
-          const synth: ChatMessage = {
-            id: `chat-msg-${++chatMsgSeq}`,
-            role: 'assistant',
-            text: '',
-            completed: false,
-            error: errPayload,
-          };
-          return [...msgs, synth];
+        // Push a chat-error entry. Both the wire `evt.code` (ChatErrorEvent
+        // at events.ts:550-561) and the LogEntry's `code` slot are the
+        // same closed enum — no runtime narrowing needed.
+        pushLogEntry({
+          kind: 'chat-error',
+          id: `chat-err-${++chatMsgSeq}`,
+          ts: evt.ts,
+          chat_session_id: threadId,
+          code: evt.code,
+          message: evt.message,
         });
-        setState('chatSession', 'status', 'error');
+        setState('chatStatus', 'error');
         pushError(`chat error: ${evt.code}: ${evt.message}`);
         return;
       }
       case 'chat.complete': {
-        setState('chatSession', 'streaming', false);
-        // Preserve 'error' if chat.error already fired in this turn; flip
-        // to 'done' otherwise. status === 'streaming' is the in-progress
-        // state set by startChat.
-        setState('chatSession', 'status', (prev) => (prev === 'error' ? 'error' : 'done'));
+        setState('chatStreaming', false);
+        setState('chatStatus', (prev) => (prev === 'error' ? 'error' : 'done'));
         return;
       }
     }
@@ -1089,7 +1264,7 @@ export function createDashboardStore(
     // Chat branch goes FIRST so the chat.* prefix routing wins before any
     // overlapping init./cook./oauth. handling could fire on a future
     // schema collision. The reducer is self-correlating (drops events
-    // whose chat_session_id does not match state.chatSession), so a stray
+    // whose chat_session_id does not match state.chat-session), so a stray
     // chat.* event during a cook session is a safe no-op.
     if (evt.type.startsWith('chat.')) {
       handleChatEvent(evt as ChatEvent);
@@ -1162,20 +1337,29 @@ export function createDashboardStore(
       return;
     }
     if (evt.type === 'log.append') {
-      logSeq += 1;
-      const line: LogLine = {
-        id: `log-${logSeq}`,
+      // Milestone 13 / Phase 01 — push the SSE log line as a system entry
+      // with its native channel (stdout/stderr). Replaces the prior
+      // recent-log-lines write.
+      pushLogEntry({
+        kind: 'system',
+        id: `log-${++logSeq}`,
         ts: evt.ts,
         channel: evt.channel,
         line: evt.line,
-      };
-      setState('recentLogLines', (prev) => {
-        const next = [...prev, line];
-        return next.slice(-RECENT_LOG_LIMIT);
       });
       return;
     }
     if (evt.type === 'error') {
+      // Milestone 13 / Phase 01 — surface SSE errors in the unified log
+      // (channel=stderr) AND keep the existing pushError pill behavior.
+      pushLogEntry({
+        kind: 'system',
+        id: `log-${++logSeq}`,
+        ts: evt.ts,
+        channel: 'stderr',
+        line: evt.message,
+        errorCode: evt.code,
+      });
       pushError(`${evt.code}: ${evt.message}`);
       return;
     }
@@ -1502,17 +1686,23 @@ export function createDashboardStore(
     }
   };
 
-  const appendLogLine = (line: string, channel: 'stdout' | 'stderr' = 'stdout'): void => {
-    logSeq += 1;
-    const entry: LogLine = {
-      id: `log-init-${logSeq}`,
-      ts: new Date().toISOString(),
+  /**
+   * Milestone 13 / Phase 01 — synthesize a system-internal LogEntry.
+   * Replaces the legacy `recent-log-lines` writer. The `channel` argument
+   * is retained for legacy callers (initProject / runCommand surface
+   * stdout/stderr lines this way) but defaults to `'internal'` — the new
+   * discriminator per Scout §1 K-3 for non-SSE bookkeeping lines.
+   */
+  const appendLogLine = (
+    line: string,
+    channel: 'stdout' | 'stderr' | 'internal' = 'internal',
+  ): void => {
+    pushLogEntry({
+      kind: 'system',
+      id: `log-init-${++logSeq}`,
+      ts: nowFn().toISOString(),
       channel,
       line,
-    };
-    setState('recentLogLines', (prev) => {
-      const next = [...prev, entry];
-      return next.slice(-RECENT_LOG_LIMIT);
     });
   };
 
@@ -1571,35 +1761,50 @@ export function createDashboardStore(
     }
   };
 
+  /**
+   * Milestone 13 / Phase 01 — surface a runCommand response in the unified
+   * log. The user's typed input becomes one stdout entry; each stdout/
+   * stderr line is a separate entry; a non-zero exit code adds a final
+   * stderr breadcrumb. Replaces the prior recent-log-lines write.
+   */
   const appendCommandLines = (response: CommandResponse, input: string): void => {
-    const ts = new Date().toISOString();
-    const inputLine: LogLine = {
+    const ts = nowFn().toISOString();
+    pushLogEntry({
+      kind: 'system',
       id: `log-cmd-${++logSeq}`,
       ts,
       channel: 'stdout',
       line: `$ swt ${input}`,
-    };
-    const lines: LogLine[] = [inputLine];
+    });
     for (const raw of response.stdout.split('\n')) {
       if (raw.length === 0) continue;
-      lines.push({ id: `log-cmd-${++logSeq}`, ts, channel: 'stdout', line: raw });
+      pushLogEntry({
+        kind: 'system',
+        id: `log-cmd-${++logSeq}`,
+        ts,
+        channel: 'stdout',
+        line: raw,
+      });
     }
     for (const raw of response.stderr.split('\n')) {
       if (raw.length === 0) continue;
-      lines.push({ id: `log-cmd-${++logSeq}`, ts, channel: 'stderr', line: raw });
+      pushLogEntry({
+        kind: 'system',
+        id: `log-cmd-${++logSeq}`,
+        ts,
+        channel: 'stderr',
+        line: raw,
+      });
     }
     if (response.exit_code !== 0) {
-      lines.push({
+      pushLogEntry({
+        kind: 'system',
         id: `log-cmd-${++logSeq}`,
         ts,
         channel: 'stderr',
         line: `[exit ${response.exit_code} · ${response.duration_ms}ms]`,
       });
     }
-    setState('recentLogLines', (prev) => {
-      const next = [...prev, ...lines];
-      return next.slice(-RECENT_LOG_LIMIT);
-    });
   };
 
   const runCommand = async (input: string): Promise<CommandResponse | null> => {
@@ -1671,69 +1876,93 @@ export function createDashboardStore(
   /**
    * Plan 03-01 (milestone 12, Phase 03) — Free-talk Mode turn submission.
    * Mirrors `startVibeSession`'s shape (trim+guard, loading flag, error
-   * path) but lives on a SEPARATE state slot (`chatSession`) and uses the
+   * path) but lives on a SEPARATE state slot (`chat-session`) and uses the
    * OPTIMISTIC chat_session_id pattern: the first turn sets the id to ''
    * before the POST resolves, and the `chat.start` SSE event (via
    * `/api/events` bus) adopts the real id in `handleChatEvent` (P04).
    *
-   * Multi-turn: when `state.chatSession?.chat_session_id` is non-empty, it
+   * Multi-turn: when `state.chat-session?.chat_session_id` is non-empty, it
    * is passed to `postChatStart` so the server reuses the registered
    * SwtSession — Pi's `SessionManager.inMemory` accumulates conversation
    * history natively, so the same session handle keeps prior turns in
    * context.
    *
    * Error handling per Lead's plan: first-turn failure ROLLS BACK
-   * `chatSession` to `null` (the empty optimistic state would otherwise
+   * `chat-session` to `null` (the empty optimistic state would otherwise
    * linger). Multi-turn failure KEEPS `messages[]` intact and flips
    * `status: 'error'` + `streaming: false` so the panel surfaces the
    * failure inline without losing the prior conversation.
+   */
+  /**
+   * Milestone 13 / Phase 01 — Free-talk Mode turn submission, rewritten for
+   * the unified-log + continuous-chat-thread model. The exported name
+   * `startChat` is preserved (TopBar prop compat per Scout §3 #3).
+   *
+   * Two design changes from the milestone-12 implementation:
+   *
+   *   1. First-turn detection uses `state.chat_session_id === null` rather
+   *      than the deleted `state.chat-session === null` slot. The chat
+   *      thread is now top-level state — a `startVibeSession()` between
+   *      chat turns does NOT clear the id, so verb-chip mode switching
+   *      preserves one continuous chat thread (Scout §4, must_have #13).
+   *
+   *   2. The user message is pushed into `state.unifiedLog` as a
+   *      `chat-user` LogEntry (interleaved with any cook/init/system
+   *      entries the user has produced in between).
+   *
+   * Optimistic state pattern is unchanged: first turn sets
+   * `chat_session_id = ''`, the `chat.start` SSE event adopts the real id
+   * via `handleChatEvent` (which also backfills the optimistic chat-user
+   * entry's `chat_session_id` field). On first-turn failure the optimistic
+   * id is rolled back to `null` and the optimistic chat-user entry is
+   * filtered out of `unifiedLog`. On multi-turn failure the user message
+   * stays visible (so the user sees what was sent) and `chatStatus`
+   * flips to `'error'`.
    */
   const startChat = async (prompt: string): Promise<string | null> => {
     const trimmed = prompt.trim();
     if (trimmed.length === 0) return null;
     setState('chatStarting', true);
-    const wasFirstTurn = state.chatSession === null;
-    const priorSessionId = state.chatSession?.chat_session_id ?? '';
-    const userMsg: ChatMessage = {
-      id: `chat-msg-${++chatMsgSeq}`,
-      role: 'user',
+    const wasFirstTurn = state.chat_session_id === null;
+    const priorSessionId = state.chat_session_id ?? '';
+    const userEntryId = `chat-msg-${++chatMsgSeq}`;
+    const userEntry: LogEntry = {
+      kind: 'chat-user',
+      id: userEntryId,
+      ts: nowFn().toISOString(),
+      // Optimistic: empty on first turn; carried over on multi-turn.
+      // chat.start adoption backfills any '' entries with the real id.
+      chat_session_id: wasFirstTurn ? '' : priorSessionId,
       text: trimmed,
-      completed: true,
     };
     if (wasFirstTurn) {
-      // Full-object replace mirrors startVibeSession (Solid createStore
-      // semantics — explicit replace is atomic; no stale-field leak).
-      setState('chatSession', {
-        chat_session_id: '',
-        started_at: new Date().toISOString(),
-        messages: [userMsg],
-        streaming: true,
-        status: 'streaming',
-      });
-    } else {
-      // Multi-turn: append user message + flip streaming/status back to
-      // in-progress (a prior turn may have completed with status='done').
-      setState('chatSession', 'messages', (msgs) => [...msgs, userMsg]);
-      setState('chatSession', 'streaming', true);
-      setState('chatSession', 'status', 'streaming');
+      // First-turn: optimistically adopt the empty id so the correlation
+      // guard in handleChatEvent (which compares against state.chat_session_id)
+      // matches the chat.start frame.
+      setState('chat_session_id', '');
     }
+    setState('chatStreaming', true);
+    setState('chatStatus', 'streaming');
+    pushLogEntry(userEntry);
     try {
       await postChatStart(trimmed, priorSessionId.length > 0 ? priorSessionId : undefined);
-      appendLogLine('[chat] turn started');
-      return state.chatSession?.chat_session_id ?? '';
+      return state.chat_session_id ?? '';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       pushError(`chat start failed: ${message}`);
       if (wasFirstTurn) {
-        // Roll back: the empty optimistic chatSession would otherwise
-        // linger with one orphan user message and no path forward.
-        setState('chatSession', null);
+        // Roll back the first-turn optimistic state. Remove the orphan
+        // chat-user entry and reset the thread id to null so the next
+        // startChat is also a first turn.
+        setState('chat_session_id', null);
+        setState('chatStreaming', false);
+        setState('chatStatus', 'idle');
+        setState('unifiedLog', (prev) => prev.filter((e) => e.id !== userEntryId));
       } else {
-        // Multi-turn: keep the user message visible so the user can see
-        // their failed input; flip status so the panel can render an
-        // inline error banner.
-        setState('chatSession', 'streaming', false);
-        setState('chatSession', 'status', 'error');
+        // Multi-turn: keep the user message visible; flip the status flag
+        // so the panel can render an inline error banner.
+        setState('chatStreaming', false);
+        setState('chatStatus', 'error');
       }
       return null;
     } finally {
@@ -1747,8 +1976,24 @@ export function createDashboardStore(
    * 10-minute TTL sweep that handles cleanup (Lead's deliberate v1
    * decision — Phase 04 may add `DELETE /api/chat/:id`).
    */
+  /**
+   * Milestone 13 / Phase 01 — wipe the chat thread, preserving the rest of
+   * the unified log. Filters `unifiedLog` to drop only chat-* entries
+   * (`chat-user` / `chat-assistant` / `chat-error`); cook / init / system
+   * entries are preserved. Resets `chat_session_id` / `chatStreaming` /
+   * `chatStatus` to their greenfield values, then leaves a system-internal
+   * breadcrumb. Synchronous; no HTTP call (the server's
+   * `ChatSessionRegistry` has a 10-minute TTL sweep that handles cleanup).
+   */
   const clearChat = (): void => {
-    setState('chatSession', null);
+    setState('unifiedLog', (prev) =>
+      prev.filter(
+        (e) => e.kind !== 'chat-user' && e.kind !== 'chat-assistant' && e.kind !== 'chat-error',
+      ),
+    );
+    setState('chat_session_id', null);
+    setState('chatStreaming', false);
+    setState('chatStatus', 'idle');
     appendLogLine('[chat] conversation cleared');
   };
 

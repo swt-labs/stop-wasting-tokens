@@ -1,28 +1,29 @@
+import type { LogEntry } from '@swt-labs/shared';
 import { createRoot } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Plan 03-01 (milestone 12, Phase 03) — dashboard-store chat tests.
  *
- * Mirrors `dashboard-store-cook-events.test.ts`'s pattern: mock the API +
- * SSE modules at the top, invoke `applyEvent` directly to simulate the
- * /api/events bus channel, no DOM or jsdom (environment is 'node').
+ * Milestone 13 / Phase 01 — rewritten against the unified-log + top-level
+ * chat-thread shape. Assertions read from `state.unifiedLog` (filtered to
+ * chat-* entries) + the hoisted `chat_session_id` / `chatStreaming` /
+ * `chatStatus` fields. The 14 tests cover:
  *
- * The 15 tests cover:
- *   1. startChat happy path (optimistic state + chatStarting flag)
+ *   1. startChat happy path (optimistic chat-user entry + chatStreaming on)
  *   2. startChat empty/whitespace guard
- *   3. startChat fetch-throws rollback (first turn)
- *   4. chat.start adopts the optimistic '' chat_session_id
- *   5. chat.message_delta accumulation across 3 deltas
+ *   3. startChat fetch-throws rollback (first turn — chat-user entry filtered out)
+ *   4. chat.start adopts the optimistic '' chat_session_id + backfills entries
+ *   5. chat.message_delta accumulation across 3 deltas (in-place update)
  *   6. chat.tool_call push
- *   7. chat.message_end seal (does NOT clear streaming)
+ *   7. chat.message_end seal (does NOT clear chatStreaming)
  *   8. chat.token_usage 6-field attach
- *   9. chat.error attach + status='error' + pushError
- *  10. chat.complete clears streaming + status='done'
+ *   9. chat.error pushes chat-error LogEntry + status='error' + pushError
+ *  10. chat.complete clears chatStreaming + status='done'
  *  11. chat.complete preserves status='error' when chat.error fired first
- *  12. clearChat wipes session
+ *  12. clearChat wipes chat-* entries (preserves cook/init/system)
  *  13. multi-turn reuses chat_session_id in postChatStart args
- *  14. stale chat_session_id event silently dropped
+ *  14. stale chat_session_id event silently dropped (no synthesis)
  *  15. applyEvent routes chat.* before other branches (no init./cook. side effects)
  */
 
@@ -79,6 +80,22 @@ vi.mock('../src/client/services/sse.js', () => ({
 
 import { createDashboardStore } from '../src/client/state/dashboard-store.js';
 
+/**
+ * Chat-lane filter — surface only chat-user / chat-assistant / chat-error
+ * entries from `state.unifiedLog`. Mirrors the canonical `filterChatEntries`
+ * helper (packages/dashboard/src/client/components/unified-log-helpers.ts)
+ * inlined here to keep the test free of the helper-module import (so it
+ * can be re-used by any future test that wants the filter without pulling
+ * the panel surface).
+ */
+const chatEntries = (
+  log: readonly LogEntry[],
+): Array<Extract<LogEntry, { kind: 'chat-user' | 'chat-assistant' | 'chat-error' }>> =>
+  log.filter(
+    (e): e is Extract<LogEntry, { kind: 'chat-user' | 'chat-assistant' | 'chat-error' }> =>
+      e.kind === 'chat-user' || e.kind === 'chat-assistant' || e.kind === 'chat-error',
+  );
+
 beforeEach(() => {
   postChatStartMock.mockReset();
   openSseConnectionMock.mockReset();
@@ -91,7 +108,7 @@ afterEach(() => {
 });
 
 describe('startChat action', () => {
-  it('startChat happy path — optimistic state + chatStarting cleared in finally', async () => {
+  it('startChat happy path — optimistic chat-user entry + chatStreaming on', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -100,16 +117,20 @@ describe('startChat action', () => {
       expect(result).toBe('');
       // chatStarting cleared by finally block.
       expect(state.chatStarting).toBe(false);
-      // chatSession populated optimistically.
-      expect(state.chatSession).not.toBeNull();
-      expect(state.chatSession?.chat_session_id).toBe('');
-      expect(state.chatSession?.streaming).toBe(true);
-      expect(state.chatSession?.status).toBe('streaming');
-      expect(state.chatSession?.messages).toHaveLength(1);
-      expect(state.chatSession?.messages[0]?.role).toBe('user');
+      // Top-level fields adopted.
+      expect(state.chat_session_id).toBe('');
+      expect(state.chatStreaming).toBe(true);
+      expect(state.chatStatus).toBe('streaming');
+      // Optimistic chat-user entry pushed to the unified log.
+      const chats = chatEntries(state.unifiedLog);
+      expect(chats).toHaveLength(1);
+      expect(chats[0]?.kind).toBe('chat-user');
       // Trim must have removed surrounding whitespace.
-      expect(state.chatSession?.messages[0]?.text).toBe('hello world');
-      expect(state.chatSession?.messages[0]?.completed).toBe(true);
+      if (chats[0]?.kind === 'chat-user') {
+        expect(chats[0].text).toBe('hello world');
+        // chat_session_id is the empty optimistic placeholder until chat.start lands.
+        expect(chats[0].chat_session_id).toBe('');
+      }
       // postChatStart called with trimmed prompt + undefined session id (first turn).
       expect(postChatStartMock).toHaveBeenCalledTimes(1);
       expect(postChatStartMock).toHaveBeenCalledWith('hello world', undefined);
@@ -124,21 +145,28 @@ describe('startChat action', () => {
       const result2 = await actions.startChat('   \t\n  ');
       expect(result1).toBeNull();
       expect(result2).toBeNull();
-      expect(state.chatSession).toBeNull();
+      expect(state.chat_session_id).toBeNull();
+      expect(state.chatStreaming).toBe(false);
+      expect(state.chatStatus).toBe('idle');
+      expect(chatEntries(state.unifiedLog)).toHaveLength(0);
       expect(state.chatStarting).toBe(false);
       expect(postChatStartMock).not.toHaveBeenCalled();
       dispose();
     });
   });
 
-  it('startChat error path (first turn) rolls back chatSession to null + pushes error', async () => {
+  it('startChat error path (first turn) rolls back chat_session_id + filters chat-user entry', async () => {
     postChatStartMock.mockRejectedValueOnce(new Error('network down'));
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       const result = await actions.startChat('hello');
       expect(result).toBeNull();
-      // First-turn rollback: chatSession back to null.
-      expect(state.chatSession).toBeNull();
+      // First-turn rollback: thread id back to null.
+      expect(state.chat_session_id).toBeNull();
+      expect(state.chatStreaming).toBe(false);
+      expect(state.chatStatus).toBe('idle');
+      // Orphan chat-user entry filtered out of unifiedLog.
+      expect(chatEntries(state.unifiedLog)).toHaveLength(0);
       // pushError surfaced the failure.
       expect(state.errors.length).toBeGreaterThanOrEqual(1);
       expect(state.errors[state.errors.length - 1]?.message).toContain('chat start failed');
@@ -150,24 +178,27 @@ describe('startChat action', () => {
 });
 
 describe('chat event reducer', () => {
-  it('chat.start adopts the optimistic chat_session_id', async () => {
+  it('chat.start adopts the optimistic chat_session_id + backfills entries', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       await actions.startChat('hi');
-      expect(state.chatSession?.chat_session_id).toBe('');
+      expect(state.chat_session_id).toBe('');
       actions.applyEvent({
         type: 'chat.start',
         ts: '2026-05-16T10:00:00Z',
         chat_session_id: 'abc-123',
         prompt: 'hi',
       });
-      expect(state.chatSession?.chat_session_id).toBe('abc-123');
+      expect(state.chat_session_id).toBe('abc-123');
+      // The optimistic chat-user entry's chat_session_id has been backfilled.
+      const chats = chatEntries(state.unifiedLog);
+      expect(chats[0]?.chat_session_id).toBe('abc-123');
       dispose();
     });
   });
 
-  it('chat.message_delta accumulates text across multiple deltas', async () => {
+  it('chat.message_delta accumulates text across multiple deltas (in-place update)', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -184,6 +215,7 @@ describe('chat event reducer', () => {
         chat_session_id: 'sess-A',
         text: 'Hi ',
       });
+      const lengthAfterFirstDelta = chatEntries(state.unifiedLog).length;
       actions.applyEvent({
         type: 'chat.message_delta',
         ts: '2026-05-16T10:00:02Z',
@@ -196,19 +228,22 @@ describe('chat event reducer', () => {
         chat_session_id: 'sess-A',
         text: 'friend!',
       });
-      const msgs = state.chatSession?.messages ?? [];
-      const last = msgs[msgs.length - 1];
-      expect(last?.role).toBe('assistant');
-      expect(last?.text).toBe('Hi there, friend!');
-      expect(last?.completed).toBe(false);
-      // User message is still there as the first entry.
-      expect(msgs[0]?.role).toBe('user');
-      expect(msgs).toHaveLength(2);
+      const chats = chatEntries(state.unifiedLog);
+      // In-place update — length unchanged after the 2nd + 3rd deltas.
+      expect(chats).toHaveLength(lengthAfterFirstDelta);
+      const last = chats[chats.length - 1];
+      expect(last?.kind).toBe('chat-assistant');
+      if (last?.kind === 'chat-assistant') {
+        expect(last.text).toBe('Hi there, friend!');
+        expect(last.completed).toBe(false);
+      }
+      // User message is still the first chat entry.
+      expect(chats[0]?.kind).toBe('chat-user');
       dispose();
     });
   });
 
-  it('chat.tool_call appends tool name to last assistant message tools_called[]', async () => {
+  it('chat.tool_call appends tool name to last assistant entry tools_called[]', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -237,14 +272,17 @@ describe('chat event reducer', () => {
         chat_session_id: 'sess-B',
         tool: 'grep',
       });
-      const msgs = state.chatSession?.messages ?? [];
-      const last = msgs[msgs.length - 1];
-      expect(last?.tools_called).toEqual(['read_file', 'grep']);
+      const chats = chatEntries(state.unifiedLog);
+      const last = chats[chats.length - 1];
+      expect(last?.kind).toBe('chat-assistant');
+      if (last?.kind === 'chat-assistant') {
+        expect(last.tools_called).toEqual(['read_file', 'grep']);
+      }
       dispose();
     });
   });
 
-  it('chat.message_end seals last assistant message (completed=true) but does NOT clear streaming', async () => {
+  it('chat.message_end seals last assistant entry (completed=true) but does NOT clear chatStreaming', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -266,16 +304,18 @@ describe('chat event reducer', () => {
         ts: '2026-05-16T10:00:02Z',
         chat_session_id: 'sess-C',
       });
-      const msgs = state.chatSession?.messages ?? [];
-      const last = msgs[msgs.length - 1];
-      expect(last?.completed).toBe(true);
-      // Streaming flag is owned by chat.complete — message_end alone leaves it on.
-      expect(state.chatSession?.streaming).toBe(true);
+      const chats = chatEntries(state.unifiedLog);
+      const last = chats[chats.length - 1];
+      if (last?.kind === 'chat-assistant') {
+        expect(last.completed).toBe(true);
+      }
+      // chatStreaming is owned by chat.complete — message_end alone leaves it on.
+      expect(state.chatStreaming).toBe(true);
       dispose();
     });
   });
 
-  it('chat.token_usage attaches the 6-field usage payload to the last assistant message', async () => {
+  it('chat.token_usage attaches the 6-field usage payload to the last assistant entry', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -303,21 +343,23 @@ describe('chat event reducer', () => {
         provider: 'anthropic',
         model: 'claude-opus-4-7',
       });
-      const msgs = state.chatSession?.messages ?? [];
-      const last = msgs[msgs.length - 1];
-      expect(last?.usage).toEqual({
-        input: 123,
-        output: 456,
-        cacheRead: 12,
-        cacheWrite: 7,
-        provider: 'anthropic',
-        model: 'claude-opus-4-7',
-      });
+      const chats = chatEntries(state.unifiedLog);
+      const last = chats[chats.length - 1];
+      if (last?.kind === 'chat-assistant') {
+        expect(last.usage).toEqual({
+          input: 123,
+          output: 456,
+          cacheRead: 12,
+          cacheWrite: 7,
+          provider: 'anthropic',
+          model: 'claude-opus-4-7',
+        });
+      }
       dispose();
     });
   });
 
-  it('chat.error attaches error to last assistant message + flips status to error + pushError', async () => {
+  it('chat.error pushes a chat-error LogEntry + flips chatStatus to error + pushError', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -342,10 +384,15 @@ describe('chat event reducer', () => {
         code: 'CHAT_SESSION_ERROR',
         message: 'pi blew up',
       });
-      const msgs = state.chatSession?.messages ?? [];
-      const last = msgs[msgs.length - 1];
-      expect(last?.error).toEqual({ code: 'CHAT_SESSION_ERROR', message: 'pi blew up' });
-      expect(state.chatSession?.status).toBe('error');
+      const chats = chatEntries(state.unifiedLog);
+      const errors = chats.filter((e) => e.kind === 'chat-error');
+      expect(errors).toHaveLength(1);
+      const err = errors[0];
+      if (err?.kind === 'chat-error') {
+        expect(err.code).toBe('CHAT_SESSION_ERROR');
+        expect(err.message).toBe('pi blew up');
+      }
+      expect(state.chatStatus).toBe('error');
       // pushError fired for global visibility.
       expect(state.errors.length).toBeGreaterThan(errorsBefore);
       expect(state.errors[state.errors.length - 1]?.message).toContain('chat error');
@@ -354,7 +401,7 @@ describe('chat event reducer', () => {
     });
   });
 
-  it('chat.complete clears streaming + sets status to done (no prior error)', async () => {
+  it('chat.complete clears chatStreaming + sets chatStatus to done (no prior error)', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -381,13 +428,13 @@ describe('chat event reducer', () => {
         ts: '2026-05-16T10:00:03Z',
         chat_session_id: 'sess-F',
       });
-      expect(state.chatSession?.streaming).toBe(false);
-      expect(state.chatSession?.status).toBe('done');
+      expect(state.chatStreaming).toBe(false);
+      expect(state.chatStatus).toBe('done');
       dispose();
     });
   });
 
-  it('chat.complete preserves status=error when chat.error fired first in the same turn', async () => {
+  it('chat.complete preserves chatStatus=error when chat.error fired first in the same turn', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -410,14 +457,14 @@ describe('chat event reducer', () => {
         ts: '2026-05-16T10:00:02Z',
         chat_session_id: 'sess-G',
       });
-      expect(state.chatSession?.streaming).toBe(false);
-      // status preserved as 'error', NOT overwritten to 'done'.
-      expect(state.chatSession?.status).toBe('error');
+      expect(state.chatStreaming).toBe(false);
+      // chatStatus preserved as 'error', NOT overwritten to 'done'.
+      expect(state.chatStatus).toBe('error');
       dispose();
     });
   });
 
-  it('stale chat_session_id event is silently dropped (no state mutation)', async () => {
+  it('stale chat_session_id event is silently dropped (no synthesis)', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
@@ -428,7 +475,7 @@ describe('chat event reducer', () => {
         chat_session_id: 'real-id',
         prompt: 'correlate',
       });
-      const beforeMessages = state.chatSession?.messages ?? [];
+      const beforeChats = chatEntries(state.unifiedLog);
       // Stale delta from a different (or stale-tab) session.
       actions.applyEvent({
         type: 'chat.message_delta',
@@ -436,21 +483,38 @@ describe('chat event reducer', () => {
         chat_session_id: 'wrong-id',
         text: 'should be dropped',
       });
-      const afterMessages = state.chatSession?.messages ?? [];
+      const afterChats = chatEntries(state.unifiedLog);
       // Strict equality on length + content (no synthesis happened).
-      expect(afterMessages).toHaveLength(beforeMessages.length);
-      // The user message text is the only entry; no assistant synthesis from the stale delta.
-      expect(afterMessages.every((m) => !m.text.includes('should be dropped'))).toBe(true);
+      expect(afterChats).toHaveLength(beforeChats.length);
+      // None of the entries should contain the dropped text.
+      expect(
+        afterChats.every((m) =>
+          m.kind === 'chat-assistant' ? !m.text.includes('should be dropped') : true,
+        ),
+      ).toBe(true);
       dispose();
     });
   });
 });
 
 describe('clearChat action', () => {
-  it('clearChat wipes chatSession back to null', async () => {
+  it('clearChat wipes chat-* entries + resets thread fields (preserves cook/init/system)', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
+      // Seed a system + init + cook entry alongside the chat thread so we
+      // can prove clearChat preserves them.
+      actions.applyEvent({
+        type: 'log.append',
+        ts: '2026-05-16T10:00:00Z',
+        channel: 'stdout',
+        line: 'pre-existing system line',
+      });
+      actions.applyEvent({
+        type: 'init.start',
+        ts: '2026-05-16T10:00:00Z',
+        session_id: 'init-1',
+      });
       await actions.startChat('something');
       actions.applyEvent({
         type: 'chat.start',
@@ -458,9 +522,24 @@ describe('clearChat action', () => {
         chat_session_id: 'sess-H',
         prompt: 'something',
       });
-      expect(state.chatSession).not.toBeNull();
+      expect(state.chat_session_id).toBe('sess-H');
+      expect(chatEntries(state.unifiedLog).length).toBeGreaterThan(0);
+      const nonChatBefore = state.unifiedLog.filter(
+        (e) => e.kind !== 'chat-user' && e.kind !== 'chat-assistant' && e.kind !== 'chat-error',
+      ).length;
       actions.clearChat();
-      expect(state.chatSession).toBeNull();
+      // Chat-* entries gone.
+      expect(chatEntries(state.unifiedLog)).toHaveLength(0);
+      // Thread fields reset.
+      expect(state.chat_session_id).toBeNull();
+      expect(state.chatStreaming).toBe(false);
+      expect(state.chatStatus).toBe('idle');
+      // Non-chat entries preserved (the clearChat breadcrumb adds one new
+      // system-internal entry, so the count goes up by exactly 1).
+      const nonChatAfter = state.unifiedLog.filter(
+        (e) => e.kind !== 'chat-user' && e.kind !== 'chat-assistant' && e.kind !== 'chat-error',
+      ).length;
+      expect(nonChatAfter).toBe(nonChatBefore + 1);
       dispose();
     });
   });
@@ -490,13 +569,16 @@ describe('multi-turn semantics', () => {
       // Turn 2 — second call reuses the id.
       await actions.startChat('turn 2');
       expect(postChatStartMock).toHaveBeenNthCalledWith(2, 'turn 2', 'multi-id');
-      // Messages array grew by 1 (one new user message).
-      const userMsgs = state.chatSession?.messages.filter((m) => m.role === 'user') ?? [];
+      // unifiedLog grew by one chat-user entry (turn 2's user message).
+      const userMsgs = chatEntries(state.unifiedLog).filter((e) => e.kind === 'chat-user');
       expect(userMsgs).toHaveLength(2);
-      expect(userMsgs[1]?.text).toBe('turn 2');
-      // streaming + status flipped back to in-progress.
-      expect(state.chatSession?.streaming).toBe(true);
-      expect(state.chatSession?.status).toBe('streaming');
+      const t2 = userMsgs[1];
+      if (t2?.kind === 'chat-user') {
+        expect(t2.text).toBe('turn 2');
+      }
+      // chatStreaming + chatStatus flipped back to in-progress.
+      expect(state.chatStreaming).toBe(true);
+      expect(state.chatStatus).toBe('streaming');
       dispose();
     });
   });
@@ -506,16 +588,15 @@ describe('applyEvent routing precedence', () => {
   it('chat.* events do not trigger init./cook./oauth. side effects', () => {
     createRoot((dispose) => {
       const [state, actions] = createDashboardStore();
-      // No chatSession set — chat.start should be silently dropped (no session).
-      // None of the other state slots should mutate either.
+      // No chat thread set — chat.start should be silently dropped.
       actions.applyEvent({
         type: 'chat.start',
         ts: '2026-05-16T10:00:00Z',
         chat_session_id: 'orphan',
         prompt: 'no session',
       });
-      // Sanity: chatSession remains null, none of the other slots changed.
-      expect(state.chatSession).toBeNull();
+      // Sanity: thread id remains null, none of the other slots changed.
+      expect(state.chat_session_id).toBeNull();
       expect(state.initSession).toBeNull();
       expect(state.vibeSession).toBeNull();
       expect(state.oauthFlow).toBeNull();

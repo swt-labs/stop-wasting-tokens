@@ -67,8 +67,13 @@ export const FirstRunHint: Component<FirstRunHintProps> = (props) => {
   // vibe session transitions from null → non-null for the FIRST time
   // after mount, persist dismissal to localStorage so the hint stays
   // dismissed across reloads even if the user never clicks ×.
+  //
+  // Milestone 13 / Phase 01 — the chat-session read is now
+  // `state.chat_session_id !== null` (replaces the deleted `state.chatSession`
+  // slot). Semantics unchanged: any chat-thread adoption auto-dismisses.
   createEffect(() => {
-    const hasActiveSession = props.state.chatSession !== null || props.state.vibeSession !== null;
+    const hasActiveSession =
+      props.state.chat_session_id !== null || props.state.vibeSession !== null;
     if (hasActiveSession && !dismissed()) {
       persistDismissal();
     }

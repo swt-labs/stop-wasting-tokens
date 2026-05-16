@@ -272,20 +272,34 @@ export const App: Component = () => {
                   minSize={0.1}
                   class="resizable-panel"
                 >
-                  {/* Plan 03-02 (milestone 12, Phase 03) — Free-talk Mode
-                      mode-switch (Option B per Scout). When state.chatSession
-                      is non-null, render ChatPanel; otherwise fall back to
-                      LogPanel with its original props verbatim. The cook log
-                      reappears when the user clears the chat (clearChat sets
-                      chatSession to null) — no log lines are lost; they keep
-                      accumulating into state.recentLogLines while chat is
-                      active. Solid's <Show when> with truthy narrowing passes
-                      the non-null ChatSession to the child callback. */}
+                  {/* Milestone 13 / Phase 01 (interim) — transitional
+                      adapter that maps the new top-level state shape
+                      (`unifiedLog` + `chat_session_id` + `chatStreaming`
+                      + `chatStatus`) back onto the legacy `LogPanel` +
+                      `ChatPanel` props. The `<Show when={state.chat_session_id}>`
+                      replicates the prior `state.chatSession` mode-switch
+                      verbatim so Phase 01 ships a typecheck-clean
+                      intermediate state. Phase 01 / Plan 01-04 swaps this
+                      entire block for an unconditional <UnifiedLogPanel/>
+                      mount + deletes both legacy panels (Plan 01-05). */}
                   <Show
-                    when={state.chatSession}
+                    when={state.chat_session_id !== null}
                     fallback={
                       <LogPanel
-                        lines={state.recentLogLines}
+                        lines={state.unifiedLog
+                          .filter(
+                            (e): e is Extract<typeof e, { kind: 'system' }> => e.kind === 'system',
+                          )
+                          .map((e) => ({
+                            id: e.id,
+                            ts: e.ts,
+                            // The legacy `LogLine.channel` is stdout|stderr —
+                            // collapse the new 'internal' discriminator to
+                            // 'stdout' for the adapter; Phase 01 / Plan 01-04
+                            // renders the channel directly via UnifiedLogPanel.
+                            channel: e.channel === 'stderr' ? 'stderr' : 'stdout',
+                            line: e.line,
+                          }))}
                         conversation={state.vibeSession?.conversation ?? []}
                         replying={state.vibeReplying}
                         onReply={actions.replyToActivePrompt}
@@ -293,7 +307,54 @@ export const App: Component = () => {
                       />
                     }
                   >
-                    {(session) => <ChatPanel session={session()} onClear={actions.clearChat} />}
+                    <ChatPanel
+                      session={{
+                        chat_session_id: state.chat_session_id ?? '',
+                        started_at: '',
+                        streaming: state.chatStreaming,
+                        status: state.chatStatus,
+                        messages: state.unifiedLog
+                          .filter(
+                            (e) =>
+                              e.kind === 'chat-user' ||
+                              e.kind === 'chat-assistant' ||
+                              e.kind === 'chat-error',
+                          )
+                          .map((e) => {
+                            if (e.kind === 'chat-user') {
+                              return {
+                                id: e.id,
+                                role: 'user' as const,
+                                text: e.text,
+                                completed: true,
+                              };
+                            }
+                            if (e.kind === 'chat-assistant') {
+                              return {
+                                id: e.id,
+                                role: 'assistant' as const,
+                                text: e.text,
+                                completed: e.completed,
+                                ...(e.tools_called !== undefined
+                                  ? { tools_called: e.tools_called }
+                                  : {}),
+                                ...(e.usage !== undefined ? { usage: e.usage } : {}),
+                              };
+                            }
+                            // chat-error: surface as a sealed assistant
+                            // message carrying the error payload (legacy
+                            // ChatPanel shape).
+                            return {
+                              id: e.id,
+                              role: 'assistant' as const,
+                              text: '',
+                              completed: true,
+                              error: { code: e.code, message: e.message },
+                            };
+                          }),
+                      }}
+                      onClear={actions.clearChat}
+                    />
                   </Show>
                 </Resizable.Panel>
               </Resizable>

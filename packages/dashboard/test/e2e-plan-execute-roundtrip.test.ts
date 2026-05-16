@@ -274,14 +274,17 @@ describe('e2e: dashboard Plan + Execute roundtrip (Phase 03 / Plan 03-01)', () =
       expect(state.activeSessionId).toBe(resumedSessionId);
       expect(state.activeAgents.size).toBe(1);
 
-      // Log line emitted via appendLogLine — format is
-      // "[cook] resuming session {sid8} from {from_task}" where
+      // Milestone 13 / Phase 01 — the legacy `appendLogLine` write is gone;
+      // the resume breadcrumb is now a cook-status LogEntry in unifiedLog.
+      // Format is "resuming session {sid8} from {from_task}" where
       // sid8 = resumedSessionId.slice(0, 8) = 'sess-res'.
-      const lines = state.recentLogLines.map((l) => l.line);
+      const cookStatusMessages = state.unifiedLog
+        .filter((e) => e.kind === 'cook-status')
+        .map((e) => (e.kind === 'cook-status' ? e.message : ''));
       const expectedSid8 = resumedSessionId.slice(0, 8);
       expect(
-        lines.some(
-          (l) => l.includes(`resuming session ${expectedSid8}`) && l.includes('from task-7'),
+        cookStatusMessages.some(
+          (m) => m.includes(`resuming session ${expectedSid8}`) && m.includes('from task-7'),
         ),
       ).toBe(true);
 

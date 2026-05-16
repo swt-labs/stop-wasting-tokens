@@ -6,9 +6,8 @@
  * #7) are exercised with ≥ 2 cases each — minimum 10, current count 21.
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { LogEntry } from '@swt-labs/shared';
+import { describe, expect, it } from 'vitest';
 
 import {
   classifyEntry,

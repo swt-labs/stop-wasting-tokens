@@ -1,21 +1,22 @@
 /**
  * Plan 03-02 (milestone 12, Phase 03) — pure render helpers for `ChatPanel`.
  *
- * Why a separate module?
- *   The dashboard vitest harness runs `environment: 'node'` with an esbuild
- *   transform that cannot emit Solid-compatible JSX runtime calls (see
- *   options-menu.test.ts and settings-section.test.ts for the same
- *   constraint). Component render-tests are therefore out of scope; the
- *   load-bearing logic — class-name selection, badge formatting, tool-call
- *   annotation, button-disabled state — is factored into these pure helpers
- *   and unit-tested directly against the return values.
- *
- * Importing types from the dashboard-store keeps the helpers and the
- * component in lock-step with the canonical state shape; if 03-01's
- * `ChatMessage` / `ChatSession` change, TypeScript fails the build here
- * before runtime surprises in the panel.
+ * Milestone 13 / Phase 01 — DEPRECATED. Both this module and its sibling
+ * `ChatPanel.tsx` are scheduled for deletion in Plan 01-05 once
+ * `UnifiedLogPanel` replaces the dual-panel split. The transitional adapter
+ * in `App.tsx` keeps `ChatPanel` mounted under the legacy `<Show>` branch;
+ * the `ChatSession` interface that used to be exported from
+ * `dashboard-store.ts` is gone, so the helpers inline a minimal local shape
+ * just to satisfy the legacy `shouldDisableClear` signature. Do NOT add new
+ * consumers — write against `unified-log-helpers.ts` instead.
  */
-import type { ChatSession } from '../state/dashboard-store.js';
+import type { ChatStatus } from '../state/dashboard-store.js';
+
+/** Legacy local shape — replaced by `chatStreaming` + `chatStatus` at state level. */
+export interface LegacyChatSession {
+  streaming: boolean;
+  status: ChatStatus;
+}
 
 /**
  * CSS class string for a chat message row. The component renders
@@ -64,6 +65,6 @@ export function buildToolAnnotation(toolName: string): string {
  * The narrow `Pick`-style param shape (rather than `ChatSession`) keeps the
  * helper trivially testable without constructing a full session object.
  */
-export function shouldDisableClear(session: Pick<ChatSession, 'streaming'>): boolean {
+export function shouldDisableClear(session: Pick<LegacyChatSession, 'streaming'>): boolean {
   return session.streaming === true;
 }

@@ -410,10 +410,16 @@ describe('cook event reducer', () => {
       // not null activeSessionId (which is the cancel signal).
       vi.advanceTimersByTime(15_000);
       expect(state.activeSessionId).toBe('sess-resume-abc12345');
-      // Side effect 3: log line emitted with sid8 + from_task.
-      const lines = state.recentLogLines.map((l) => l.line);
+      // Side effect 3: cook-status resumed entry emitted with sid8 + from_task.
+      // Milestone 13 / Phase 01 — the legacy `appendLogLine` write is gone;
+      // the resume breadcrumb is now a cook-status LogEntry in unifiedLog.
+      const cookStatusMessages = state.unifiedLog
+        .filter((e) => e.kind === 'cook-status')
+        .map((e) => (e.kind === 'cook-status' ? e.message : ''));
       expect(
-        lines.some((l) => l.includes('resuming session sess-res') && l.includes('task-7')),
+        cookStatusMessages.some(
+          (m) => m.includes('resuming session sess-res') && m.includes('task-7'),
+        ),
       ).toBe(true);
       dispose();
     });
