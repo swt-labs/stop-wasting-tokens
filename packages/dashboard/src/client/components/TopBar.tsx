@@ -33,6 +33,16 @@ export interface TopBarProps {
   onCommand: (input: string) => Promise<unknown>;
   onVibe: (input: string) => Promise<unknown>;
   /**
+   * Phase 02 (milestone 12 — free-talk mode) — optional neutral-mode dispatch.
+   * When `verb() === null` (the new default), `onSubmit` short-circuits to
+   * `props.onChat?.(trimmed)` BEFORE composeCommand, so the bar speaks
+   * directly with the LLM. Optional so App.tsx stays unedited this phase;
+   * Phase 03 wires `onChat={actions.startChat}` end-to-end. When omitted,
+   * a neutral-mode submit clears the input and otherwise no-ops (the
+   * slate-muted styling is the user-visible contract).
+   */
+  onChat?: (text: string) => Promise<unknown>;
+  /**
    * Phase 1 (Dashboard Options Menu) — store-backed open state; when omitted,
    * TopBar falls back to a local signal so the dropdown is visibly working
    * end-to-end with zero `App.tsx` edit. Phase 2 adds the one-line `App.tsx`
@@ -114,8 +124,17 @@ export interface ComposedCommand {
  * Every other verb routes through `command` as `${verb} ${trimmedInput}`,
  * collapsing to just `verb` when the input is empty.
  */
-export function composeCommand(verb: string, input: string): ComposedCommand {
+export function composeCommand(verb: string | null, input: string): ComposedCommand {
   const trimmed = input.trim();
+  // Phase 02 — defensive fall-through for the neutral sentinel. The onSubmit
+  // short-circuit returns before composeCommand when verb === null in normal
+  // flow; this branch keeps the helper total. The `'vibe'` route is
+  // arbitrary (never reached); we intentionally do NOT add a new `'chat'`
+  // route discriminator to ComposedCommand to avoid cascading type changes
+  // across helpers without functional benefit.
+  if (verb === null) {
+    return { route: 'vibe', value: trimmed };
+  }
   if (verb === 'cook') {
     return { route: 'vibe', value: trimmed };
   }
@@ -127,7 +146,12 @@ export function composeCommand(verb: string, input: string): ComposedCommand {
  * `requiresInput` is true (cook/research) needs non-empty trimmed input;
  * the optional-arg verbs (qa/verify/map) can always submit.
  */
-export function canSubmit(verb: string, input: string): boolean {
+export function canSubmit(verb: string | null, input: string): boolean {
+  // Phase 02 (milestone 12) — null is the neutral chat sentinel. MUST appear
+  // before the ACTION_VERBS.find lookup: without this guard, the lookup
+  // returns undefined and the function wrongly returns `true` for empty
+  // chat input.
+  if (verb === null) return input.trim().length > 0;
   const entry = ACTION_VERBS.find((v) => v.value === verb);
   if (entry?.requiresInput) {
     return input.trim().length > 0;
@@ -138,10 +162,14 @@ export function canSubmit(verb: string, input: string): boolean {
 /** Verb-aware hint text describing what pressing ↵ / Run will do.
  *  Cook-verb branches on workflow state when supplied (Phase 04). */
 export function hintForVerb(
-  verb: string,
+  verb: string | null,
   workflowState?: WorkflowState,
   activePhasePosition?: string | null,
 ): string {
+  // Phase 02 — null = neutral chat sentinel. Hint row is currently
+  // unrendered (alpha.20 JSX cleanup) but the helper stays exported +
+  // tested for forward-compat.
+  if (verb === null) return '↵ chat';
   if (verb === 'cook' && workflowState !== undefined) {
     switch (workflowState) {
       case 'greenfield':
@@ -176,7 +204,10 @@ export function hintForVerb(
 
 /** Verb-aware input placeholder. Cook-verb branches on workflow state
  *  when supplied (Phase 04); all other verbs ignore it. */
-export function placeholderForVerb(verb: string, workflowState?: WorkflowState): string {
+export function placeholderForVerb(verb: string | null, workflowState?: WorkflowState): string {
+  // Phase 02 — null = neutral chat sentinel. Short, friendly, mirrors the
+  // Phase-03 ChatPanel empty-state copy.
+  if (verb === null) return 'Chat with the LLM…';
   if (verb === 'cook' && workflowState !== undefined) {
     switch (workflowState) {
       case 'greenfield':
@@ -208,9 +239,12 @@ export function placeholderForVerb(verb: string, workflowState?: WorkflowState):
 
 export const TopBar: Component<TopBarProps> = (props) => {
   const [input, setInput] = createSignal('');
+  // Phase 02 (milestone 12 — free-talk mode) — neutral chat is the DEFAULT.
   // The selected verb is local TopBar UI state — not in the store, not
-  // persisted (keep it simple, mirroring the `input` signal). cook default.
-  const [verb, setVerb] = createSignal<string>('cook');
+  // persisted (keep it simple, mirroring the `input` signal). null is the
+  // chat sentinel; selecting cook/research/qa/verify/map from the <select>
+  // flips to command mode. Clicking the `×` chip returns to neutral.
+  const [verb, setVerb] = createSignal<string | null>(null);
 
   // alpha.20 — `hint` memo removed alongside the hint row in JSX. The
   // `hintForVerb` helper stays exported (consumed by test files).
@@ -255,6 +289,16 @@ export const TopBar: Component<TopBarProps> = (props) => {
     e.preventDefault();
     const selectedVerb = verb();
     if (!canSubmit(selectedVerb, input())) return;
+    // Phase 02 — neutral chat branch MUST short-circuit BEFORE composeCommand.
+    // When verb is null, route directly to props.onChat (optional — Phase 03
+    // wires it from App.tsx). If onChat is unwired, the submit clears the
+    // input and no-ops; the slate-muted styling is the user contract.
+    if (selectedVerb === null) {
+      const text = input().trim();
+      setInput('');
+      await props.onChat?.(text);
+      return;
+    }
     const composed = composeCommand(selectedVerb, input());
     // Clear the typed content; leave the verb sticky — a user running
     // several cook prompts shouldn't have to re-pick it each time.
@@ -298,8 +342,8 @@ export const TopBar: Component<TopBarProps> = (props) => {
             class="topbar-cmd-verb"
             aria-label="Command"
             disabled={controlsDisabled()}
-            value={verb()}
-            onChange={(e) => setVerb(e.currentTarget.value)}
+            value={verb() ?? ''}
+            onChange={(e) => setVerb(e.currentTarget.value || null)}
           >
             <For each={ACTION_VERBS}>{(v) => <option value={v.value}>{v.label}</option>}</For>
           </select>
