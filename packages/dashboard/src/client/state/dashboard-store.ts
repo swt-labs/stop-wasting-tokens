@@ -308,6 +308,30 @@ export interface DashboardState {
    */
   activeSessionId: string | null;
   /**
+   * Plan 02-01 (milestone 13, Phase 02) — the single in-flight cook askUser
+   * prompt, or `null` when no cook prompt is awaiting a user response.
+   * SET by the `prompt.request` reducer branch when the event's `session_id`
+   * matches `state.activeSessionId` (cook-session correlation key, Scout
+   * Cross-cutting #8). CLEARED by the matching `prompt.response` (user
+   * answered) OR `cook.ask_user_timeout` (UI-cosmetic expiry).
+   *
+   * Single-card invariant (Scout §7): there is only one active cook prompt
+   * at a time — a second `prompt.request` while this slot is non-null
+   * OVERWRITES the slot. The older `CookAskUserEntry` items remain in
+   * `unifiedLog` with `status: 'pending'`; Phase 03 may render them as
+   * 'missed' visually but Phase 02 does not auto-mutate their status.
+   *
+   * `allowFreeform` defaults to `true` for cook prompts — the
+   * AskUserQuestion contract treats freeform as the universal escape hatch;
+   * Phase 03 may refine if a per-prompt opt-out signal is added.
+   */
+  cookAwaitingUser: {
+    askUserId: string;
+    question: string;
+    options: Array<{ value: string; label: string; description?: string }>;
+    allowFreeform: boolean;
+  } | null;
+  /**
    * Plan 04-03 (Phase 4) — the in-progress OAuth login flow, or `null` when
    * no OAuth login is running. The `ProviderAuthPanel`'s source of truth for
    * what to render during an OAuth login. Token-free by construction (see
@@ -535,6 +559,7 @@ export function createDashboardStore(
     },
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
+    cookAwaitingUser: null,
     oauthFlow: null,
     initSession: null,
   });
@@ -862,6 +887,27 @@ export function createDashboardStore(
           subtype: 'budget_resume',
           message: `budget refilled — session ${evt.session_id.slice(0, 8)} resuming`,
         });
+        return;
+      }
+      case 'cook.ask_user_timeout': {
+        // Plan 02-01 (milestone 13, Phase 02) — UI-cosmetic timeout marker
+        // (Scout §6): mark the matching CookAskUserEntry `status: 'expired'`
+        // and clear `cookAwaitingUser` if it still points at this prompt.
+        // The cook-side askUser promise times out independently and
+        // surfaces via cook.error — Phase 02 does NOT resolve the cook
+        // promise from this path.
+        setState('unifiedLog', (prev) =>
+          prev.map((entry) =>
+            entry.kind === 'cook-ask-user' &&
+            entry.prompt_id === evt.prompt_id &&
+            entry.status === 'pending'
+              ? { ...entry, status: 'expired' as const }
+              : entry,
+          ),
+        );
+        if (state.cookAwaitingUser?.askUserId === evt.prompt_id) {
+          setState('cookAwaitingUser', null);
+        }
         return;
       }
       case 'cook.file_write':
@@ -1354,6 +1400,69 @@ export function createDashboardStore(
         errorCode: evt.code,
       });
       pushError(`${evt.code}: ${evt.message}`);
+      return;
+    }
+    if (evt.type === 'prompt.request') {
+      // Plan 02-01 (milestone 13, Phase 02) — cook askUser emit half. Only
+      // prompt.request events whose `session_id` matches the active cook
+      // session produce CookAskUserEntry items in unifiedLog. Other
+      // prompt.request events (init Lead, init-test seams, /vbw subagent
+      // prompts) MUST NOT pollute the cook log (Scout Cross-cutting #8).
+      if (evt.session_id !== state.activeSessionId) return;
+      // Translate AskUserOption `{label, isRecommended?}` → CookAskUserEntry
+      // `{value, label, description?}`. Per plan must_have: `label` is used
+      // as both `value` AND `label` (orchestrator round-trips selectedOption
+      // against the original label string); `isRecommended` is stashed in
+      // `description` as a sentinel ('Recommended — ' prefix) so Phase 03
+      // can render the visual cue without a schema change. Phase 03 may
+      // revisit if a dedicated `recommended` flag becomes needed.
+      const translatedOptions = evt.options.map((o) => ({
+        value: o.label,
+        label: o.label,
+        ...(o.isRecommended === true ? { description: 'Recommended' } : {}),
+      }));
+      pushLogEntry({
+        kind: 'cook-ask-user',
+        id: `log-cook-ask-${++logSeq}`,
+        ts: evt.ts,
+        session_id: evt.session_id,
+        prompt_id: evt.prompt_id,
+        question: evt.question,
+        options: translatedOptions,
+        status: 'pending',
+      });
+      // Single-card invariant (Scout §7): a second prompt.request while the
+      // slot is still set OVERWRITES; older un-answered entries remain in
+      // unifiedLog with `status: 'pending'`. Freeform escape hatch is on
+      // by default — Phase 03 may refine if a per-prompt opt-out signal is
+      // ever introduced.
+      setState('cookAwaitingUser', {
+        askUserId: evt.prompt_id,
+        question: evt.question,
+        options: translatedOptions,
+        allowFreeform: true,
+      });
+      return;
+    }
+    if (evt.type === 'prompt.response') {
+      // Plan 02-01 (milestone 13, Phase 02) — cook askUser answer half.
+      // Match by prompt_id (NOT session_id — the prompt's session_id is the
+      // authoritative source for the matching entry, which we already
+      // stamped on append). If no matching CookAskUserEntry exists, ignore
+      // defensively — could be a response for a non-cook prompt.
+      const reply = evt.selectedOption ?? evt.freeform ?? '';
+      setState('unifiedLog', (prev) =>
+        prev.map((entry) =>
+          entry.kind === 'cook-ask-user' &&
+          entry.prompt_id === evt.prompt_id &&
+          entry.status === 'pending'
+            ? { ...entry, status: 'answered' as const, reply }
+            : entry,
+        ),
+      );
+      if (state.cookAwaitingUser?.askUserId === evt.prompt_id) {
+        setState('cookAwaitingUser', null);
+      }
       return;
     }
     if (evt.type === 'agent.prompt') {

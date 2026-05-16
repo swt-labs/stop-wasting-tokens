@@ -556,3 +556,283 @@ describe('cook event reducer', () => {
     });
   });
 });
+
+/**
+ * Plan 02-01 (milestone 13, Phase 02) — cook askUser SSE bridge reducer.
+ *
+ * Three reducer cases drive the CookAskUserEntry lifecycle:
+ *   - prompt.request (cook-session-correlated) → push entry `pending` + set slot
+ *   - prompt.response (prompt_id match)        → mutate entry `answered` + clear slot
+ *   - cook.ask_user_timeout (prompt_id match)  → mutate entry `expired`  + clear slot
+ *
+ * Correlation key: `evt.session_id === state.activeSessionId` (cook session)
+ * for the emit half; `prompt_id` for both response halves. Non-cook prompts
+ * (init Lead, /vbw subagents, init-test seams) MUST NOT pollute the unified
+ * log (Scout Cross-cutting #8).
+ *
+ * Single-card invariant (Scout §7): a second prompt.request while the slot
+ * is still set OVERWRITES the slot; the older CookAskUserEntry is NOT
+ * auto-mutated (Phase 03 may render as 'missed' visually).
+ */
+describe('cook askUser reducer — prompt.request / prompt.response / cook.ask_user_timeout', () => {
+  const TS = '2026-05-17T00:00:00Z';
+  const COOK_SID = 'cook-session-1';
+
+  const seedActiveSession = (
+    actions: ReturnType<typeof createDashboardStore>[1],
+    session_id: string,
+  ): void => {
+    actions.applyEvent({
+      type: 'cook.priority_decision',
+      ts: TS,
+      session_id,
+      priority: 5,
+      mode: 'execute',
+    });
+  };
+
+  it('C.1 — prompt.request with session_id === activeSessionId appends CookAskUserEntry + sets cookAwaitingUser', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      const baseLogLen = state.unifiedLog.length;
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-1',
+        question: 'Proceed with scope?',
+        options: [
+          { label: 'Yes', isRecommended: true },
+          { label: 'No' },
+        ],
+      });
+      expect(state.unifiedLog.length).toBe(baseLogLen + 1);
+      const entry = state.unifiedLog[state.unifiedLog.length - 1];
+      expect(entry.kind).toBe('cook-ask-user');
+      if (entry.kind === 'cook-ask-user') {
+        expect(entry.prompt_id).toBe('p-1');
+        expect(entry.session_id).toBe(COOK_SID);
+        expect(entry.question).toBe('Proceed with scope?');
+        expect(entry.status).toBe('pending');
+        expect(entry.options).toEqual([
+          { value: 'Yes', label: 'Yes', description: 'Recommended' },
+          { value: 'No', label: 'No' },
+        ]);
+      }
+      expect(state.cookAwaitingUser).not.toBeNull();
+      expect(state.cookAwaitingUser?.askUserId).toBe('p-1');
+      expect(state.cookAwaitingUser?.question).toBe('Proceed with scope?');
+      expect(state.cookAwaitingUser?.allowFreeform).toBe(true);
+      dispose();
+    });
+  });
+
+  it('C.2 — prompt.request with session_id !== activeSessionId is IGNORED (no entry, no slot)', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      const baseLogLen = state.unifiedLog.length;
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: 'init-lead-session',
+        prompt_id: 'p-init-1',
+        question: 'Init Lead question?',
+        options: [{ label: 'OK' }],
+      });
+      expect(state.unifiedLog.length).toBe(baseLogLen);
+      expect(state.cookAwaitingUser).toBeNull();
+      dispose();
+    });
+  });
+
+  it('C.3 — prompt.response with matching prompt_id mutates entry to answered + clears slot', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-3',
+        question: 'Q?',
+        options: [{ label: 'Yes' }, { label: 'No' }],
+      });
+      actions.applyEvent({
+        type: 'prompt.response',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-3',
+        selectedOption: 'Yes',
+        freeform: null,
+      });
+      const entry = state.unifiedLog[state.unifiedLog.length - 1];
+      expect(entry.kind).toBe('cook-ask-user');
+      if (entry.kind === 'cook-ask-user') {
+        expect(entry.status).toBe('answered');
+        expect(entry.reply).toBe('Yes');
+      }
+      expect(state.cookAwaitingUser).toBeNull();
+      dispose();
+    });
+  });
+
+  it('C.4 — prompt.response with freeform (Other path) carries freeform into reply', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-4',
+        question: 'Q?',
+        options: [{ label: 'A' }],
+      });
+      actions.applyEvent({
+        type: 'prompt.response',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-4',
+        selectedOption: null,
+        freeform: 'custom text',
+      });
+      const entry = state.unifiedLog[state.unifiedLog.length - 1];
+      expect(entry.kind).toBe('cook-ask-user');
+      if (entry.kind === 'cook-ask-user') {
+        expect(entry.status).toBe('answered');
+        expect(entry.reply).toBe('custom text');
+      }
+      expect(state.cookAwaitingUser).toBeNull();
+      dispose();
+    });
+  });
+
+  it('C.5 — cook.ask_user_timeout with matching prompt_id mutates entry to expired + clears slot', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-5',
+        question: 'Q?',
+        options: [{ label: 'A' }],
+      });
+      actions.applyEvent({
+        type: 'cook.ask_user_timeout',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-5',
+      });
+      const entry = state.unifiedLog[state.unifiedLog.length - 1];
+      expect(entry.kind).toBe('cook-ask-user');
+      if (entry.kind === 'cook-ask-user') {
+        expect(entry.status).toBe('expired');
+        expect(entry.reply).toBeUndefined();
+      }
+      expect(state.cookAwaitingUser).toBeNull();
+      dispose();
+    });
+  });
+
+  it('C.6 — cook.ask_user_timeout with unknown prompt_id is a no-op', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-6',
+        question: 'Q?',
+        options: [{ label: 'A' }],
+      });
+      const beforeLogLen = state.unifiedLog.length;
+      actions.applyEvent({
+        type: 'cook.ask_user_timeout',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-does-not-exist',
+      });
+      expect(state.unifiedLog.length).toBe(beforeLogLen);
+      // The original 'p-6' entry is still pending; slot unchanged.
+      const entry = state.unifiedLog[state.unifiedLog.length - 1];
+      if (entry.kind === 'cook-ask-user') {
+        expect(entry.status).toBe('pending');
+      }
+      expect(state.cookAwaitingUser?.askUserId).toBe('p-6');
+      dispose();
+    });
+  });
+
+  it('C.7 — second prompt.request for same cook session OVERWRITES slot but does NOT mutate prior entry status', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-7a',
+        question: 'First?',
+        options: [{ label: 'A' }],
+      });
+      const firstEntryAfterAppend = state.unifiedLog[state.unifiedLog.length - 1];
+      expect(firstEntryAfterAppend.kind).toBe('cook-ask-user');
+      actions.applyEvent({
+        type: 'prompt.request',
+        ts: TS,
+        session_id: COOK_SID,
+        prompt_id: 'p-7b',
+        question: 'Second?',
+        options: [{ label: 'B' }],
+      });
+      // Slot now points at the second prompt.
+      expect(state.cookAwaitingUser?.askUserId).toBe('p-7b');
+      // The first entry is still in the log AND still pending.
+      const firstStill = state.unifiedLog.find(
+        (e) => e.kind === 'cook-ask-user' && e.prompt_id === 'p-7a',
+      );
+      expect(firstStill?.kind).toBe('cook-ask-user');
+      if (firstStill?.kind === 'cook-ask-user') {
+        expect(firstStill.status).toBe('pending');
+      }
+      // The second entry is present and pending.
+      const secondEntry = state.unifiedLog.find(
+        (e) => e.kind === 'cook-ask-user' && e.prompt_id === 'p-7b',
+      );
+      if (secondEntry?.kind === 'cook-ask-user') {
+        expect(secondEntry.status).toBe('pending');
+      }
+      dispose();
+    });
+  });
+
+  it('C.8 — chat.* reducers continue to work unchanged (no CookAskUserEntry side-effects)', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      seedActiveSession(actions, COOK_SID);
+      actions.applyEvent({
+        type: 'chat.start',
+        ts: TS,
+        chat_session_id: 'chat-1',
+        prompt: 'hi',
+      });
+      actions.applyEvent({
+        type: 'chat.message_delta',
+        ts: TS,
+        chat_session_id: 'chat-1',
+        text: 'hello back',
+      });
+      // No CookAskUserEntry was created by the chat flow.
+      const cookAskEntries = state.unifiedLog.filter((e) => e.kind === 'cook-ask-user');
+      expect(cookAskEntries.length).toBe(0);
+      // cookAwaitingUser is still null — chat does NOT touch it.
+      expect(state.cookAwaitingUser).toBeNull();
+      dispose();
+    });
+  });
+});
