@@ -602,10 +602,7 @@ describe('cook askUser reducer — prompt.request / prompt.response / cook.ask_u
         session_id: COOK_SID,
         prompt_id: 'p-1',
         question: 'Proceed with scope?',
-        options: [
-          { label: 'Yes', isRecommended: true },
-          { label: 'No' },
-        ],
+        options: [{ label: 'Yes', isRecommended: true }, { label: 'No' }],
       });
       expect(state.unifiedLog.length).toBe(baseLogLen + 1);
       const entry = state.unifiedLog[state.unifiedLog.length - 1];
