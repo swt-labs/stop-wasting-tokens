@@ -27,6 +27,7 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
+import type * as RuntimeOAuthRefreshModule from '../../../runtime/src/credentials/oauth/oauth-refresh.js';
 import { resolveSpawnCredential } from '../../src/commands/cook.js';
 
 // `store.get` is the keychain seam; `refreshMock` is the SWT-owns-refresh
@@ -63,8 +64,7 @@ vi.mock('../../../runtime/src/credentials/oauth/oauth-refresh.ts', async (import
   // Spread the real module so `OAuthRefreshError` (the class the suite drives
   // the `instanceof` degrade branch with) stays the genuine one — only
   // `refreshOAuthCredentialsIfNeeded` is swapped for a controllable vi.fn().
-  const actual =
-    await importActual<typeof import('../../../runtime/src/credentials/oauth/oauth-refresh.js')>();
+  const actual = await importActual<typeof RuntimeOAuthRefreshModule>();
   return {
     ...actual,
     refreshOAuthCredentialsIfNeeded: refreshMock,
