@@ -26,6 +26,7 @@ import { registerCommandRoute } from './routes/command.js';
 import { registerCommandsRoute } from './routes/commands.js';
 import { registerConfigRoute } from './routes/config.js';
 import { registerCookControlRoute } from './routes/cook-control.js';
+import { registerCookRespondRoute } from './routes/cook-respond.js';
 import { registerCookStartRoute } from './routes/cook-start.js';
 import { registerDebugEmitRoute } from './routes/debug-emit.js';
 import { registerDetectPhaseRoute } from './routes/detect-phase.js';
@@ -322,6 +323,13 @@ export function createApp(
   // (signal-file via writePendingSignal).
   registerCookStartRoute(app, { projectRoot: cwd, bus });
   registerCookControlRoute(app, { projectRoot: cwd });
+  // Plan 02-01 (milestone 13, Phase 02) — POST /api/cook/respond:
+  // cook-aware wrapper over the existing prompts response logic. Validates
+  // `cook_session_id` correlation BEFORE delegating to the same
+  // bus.publish(prompt.response) + dropPendingPrompt() in-process logic
+  // that `POST /api/prompts/:id/respond` runs. Reuses the prompt.response
+  // event — no parallel cook.user_responded variant.
+  registerCookRespondRoute(app, bus);
   // Plan 01-03 (milestone 12, Phase 01) — POST /api/chat Free-talk Mode
   // route. The factory mirrors the cook-start / init pattern: a
   // self-contained Hono sub-app mounted at /api/chat. The registry holds

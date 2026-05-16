@@ -26,6 +26,13 @@
  * No filesystem mutation = no atomic-write discipline required here; the
  * test pattern is "POST then assert bus.publish was called" (see
  * `packages/dashboard/test/routes/prompts.test.ts`).
+ *
+ * Plan 02-01 (milestone 13, Phase 02) — `dropPendingPrompt(promptId)` is
+ * a small sibling export consumed by the cook-aware response route at
+ * `./cook-respond.ts`. It returns the removed PromptRequestEvent (or
+ * undefined when no match) so the cook-respond handler can read the
+ * originating `session_id` AND drop the entry in one call. The existing
+ * `POST /api/prompts/*` public contract is unchanged.
  */
 
 import {
@@ -79,6 +86,20 @@ export function __resetPendingPromptsForTest(): void {
  */
 export function getPendingPrompts(): PromptRequestEvent[] {
   return Array.from(pendingPrompts.values());
+}
+
+/**
+ * Plan 02-01 (milestone 13, Phase 02) — drop a single pending prompt by
+ * id, returning the removed entry (or `undefined` when no match). Consumed
+ * by the cook-aware response route at `./cook-respond.ts` so it can read
+ * the originating prompt's `session_id` AND drop the entry in one call,
+ * keeping the pendingPrompts Map encapsulated.
+ */
+export function dropPendingPrompt(promptId: string): PromptRequestEvent | undefined {
+  const existing = pendingPrompts.get(promptId);
+  if (existing === undefined) return undefined;
+  pendingPrompts.delete(promptId);
+  return existing;
 }
 
 export function registerPromptsRoute(app: Hono, bus: EventBus): void {
