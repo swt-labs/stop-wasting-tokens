@@ -4,6 +4,7 @@ import { Show, createMemo, createSignal, onCleanup, onMount, type Component } fr
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
+import { ChatPanel } from './components/ChatPanel.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
@@ -114,6 +115,7 @@ export const App: Component = () => {
         activePhasePosition={activePhasePosition()}
         onCommand={actions.runCommand}
         onVibe={actions.startVibeSession}
+        onChat={actions.startChat}
         optionsMenuOpen={state.optionsMenuOpen}
         onToggleOptionsMenu={actions.toggleOptionsMenu}
         onCloseOptionsMenu={actions.closeOptionsMenu}
@@ -268,13 +270,29 @@ export const App: Component = () => {
                   minSize={0.1}
                   class="resizable-panel"
                 >
-                  <LogPanel
-                    lines={state.recentLogLines}
-                    conversation={state.vibeSession?.conversation ?? []}
-                    replying={state.vibeReplying}
-                    onReply={actions.replyToActivePrompt}
-                    agentBackend={state.vibeSession?.agent_backend ?? null}
-                  />
+                  {/* Plan 03-02 (milestone 12, Phase 03) — Free-talk Mode
+                      mode-switch (Option B per Scout). When state.chatSession
+                      is non-null, render ChatPanel; otherwise fall back to
+                      LogPanel with its original props verbatim. The cook log
+                      reappears when the user clears the chat (clearChat sets
+                      chatSession to null) — no log lines are lost; they keep
+                      accumulating into state.recentLogLines while chat is
+                      active. Solid's <Show when> with truthy narrowing passes
+                      the non-null ChatSession to the child callback. */}
+                  <Show
+                    when={state.chatSession}
+                    fallback={
+                      <LogPanel
+                        lines={state.recentLogLines}
+                        conversation={state.vibeSession?.conversation ?? []}
+                        replying={state.vibeReplying}
+                        onReply={actions.replyToActivePrompt}
+                        agentBackend={state.vibeSession?.agent_backend ?? null}
+                      />
+                    }
+                  >
+                    {(session) => <ChatPanel session={session()} onClear={actions.clearChat} />}
+                  </Show>
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>
