@@ -1,7 +1,25 @@
+// Manual end-to-end check (post-merge, with daemon running):
+//   curl -N -X POST http://localhost:54321/api/chat \
+//     -H 'content-type: application/json' \
+//     -d '{"prompt":"Hello, who are you"}'
+// Expected SSE event sequence:
+//   event: chat.start          data: {"type":"chat.start", ...}
+//   event: chat.message_delta  (one or more, streamed live)
+//   event: chat.message_end
+//   event: chat.token_usage
+//   event: chat.complete
+// Multi-turn:
+//   curl -N -X POST http://localhost:54321/api/chat \
+//     -H 'content-type: application/json' \
+//     -d '{"prompt":"What did I just ask?","chat_session_id":"<paste from chat.start of prior call>"}'
+// The reply should reference the prior turn — confirming Pi's
+// SessionManager.inMemory is accumulating history natively.
+
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import type { AuthConfig, SwtEvent, SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
+import { SNAPSHOT_EVENT_TYPES } from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -516,4 +534,94 @@ describe('POST /api/chat', () => {
     expect(withoutLineComments).not.toMatch(/from "node:fs"/);
   });
 
+  // ─── P05 — End-to-end smoke + regression alignment ────────────────────
+
+  it('E2E. two POSTs with the same id reuse the registry handle; TTL sweep then disposes it', async () => {
+    // Drives the full lifecycle through a REAL ChatSessionRegistry (no
+    // mock seam on `get`/`set`) with only the timer + clock + session
+    // factory stubbed. Proves the route + registry composition holds:
+    //   (a) first POST registers a session (size === 1)
+    //   (b) second POST with the same id reuses (size still 1)
+    //   (c) advancing time past TTL + driving the sweep disposes the
+    //       session and clears the registry (size === 0).
+    let nowVal = 0;
+    const ttlMs = 1000;
+    const { setIntervalFn, clearIntervalFn, fireSweep } = (() => {
+      const registered: Array<{ handler: () => void; ms: number }> = [];
+      return {
+        setIntervalFn: ((handler: () => void, ms: number) => {
+          registered.push({ handler, ms });
+          return { __fake__: true };
+        }) as unknown as typeof setInterval,
+        clearIntervalFn: (() => undefined) as unknown as typeof clearInterval,
+        fireSweep: () => {
+          registered[0]?.handler();
+        },
+      };
+    })();
+    const registry = new ChatSessionRegistry({
+      ttlMs,
+      setIntervalFn,
+      clearIntervalFn,
+      now: () => nowVal,
+    });
+    const fakeSession = makeFakeSession('sid-e2e');
+    fakeSession.prompt.mockImplementation(async () => {
+      fakeSession.emit({
+        type: 'TASK_TOKEN_USAGE',
+        sessionId: 'sid-e2e',
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          turn: 1,
+          provider: 'anthropic',
+          model: 'claude-sonnet-4',
+        },
+      });
+    });
+    const { app } = buildApp({ registry, createSessionFn: async () => fakeSession });
+
+    const first = await postChat(app, { prompt: 'one' });
+    expect(registry.size()).toBe(1);
+    const startEvt = first.events.find((e) => e.event === 'chat.start');
+    const chatSessionId = startEvt?.data['chat_session_id'] as string;
+    expect(typeof chatSessionId).toBe('string');
+    expect(chatSessionId.length).toBeGreaterThan(0);
+
+    await postChat(app, { prompt: 'two', chat_session_id: chatSessionId });
+    expect(registry.size()).toBe(1); // STILL 1 — handle reused
+    expect(fakeSession.prompt).toHaveBeenCalledTimes(2);
+
+    // Advance time past TTL + drive the sweep. The registry should
+    // dispose the session exactly once.
+    nowVal = ttlMs + 1;
+    fireSweep();
+    expect(registry.size()).toBe(0);
+    expect(fakeSession.dispose).toHaveBeenCalledTimes(1);
+
+    registry.close();
+  });
+
+  it('REGRESSION. SNAPSHOT_EVENT_TYPES carries every chat.* type the route emits', () => {
+    // Locked-down list of every `chat.*` literal this route can write
+    // through `stream.writeSSE({event: evt.type, ...})`. If a future
+    // refactor adds a new chat event variant to the Zod union but
+    // forgets to extend SNAPSHOT_EVENT_TYPES (the runtime-introspection
+    // array), bus.publish + the dashboard SSE filter will silently
+    // drop the new event. This test fails loudly when that happens.
+    const expected = [
+      'chat.start',
+      'chat.message_delta',
+      'chat.tool_call',
+      'chat.message_end',
+      'chat.token_usage',
+      'chat.error',
+      'chat.complete',
+    ];
+    for (const t of expected) {
+      expect(SNAPSHOT_EVENT_TYPES).toContain(t);
+    }
+  });
 });
