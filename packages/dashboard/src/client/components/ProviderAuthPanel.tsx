@@ -285,6 +285,9 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
       <p class="tools-panel-meta">
         Strategy: {props.data?.strategy_kind ?? '—'} · {formatRelative(props.lastFetched)}
       </p>
+      <p class="tools-panel-meta">
+        Chat mode uses the same credential as cook (cook/qa/init all share the resolved key).
+      </p>
 
       <Show when={props.data?.keychain_available === false}>
         <p class="provider-auth-banner tools-panel-banner">

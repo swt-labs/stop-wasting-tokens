@@ -11,6 +11,7 @@ import { ConfigPanel } from './components/ConfigPanel.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
 import { DoctorPanel } from './components/DoctorPanel.js';
+import { FirstRunHint } from './components/FirstRunHint.js';
 import { InitScreen } from './components/InitScreen.js';
 import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
@@ -184,6 +185,7 @@ export const App: Component = () => {
         }
       >
         <main class="app-body">
+          <FirstRunHint state={state} projectRoot={state.snapshot?.project?.root ?? ''} />
           <Resizable
             orientation="horizontal"
             initialSizes={initialLayout.main}

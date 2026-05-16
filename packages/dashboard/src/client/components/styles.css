@@ -3211,3 +3211,48 @@ body {
   font-size: 12px;
   color: var(--danger-red);
 }
+
+/* ============================================================ */
+/*   Plan 04-01 (milestone 12, Phase 04) — First-run Hint banner */
+/*   Mounts inside .app-body, above the resizable phase grid.    */
+/*   Slate-muted neutral palette matches .topbar-cmd-neutral and */
+/*   the Phase 03 chat-panel banner block above.                 */
+/* ============================================================ */
+.first-run-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 6px 8px 0 8px;
+  background: var(--slate-muted-15);
+  border: 1px solid var(--slate-muted);
+  border-radius: 4px;
+  color: var(--ghost-white);
+  font-size: 13px;
+}
+
+.first-run-hint-body {
+  flex: 1 1 auto;
+  line-height: 1.4;
+}
+
+.first-run-hint-body strong {
+  color: var(--terminal-green);
+}
+
+.first-run-hint-close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--slate-muted);
+  color: var(--slate-muted);
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.first-run-hint-close:hover {
+  color: var(--ghost-white);
+  border-color: var(--ghost-white);
+}
