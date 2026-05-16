@@ -14,19 +14,17 @@
  *     hidden.
  *   - Close button (×) writes `"true"` to the same key and sets the
  *     dismissed signal. Persistent across reloads.
+ *   - First-submit auto-persist: a `createEffect` watches the chat /
+ *     vibe session signals; when either transitions from null → non-null
+ *     for the FIRST time after mount, the dismissed signal flips to true
+ *     AND the same localStorage key is written. Persistent across
+ *     reloads — the user does not need to click × explicitly.
  *   - Auto-hide when chat or vibe sessions become non-null is handled
  *     by the shouldShowHint predicate itself (no explicit listener
- *     needed); the in-session case is transient — if the user closes
- *     the session, the hint reappears unless they also clicked × at
- *     some point.
- *
- * Auto-dismiss-on-first-submit variant chosen: persist via the close
- * button ONLY. The predicate-driven auto-hide covers the in-session
- * case; persisting on first-submit would surprise users who briefly
- * toggled chat just to read what the banner said. See 04-01-SUMMARY for
- * the rationale.
+ *     needed for the in-session visual state); the createEffect above
+ *     handles the persistence side-effect required by plan must_have.
  */
-import { Show, createSignal, onMount, type Component } from 'solid-js';
+import { Show, createEffect, createSignal, onMount, type Component } from 'solid-js';
 
 import type { DashboardState } from '../state/dashboard-store.js';
 
@@ -40,6 +38,21 @@ export interface FirstRunHintProps {
 export const FirstRunHint: Component<FirstRunHintProps> = (props) => {
   const [dismissed, setDismissed] = createSignal(false);
 
+  /**
+   * Write `"true"` to the project-scoped localStorage key + flip the
+   * dismissed signal. Shared by the close button and the first-submit
+   * createEffect below.
+   */
+  const persistDismissal = (): void => {
+    try {
+      globalThis.localStorage?.setItem(firstRunHintStorageKey(props.projectRoot), 'true');
+    } catch {
+      // best-effort persistence; signal flip below still hides the
+      // banner for the rest of this tab's lifetime.
+    }
+    setDismissed(true);
+  };
+
   onMount(() => {
     try {
       const stored = globalThis.localStorage?.getItem(firstRunHintStorageKey(props.projectRoot));
@@ -50,14 +63,19 @@ export const FirstRunHint: Component<FirstRunHintProps> = (props) => {
     }
   });
 
-  const handleClose = (): void => {
-    try {
-      globalThis.localStorage?.setItem(firstRunHintStorageKey(props.projectRoot), 'true');
-    } catch {
-      // best-effort persistence; signal flip below still hides the
-      // banner for the rest of this tab's lifetime.
+  // First-submit auto-persist (plan must_have MH-16): when either chat or
+  // vibe session transitions from null → non-null for the FIRST time
+  // after mount, persist dismissal to localStorage so the hint stays
+  // dismissed across reloads even if the user never clicks ×.
+  createEffect(() => {
+    const hasActiveSession = props.state.chatSession !== null || props.state.vibeSession !== null;
+    if (hasActiveSession && !dismissed()) {
+      persistDismissal();
     }
-    setDismissed(true);
+  });
+
+  const handleClose = (): void => {
+    persistDismissal();
   };
 
   return (
