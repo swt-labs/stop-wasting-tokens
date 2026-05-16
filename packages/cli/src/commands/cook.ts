@@ -1038,6 +1038,54 @@ export function stripFrontmatter(md: string): string {
 }
 
 /**
+ * alpha.22 — pattern-match upstream LLM-API failures we have a known SWT-
+ * specific story for, and prepend a short actionable note above the raw
+ * error body. Currently handles the Anthropic Max-plan OAuth "out of
+ * extra usage" case (third-party tools' OAuth requests hit Anthropic's
+ * separate `extra_usage` billing pool, which is empty by default until
+ * Anthropic adds Pi's OAuth client_id to their Max-routing allowlist).
+ *
+ * The raw error stays in the output verbatim — we ONLY prepend context.
+ * Callers pass `result.summary` from a failed dispatcher TaskResult; this
+ * function returns the augmented string for stderr surfacing in both
+ * `cook` and `init`. Lookups are substring-based so the function is
+ * resilient to Anthropic's error-string drift (e.g. wording changes).
+ *
+ * Exported for `init.ts`. Tested via `cook-error-augmenter.test.ts`.
+ */
+export function augmentSpawnError(rawSummary: string | undefined): string {
+  if (rawSummary === undefined || rawSummary.length === 0) return '';
+  // Anthropic Max-plan OAuth → third-party OAuth `extra_usage` pool.
+  // Pi (and therefore SWT) sends `claude-code-20250219` + `oauth-2025-04-20`
+  // + `x-app: cli` + `user-agent: claude-cli/<v>` on every OAuth request,
+  // so the wire format is byte-identical to Claude Code's own. The block
+  // is Anthropic's per-client_id allowlist — Pi authenticates as Pi's
+  // OAuth client (`9d1c250a-e61b-44d9-88ed-5944d1962f5e`), which is
+  // separate from Anthropic's own internal Claude Code client. Until that
+  // client_id is added to the Max-routing allowlist, OAuth requests bill
+  // against the empty `extra_usage` pool → 400 "out of extra usage".
+  if (/out of extra usage/i.test(rawSummary)) {
+    return (
+      `Anthropic returned "out of extra usage" — your OAuth token authenticated successfully,\n` +
+      `but the request was routed to Anthropic's third-party OAuth billing pool (empty by default)\n` +
+      `instead of your Max plan's interactive quota. SWT/Pi sends the correct Claude Code\n` +
+      `identification headers; the bottleneck is Anthropic's per-client_id allowlist.\n` +
+      `\n` +
+      `Workarounds:\n` +
+      `  • Add an Anthropic API key via the dashboard's Provider menu (works today,\n` +
+      `    bills your Console account separately from Max).\n` +
+      `  • Or set ANTHROPIC_API_KEY in your shell env.\n` +
+      `\n` +
+      `Long-term: Anthropic must allowlist Pi's OAuth client_id\n` +
+      `(\`9d1c250a-e61b-44d9-88ed-5944d1962f5e\`) for Max-plan routing.\n` +
+      `\n` +
+      `Raw Anthropic response: ${rawSummary}`
+    );
+  }
+  return rawSummary;
+}
+
+/**
  * Extract a `### Mode: …` section from `commands/cook.md`. The slice runs
  * from the matching heading to the NEXT `### Mode:` heading (exclusive) or
  * EOF, whichever comes first.
@@ -3089,7 +3137,16 @@ async function runMode(
       } catch {
         // best-effort
       }
-      io.stderr.write(`swt cook: orchestrator session returned status="${result.status}".\n`);
+      // alpha.22 — surface result.summary (carries Pi turn_end stopReason
+      // body + augmented context for known upstream-failure patterns).
+      // Pre-alpha.22 cook.ts dropped the summary entirely; only init.ts
+      // surfaced it. Now both paths render identical, actionable failures
+      // to the dashboard via the existing milestone-08 stderr-leak pipe.
+      const augmented = augmentSpawnError(result.summary);
+      const detail = augmented.length > 0 ? `\n\n${augmented}` : '';
+      io.stderr.write(
+        `swt cook: orchestrator session returned status="${result.status}".${detail}\n`,
+      );
       return EXIT.RUNTIME_ERROR;
     }
 

@@ -123,6 +123,18 @@ export function renderDoctorReport(report: DoctorReport): string {
       ? '  ✓ .swt-planning/ present'
       : '  ⚠ .swt-planning/ missing — run `swt init`',
   );
+  // alpha.22 — surface the Pi OAuth client_id. When the user hits the
+  // Anthropic "out of extra usage" error on a valid Max-plan OAuth login,
+  // this is the client_id Anthropic must add to their Max-plan-routing
+  // allowlist. Copy-paste-ready for support thread evidence.
+  lines.push('');
+  lines.push('  Anthropic OAuth client_id (Pi):');
+  lines.push('    9d1c250a-e61b-44d9-88ed-5944d1962f5e');
+  lines.push('    (For Anthropic support: this is the OAuth client SWT/Pi authenticates as.');
+  lines.push('     Until Anthropic allowlists it for Max-plan billing routing, OAuth requests');
+  lines.push(
+    '     hit the third-party "extra_usage" pool. API key is the recommended path today.)',
+  );
   lines.push('');
   return lines.join('\n');
 }

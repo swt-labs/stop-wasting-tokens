@@ -31,6 +31,7 @@ import type { CommandHandler, CommandIO } from '../router.js';
 import type { AuthConfig } from './auth-config.js';
 import {
   SEED_IDEA_SENTINEL,
+  augmentSpawnError,
   loadCookConfig,
   resolveSpawnCredential,
   stripFrontmatter,
@@ -265,6 +266,19 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
             `→ Inherited ${discovered.provider}:${discovered.authMode} credential from keychain (config write failed; using for this spawn only).\n`,
           );
         }
+        // alpha.22 — Anthropic OAuth billing-pool advisory. Surface a one-
+        // line note when the inherited credential is `anthropic:oauth` so
+        // the user has a heads-up BEFORE the Lead spawn (which would
+        // otherwise fail with the augmented "out of extra usage" error
+        // from cook.ts:augmentSpawnError). Symmetric with the dashboard
+        // Provider menu's same advisory.
+        if (discovered.provider === 'anthropic' && discovered.authMode === 'oauth') {
+          io.stdout.write(
+            `  Note: Anthropic OAuth currently routes third-party requests to a separate billing pool.\n` +
+              `  If you hit "out of extra usage" against your Max plan, switch to an API key via the\n` +
+              `  Provider menu (pending Anthropic allowlist approval for SWT's OAuth client_id).\n`,
+          );
+        }
         // Build an in-memory auth config so `resolveSpawnCredential` sees the
         // inherited entry regardless of whether the persist write succeeded.
         // The shape is byte-identical to what `parseAuthConfig` would emit
@@ -314,8 +328,14 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
       // surfacing it here, the dashboard's Log panel only shows "Lead
       // spawn returned status=failed" with zero context — same anti-
       // pattern as the milestone-08 git stderr leak.
-      const summary = result.summary ? ` Summary: ${result.summary}` : '';
-      io.stderr.write(`swt init: Lead spawn returned status="${result.status}".${summary}\n`);
+      //
+      // alpha.22 — augmentSpawnError prepends actionable SWT-specific
+      // context for known upstream-failure patterns (today: Anthropic Max-
+      // plan OAuth third-party billing pool). Symmetric with cook.ts's
+      // error path so both surfaces render identical failures.
+      const augmented = augmentSpawnError(result.summary);
+      const detail = augmented.length > 0 ? `\n\n${augmented}` : '';
+      io.stderr.write(`swt init: Lead spawn returned status="${result.status}".${detail}\n`);
       return EXIT.RUNTIME_ERROR;
     } catch (err) {
       io.stderr.write(

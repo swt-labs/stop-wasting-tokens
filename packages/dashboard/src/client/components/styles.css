@@ -2512,6 +2512,27 @@ body {
   color: rgba(255, 176, 0, 0.7);
 }
 
+/* alpha.22 — Anthropic OAuth billing-pool advisory. Shown beneath the
+   Auth mode radio group when the user picks `anthropic + OAuth`, telling
+   them about the empty third-party billing pool until Anthropic
+   allowlists Pi's client_id. Amber/warning tone — not blocking, but
+   explicit so the user can pick API key knowingly. */
+.provider-auth-oauth-advisory {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(255, 176, 0, 0.5);
+  background: rgba(255, 176, 0, 0.06);
+  color: rgba(255, 230, 180, 0.85);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.provider-auth-oauth-advisory strong {
+  color: rgba(255, 200, 100, 1);
+  font-weight: 600;
+}
+
 /* The "Login with OAuth" button — mirrors .provider-auth-save-btn. */
 .provider-auth-login-btn {
   background: rgba(0, 255, 65, 0.18);

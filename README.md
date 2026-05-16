@@ -80,6 +80,8 @@ export OLLAMA_HOST="http://127.0.0.1:11434"    # Ollama
 
 `swt doctor` will tell you which keys it sees and which providers are reachable.
 
+> **Note on Anthropic OAuth + Max plans:** SWT supports OAuth login flows via the dashboard's Provider menu — your token is stored in your OS keychain (never on disk in plaintext). The OAuth path technically works AND we send the correct Claude Code identification headers (`anthropic-beta: claude-code-20250219,oauth-2025-04-20`, `x-app: cli`, etc.). HOWEVER, Anthropic routes third-party OAuth requests to a separate `extra_usage` billing pool (empty by default) until Anthropic explicitly allowlists SWT's OAuth client*id for Max-plan routing — that approval is **pending**. Until it lands, OAuth users will see *"You're out of extra usage"\_ even on a healthy Max subscription. **The unblocked path today is an API key** (set `ANTHROPIC_API_KEY` or paste into the Provider menu). Run `swt doctor` to surface the Pi OAuth client_id if you need it for an Anthropic support thread.
+
 ### First run — a 60-second tour
 
 In a fresh directory, scaffold a project and enter the agent loop:

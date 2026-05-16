@@ -367,6 +367,21 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
             </Show>
           </label>
         </div>
+        {/* alpha.22 — Anthropic OAuth billing-pool advisory. SWT/Pi sends
+            the correct Claude Code identification headers, but Anthropic
+            routes third-party OAuth requests to a separate `extra_usage`
+            billing pool (empty by default) until Anthropic adds Pi's
+            OAuth client_id to the Max-plan-routing allowlist. Until then,
+            API key is the safer default for guaranteed quota routing. */}
+        <Show when={selectedProvider() === 'anthropic' && selectedMode() === 'oauth'}>
+          <p class="provider-auth-oauth-advisory">
+            <strong>Note:</strong> Anthropic routes third-party OAuth requests to a separate billing
+            pool that's empty by default. Until Anthropic adds SWT's OAuth client to their Max-plan
+            allowlist (pending), <strong>API key</strong> is the recommended path for guaranteed
+            quota routing. OAuth still works, but you may hit "out of extra usage" against your Max
+            plan.
+          </p>
+        </Show>
       </div>
 
       <Show when={selectedMode() === 'api_key'}>
