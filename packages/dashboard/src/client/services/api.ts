@@ -514,6 +514,53 @@ export async function postCookStart(
 }
 
 /**
+ * Plan 03-01 (milestone 12, Phase 03) — `POST /api/chat`. Free-talk Mode's
+ * turn submission. The body shape is `{prompt, chat_session_id?}`: omit
+ * `chat_session_id` on the first turn (the server mints a new id and emits
+ * it on the first `chat.start` SSE event), pass it back on subsequent turns
+ * so the server reuses the registered SwtSession (Pi's
+ * `SessionManager.inMemory` accumulates conversation history natively).
+ *
+ * **Fire-and-forget on the response body.** Unlike `postCookStart`, the
+ * `/api/chat` route returns `Content-Type: text/event-stream` — the HTTP
+ * response IS the SSE stream. There is NO JSON envelope; calling
+ * `res.json()` would parse the first SSE frame as JSON and fail. Per
+ * 01-03-SUMMARY.md line 59, `bus.publish()` runs in parallel with
+ * `stream.writeSSE()`, so every `chat.*` event also arrives on the global
+ * `/api/events` SSE bus — the channel the dashboard store's `applyEvent`
+ * already consumes. The reducer (P04) is the receive channel; this helper
+ * just kicks off the POST and lets the browser drop the response stream
+ * (which closes the upstream socket safely).
+ *
+ * On `!res.ok`: read the error envelope via `readErrorMessage` and throw
+ * `ApiError`. On `res.ok`: resolve immediately to `undefined` WITHOUT
+ * reading the body. The store's `startChat` action consumes this signature
+ * to drive the optimistic state pattern.
+ */
+export interface ChatStartBody {
+  prompt: string;
+  chat_session_id?: string;
+}
+
+export async function postChatStart(prompt: string, chatSessionId?: string): Promise<void> {
+  const body: ChatStartBody = { prompt };
+  if (chatSessionId !== undefined && chatSessionId.length > 0) {
+    body.chat_session_id = chatSessionId;
+  }
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  // res.ok: fire-and-forget. The chat.* SSE frames arrive via /api/events
+  // (bus.publish parallel channel). Do NOT read res.body or res.json().
+}
+
+/**
  * G-D3 — `POST /api/prompts/:id/respond`. The v3 successor to the removed
  * v2 vibe-reply helper that targeted the `/api/vibe/:id/reply` shim. This
  * is the dashboard side of the `swt:askUser` IPC contract from Phase 1 (plan 01-05):
