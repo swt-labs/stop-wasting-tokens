@@ -154,6 +154,19 @@ export {
   journalExtension,
   FileJournalSink,
   MemoryJournalSink,
+  // Phase 03 plan 03-01 T2 — apply_patch (Codex-shape edit primitive).
+  // Surfaced from the runtime root so the orchestration layer can wire it
+  // into spawn-agent when provider==='openai' without dotted-path imports.
+  buildApplyPatchExtension,
+  applyPatchExtension,
+  APPLY_PATCH_TOOL_NAME,
+  parseApplyPatch,
+  type ApplyPatchFs,
+  type BuildApplyPatchExtensionOptions,
+  type ApplyPatchResult,
+  type FileOp,
+  type Hunk,
+  type ChangeLine,
   type SwtReportResultParams,
   type ResultProtocolExtensionOptions,
   type JournalExtensionOptions,

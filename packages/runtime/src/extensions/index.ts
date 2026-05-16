@@ -26,6 +26,20 @@ export {
 export { default as journalExtension } from './journal.js';
 export { buildAllProviderConfigs } from './provider-overrides.js';
 export { default as providerOverridesExtension } from './provider-overrides.js';
+export {
+  APPLY_PATCH_TOOL_NAME,
+  buildApplyPatchExtension,
+  type ApplyPatchFs,
+  type BuildApplyPatchExtensionOptions,
+} from './apply-patch-tool.js';
+export { default as applyPatchExtension } from './apply-patch-tool.js';
+export {
+  parseApplyPatch,
+  type ApplyPatchResult,
+  type FileOp,
+  type Hunk,
+  type ChangeLine,
+} from './apply-patch-parser.js';
 export type {
   PiExtensionAPI,
   PiExtensionContext,
