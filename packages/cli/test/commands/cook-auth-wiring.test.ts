@@ -3,10 +3,12 @@
  * credential-wiring unit suite.
  *
  * Kept ISOLATED from `cook.test.ts` so the Phase 2 wiring tests are a clean
- * unit. The OS keychain is MOCKED end-to-end: `vi.mock('@swt-labs/runtime')`
- * spreads the real barrel and overrides ONLY `resolveCredentialStore` to
- * return a fake `{ store, backend, probe }` whose `store.get` is a `vi.fn()`
- * each test controls. No real keychain, no real Pi is ever contacted.
+ * unit. The OS keychain is MOCKED end-to-end: the test mocks
+ * `@swt-labs/runtime`'s `resolve-store.ts` directly via its cross-package
+ * relative path so the SINGLE mock covers BOTH consumers — the
+ * `@swt-labs/runtime` barrel re-export AND the runtime-internal call inside
+ * `resolveSpawnCredential` (which lives in `@swt-labs/runtime` since Plan
+ * 01-01 / Milestone 12). No real keychain, no real Pi is ever contacted.
  *
  * Coverage:
  *   (a) `loadCookConfig` on a config WITH an `auth` block → `CookConfig.auth`
@@ -26,7 +28,6 @@
  *       pre-Phase-2.
  */
 
-import type * as RuntimeModule from '@swt-labs/runtime';
 import type { TaskResult, TaskBrief, CookEvent } from '@swt-labs/shared';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
@@ -44,26 +45,24 @@ const storeGetMock = vi.hoisted(() =>
   vi.fn<(provider: string, authMode: string) => Promise<string | undefined>>(),
 );
 
-vi.mock('@swt-labs/runtime', async (importActual) => {
-  const actual = await importActual<typeof RuntimeModule>();
-  return {
-    ...actual,
-    // Phase 1's Phase-2 entry point — mocked to a fake store so the suite
-    // never touches the real OS keychain. `backend`/`probe` are present so
-    // the shape matches `ResolvedCredentialStore`; `resolveSpawnCredential`
-    // only destructures `store`.
-    resolveCredentialStore: vi.fn(async () => ({
-      store: {
-        get: storeGetMock,
-        set: vi.fn(),
-        delete: vi.fn(),
-        list: vi.fn(),
-      },
-      backend: 'keychain' as const,
-      probe: { available: true } as const,
-    })),
-  };
-});
+// Plan 01-01 — `resolveSpawnCredential` now lives in `@swt-labs/runtime`. To
+// intercept the keychain call from inside that function (it imports
+// `resolveCredentialStore` from `./resolve-store.js` relative to its own
+// module, NOT through the `@swt-labs/runtime` barrel), we mock the resolve-
+// store module directly via its cross-package relative path. Same pattern
+// as `cook-oauth-e2e.test.ts`.
+vi.mock('../../../runtime/src/credentials/resolve-store.ts', () => ({
+  resolveCredentialStore: vi.fn(async () => ({
+    store: {
+      get: storeGetMock,
+      set: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+    },
+    backend: 'keychain' as const,
+    probe: { available: true } as const,
+  })),
+}));
 
 beforeEach(() => {
   storeGetMock.mockReset();

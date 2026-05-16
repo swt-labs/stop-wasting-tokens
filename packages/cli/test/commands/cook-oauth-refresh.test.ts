@@ -3,13 +3,14 @@
  * unit suite.
  *
  * Kept ISOLATED from `cook-auth-wiring.test.ts` (Phase 2-04's API-key wiring
- * unit). The substrate is MOCKED end-to-end: `vi.mock('@swt-labs/runtime')`
- * spreads the real barrel and overrides `resolveCredentialStore` (a fake
- * `{ store, backend, probe }` whose `store.get` is a `vi.fn()` each test
- * controls) AND `refreshOAuthCredentialsIfNeeded` (a controllable `vi.fn()`).
- * `OAuthRefreshError` is the REAL class — the suite drives the cook callsite's
- * `instanceof OAuthRefreshError` degrade branch with a genuine instance. No
- * real keychain, no real `pi-ai`, no real network.
+ * unit). The substrate is MOCKED end-to-end at the runtime-internal deep
+ * paths (Plan 01-01 — `resolveSpawnCredential` lives in `@swt-labs/runtime`,
+ * and its internal calls go through relative imports, NOT the barrel; the
+ * cross-package relative-path mocks intercept BOTH the barrel re-export
+ * and the runtime-internal references). `OAuthRefreshError` is the REAL
+ * class — the suite drives the callsite's `instanceof OAuthRefreshError`
+ * degrade branch with a genuine instance. No real keychain, no real
+ * `pi-ai`, no real network.
  *
  * Coverage (per the plan's truth bullet):
  *  1. still-valid blob → refreshOAuthCredentialsIfNeeded called with the parsed
@@ -24,7 +25,6 @@
  *     stderr breadcrumb.
  */
 
-import type * as RuntimeModule from '@swt-labs/runtime';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import { resolveSpawnCredential } from '../../src/commands/cook.js';
@@ -41,24 +41,32 @@ const refreshMock = vi.hoisted(() =>
   >(),
 );
 
-vi.mock('@swt-labs/runtime', async (importActual) => {
-  const actual = await importActual<typeof RuntimeModule>();
+// Plan 01-01 — mock the runtime-internal modules `resolveSpawnCredential`
+// imports (via relative paths). A vi.mock on `@swt-labs/runtime` alone would
+// only intercept the barrel re-exports — it does NOT reach the internal
+// relative imports the function actually uses. Mocking the deep paths
+// covers both surfaces. Same cross-package pattern as cook-oauth-e2e.test.ts.
+vi.mock('../../../runtime/src/credentials/resolve-store.ts', () => ({
+  resolveCredentialStore: vi.fn(async () => ({
+    store: {
+      get: storeGetMock,
+      set: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+    },
+    backend: 'keychain' as const,
+    probe: { available: true } as const,
+  })),
+}));
+
+vi.mock('../../../runtime/src/credentials/oauth/oauth-refresh.ts', async (importActual) => {
+  // Spread the real module so `OAuthRefreshError` (the class the suite drives
+  // the `instanceof` degrade branch with) stays the genuine one — only
+  // `refreshOAuthCredentialsIfNeeded` is swapped for a controllable vi.fn().
+  const actual =
+    await importActual<typeof import('../../../runtime/src/credentials/oauth/oauth-refresh.js')>();
   return {
     ...actual,
-    resolveCredentialStore: vi.fn(async () => ({
-      store: {
-        get: storeGetMock,
-        set: vi.fn(),
-        delete: vi.fn(),
-        list: vi.fn(),
-      },
-      backend: 'keychain' as const,
-      probe: { available: true } as const,
-    })),
-    // The SWT-owns-refresh module — mocked to a controllable vi.fn() so the
-    // suite drives the passthrough / refreshed / throw paths. OAuthRefreshError
-    // stays the REAL class (spread from `actual`) so the cook callsite's
-    // `instanceof` check works against a genuine instance.
     refreshOAuthCredentialsIfNeeded: refreshMock,
   };
 });

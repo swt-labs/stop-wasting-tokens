@@ -23,17 +23,20 @@ import { resolve } from 'node:path';
 
 import { AlreadyInitializedError, initProject } from '@swt-labs/core';
 import { spawnAgent } from '@swt-labs/orchestration';
-import { resolveCredentialStore, type AuthMode } from '@swt-labs/runtime';
+import {
+  resolveCredentialStore,
+  resolveSpawnCredential,
+  type AuthConfig,
+  type AuthMode,
+} from '@swt-labs/runtime';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
-import type { AuthConfig } from './auth-config.js';
 import {
   SEED_IDEA_SENTINEL,
   augmentSpawnError,
   loadCookConfig,
-  resolveSpawnCredential,
   stripFrontmatter,
   substitutePlaceholders,
 } from './cook.js';
