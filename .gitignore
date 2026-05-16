@@ -100,7 +100,14 @@ non_production_files/
 # Public commit messages and CHANGELOG entries reference plan
 # numbering (PR-NN) which stays meaningful; the plan files themselves
 # stay on the local machine of whoever's driving the session.
-.vbw-planning/
+#
+# NOTE: written as `.vbw-planning/*` (not `.vbw-planning/`) so git still
+# descends into the directory and honors per-subpath negation rules below
+# (Phase 04 plan 04-01 needs to track .vbw-planning/upstream-prompt-snapshots/).
+# A trailing-slash directory ignore makes the dir itself untracked and
+# blocks any !-prefixed re-inclusion of children. See the negation block
+# at the bottom of this file.
+.vbw-planning/*
 
 # TDD3 working doc (transposition spec — never committed)
 TDD3.md
@@ -178,3 +185,16 @@ scripts/lib/*
 !scripts/prepare-reverification.sh
 !scripts/uat-utils.sh
 !scripts/lib/active-agent-state.sh
+# Phase 04 plan 04-01 T1: upstream-prompt-drift audit script + fixture-driven
+# test seam. Both are SWT-owned (not VBW-vendored), so they need explicit
+# carve-outs to escape the `scripts/*` directory ignore above.
+!scripts/audit-upstream-prompts.sh
+!scripts/test-audit-upstream-prompts.sh
+
+# Phase 04 plan 04-01: upstream-prompt-drift baselines are tracked even though
+# the rest of .vbw-planning/ is local-only. Baselines are the audit's source of
+# truth and must survive across clones for the cron job to compare against.
+# Narrowly carve out ONLY the snapshots subtree — STATE.md, ROADMAP.md, plans,
+# etc. remain local-only per the directory-wide .vbw-planning/ ignore.
+!.vbw-planning/upstream-prompt-snapshots/
+!.vbw-planning/upstream-prompt-snapshots/**
