@@ -471,8 +471,7 @@ export function resolveSpawnAgentConfig(
   // not OpenAI direct, and is intentionally left untouched for now —
   // the conservative default keeps vendor neutrality. Other providers
   // (anthropic, undefined, google, …) follow the same no-op path.
-  const includeApplyPatch =
-    opts.provider === 'openai' && APPLY_PATCH_ELIGIBLE_ROLES.has(opts.role);
+  const includeApplyPatch = opts.provider === 'openai' && APPLY_PATCH_ELIGIBLE_ROLES.has(opts.role);
   const extensions: ReadonlyArray<SpawnAgentExtension> = [
     { name: 'resultProtocol', factory: buildResultProtocolExtension() },
     { name: 'journal', factory: buildJournalExtension({ sink: journalSink }) },

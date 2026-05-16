@@ -249,10 +249,7 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
             return err(lineNo, `Duplicate "*** Move to:" for file ${state.path}`);
           }
           if (state.hunks.length > 0) {
-            return err(
-              lineNo,
-              `"*** Move to:" must precede any hunk body for ${state.path}`,
-            );
+            return err(lineNo, `"*** Move to:" must precede any hunk body for ${state.path}`);
           }
           const target = line.slice(MOVE_TO.length);
           const e = assertRelative(target, lineNo);
@@ -289,10 +286,7 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
           line.startsWith(UPDATE_FILE)
         ) {
           if (state.currentLines.length === 0 && state.currentContexts.every((c) => c === '')) {
-            return err(
-              lineNo,
-              `Update hunk for ${state.path} has no body or context lines.`,
-            );
+            return err(lineNo, `Update hunk for ${state.path} has no body or context lines.`);
           }
           const flushed = flushChangeIntoUpdate(state);
           ops.push(finalizeUpdate(flushed));

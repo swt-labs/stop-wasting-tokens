@@ -11,7 +11,13 @@ import { parseApplyPatch } from '../../src/extensions/apply-patch-parser.js';
  */
 describe('parseApplyPatch — grammar acceptance', () => {
   it('1. add-file: single add hunk with "+"-prefixed lines', () => {
-    const patch = ['*** Begin Patch', '*** Add File: hello.txt', '+Hello', '+world', '*** End Patch'].join('\n');
+    const patch = [
+      '*** Begin Patch',
+      '*** Add File: hello.txt',
+      '+Hello',
+      '+world',
+      '*** End Patch',
+    ].join('\n');
     const r = parseApplyPatch(patch);
     expect(r.ok).toBe(true);
     if (!r.ok) return;

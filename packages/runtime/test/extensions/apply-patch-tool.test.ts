@@ -29,7 +29,7 @@ function makeRecordingPi(): {
   const appended: Array<{ customType: string; data: unknown }> = [];
   const pi: PiExtensionAPI = {
     registerTool<TParams = unknown>(def: PiToolDefinition<TParams>): void {
-      registered.push(def as unknown as PiToolDefinition);
+      registered.push(def as PiToolDefinition);
     },
     on() {
       // unused by apply_patch
@@ -82,7 +82,9 @@ describe('buildApplyPatchExtension — tool registration', () => {
     const { pi, registered } = makeRecordingPi();
     buildApplyPatchExtension()(pi);
     const desc = registered[0]?.description ?? '';
-    expect(desc).toMatch(/Grammar source: codex-rs\/apply-patch\/apply_patch_tool_instructions\.md/);
+    expect(desc).toMatch(
+      /Grammar source: codex-rs\/apply-patch\/apply_patch_tool_instructions\.md/,
+    );
     expect(desc).toMatch(/paraphrased/);
     expect(desc).toMatch(/no verbatim text copied/);
   });

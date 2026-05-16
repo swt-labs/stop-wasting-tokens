@@ -203,11 +203,7 @@ function applyHunkToContent(content: string, hunk: Hunk, path: string): string {
   return head + after + tail;
 }
 
-function applyUpdate(
-  fs: ApplyPatchFs,
-  cwd: string,
-  op: Extract<FileOp, { kind: 'update' }>,
-): void {
+function applyUpdate(fs: ApplyPatchFs, cwd: string, op: Extract<FileOp, { kind: 'update' }>): void {
   const sourcePath = pathInsideCwd(cwd, op.path);
   if (!fs.existsSync(sourcePath)) {
     throw new Error(`apply_patch: Update File source does not exist: ${op.path}`);
@@ -267,8 +263,7 @@ export function buildApplyPatchExtension(
       name: APPLY_PATCH_TOOL_NAME,
       label: 'Apply a structured file-edit patch',
       description: TOOL_DESCRIPTION,
-      promptSnippet:
-        'apply_patch — apply a multi-file diff in the apply_patch grammar in one call',
+      promptSnippet: 'apply_patch — apply a multi-file diff in the apply_patch grammar in one call',
       promptGuidelines: [
         'Always wrap the patch in "*** Begin Patch" … "*** End Patch".',
         'Use one *** Add/Delete/Update File: <relative path> header per file section.',
@@ -276,13 +271,7 @@ export function buildApplyPatchExtension(
         'Paths must be relative; absolute paths are rejected.',
       ],
       parameters: PARAMETERS_JSON_SCHEMA,
-      async execute(
-        _toolCallId,
-        rawParams,
-        _signal,
-        _onUpdate,
-        ctx,
-      ): Promise<PiToolExecuteResult> {
+      async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx): Promise<PiToolExecuteResult> {
         // Pi's runtime validator may pre-check the JSON shape; we still
         // guard the string-presence here in case a non-validating Pi
         // patch release passes through.

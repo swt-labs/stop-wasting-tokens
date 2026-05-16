@@ -47,7 +47,7 @@ function captureRegisteredToolName(factory: (pi: PiExtensionAPI) => void): strin
   const registered: PiToolDefinition[] = [];
   const pi: PiExtensionAPI = {
     registerTool<TParams = unknown>(def: PiToolDefinition<TParams>): void {
-      registered.push(def as unknown as PiToolDefinition);
+      registered.push(def as PiToolDefinition);
     },
     on() {
       // ignored for this introspection
