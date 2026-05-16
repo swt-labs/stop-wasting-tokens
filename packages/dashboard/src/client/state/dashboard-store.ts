@@ -89,13 +89,6 @@ export interface InitSessionState {
   started_at: string;
 }
 
-export interface LogLine {
-  id: string;
-  ts: string;
-  channel: 'stdout' | 'stderr';
-  line: string;
-}
-
 export interface UatModalState {
   phase: string;
   scenario: string;
