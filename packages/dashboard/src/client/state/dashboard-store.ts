@@ -211,6 +211,57 @@ export interface ToolsState {
 
 export type ToolsCellKey = keyof ToolsState;
 
+/**
+ * Plan 03-01 (milestone 12, Phase 03) — a single message in a Free-talk Mode
+ * chat conversation. User messages carry `completed: true` immediately on
+ * submit. Assistant messages start `completed: false` (the `chat.start →
+ * chat.message_delta* → chat.message_end` SSE sequence flips them to true).
+ *
+ * `id` is CLIENT-GENERATED for Solid `<For>` keying — it never reaches the
+ * server. `tools_called` accumulates as `chat.tool_call` events arrive;
+ * `usage` is set once on `chat.token_usage`; `error` is set on `chat.error`.
+ */
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  tools_called?: string[];
+  usage?: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    provider: string;
+    model: string;
+  };
+  error?: { code: string; message: string };
+  completed: boolean;
+}
+
+/**
+ * Plan 03-01 (milestone 12, Phase 03) — the in-flight Free-talk Mode chat
+ * session, or `null` when no chat is active. `chat_session_id` is set
+ * OPTIMISTICALLY to `''` on the first `startChat()` call and adopted from the
+ * server-issued id when the first `chat.start` SSE event arrives (via the
+ * `/api/events` bus channel — POST /api/chat returns text/event-stream, not
+ * JSON). On subsequent (multi-turn) `startChat` calls, the action reads
+ * `state.chatSession?.chat_session_id` and passes it back so the server reuses
+ * the registered SwtSession (Pi's `SessionManager.inMemory` accumulates
+ * conversation history natively).
+ *
+ * `streaming` gates the panel's Clear button while a turn is in-progress;
+ * `status` carries richer terminal states (`error` / `done`) so the panel can
+ * render an error banner without losing the streaming flag's semantics. The
+ * slight redundancy is intentional v1 (see Lead's plan §context).
+ */
+export interface ChatSession {
+  chat_session_id: string;
+  started_at: string;
+  messages: ChatMessage[];
+  streaming: boolean;
+  status: 'idle' | 'streaming' | 'error' | 'done';
+}
+
 export interface DashboardState {
   connection: ConnectionState;
   reconnectAttempt: number;
@@ -227,6 +278,20 @@ export interface DashboardState {
   vibeSession: VibeSessionState | null;
   vibeStarting: boolean;
   vibeReplying: boolean;
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — the in-flight Free-talk Mode chat
+   * session, or `null` when no chat is active. See `ChatSession` for the
+   * lifecycle (optimistic `chat_session_id=''` → adopted on `chat.start`;
+   * multi-turn reuse via `state.chatSession?.chat_session_id`; cleared
+   * synchronously by `clearChat()` — server-side TTL handles cleanup).
+   */
+  chatSession: ChatSession | null;
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — mirrors `vibeStarting`. Set to
+   * `true` while `startChat()` awaits the `postChatStart` POST; cleared in
+   * `finally`. Gates the TopBar Send button against double-submit.
+   */
+  chatStarting: boolean;
   /**
    * Phase 1 (Dashboard Options Menu) — whether the TopBar "Options ▾" dropdown
    * is open. Pure client UI state: no SSE event, no tools-cell, no polling.
@@ -427,6 +492,8 @@ export function createDashboardStore(
     vibeSession: null,
     vibeStarting: false,
     vibeReplying: false,
+    chatSession: null,
+    chatStarting: false,
     optionsMenuOpen: false,
     providerMenuOpen: false,
     errors: [],
