@@ -4,7 +4,6 @@ import { Show, createMemo, createSignal, onCleanup, onMount, type Component } fr
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { ArtifactTree } from './components/ArtifactTree.js';
-import { ChatPanel } from './components/ChatPanel.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
@@ -13,13 +12,13 @@ import { DetectPhasePanel } from './components/DetectPhasePanel.js';
 import { DoctorPanel } from './components/DoctorPanel.js';
 import { FirstRunHint } from './components/FirstRunHint.js';
 import { InitScreen } from './components/InitScreen.js';
-import { LogPanel } from './components/LogPanel.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
 import { SettingsSection, buildConfigPatch } from './components/SettingsSection.js';
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
+import { UnifiedLogPanel } from './components/UnifiedLogPanel.js';
 import { UserNotesPanel } from './components/UserNotesPanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
@@ -272,90 +271,24 @@ export const App: Component = () => {
                   minSize={0.1}
                   class="resizable-panel"
                 >
-                  {/* Milestone 13 / Phase 01 (interim) — transitional
-                      adapter that maps the new top-level state shape
-                      (`unifiedLog` + `chat_session_id` + `chatStreaming`
-                      + `chatStatus`) back onto the legacy `LogPanel` +
-                      `ChatPanel` props. The `<Show when={state.chat_session_id}>`
-                      replicates the prior `state.chatSession` mode-switch
-                      verbatim so Phase 01 ships a typecheck-clean
-                      intermediate state. Phase 01 / Plan 01-04 swaps this
-                      entire block for an unconditional <UnifiedLogPanel/>
-                      mount + deletes both legacy panels (Plan 01-05). */}
-                  <Show
-                    when={state.chat_session_id !== null}
-                    fallback={
-                      <LogPanel
-                        lines={state.unifiedLog
-                          .filter(
-                            (e): e is Extract<typeof e, { kind: 'system' }> => e.kind === 'system',
-                          )
-                          .map((e) => ({
-                            id: e.id,
-                            ts: e.ts,
-                            // The legacy `LogLine.channel` is stdout|stderr —
-                            // collapse the new 'internal' discriminator to
-                            // 'stdout' for the adapter; Phase 01 / Plan 01-04
-                            // renders the channel directly via UnifiedLogPanel.
-                            channel: e.channel === 'stderr' ? 'stderr' : 'stdout',
-                            line: e.line,
-                          }))}
-                        conversation={state.vibeSession?.conversation ?? []}
-                        replying={state.vibeReplying}
-                        onReply={actions.replyToActivePrompt}
-                        agentBackend={state.vibeSession?.agent_backend ?? null}
-                      />
-                    }
-                  >
-                    <ChatPanel
-                      session={{
-                        chat_session_id: state.chat_session_id ?? '',
-                        started_at: '',
-                        streaming: state.chatStreaming,
-                        status: state.chatStatus,
-                        messages: state.unifiedLog
-                          .filter(
-                            (e) =>
-                              e.kind === 'chat-user' ||
-                              e.kind === 'chat-assistant' ||
-                              e.kind === 'chat-error',
-                          )
-                          .map((e) => {
-                            if (e.kind === 'chat-user') {
-                              return {
-                                id: e.id,
-                                role: 'user' as const,
-                                text: e.text,
-                                completed: true,
-                              };
-                            }
-                            if (e.kind === 'chat-assistant') {
-                              return {
-                                id: e.id,
-                                role: 'assistant' as const,
-                                text: e.text,
-                                completed: e.completed,
-                                ...(e.tools_called !== undefined
-                                  ? { tools_called: e.tools_called }
-                                  : {}),
-                                ...(e.usage !== undefined ? { usage: e.usage } : {}),
-                              };
-                            }
-                            // chat-error: surface as a sealed assistant
-                            // message carrying the error payload (legacy
-                            // ChatPanel shape).
-                            return {
-                              id: e.id,
-                              role: 'assistant' as const,
-                              text: '',
-                              completed: true,
-                              error: { code: e.code, message: e.message },
-                            };
-                          }),
-                      }}
-                      onClear={actions.clearChat}
-                    />
-                  </Show>
+                  {/* Milestone 13 / Phase 01 — single chronological feed.
+                      Replaces the prior chat-session-keyed mode-switch
+                      between the legacy log + chat panels. UnifiedLogPanel
+                      always mounts; the panel itself dispatches per-kind
+                      rendering via `classifyEntry`. The structural removal
+                      of the chat-session-keyed `<Show>` wrapper also closes
+                      the alpha.24 "cook output hidden behind stale chat
+                      bubble" bug as a byproduct (milestone CONTEXT.md
+                      decision — no interim hotfix). */}
+                  <UnifiedLogPanel
+                    log={state.unifiedLog}
+                    conversation={state.vibeSession?.conversation ?? []}
+                    replying={state.vibeReplying}
+                    chatStreaming={state.chatStreaming}
+                    onReply={actions.replyToActivePrompt}
+                    agentBackend={state.vibeSession?.agent_backend ?? null}
+                    onClearChat={actions.clearChat}
+                  />
                 </Resizable.Panel>
               </Resizable>
             </Resizable.Panel>
