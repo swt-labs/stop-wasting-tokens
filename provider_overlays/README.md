@@ -107,6 +107,44 @@ Coverage is asserted mechanically by `packages/orchestration/test/provider-overl
 
 Anthropic / Google / OpenRouter / Ollama have NO overlays today → fall through to role-prompt-only behavior.
 
+## Upstream-drift audit
+
+The overlays in this directory mirror INTENT from upstream coding-agent prompts (Codex CLI `gpt_5_codex_prompt.md`; Claude Agent SDK `sdk.d.ts`). Upstream WILL drift over time, and citations in overlay frontmatter (`source` / `source_paths`) will silently stale unless detection is automated.
+
+### Automation
+
+- **Script:** `scripts/audit-upstream-prompts.sh` — fetches the two upstream artifacts, computes sha256, compares against pinned baselines under `.vbw-planning/upstream-prompt-snapshots/<date>/`, emits a drift report on stdout when hashes differ. Detection-only; never auto-PRs overlay updates.
+- **Workflow:** `.github/workflows/upstream-prompt-audit.yml` — monthly cron (`0 0 1 * *`, 00:00 UTC on the 1st of each month) plus manual `workflow_dispatch`. On drift: opens a GitHub Issue labeled `upstream-drift` + `audit`. On clean: closes any prior open drift issue with a "clean" comment.
+
+### Cadence
+
+Monthly initially, per TDD §11.6 (conservative default). Codex CLI ships releases ~biweekly; Claude Code daily. Monthly is intentional under-sampling — we'd rather a slightly stale citation than CI spam from non-material upstream churn.
+
+**Escalation criterion:** if the first cron run detects drift, OR a maintainer notices an in-the-wild Codex CLI release that materially changes `gpt_5_codex_prompt.md`'s intent, escalate to weekly (`0 0 * * 0`). Don't bypass straight to daily — the cost of a stale citation is low; the cost of false-positive issue spam is high.
+
+### Maintainer response procedure
+
+When the cron opens an `[Upstream Drift]` issue:
+
+1. **Review the diff context.** The issue body cites the affected artifact + the new sha256. Click through to the upstream source to read what changed.
+2. **Decide whether to update overlays.** Most upstream changes are non-material (typo fixes, comment edits, internal refactors). Material changes (new tool semantics, new prompt sections, removed sections that overlays cite) warrant overlay edits.
+3. **If overlays need updating:** edit the relevant `provider_overlays/<role>-openai.md` file(s); bump `last_tuned` in each affected file's frontmatter to today's date.
+4. **Refresh the baseline.** Run `bash scripts/audit-upstream-prompts.sh --update` locally — this fetches the current upstream artifacts and writes new sha256 files to `.vbw-planning/upstream-prompt-snapshots/$(date -u +%Y-%m-%d)/`. Commit the new baseline files together with any overlay edits.
+5. **Close the issue.** Either let the next cron's "clean" close-comment handle it, or close manually with a one-line summary of what was reviewed.
+
+**License hygiene:** the audit script fetches upstream artifacts into a tempdir, hashes them, and deletes them on exit (via `trap`). Only the sha256 hexes are persisted long-term. Maintainers reviewing diffs should read upstream sources in-browser or in a separate non-tracked checkout — never paste verbatim upstream text into SWT files.
+
+### Manual on-demand run
+
+To audit on-demand without waiting for the cron, either:
+
+- Trigger the workflow manually: GitHub Actions → "Upstream Prompt Audit" → Run workflow.
+- Run locally: `bash scripts/audit-upstream-prompts.sh --verify`. Exit 0 with no output = clean; exit 0 with `DRIFT:` lines on stdout = drift; non-zero exit = script or fetch failure.
+
+### Offline test seam
+
+`scripts/test-audit-upstream-prompts.sh` exercises the audit script's diff logic without depending on the live cron. It fetches the current upstream once, then drives the script in `--dry-run` mode against three fixtures (clean / drift / missing-sha256-binary) and asserts the contract. Run it after any change to `scripts/audit-upstream-prompts.sh` to confirm the diff/exit-code semantics still hold.
+
 ## See also
 
 - `templates/provider-overlay.md` — copy-paste scaffold.
