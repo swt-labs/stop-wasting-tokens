@@ -374,6 +374,93 @@ describe('POST /api/init subprocess wiring', () => {
     expect((errorCall?.[0] as { code?: string }).code).toBe('INIT_SPAWN_FAILED');
   });
 
+  // alpha.20 — Bug B regression. Before this change, init.error.message was
+  // the bare envelope ("init exited with code 3 within Xms"), hiding the
+  // subprocess's stderr cause. The CLI's init.ts has been writing the real
+  // cause to stderr since milestone-10 (e.g. "Lead spawn returned status=
+  // failed. Summary: No API key found for the selected model"), but the
+  // dashboard's error card only saw the envelope. The watchdog now appends
+  // a ring-buffered tail of the recent stderr lines below the envelope.
+  it('alpha.20 — appends recent stderr lines below the envelope in init.error.message', async () => {
+    const recorded: RecordedSpawn[] = [];
+    const { spawnFn, children } = makeFakeSpawn(recorded);
+    const { bus, publishFn } = makeFakeBus();
+
+    const app = new Hono();
+    registerInitRoute(app, {
+      projectRoot: tmpProjectRoot,
+      onInitialized: vi.fn(),
+      getSnapshot: () => null,
+      bus,
+      spawnFn: spawnFn as unknown as InitSpawnFn,
+      initProject: makeFakeInitProject(),
+    });
+
+    const res = await app.request('http://x/api/init', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'foo' }),
+    });
+    expect(res.status).toBe(200);
+
+    // Pump two stderr lines BEFORE the non-zero exit — these mirror what
+    // CLI init.ts writes when the Lead spawn fails on credentials.
+    const stderrCb = children[0]?.stderr.dataCallbacks[0];
+    expect(stderrCb).toBeDefined();
+    stderrCb?.(
+      'swt init: Lead spawn returned status="failed". Summary: No API key found for the selected model.\n',
+    );
+    stderrCb?.('Use /login to log into a provider via OAuth or API key.\n');
+
+    // Then the non-zero exit.
+    children[0]?.exitCallbacks[0]?.(3);
+
+    // bus.publish payload carries the appended cause.
+    const errorCall = publishFn.mock.calls.find(
+      (call) => (call[0] as { type?: string })?.type === 'init.error',
+    );
+    expect(errorCall).toBeDefined();
+    const message = (errorCall?.[0] as { message?: string }).message ?? '';
+    expect(message).toMatch(/exited with code 3 within \d+ms/);
+    expect(message).toContain('No API key found for the selected model');
+    expect(message).toContain('Use /login to log into a provider');
+    // Envelope sits above the cause, separated by a blank line for the
+    // dashboard's `white-space: pre-line` CSS to render cleanly.
+    expect(message).toMatch(/within \d+ms\n\nswt init:/);
+  });
+
+  // Defensive regression: when the subprocess crashes with no stderr at
+  // all (rare — e.g. SIGSEGV before any write), the envelope alone is the
+  // message (no trailing blank lines). The cause-append must be a no-op.
+  it('alpha.20 — no-stderr fast exit keeps the envelope intact (no trailing newlines)', async () => {
+    const recorded: RecordedSpawn[] = [];
+    const { spawnFn, children } = makeFakeSpawn(recorded);
+    const { bus, publishFn } = makeFakeBus();
+
+    const app = new Hono();
+    registerInitRoute(app, {
+      projectRoot: tmpProjectRoot,
+      onInitialized: vi.fn(),
+      getSnapshot: () => null,
+      bus,
+      spawnFn: spawnFn as unknown as InitSpawnFn,
+      initProject: makeFakeInitProject(),
+    });
+
+    await app.request('http://x/api/init', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'foo' }),
+    });
+    children[0]?.exitCallbacks[0]?.(3);
+
+    const errorCall = publishFn.mock.calls.find(
+      (call) => (call[0] as { type?: string })?.type === 'init.error',
+    );
+    const message = (errorCall?.[0] as { message?: string }).message ?? '';
+    expect(message).toMatch(/^init exited with code 3 within \d+ms$/);
+  });
+
   it('HTTP response is non-blocking (returns before subprocess exit)', async () => {
     const recorded: RecordedSpawn[] = [];
     const { spawnFn, children } = makeFakeSpawn(recorded);

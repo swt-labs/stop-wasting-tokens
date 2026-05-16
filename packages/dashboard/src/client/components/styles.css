@@ -574,6 +574,11 @@ body {
   color: var(--danger-red);
   font-family: 'Fira Code', ui-monospace, monospace;
   font-size: 12px;
+  /* alpha.20 — preserve \n line breaks coming from the watchdog's
+     envelope + stderr-tail (`init.ts` route, Bug B fix). `pre-line`
+     also wraps long Pi error strings instead of overflowing the card. */
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .init-actions {

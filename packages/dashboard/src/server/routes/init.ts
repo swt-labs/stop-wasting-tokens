@@ -206,7 +206,17 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
         // rows so dashboard users can see WHY the subprocess crashed.
         // Mirrors cook-start.ts's pattern. Lines are buffered + flushed on
         // \n so partial writes don't fragment a single error message.
+        //
+        // alpha.20 — ALSO retain the last N stderr lines in memory so the
+        // watchdog can include them inline in the `init.error` message body
+        // (Bug B — error surfacing). Pre-alpha.20, the dashboard's init
+        // error card rendered only the bare envelope ("init exited with
+        // code N within Xms"), hiding the real cause that init.ts had
+        // already written to the JSONL. Mirrors the milestone-10 git stderr
+        // leak fix: capture upstream stderr and surface it to the consumer.
         const childWithStderr = child as { stderr?: NodeJS.ReadableStream | null };
+        const recentStderrLines: string[] = [];
+        const RECENT_STDERR_CAP = 8;
         if (childWithStderr.stderr) {
           let stderrBuf = '';
           childWithStderr.stderr.on('data', (chunk: Buffer | string) => {
@@ -216,6 +226,13 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
               const line = stderrBuf.slice(0, nl);
               stderrBuf = stderrBuf.slice(nl + 1);
               if (line.length === 0) continue;
+              // Retain in ring-buffer-style cap so a chatty Lead can't
+              // unbounded-grow this array (the dashboard already throttles
+              // log.append events; this is just for the error envelope).
+              recentStderrLines.push(line);
+              if (recentStderrLines.length > RECENT_STDERR_CAP) {
+                recentStderrLines.shift();
+              }
               try {
                 mkdirSync(daemonEventsDir, { recursive: true });
                 appendFileSync(
@@ -266,14 +283,24 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
                 // (>=5s) ⇒ INIT_FAILED. See file header for rationale.
                 const elapsed = Date.now() - spawnTime;
                 const isFastExit = elapsed < 5000;
+                const envelope = isFastExit
+                  ? `init exited with code ${code} within ${elapsed}ms`
+                  : `init exited with code ${code}`;
+                // alpha.20 — append the captured stderr tail so the dashboard
+                // error card surfaces the real cause inline. The CLI's init.ts
+                // writes its own diagnostic line (e.g. "Lead spawn returned
+                // status=failed. Summary: <Pi error>") via stderr — that line
+                // is what users need to see. If nothing was captured (rare —
+                // means the subprocess crashed before any stderr), the
+                // envelope stays alone.
+                const cause = recentStderrLines.join('\n');
+                const message = cause.length > 0 ? `${envelope}\n\n${cause}` : envelope;
                 const errEvt: InitErrorEvent = {
                   type: 'init.error',
                   ts,
                   session_id: sessionId,
                   code: isFastExit ? 'INIT_SPAWN_FAILED' : 'INIT_FAILED',
-                  message: isFastExit
-                    ? `init exited with code ${code} within ${elapsed}ms`
-                    : `init exited with code ${code}`,
+                  message,
                 };
                 mkdirSync(daemonEventsDir, { recursive: true });
                 appendFileSync(daemonEventsPath, JSON.stringify(errEvt) + '\n');
