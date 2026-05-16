@@ -1,14 +1,18 @@
 <h1 align="center">STOP WASTING TOKENS</h1>
 
+**AI coding without the waste.** SWT is a spec-driven workflow built around one stubborn obsession: ship quality code while burning the fewest tokens possible. Whether you're vibe-coding a weekend prototype or shipping production systems, the harness keeps your agent honest — no improvising past a documented plan, no goal-drift mid-session, no re-reading your codebase three times in one turn. Same discipline for first-timers and senior engineers; same harness, same outcome.
+
 <p align="center">
   <a href="https://www.npmjs.com/package/stop-wasting-tokens"><img src="https://img.shields.io/npm/v/stop-wasting-tokens.svg" alt="npm"></a>
   <a href="https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml"><img src="https://github.com/swt-labs/stop-wasting-tokens/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://discord.com/invite/zh6pV53SaP"><img src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://x.com/SWT_Labs_AI"><img src="https://img.shields.io/badge/Twitter-000000?logo=x&logoColor=white" alt="Twitter"></a>
 </p>
 
----
-
-**AI coding without the waste.** SWT is a spec-driven workflow built around one stubborn obsession: ship quality code while burning the fewest tokens possible. Whether you're vibe-coding a weekend prototype or shipping production systems, the harness keeps your agent honest — no improvising past a documented plan, no goal-drift mid-session, no re-reading your codebase three times in one turn. Same discipline for first-timers and senior engineers; same harness, same outcome.
+<p align="center">
+  <img src="Assets/swt-repo.png" alt="Stop Wasting Tokens" />
+</p>
 
 ---
 
