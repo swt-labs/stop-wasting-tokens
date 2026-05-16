@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.0.0-alpha.19 — 2026-05-16
+
+_Hotfix on top of alpha.18. User smoke-test of the dashboard Init flow against a fresh project failed with `init exited with code 3 within 468ms`. Root-cause investigation surfaced two compounding bugs in `packages/cli/src/commands/init.ts`: (1) **`init.ts` was never resolving provider credentials before spawning the Lead** — `spawnAgent({role, prompt, cwd, sessionId, installRoot})` was called WITHOUT `provider` or `resolvedCredential`, so session.ts fell through to Pi's own auth.json + env-var path. That silently worked for users with `ANTHROPIC_API_KEY` in env or `~/.pi/agent/auth.json`, but broke for OAuth-only users whose credentials live in SWT's keychain. (2) **The error path only logged `result.status`** — `Lead spawn returned status="failed"` — without surfacing `result.summary` (the 500-char-truncated error message that milestone 10's dispatcher fix populates on `session.prompt()` throws). Users saw the symptom (`init exited with code 3`) with zero diagnostic detail. Both bugs are pre-existing — they shipped with the dashboard's Init-subprocess wiring in milestone 08 and have been hiding until milestone 11 raised the surface visibility._
+
+- **`fix(cli): resolve provider credentials in init.ts before spawning Lead`**. Mirrors the `resolveSpawnCredential` pattern in `cook.ts:2915`. init.ts now calls `loadCookConfig(io.cwd)` → picks the first configured provider from `config.auth` → calls `resolveSpawnCredential(provider, config.auth)` → passes the result through to `spawnAgent({...opts, provider, resolvedCredential})`. Graceful degrade on miss: when no `auth` block exists in config.json (greenfield pre-OAuth state), spawn proceeds without credentials and Pi surfaces a clear auth error. The fix is byte-identical to the cook.ts pattern that's been working since milestone 05.
+- **`fix(cli): surface result.summary in init.ts error path`**. The milestone-10 dispatcher fix populates `result.summary` with the (500-char-truncated) error from a thrown `session.prompt()`. init.ts now writes that summary alongside the status in its stderr error message. Before: `swt init: Lead spawn returned status="failed".` After: `swt init: Lead spawn returned status="failed". Summary: session.prompt() threw: No API key found for the selected model.` Same anti-pattern as the milestone-08 git stderr leak — the system had the diagnostic data, but the error surface wasn't relaying it.
+
+**To take it:**
+
+```bash
+npm i -g stop-wasting-tokens@next
+```
+
+**What you need to do if you hit `init exited with code 3` on alpha.18:**
+
+1. Upgrade to alpha.19.
+2. In the dashboard's `Provider ▾` menu, click your provider → re-authenticate (this writes `.swt-planning/config.json`'s auth block, which is what alpha.18 was missing).
+3. Click Initialize. The Lead bootstrap will succeed — your keychain credential is reachable now that config.json declares the provider.
+
+**Verification:** `pnpm typecheck` clean · `pnpm vitest run packages/cli` — 273 passed / 10 skipped / 0 failed. End-to-end smoke against a pre-scaffolded test project with a valid keychain OAuth credential: `swt init "x" --description "y" --skip-scaffold` → exit 0 + `✓ Lead bootstrap complete`. Against a pre-scaffolded project with NO config.json auth block: same command → exit 3 with clear stderr: `Summary: session.prompt() threw: No API key found for the selected model. Use /login to log into a provider via OAuth or API key.`
+
 ## 3.0.0-alpha.18 — 2026-05-16
 
 _Milestones `10-cook-orchestrator-noop-and-git-stderr-leak` (2 phases) **and** `11-best-in-class-provider-prompts-and-tools` (4 phases) both ship in this release — alpha.17 was bumped between them but never published; alpha.18 carries both. Highlights: cook orchestrator now actually calls the LLM (was a 47ms no-op stub since milestone 03); both Anthropic and OpenAI run with their best-in-class tuning; monthly upstream-drift CI cron prevents the overlays from going stale._

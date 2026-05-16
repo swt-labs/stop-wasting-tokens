@@ -18,7 +18,7 @@
  * Pi sessions per task).
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { AlreadyInitializedError, initProject } from '@swt-labs/core';
@@ -27,7 +27,13 @@ import { spawnAgent } from '@swt-labs/orchestration';
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
-import { SEED_IDEA_SENTINEL, stripFrontmatter, substitutePlaceholders } from './cook.js';
+import {
+  SEED_IDEA_SENTINEL,
+  loadCookConfig,
+  resolveSpawnCredential,
+  stripFrontmatter,
+  substitutePlaceholders,
+} from './cook.js';
 
 export interface InitHandlerDeps {
   readonly spawnAgentImpl?: typeof spawnAgent;
@@ -124,6 +130,24 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
       name.trim(),
     );
 
+    // alpha.19 — resolve the configured provider's credential from the project's
+    // `.swt-planning/config.json` + keychain BEFORE spawning the Lead. Pre-alpha.19
+    // init.ts spawned the Lead with no `provider`/`resolvedCredential`, which made
+    // session.ts fall through to Pi's own `auth.json`/env-var resolution. That
+    // worked when the user had `ANTHROPIC_API_KEY` in env or `~/.pi/agent/auth.json`,
+    // but broke for OAuth-only users (credentials live in SWT's keychain). Mirrors
+    // the `resolveSpawnCredential` pattern in cook.ts:2915 — first configured
+    // provider wins (most projects declare one). Graceful degrade on miss: spawn
+    // with no credential, let Pi surface a clear auth error.
+    const cookConfig = loadCookConfig(io.cwd, { readFileSync: readFileSyncFn, existsSync });
+    const configuredProvider = Object.keys(cookConfig.auth)[0];
+    let resolvedAuth:
+      | { provider: string; resolvedCredential: { authMode: 'api_key' | 'oauth'; secret: string } }
+      | undefined;
+    if (configuredProvider !== undefined) {
+      resolvedAuth = await resolveSpawnCredential(configuredProvider, cookConfig.auth);
+    }
+
     io.stdout.write(`\n→ Spawning Lead to detect stack + suggest skills (commands/init.md)...\n`);
     try {
       const result = await spawnAgentFn({
@@ -132,6 +156,12 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
         cwd: io.cwd,
         sessionId,
         installRoot,
+        ...(resolvedAuth !== undefined
+          ? {
+              provider: resolvedAuth.provider,
+              resolvedCredential: resolvedAuth.resolvedCredential,
+            }
+          : {}),
       });
       if (result.status === 'success' || result.status === 'partial') {
         io.stdout.write(
@@ -139,7 +169,14 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
         );
         return EXIT.SUCCESS;
       }
-      io.stderr.write(`swt init: Lead spawn returned status="${result.status}".\n`);
+      // alpha.19 — surface the underlying error from result.summary. The
+      // milestone-10 dispatcher fix populates this with the (500-char-
+      // truncated) message from a thrown session.prompt(). Without
+      // surfacing it here, the dashboard's Log panel only shows "Lead
+      // spawn returned status=failed" with zero context — same anti-
+      // pattern as the milestone-08 git stderr leak.
+      const summary = result.summary ? ` Summary: ${result.summary}` : '';
+      io.stderr.write(`swt init: Lead spawn returned status="${result.status}".${summary}\n`);
       return EXIT.RUNTIME_ERROR;
     } catch (err) {
       io.stderr.write(
