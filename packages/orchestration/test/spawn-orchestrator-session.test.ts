@@ -27,7 +27,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import type * as RuntimeModule from '@swt-labs/runtime';
-import type { SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
+import type { SwtEvent, SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
 import type { PiExtensionAPI, PiToolDefinition } from '@swt-labs/runtime';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -444,11 +444,11 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
       factory: SpawnOrchestratorSessionFactory;
       /** Emit a SwtEvent to all subscribers; for use AFTER the wrapper
        *  has subscribed (i.e. during the prompt() call). */
-      emit: (event: import('@swt-labs/runtime').SwtEvent) => void;
+      emit: (event: SwtEvent) => void;
     } {
-      const listeners: Array<(event: import('@swt-labs/runtime').SwtEvent) => void> = [];
+      const listeners: Array<(event: SwtEvent) => void> = [];
       let promptFired = false;
-      const emit = (event: import('@swt-labs/runtime').SwtEvent): void => {
+      const emit = (event: SwtEvent): void => {
         for (const listener of listeners) listener(event);
       };
       const factory: SpawnOrchestratorSessionFactory = async () => {
@@ -731,10 +731,11 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
       // (always set in vitest env), the default writer should no-op.
       const writes: string[] = [];
       const originalWrite = process.stderr.write.bind(process.stderr);
-      process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (process.stderr as any).write = (chunk: string | Uint8Array): boolean => {
         writes.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
         return true;
-      }) as typeof process.stderr.write;
+      };
       try {
         const eventing = makeEventEmittingFactory();
         const factoryWithEmit: SpawnOrchestratorSessionFactory = async (config) => {
