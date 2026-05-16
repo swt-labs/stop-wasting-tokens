@@ -2,6 +2,7 @@ import type {
   AgentLiveState,
   AgentPromptContext,
   AgentPromptOption,
+  ChatEvent,
   CommandRegistry,
   ConfigSnapshot,
   CookEvent,
@@ -925,7 +926,175 @@ export function createDashboardStore(
     }
   };
 
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — fold the 7 `chat.*` SSE events
+   * from Phase 01's `/api/chat` route (published via `bus.publish` onto the
+   * shared `/api/events` bus channel) into `state.chatSession`.
+   *
+   * **Correlation guard.** Every branch checks
+   * `evt.chat_session_id === state.chatSession?.chat_session_id` and
+   * silently drops mismatches. The single exception is `chat.start` during
+   * OPTIMISTIC ADOPTION — when the current `chat_session_id` is the empty
+   * placeholder `''` set by `startChat`, the branch adopts the
+   * server-issued id. Stale events (e.g. tab reload mid-stream, late
+   * arrival after `clearChat`) are dropped.
+   *
+   * **Synthesis fallback.** `chat.message_delta` / `chat.tool_call` /
+   * `chat.token_usage` / `chat.error` synthesize a new assistant message
+   * when no in-progress one exists. This is defensive: the server SHOULD
+   * always emit `chat.start` first, but the synthesis path keeps the
+   * reducer total — out-of-order events never throw or drop data
+   * silently.
+   *
+   * All array mutations use the functional-update pattern
+   * (`setState('chatSession', 'messages', (msgs) => [...])`) so Solid's
+   * fine-grained reactivity re-renders only the affected message.
+   */
+  const handleChatEvent = (evt: ChatEvent): void => {
+    // chat.start has its own adoption path — handle it first.
+    if (evt.type === 'chat.start') {
+      if (state.chatSession === null) {
+        // No active session — likely a tab reload mid-stream. Silently drop.
+        return;
+      }
+      const currentId = state.chatSession.chat_session_id;
+      if (currentId.length === 0) {
+        // Optimistic adoption: startChat set chat_session_id='' before the
+        // POST; this is the canonical SSE frame that delivers the real id.
+        setState('chatSession', 'chat_session_id', evt.chat_session_id);
+        return;
+      }
+      if (currentId === evt.chat_session_id) {
+        // Re-broadcast (server replayed an event for the same session).
+        // No-op.
+        return;
+      }
+      // Stale — drop.
+      return;
+    }
+    // Correlation guard for the remaining 6 events. A `chat.*` event
+    // arriving with no active session OR a mismatched id is silently
+    // dropped (no pushError — this is a known race).
+    if (state.chatSession === null) return;
+    if (evt.chat_session_id !== state.chatSession.chat_session_id) return;
+    switch (evt.type) {
+      case 'chat.message_delta': {
+        setState('chatSession', 'messages', (msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === 'assistant' && !last.completed) {
+            // Append to the in-progress assistant message.
+            return [...msgs.slice(0, -1), { ...last, text: last.text + evt.text }];
+          }
+          // Defensive: no in-progress assistant message — synthesize one.
+          const synth: ChatMessage = {
+            id: `chat-msg-${++chatMsgSeq}`,
+            role: 'assistant',
+            text: evt.text,
+            completed: false,
+            tools_called: [],
+          };
+          return [...msgs, synth];
+        });
+        return;
+      }
+      case 'chat.tool_call': {
+        setState('chatSession', 'messages', (msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === 'assistant' && !last.completed) {
+            const tools = last.tools_called ?? [];
+            return [...msgs.slice(0, -1), { ...last, tools_called: [...tools, evt.tool] }];
+          }
+          // Defensive: synthesize assistant message holding the tool call.
+          const synth: ChatMessage = {
+            id: `chat-msg-${++chatMsgSeq}`,
+            role: 'assistant',
+            text: '',
+            completed: false,
+            tools_called: [evt.tool],
+          };
+          return [...msgs, synth];
+        });
+        return;
+      }
+      case 'chat.message_end': {
+        // Seal the in-progress assistant message. Does NOT clear
+        // streaming — chat.complete owns that transition.
+        setState('chatSession', 'messages', (msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (!last || last.role !== 'assistant') return msgs;
+          return [...msgs.slice(0, -1), { ...last, completed: true }];
+        });
+        return;
+      }
+      case 'chat.token_usage': {
+        const usage: NonNullable<ChatMessage['usage']> = {
+          input: evt.input,
+          output: evt.output,
+          cacheRead: evt.cacheRead,
+          cacheWrite: evt.cacheWrite,
+          provider: evt.provider,
+          model: evt.model,
+        };
+        setState('chatSession', 'messages', (msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...msgs.slice(0, -1), { ...last, usage }];
+          }
+          // Defensive: synthesize an assistant message carrying the usage.
+          const synth: ChatMessage = {
+            id: `chat-msg-${++chatMsgSeq}`,
+            role: 'assistant',
+            text: '',
+            completed: false,
+            usage,
+          };
+          return [...msgs, synth];
+        });
+        return;
+      }
+      case 'chat.error': {
+        const errPayload = { code: evt.code, message: evt.message };
+        setState('chatSession', 'messages', (msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...msgs.slice(0, -1), { ...last, error: errPayload }];
+          }
+          // Defensive: no assistant message yet — synthesize one carrying
+          // the error so the panel surfaces it inline.
+          const synth: ChatMessage = {
+            id: `chat-msg-${++chatMsgSeq}`,
+            role: 'assistant',
+            text: '',
+            completed: false,
+            error: errPayload,
+          };
+          return [...msgs, synth];
+        });
+        setState('chatSession', 'status', 'error');
+        pushError(`chat error: ${evt.code}: ${evt.message}`);
+        return;
+      }
+      case 'chat.complete': {
+        setState('chatSession', 'streaming', false);
+        // Preserve 'error' if chat.error already fired in this turn; flip
+        // to 'done' otherwise. status === 'streaming' is the in-progress
+        // state set by startChat.
+        setState('chatSession', 'status', (prev) => (prev === 'error' ? 'error' : 'done'));
+        return;
+      }
+    }
+  };
+
   const applyEvent = (evt: SnapshotEvent): void => {
+    // Chat branch goes FIRST so the chat.* prefix routing wins before any
+    // overlapping init./cook./oauth. handling could fire on a future
+    // schema collision. The reducer is self-correlating (drops events
+    // whose chat_session_id does not match state.chatSession), so a stray
+    // chat.* event during a cook session is a safe no-op.
+    if (evt.type.startsWith('chat.')) {
+      handleChatEvent(evt as ChatEvent);
+      return;
+    }
     if (evt.type.startsWith('init.')) {
       handleInitEvent(evt as Extract<SnapshotEvent, { type: `init.${string}` }>);
       return;
