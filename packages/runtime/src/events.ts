@@ -25,7 +25,21 @@ import type { SwtEvent } from './types.js';
 interface PiEventLike {
   readonly type: string;
   readonly sessionId?: string;
-  readonly delta?: { readonly text?: string };
+  // alpha.25 — Pi 0.74 `message_update` events carry text deltas on
+  // `event.assistantMessageEvent` (a discriminated union from
+  // `@earendil-works/pi-ai`'s `AssistantMessageEvent` type). Streamed
+  // assistant text lives at `assistantMessageEvent.delta` when
+  // `assistantMessageEvent.type === 'text_delta'`. The pre-alpha.25
+  // mapper was reading from a non-existent `event.delta.text` path,
+  // so every Pi delta returned `undefined` and the dashboard chat
+  // panel rendered empty assistant bubbles (only `turn_end` token
+  // usage survived). Same goes for `thinking_delta`, `toolcall_delta`
+  // — we currently only surface `text_delta` to the chat UI; the
+  // others are kept undefined-by-design.
+  readonly assistantMessageEvent?: {
+    readonly type?: string;
+    readonly delta?: string;
+  };
   readonly toolCall?: { readonly name: string };
   readonly toolResult?: { readonly name: string };
   readonly turn?: number;
@@ -55,8 +69,21 @@ export function mapPiEvent(raw: unknown, sessionId: string): SwtEvent | undefine
     case 'agent_end':
       return { type: 'AGENT_END', sessionId };
     case 'message_update':
-      if (e.delta?.text !== undefined) {
-        return { type: 'MESSAGE_DELTA', sessionId, text: e.delta.text };
+      // alpha.25 — Pi 0.74 puts streamed text at
+      // `event.assistantMessageEvent.delta` (with discriminator
+      // `assistantMessageEvent.type === 'text_delta'`). The pre-alpha.25
+      // mapper read from `event.delta.text` which is never populated,
+      // so every streamed chunk was silently dropped and the dashboard
+      // rendered empty assistant bubbles. We intentionally do NOT
+      // surface `thinking_delta` (CoT bleed-through) or
+      // `toolcall_delta` (raw function-call arg fragments) to the
+      // chat UI; the orchestrator's tool_execution_start path emits
+      // a single TOOL_CALL when the tool fully arrives.
+      if (
+        e.assistantMessageEvent?.type === 'text_delta' &&
+        typeof e.assistantMessageEvent.delta === 'string'
+      ) {
+        return { type: 'MESSAGE_DELTA', sessionId, text: e.assistantMessageEvent.delta };
       }
       return undefined;
     case 'tool_execution_start':

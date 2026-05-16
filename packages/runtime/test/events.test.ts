@@ -163,3 +163,74 @@ describe('@swt-labs/runtime — mapPiEvent.turn_end provider/model fallback (alp
     }
   });
 });
+
+describe('@swt-labs/runtime — mapPiEvent.message_update MESSAGE_DELTA (alpha.25)', () => {
+  it('emits MESSAGE_DELTA for assistantMessageEvent.type==="text_delta"', () => {
+    // Pi 0.74's actual shape — text deltas live on `assistantMessageEvent`
+    // (a discriminated union from `@earendil-works/pi-ai`'s
+    // `AssistantMessageEvent`). The pre-alpha.25 mapper read from a
+    // non-existent `event.delta.text` path and dropped every chunk, so
+    // the dashboard chat panel rendered empty assistant bubbles.
+    const piEvent = {
+      type: 'message_update',
+      assistantMessageEvent: {
+        type: 'text_delta',
+        contentIndex: 0,
+        delta: 'Hello, ',
+      },
+    };
+    const mapped = mapPiEvent(piEvent, SID);
+    expect(mapped).toEqual({ type: 'MESSAGE_DELTA', sessionId: SID, text: 'Hello, ' });
+  });
+
+  it('returns undefined for assistantMessageEvent.type==="thinking_delta" (CoT bleed-through guard)', () => {
+    // We intentionally do NOT surface chain-of-thought to the chat UI.
+    const piEvent = {
+      type: 'message_update',
+      assistantMessageEvent: {
+        type: 'thinking_delta',
+        contentIndex: 0,
+        delta: 'internal reasoning...',
+      },
+    };
+    expect(mapPiEvent(piEvent, SID)).toBeUndefined();
+  });
+
+  it('returns undefined for assistantMessageEvent.type==="toolcall_delta"', () => {
+    // The orchestrator's tool_execution_start path emits a single
+    // TOOL_CALL when the tool fully arrives — fragmentary toolcall_delta
+    // arg chunks would just be noise.
+    const piEvent = {
+      type: 'message_update',
+      assistantMessageEvent: {
+        type: 'toolcall_delta',
+        contentIndex: 0,
+        delta: '{"file":"',
+      },
+    };
+    expect(mapPiEvent(piEvent, SID)).toBeUndefined();
+  });
+
+  it('returns undefined for legacy `event.delta.text` shape (regression guard against the original bug)', () => {
+    // If this test ever fails it means someone re-wired the old broken
+    // shape. The current mapper MUST only honour the new path.
+    const piEvent = {
+      type: 'message_update',
+      delta: { text: 'partial response' },
+    };
+    expect(mapPiEvent(piEvent, SID)).toBeUndefined();
+  });
+
+  it('returns undefined when assistantMessageEvent is absent', () => {
+    const piEvent = { type: 'message_update' };
+    expect(mapPiEvent(piEvent, SID)).toBeUndefined();
+  });
+
+  it('returns undefined when assistantMessageEvent.delta is not a string', () => {
+    const piEvent = {
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: 42 },
+    };
+    expect(mapPiEvent(piEvent, SID)).toBeUndefined();
+  });
+});

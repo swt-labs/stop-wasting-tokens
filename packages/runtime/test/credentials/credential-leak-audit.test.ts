@@ -26,8 +26,10 @@ import type { PiExtensionAPI, PiExtensionContext } from '../../src/extensions/pi
  * The journal/transcript JSONL path is `buildJournalExtension` →
  * `mapPiEvent` → `JournalSink.write`. `mapPiEvent` (events.ts) is a
  * fixed-field projection of raw Pi events — it reads only `type`,
- * `sessionId`, `delta.text`, `toolCall.name`, `toolResult.name`, `turn`,
- * `provider`, `model`, `usage` — and emits a closed `SwtEvent` union with
+ * `sessionId`, `assistantMessageEvent.{type,delta}` (alpha.25 — was
+ * `delta.text` before Pi 0.74's actual shape was wired), `toolCall.name`,
+ * `toolResult.name`, `turn`, `provider`, `model`, `usage` — and emits a
+ * closed `SwtEvent` union with
  * NO credential field. `SwtSessionOptions.resolvedCredential` is consumed
  * ONLY by `session.ts:createSession`'s in-memory `AuthStorage.set()` and
  * is `void`-ed everywhere else; it is never handed to a serializer.
@@ -94,7 +96,7 @@ describe('@swt-labs/runtime — credential-leak audit (Plan 03-01, research §6)
         {
           type: 'message_update',
           sessionId: 's1',
-          delta: { text: 'ok' },
+          assistantMessageEvent: { type: 'text_delta', delta: 'ok' },
           authStorage: { key: SENTINEL },
         },
         { type: 'turn_end', sessionId: 's1', turn: 1, secret: SENTINEL },
@@ -130,7 +132,12 @@ describe('@swt-labs/runtime — credential-leak audit (Plan 03-01, research §6)
         CTX,
       );
       pi.handlers.get('message_update')?.[0]?.(
-        { type: 'message_update', sessionId: 's1', delta: { text: 'hello' }, apiKey: SENTINEL },
+        {
+          type: 'message_update',
+          sessionId: 's1',
+          assistantMessageEvent: { type: 'text_delta', delta: 'hello' },
+          apiKey: SENTINEL,
+        },
         CTX,
       );
 

@@ -245,7 +245,7 @@ describe('createSession — un-stubbed oauth injection branch (Phase 4 / plan 04
     harness.emitPiEvent({ type: 'agent_start' });
     harness.emitPiEvent({
       type: 'message_update',
-      delta: { text: 'partial response' },
+      assistantMessageEvent: { type: 'text_delta', delta: 'partial response' },
     });
 
     expect(received.length).toBeGreaterThan(0);

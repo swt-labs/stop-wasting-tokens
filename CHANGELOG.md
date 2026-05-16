@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.0.0-alpha.25 — 2026-05-16
+
+_Hotfix on top of alpha.24. User smoke-tested the new free-talk chat in the dashboard: the assistant message bubble rendered ONLY the token-usage badge (e.g. `↑6 ↓122`) — the actual streamed text was missing. Token-usage flowed (proving the LLM responded), but every `chat.message_delta` event arrived with no text. Root cause: `packages/runtime/src/events.ts` was reading Pi `message_update` deltas from a non-existent `event.delta.text` path. Pi 0.74's actual shape puts streamed text at `event.assistantMessageEvent.delta` (with discriminator `assistantMessageEvent.type === 'text_delta'`, per `@earendil-works/pi-ai`'s `AssistantMessageEvent` discriminated union). Every chunk was silently dropped, leaving the chat panel empty. This bug pre-dates milestone 12 — it shipped with the original Pi-event mapping in milestone 01 and only surfaced now because chat is the first feature that renders assistant text directly to a user-visible panel (cook orchestrator harvests text via Pi's journal extension, which uses a different path)._
+
+- **`fix(runtime): wire mapPiEvent message_update → assistantMessageEvent.delta`** (this release). Updated `mapPiEvent` at `packages/runtime/src/events.ts:57-78` to read text deltas from `event.assistantMessageEvent` when `assistantMessageEvent.type === 'text_delta'`. Intentionally does NOT surface `thinking_delta` (CoT bleed-through to the chat UI) or `toolcall_delta` (raw function-call arg fragments — the orchestrator's `tool_execution_start` path emits a single `TOOL_CALL` when the tool fully arrives). Updated `PiEventLike` type definition accordingly. **6 new regression tests in `packages/runtime/test/events.test.ts`**: positive `text_delta` mapping, negative `thinking_delta` / `toolcall_delta` / legacy `delta.text` / missing field / wrong type. Plus 4 existing test-file fixes that used the legacy shape: `session.real-pi.test.ts`, `session-oauth-injection.test.ts`, `credential-leak-audit.test.ts`. The legacy-shape regression-guard test ensures we never accidentally revert.
+- **Verification:** `pnpm typecheck` clean. `pnpm test` workspace-wide: **2214 → 2220 passed / 67 skipped / 0 failed** (+6 new tests). `pnpm lint` clean (0 errors). `pnpm format --check` clean. The MESSAGE_DELTA → `chat.message_delta` → `applyEvent` → `dashboard-store.handleChatEvent` → `ChatPanel` render chain now carries text end-to-end.
+
+**To take it:**
+
+```bash
+npm i -g stop-wasting-tokens@next
+```
+
+**What you need to do if you hit "↑N ↓M but no text" on alpha.24:**
+
+1. Upgrade to alpha.25.
+2. Refresh the dashboard. Existing chat sessions started against alpha.24 will continue to look empty (text was never sent over the wire — the mapper dropped it before the route saw it). Start a new chat to see streamed text.
+
 ## 3.0.0-alpha.24 — 2026-05-16
 
 _Milestone **`12-free-talk-mode-dashboard-chat`** ships (4 phases, 7 plans, 30 commits) — the dashboard's command bar now has a free-talk default mode that bypasses the orchestrator entirely. Verb-chip selection still routes through cook/qa/verify/research/map for methodology-driven work. This release also rolls up alpha.20–.23 hotfixes that landed in mid-session and a CI lint fix that blocked the alpha.24 tag's first publish attempt._

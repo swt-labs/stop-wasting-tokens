@@ -190,8 +190,12 @@ describe('createSession — real Pi adapter (M3 PR-S)', () => {
     harness.emitPiEvent({ type: 'agent_start' });
     expect(received).toEqual([{ type: 'AGENT_START' }]);
 
-    // Emit a `message_update` with delta text → MESSAGE_DELTA.
-    harness.emitPiEvent({ type: 'message_update', delta: { text: 'partial response' } });
+    // Emit a `message_update` with text_delta → MESSAGE_DELTA (alpha.25 fix:
+    // Pi 0.74 puts deltas on `assistantMessageEvent`, not `delta`).
+    harness.emitPiEvent({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: 'partial response' },
+    });
     expect(received).toEqual([{ type: 'AGENT_START' }, { type: 'MESSAGE_DELTA' }]);
 
     // Emit something mapPiEvent ignores (e.g., `compaction_start`) — no fan-out.
@@ -371,7 +375,10 @@ describe('createSession — credential injection branch (Phase 2)', () => {
     // Emit a synthetic Pi event through the mock harness; capture the
     // mapped SwtEvent reaching the subscriber.
     harness.emitPiEvent({ type: 'agent_start' });
-    harness.emitPiEvent({ type: 'message_update', delta: { text: 'partial response' } });
+    harness.emitPiEvent({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: 'partial response' },
+    });
 
     expect(received.length).toBeGreaterThan(0);
     const serialized = JSON.stringify(received);
