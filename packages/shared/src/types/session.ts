@@ -199,6 +199,15 @@ export interface TaskTokenUsage {
 /**
  * Vendor-neutral event union. Pi's 14 raw events get mapped into this in
  * `runtime/src/events.ts`. PR-07 added `TASK_TOKEN_USAGE` (Pi `turn_end`).
+ * alpha.21 added `TASK_ERROR` for the `turn_end + stopReason='error'` case
+ * — Pi keeps the API failure on the message envelope (`errorMessage`) rather
+ * than throwing from `agentSession.prompt()`, so the dispatcher needs an
+ * explicit signal to translate "Pi finished cleanly but the LLM call
+ * failed" into `TaskResult.status='failed'`. Without this, a Pi-side
+ * "out-of-credits" (HTTP 400) or any other upstream error silently
+ * masquerades as a successful no-op spawn (cook.agent_result with
+ * status="completed" + zero tokens) — the same anti-pattern as the
+ * milestone-10 stderr leak / alpha.20 init error surfacing fixes.
  */
 export type SwtEvent =
   | { readonly type: 'AGENT_START'; readonly sessionId: string }
@@ -210,4 +219,19 @@ export type SwtEvent =
       readonly type: 'TASK_TOKEN_USAGE';
       readonly sessionId: string;
       readonly usage: TaskTokenUsage;
+    }
+  | {
+      readonly type: 'TASK_ERROR';
+      readonly sessionId: string;
+      /**
+       * Free-text error string from Pi's upstream API call (Anthropic /
+       * OpenAI / etc.). Truncated by the dispatcher to fit
+       * FAILED_SUMMARY_MAX_LEN when used as a `TaskResult.summary`. Carries
+       * provider + model context as plain prose; structured upstream fields
+       * are NOT split out here (Pi's `message.errorMessage` is typically
+       * the raw HTTP body, which is the form the user actually needs to
+       * see — e.g., `400 {"type":"error","error":{"message":"out of
+       * credits"}}`).
+       */
+      readonly errorMessage: string;
     };

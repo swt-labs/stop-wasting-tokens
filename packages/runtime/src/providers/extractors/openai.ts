@@ -18,11 +18,18 @@
 import type { TaskTokenUsage } from '@swt-labs/shared';
 
 interface OpenAIUsageLike {
+  // Real OpenAI API response shape (snake_case).
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
   readonly prompt_tokens_details?: {
     readonly cached_tokens?: number;
   };
+  // alpha.21 — Pi `withUsageEstimate` shape (camelCase). Same accept-both
+  // contract as the Anthropic extractor — Pi normalises both providers
+  // into this shape for mock + non-billable error paths.
+  readonly input?: number;
+  readonly output?: number;
+  readonly cacheRead?: number;
 }
 
 export function extractOpenAI(
@@ -32,12 +39,31 @@ export function extractOpenAI(
   if (typeof usage !== 'object' || usage === null) return undefined;
   const u = usage as OpenAIUsageLike;
   if (u.prompt_tokens === undefined && u.completion_tokens === undefined) {
-    return undefined;
+    // Pre-alpha.21 path: no snake_case fields. Fall through to the
+    // camelCase branch below — Pi's withUsageEstimate shape.
+    if (u.input === undefined && u.output === undefined) {
+      return undefined;
+    }
+    return {
+      // camelCase Pi shape — `input` is already fresh-prompt-only
+      // (Pi's estimate excludes cache reads from input by construction),
+      // so no subtraction.
+      input: u.input ?? 0,
+      output: u.output ?? 0,
+      cacheRead: u.cacheRead ?? 0,
+      cacheWrite: 0,
+      turn: ctx.turn,
+      provider: ctx.provider,
+      model: ctx.model,
+    };
   }
+  // snake_case path (real OpenAI API response) — prompt_tokens INCLUDES
+  // cached_tokens, so subtract to make `input` fresh-only (Anthropic
+  // parity). The Math.max guard is defensive: cached > prompt shouldn't
+  // happen but clamps to 0 if upstream ever drifts.
   const prompt = u.prompt_tokens ?? 0;
   const cached = u.prompt_tokens_details?.cached_tokens ?? 0;
   return {
-    // Subtract cached so `input` is fresh-prompt only (Anthropic parity).
     input: Math.max(0, prompt - cached),
     output: u.completion_tokens ?? 0,
     cacheRead: cached,

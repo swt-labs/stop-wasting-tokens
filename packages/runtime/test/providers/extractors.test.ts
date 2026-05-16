@@ -42,6 +42,40 @@ describe('@swt-labs/runtime — extractors/anthropic', () => {
     expect(extractAnthropic(null, CTX)).toBeUndefined();
     expect(extractAnthropic('not an object', CTX)).toBeUndefined();
   });
+
+  // alpha.21 — Pi `withUsageEstimate` shape (camelCase). Accepted as a
+  // fallback when Pi's mock/estimate path supplies camelCase instead of
+  // the snake_case Anthropic API shape. Pre-alpha.21 the extractor missed
+  // this entirely and returned undefined → token accounting silently
+  // zeroed for mock paths.
+  it('alpha.21 — accepts Pi camelCase usage shape as fallback', () => {
+    const out = extractAnthropic({ input: 100, output: 50, cacheRead: 30, cacheWrite: 12 }, CTX);
+    expect(out).toEqual({
+      input: 100,
+      output: 50,
+      cacheRead: 30,
+      cacheWrite: 12,
+      turn: 1,
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+    });
+  });
+
+  it('alpha.21 — snake_case wins over camelCase when both present (real API > Pi estimate)', () => {
+    const out = extractAnthropic(
+      {
+        // Real API numbers
+        input_tokens: 100,
+        output_tokens: 50,
+        // Pi estimate — should be ignored when real numbers are present
+        input: 9999,
+        output: 9999,
+      },
+      CTX,
+    );
+    expect(out?.input).toBe(100);
+    expect(out?.output).toBe(50);
+  });
 });
 
 describe('@swt-labs/runtime — extractors/openai', () => {
@@ -84,6 +118,20 @@ describe('@swt-labs/runtime — extractors/openai', () => {
       CTX,
     );
     expect(out?.input).toBe(0);
+  });
+
+  // alpha.21 — Pi `withUsageEstimate` shape parity with the Anthropic
+  // extractor. Same accept-both contract; same precedence (snake_case wins).
+  it('alpha.21 — accepts Pi camelCase usage shape as fallback', () => {
+    const out = extractOpenAI(
+      { input: 600, output: 200, cacheRead: 400 },
+      { ...CTX, provider: 'openai', model: 'gpt-5' },
+    );
+    // input is already fresh-prompt-only in the camelCase shape (Pi's
+    // estimate excludes cache reads) — no extra subtraction needed.
+    expect(out?.input).toBe(600);
+    expect(out?.output).toBe(200);
+    expect(out?.cacheRead).toBe(400);
   });
 });
 

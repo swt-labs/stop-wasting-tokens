@@ -188,12 +188,30 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
           };
         }
         const accumulated = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+        // alpha.21 — capture the LAST TASK_ERROR observed during the turn.
+        // Pi's upstream-API failures (out-of-credits, invalid-request,
+        // rate-limit, network) flow through `turn_end` with `stopReason
+        // === 'error'` rather than throwing from `agentSession.prompt()`,
+        // so the dispatcher would silently report `status: 'success'`
+        // with zero tokens otherwise (the symptom: cook.agent_result
+        // status=completed, usage={input:0, output:0}, no UI surface for
+        // the actual cause). The runtime's mapPiEvent now emits TASK_ERROR
+        // for these events; the dispatcher converts it to TaskResult.
+        // status='failed' below. We keep the LAST error rather than the
+        // first because Pi may retry within the same prompt() invocation
+        // — the terminal error is the one the user needs to act on.
+        let lastError: string | undefined;
         unsubscribeUsage = session.subscribe((event: SwtEvent) => {
-          if (event.type !== 'TASK_TOKEN_USAGE') return;
-          accumulated.input += event.usage.input;
-          accumulated.output += event.usage.output;
-          accumulated.cacheRead += event.usage.cacheRead;
-          accumulated.cacheWrite += event.usage.cacheWrite;
+          if (event.type === 'TASK_TOKEN_USAGE') {
+            accumulated.input += event.usage.input;
+            accumulated.output += event.usage.output;
+            accumulated.cacheRead += event.usage.cacheRead;
+            accumulated.cacheWrite += event.usage.cacheWrite;
+            return;
+          }
+          if (event.type === 'TASK_ERROR') {
+            lastError = event.errorMessage;
+          }
         });
         try {
           await session.prompt(promptText);
@@ -207,6 +225,22 @@ export function createDispatcher(opts: CreateDispatcherOptions = {}): Dispatcher
               `session.prompt() threw: ${message}` || 'session.prompt() threw',
               FAILED_SUMMARY_MAX_LEN,
             ),
+            files_changed: [],
+            must_haves: [],
+          };
+        }
+        // alpha.21 — if any turn ended with stopReason='error', that's
+        // a Pi-side LLM-call failure. Translate to TaskResult.status=
+        // 'failed' so cook's surface path (alpha.20 Bug B fix in
+        // routes/init.ts has the symmetric fix for init; cook.ts's
+        // milestone-10 stderr-leak fix carries result.summary to the
+        // dashboard already) renders the underlying cause.
+        if (lastError !== undefined) {
+          return {
+            schema_version: 1,
+            task_id: task.taskId,
+            status: 'failed',
+            summary: truncate(`Pi turn_end stopReason=error: ${lastError}`, FAILED_SUMMARY_MAX_LEN),
             files_changed: [],
             must_haves: [],
           };

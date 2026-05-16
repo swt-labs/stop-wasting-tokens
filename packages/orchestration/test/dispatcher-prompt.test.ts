@@ -302,4 +302,148 @@ describe('@swt-labs/orchestration — dispatcher prompt wiring (Phase 02 / Plan 
     expect(result.status).toBe('success');
     expect(recording.promptCalls.length).toBe(0);
   });
+
+  // ─── alpha.21 — Bug C: TASK_ERROR surfacing ─────────────────────────
+  // Pi keeps upstream API failures on `turn_end.message.errorMessage`
+  // rather than throwing from `agentSession.prompt()`. The dispatcher's
+  // pre-alpha.21 path silently reported `status: 'success'` with zero
+  // tokens — `cook.agent_result status="completed"` showed up in events,
+  // the dashboard rendered no agent activity, and the user had ZERO
+  // signal that the LLM never actually ran. This block locks in the new
+  // contract: TASK_ERROR → `status: 'failed'` with the error message as
+  // summary. The reproducer the user hit was "out of credits" on Claude.
+  // ai OAuth; the same path catches rate-limit / invalid-request /
+  // network / any other Pi-side upstream failure.
+  describe('alpha.21 — TASK_ERROR converts to TaskResult.status="failed"', () => {
+    it('single TASK_ERROR during the turn → status="failed" with errorMessage as summary', async () => {
+      const errorMessage =
+        '400 {"type":"error","error":{"type":"invalid_request_error","message":"You\'re out of extra usage."}}';
+      const recording = makeRecordingSession({
+        usageEvents: [
+          {
+            type: 'TASK_ERROR',
+            sessionId: 'recording-session-id',
+            errorMessage,
+          },
+        ],
+      });
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      const result = await dispatcher.dispatch({
+        taskId: 'T-task-error',
+        role: 'orchestrator',
+        cwd: '/tmp',
+        promptContext: makePromptContext('build a snake game'),
+      });
+
+      // Critical regression assertions:
+      expect(result.status).toBe('failed');
+      // The full upstream error body surfaces in the summary so cook's
+      // existing stderr-leak fix path (milestone-10) carries it onto
+      // events for the dashboard.
+      expect(result.summary).toContain(errorMessage);
+      expect(result.summary).toContain('stopReason=error');
+      // session.prompt() still ran (Pi handled the upstream call) —
+      // we don't want to short-circuit BEFORE the network call here.
+      expect(recording.promptCalls.length).toBe(1);
+      expect(recording.disposals()).toBe(1);
+    });
+
+    it('multiple TASK_ERROR events during the turn → LAST one wins (terminal failure)', async () => {
+      const recording = makeRecordingSession({
+        usageEvents: [
+          {
+            type: 'TASK_ERROR',
+            sessionId: 'recording-session-id',
+            errorMessage: '429 rate_limit (transient — auto-retry)',
+          },
+          {
+            type: 'TASK_ERROR',
+            sessionId: 'recording-session-id',
+            errorMessage: '400 invalid_request (terminal)',
+          },
+        ],
+      });
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      const result = await dispatcher.dispatch({
+        taskId: 'T-task-error-multi',
+        role: 'orchestrator',
+        cwd: '/tmp',
+        promptContext: makePromptContext('hello'),
+      });
+
+      expect(result.status).toBe('failed');
+      // Last-write-wins — surface the terminal error, not the transient one.
+      expect(result.summary).toContain('400 invalid_request (terminal)');
+      expect(result.summary).not.toContain('429');
+    });
+
+    it("TASK_ERROR alongside TASK_TOKEN_USAGE — failure wins (don't silently report partial success)", async () => {
+      // Pi may emit usage events for retried turns BEFORE the terminal
+      // error fires. The dispatcher must not let a partial-success usage
+      // payload mask the failure.
+      const recording = makeRecordingSession({
+        usageEvents: [
+          {
+            type: 'TASK_TOKEN_USAGE',
+            sessionId: 'recording-session-id',
+            usage: {
+              input: 100,
+              output: 0,
+              cacheRead: 0,
+              cacheWrite: 0,
+              turn: 1,
+              provider: 'anthropic',
+              model: 'claude-opus-4-7',
+            },
+          },
+          {
+            type: 'TASK_ERROR',
+            sessionId: 'recording-session-id',
+            errorMessage: '400 invalid_request',
+          },
+        ],
+      });
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      const result = await dispatcher.dispatch({
+        taskId: 'T-task-error-with-usage',
+        role: 'orchestrator',
+        cwd: '/tmp',
+        promptContext: makePromptContext('hello'),
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.summary).toContain('400 invalid_request');
+      // The failed TaskResult shape has no `usage` field — that's by
+      // design (the dispatcher only attaches usage to the success
+      // envelope). Asserts the conditional return doesn't accidentally
+      // surface stale usage.
+      expect(result.usage).toBeUndefined();
+    });
+
+    it('truncates long errorMessage to fit FAILED_SUMMARY_MAX_LEN', async () => {
+      const huge = 'X'.repeat(10_000);
+      const recording = makeRecordingSession({
+        usageEvents: [
+          {
+            type: 'TASK_ERROR',
+            sessionId: 'recording-session-id',
+            errorMessage: huge,
+          },
+        ],
+      });
+      const dispatcher = createDispatcher({ sessionFactory: recording.factory });
+      const result = await dispatcher.dispatch({
+        taskId: 'T-task-error-truncate',
+        role: 'orchestrator',
+        cwd: '/tmp',
+        promptContext: makePromptContext('hello'),
+      });
+
+      expect(result.status).toBe('failed');
+      // Truncation invariant — keep events JSONL + status line readable.
+      // The exact ceiling is FAILED_SUMMARY_MAX_LEN (a module-private
+      // constant in dispatcher.ts); we just assert it's bounded.
+      expect(result.summary?.length ?? 0).toBeLessThan(1000);
+    });
+  });
 });
