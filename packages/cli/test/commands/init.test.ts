@@ -38,6 +38,15 @@ interface HarnessOpts {
   readonly spawnResult?: Partial<TaskResult>;
   readonly spawnThrows?: Error;
   readonly initProjectThrows?: Error;
+  /**
+   * alpha.20 — inject a discovered global keychain credential. Default
+   * is `undefined` (no keychain credential found), which exercises the
+   * pre-alpha.20 path: configuredProvider stays undefined, spawn fires
+   * with no provider/resolvedCredential — byte-identical to old behaviour.
+   */
+  readonly globalCredential?: { provider: string; authMode: 'api_key' | 'oauth' };
+  /** alpha.20 — let `persistAuthConfigImpl` simulate a write failure. */
+  readonly persistAuthConfigReturns?: boolean;
 }
 
 function buildInitHarness(opts: HarnessOpts = {}) {
@@ -62,10 +71,23 @@ function buildInitHarness(opts: HarnessOpts = {}) {
     return { root: REPO_ROOT, files: ['.swt-planning/PROJECT.md', '.swt-planning/STATE.md'] };
   });
 
+  // alpha.20 — keychain-inheritance seams. Default `globalCredential=undefined`
+  // is the "no keychain creds" case (e.g. user has not logged in anywhere) and
+  // makes init.ts fall through to the no-credential spawn — preserving the
+  // pre-alpha.20 default behaviour for every test that doesn't opt into a
+  // discovered credential.
+  const discoverGlobalCredentialImpl = vi.fn(async () => opts.globalCredential);
+  const persistAuthConfigImpl = vi.fn(
+    (_path: string, _provider: string, _authMode: 'api_key' | 'oauth') =>
+      opts.persistAuthConfigReturns ?? true,
+  );
+
   const handler = makeInitHandler({
     spawnAgentImpl: spawnAgentImpl,
     readFileSyncImpl: readFileSyncImpl as never,
     initProjectImpl: initProjectImpl,
+    discoverGlobalCredentialImpl: discoverGlobalCredentialImpl,
+    persistAuthConfigImpl: persistAuthConfigImpl,
   });
 
   const stderr: string[] = [];
@@ -98,6 +120,8 @@ function buildInitHarness(opts: HarnessOpts = {}) {
     spawnAgentImpl,
     readFileSyncImpl,
     initProjectImpl,
+    discoverGlobalCredentialImpl,
+    persistAuthConfigImpl,
     stderr: () => stderr.join(''),
     stdout: () => stdout.join(''),
   };
@@ -215,5 +239,85 @@ describe('@swt-labs/cli — initHandler (Plan 03-03 T5)', () => {
     await h.run(['my-proj', 'A test project']);
     const call = h.initProjectImpl.mock.calls[0]?.[0];
     expect(call?.description).toBe('A test project');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // alpha.20 — Bug A: credential inheritance from the global keychain
+  // ─────────────────────────────────────────────────────────────────────
+  // Pre-alpha.20, a brand-new project scaffolded via the dashboard had no
+  // `auth` block in `.swt-planning/config.json`, so `init.ts` spawned the
+  // Lead with no credential, Pi failed with "No API key found for the
+  // selected model", and the user saw a cryptic "init exited with code 3
+  // within 452ms" in the dashboard error card. Even if the user had
+  // already completed an OAuth login (e.g., from a prior project), the
+  // credential sat in the keychain unused — init only consulted the
+  // project-local config.
+  //
+  // alpha.20 fixes this by:
+  //  1. Falling back to a keychain enumeration when the project's auth
+  //     block is empty (the `discoverGlobalCredentialImpl` seam).
+  //  2. Persisting the discovered (provider, mode) pair into the project's
+  //     config.json so future cook runs work without re-OAuth (the
+  //     `persistAuthConfigImpl` seam).
+  // The three tests below exercise the three branches of this logic.
+  describe('alpha.20 — global keychain credential inheritance', () => {
+    it('no keychain credentials + no project auth → spawn fires with no provider (graceful degrade)', async () => {
+      // The default harness has `globalCredential: undefined`, so the
+      // discovery returns undefined, no persist happens, and spawn fires
+      // with no `provider`/`resolvedCredential` — preserving the existing
+      // graceful-degrade contract (Pi surfaces a clear auth error if
+      // env vars are also empty; the dashboard's Bug B fix shows that).
+      const h = buildInitHarness();
+      const exit = await h.run(['my-proj']);
+      expect(exit).toBe(0);
+      expect(h.discoverGlobalCredentialImpl).toHaveBeenCalledTimes(1);
+      expect(h.persistAuthConfigImpl).not.toHaveBeenCalled();
+      const spawnArgs = h.spawnAgentImpl.mock.calls[0]?.[0];
+      expect(spawnArgs?.provider).toBeUndefined();
+      expect(spawnArgs?.resolvedCredential).toBeUndefined();
+    });
+
+    it('keychain has anthropic:oauth + no project auth → inherits + persists with correct args + breadcrumb', async () => {
+      const h = buildInitHarness({
+        globalCredential: { provider: 'anthropic', authMode: 'oauth' },
+      });
+      const exit = await h.run(['my-proj']);
+      expect(exit).toBe(0);
+      // Discovery seam was queried exactly once.
+      expect(h.discoverGlobalCredentialImpl).toHaveBeenCalledTimes(1);
+      // Persist seam was invoked with the discovered (provider, mode) pair.
+      // The first arg is the resolved config.json path.
+      expect(h.persistAuthConfigImpl).toHaveBeenCalledTimes(1);
+      const persistCall = h.persistAuthConfigImpl.mock.calls[0];
+      expect(persistCall?.[0]).toContain('.swt-planning');
+      expect(persistCall?.[0]).toContain('config.json');
+      expect(persistCall?.[1]).toBe('anthropic');
+      expect(persistCall?.[2]).toBe('oauth');
+      // The user-visible breadcrumb confirms the success path.
+      expect(h.stdout()).toContain('Inherited anthropic:oauth credential from keychain');
+      // Note: whether the spawn ultimately carries `provider=anthropic` +
+      // a resolved secret depends on whether the live keychain backend has
+      // a secret for `anthropic:oauth`. That's environment-dependent
+      // (different on CI vs the developer's machine), so we deliberately
+      // don't assert on it here — the discovery+persist contract is the
+      // unit-testable surface; the keychain-store leg is covered by
+      // cook-auth-wiring.test.ts.
+    });
+
+    it('persist write fails → still discovers + logs the degraded breadcrumb', async () => {
+      const h = buildInitHarness({
+        globalCredential: { provider: 'openai', authMode: 'api_key' },
+        persistAuthConfigReturns: false,
+      });
+      const exit = await h.run(['my-proj']);
+      expect(exit).toBe(0);
+      // Persist was attempted but reported failure.
+      expect(h.persistAuthConfigImpl).toHaveBeenCalledTimes(1);
+      // The degraded breadcrumb tells the user the credential is in use
+      // for this spawn only — they can re-run or set up via Provider menu.
+      expect(h.stdout()).toContain('config write failed; using for this spawn only');
+      // Init handler still completes successfully — persist failure is a
+      // soft warning, not a fatal error.
+    });
   });
 });

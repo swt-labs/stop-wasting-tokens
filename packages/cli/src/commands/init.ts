@@ -18,15 +18,17 @@
  * Pi sessions per task).
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { AlreadyInitializedError, initProject } from '@swt-labs/core';
 import { spawnAgent } from '@swt-labs/orchestration';
+import { resolveCredentialStore, type AuthMode } from '@swt-labs/runtime';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
 
+import type { AuthConfig } from './auth-config.js';
 import {
   SEED_IDEA_SENTINEL,
   loadCookConfig,
@@ -39,12 +41,106 @@ export interface InitHandlerDeps {
   readonly spawnAgentImpl?: typeof spawnAgent;
   readonly readFileSyncImpl?: typeof readFileSync;
   readonly initProjectImpl?: typeof initProject;
+  /**
+   * alpha.20 — test seam for the global-credential discovery path. Defaults
+   * to live `resolveCredentialStore().list()`. Tests inject `undefined` to
+   * exercise the "no global creds, degrade gracefully" branch and the
+   * `{ provider, authMode }` shape to drive the inheritance branch without
+   * touching the host keychain.
+   */
+  readonly discoverGlobalCredentialImpl?: () => Promise<
+    { provider: string; authMode: AuthMode } | undefined
+  >;
+  /**
+   * alpha.20 — test seam for the keychain-inheritance auth-config persister.
+   * Defaults to a synchronous read-modify-write of `.swt-planning/config.json`
+   * mirroring `provider-auth-oauth.ts:writeAuthConfig`'s shape (sans the
+   * async/mkdir branches: the dashboard route has already scaffolded the
+   * dir + initial config.json before this subprocess fires).
+   */
+  readonly persistAuthConfigImpl?: (
+    configPath: string,
+    provider: string,
+    authMode: AuthMode,
+  ) => boolean;
+}
+
+/**
+ * alpha.20 — preference order when multiple providers have credentials in
+ * the keychain. Anthropic first (the project's primary Claude-Code-replacement
+ * use case), OpenAI second, Gemini third, then any other provider as fallback.
+ * The order matches the upstream-prompt-audit baseline focus (Codex + Claude
+ * Agent SDK) so init defaults align with the milestones we audit against.
+ */
+const PREFERRED_PROVIDER_ORDER = ['anthropic', 'openai', 'gemini'] as const;
+
+async function defaultDiscoverGlobalCredential(): Promise<
+  { provider: string; authMode: AuthMode } | undefined
+> {
+  try {
+    const { store } = await resolveCredentialStore();
+    const refs = await store.list();
+    if (refs.length === 0) return undefined;
+    for (const preferred of PREFERRED_PROVIDER_ORDER) {
+      const hit = refs.find((r) => r.provider === preferred);
+      if (hit !== undefined) return { provider: hit.provider, authMode: hit.authMode };
+    }
+    const first = refs[0];
+    return first !== undefined ? { provider: first.provider, authMode: first.authMode } : undefined;
+  } catch {
+    // Graceful degrade — keychain probe / list errors must never crash init.
+    // The Lead will spawn without a credential, and Pi surfaces a clear auth
+    // error that the dashboard now renders (see Bug B fix in routes/init.ts).
+    return undefined;
+  }
+}
+
+function defaultPersistAuthConfig(
+  configPath: string,
+  provider: string,
+  authMode: AuthMode,
+): boolean {
+  try {
+    let config: Record<string, unknown> = {};
+    if (existsSync(configPath)) {
+      try {
+        const raw = readFileSync(configPath, 'utf8');
+        const parsed: unknown = JSON.parse(typeof raw === 'string' ? raw : String(raw));
+        if (typeof parsed === 'object' && parsed !== null) {
+          config = { ...(parsed as Record<string, unknown>) };
+        }
+      } catch {
+        // Malformed JSON — overwrite rather than crash. The dashboard route
+        // already wrote a valid config.json before this subprocess fired, so
+        // a parse miss here is genuinely unexpected; preserving structure
+        // matters less than getting auth wired.
+      }
+    }
+    const prevAuth =
+      typeof config['auth'] === 'object' && config['auth'] !== null
+        ? (config['auth'] as Record<string, unknown>)
+        : {};
+    config['auth'] = {
+      ...prevAuth,
+      // Mirrors `provider-auth-oauth.ts:writeAuthConfig` exactly — same
+      // `swt:<provider>:<mode>` credentialRef NAME convention. ONLY the
+      // name is persisted; the secret stays in the keychain.
+      [provider]: { mode: authMode, credentialRef: `swt:${provider}:${authMode}` },
+    };
+    writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
   const spawnAgentFn = deps.spawnAgentImpl ?? spawnAgent;
   const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
   const initProjectFn = deps.initProjectImpl ?? initProject;
+  const discoverGlobalCredentialFn =
+    deps.discoverGlobalCredentialImpl ?? defaultDiscoverGlobalCredential;
+  const persistAuthConfigFn = deps.persistAuthConfigImpl ?? defaultPersistAuthConfig;
 
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
     // ── Step 1: bootstrap (unchanged from pre-Plan-03-03 behaviour). ──
@@ -139,13 +235,56 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
     // the `resolveSpawnCredential` pattern in cook.ts:2915 — first configured
     // provider wins (most projects declare one). Graceful degrade on miss: spawn
     // with no credential, let Pi surface a clear auth error.
+    //
+    // alpha.20 — when the project has no `auth` block (brand-new scaffold, the
+    // user reached this through the dashboard's greenfield Init flow), fall
+    // back to the global keychain index to discover credentials saved by a
+    // prior project or a global `swt login`. If found, persist the auth block
+    // into THIS project's config.json so subsequent cook runs work without
+    // re-OAuth (Bug A — credential inheritance). The dashboard route ALREADY
+    // scaffolded `.swt-planning/config.json` before spawning this subprocess
+    // (Phase 02-01 contract), so the file always exists at this point.
     const cookConfig = loadCookConfig(io.cwd, { readFileSync: readFileSyncFn, existsSync });
-    const configuredProvider = Object.keys(cookConfig.auth)[0];
+    let effectiveAuth: AuthConfig = cookConfig.auth;
+    let configuredProvider = Object.keys(effectiveAuth)[0];
+
+    if (configuredProvider === undefined) {
+      const discovered = await discoverGlobalCredentialFn();
+      if (discovered !== undefined) {
+        const configPath = resolve(io.cwd, '.swt-planning', 'config.json');
+        const persisted = persistAuthConfigFn(configPath, discovered.provider, discovered.authMode);
+        if (persisted) {
+          io.stdout.write(
+            `→ Inherited ${discovered.provider}:${discovered.authMode} credential from keychain — wrote auth block to .swt-planning/config.json.\n`,
+          );
+        } else {
+          // Persist failed (FS error?). Still use the discovered credential
+          // for this Lead spawn — the user can re-run later or set up via
+          // the dashboard's Provider menu.
+          io.stdout.write(
+            `→ Inherited ${discovered.provider}:${discovered.authMode} credential from keychain (config write failed; using for this spawn only).\n`,
+          );
+        }
+        // Build an in-memory auth config so `resolveSpawnCredential` sees the
+        // inherited entry regardless of whether the persist write succeeded.
+        // The shape is byte-identical to what `parseAuthConfig` would emit
+        // for the same input — `mode` + the explicit `swt:<p>:<m>` ref.
+        effectiveAuth = {
+          ...effectiveAuth,
+          [discovered.provider]: {
+            mode: discovered.authMode,
+            credentialRef: `swt:${discovered.provider}:${discovered.authMode}`,
+          },
+        };
+        configuredProvider = discovered.provider;
+      }
+    }
+
     let resolvedAuth:
       | { provider: string; resolvedCredential: { authMode: 'api_key' | 'oauth'; secret: string } }
       | undefined;
     if (configuredProvider !== undefined) {
-      resolvedAuth = await resolveSpawnCredential(configuredProvider, cookConfig.auth);
+      resolvedAuth = await resolveSpawnCredential(configuredProvider, effectiveAuth);
     }
 
     io.stdout.write(`\n→ Spawning Lead to detect stack + suggest skills (commands/init.md)...\n`);
