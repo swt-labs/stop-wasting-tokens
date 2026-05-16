@@ -253,6 +253,28 @@ Output includes the Pi peer-dep version, Node version, and `.swt-planning/` pres
 
 This is what a typical first hour with SWT looks like.
 
+### Chat vs Cook
+
+The dashboard's command bar has two modes. **Chat** (the default, slate-muted) routes a single prompt to the LLM and streams the answer back — no orchestrator, no methodology, no scope decisions. **Cook** (and the other verbs: `qa`, `verify`, `research`, `map`) routes through the orchestrator and drives a methodology phase.
+
+**Chat example.** Leave the command bar in its neutral (slate-muted) state and type a question:
+
+```
+What does runtime/src/providers/role-resolver.ts do?
+```
+
+The request hits `/api/chat` and ChatPanel streams the assistant's reply into the center pane — plain prompt + response, no scoping, no plan, no commits.
+
+**Cook example.** Click the `cook` verb chip to arm cook mode, then type a scope seed:
+
+```
+Add a /api/usage endpoint that returns the last 7 days of token rollup
+```
+
+The orchestrator runs Scope → Plan → Execute → Verify, writing artifacts under `.swt-planning/phases/NN/` and committing one atomic diff per task.
+
+Both modes share the same provider credential — there's no separate chat login.
+
 ### 1. Bootstrap a project (`swt vibe`, no args)
 
 In an empty directory or an existing repo:
