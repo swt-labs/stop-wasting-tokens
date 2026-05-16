@@ -288,6 +288,7 @@ export {
   parseAuthConfig,
   DEFAULT_AUTH_CONFIG,
   resolveSpawnCredential,
+  readProjectAuthConfig,
 } from './credentials/index.js';
 export type {
   AuthMode,

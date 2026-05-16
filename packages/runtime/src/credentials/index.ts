@@ -27,6 +27,11 @@ export type { AuthConfig, AuthProviderEntry } from './auth-config.js';
 // @swt-labs/cli `cook.ts:2349-2413` to @swt-labs/runtime so the L7 chat
 // route can resolve credentials without importing L6 cli (layer rule).
 export { resolveSpawnCredential } from './resolve-spawn-credential.js';
+// Plan 01-01 (Milestone 12) — `readProjectAuthConfig` is the auth-block
+// slice of `loadCookConfig`. The dashboard L7 chat route needs only the
+// auth block, not providers/budget/qa_gate_overrides — those stay in
+// @swt-labs/cli's `loadCookConfig`.
+export { readProjectAuthConfig } from './read-project-auth-config.js';
 
 export type {
   AuthMode,
