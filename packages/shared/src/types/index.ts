@@ -35,3 +35,7 @@ export * from './snapshot-event.js';
 // (plan 02-01) and the upcoming `cost-optimized-rate-card` strategy in
 // `@swt-labs/orchestration` (plan 02-02).
 export * from './rate-card.js';
+// Milestone 13 / Phase 01 — Unified-log discriminated union consumed by the
+// dashboard's UnifiedLogPanel + dashboard-store reducers. Schema-only (zod);
+// L7 dashboard imports `LogEntry` via `import type`.
+export * from './log-entry.js';
