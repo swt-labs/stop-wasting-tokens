@@ -25,6 +25,7 @@ import {
   fetchSnapshot,
   fetchUpdate,
   fetchUserNotes,
+  postChatStart,
   postCommand,
   postConfig,
   postCookStart,
@@ -351,6 +352,39 @@ export interface DashboardActions {
   initProject: (body: InitBody) => Promise<void>;
   runCommand: (input: string) => Promise<CommandResponse | null>;
   startVibeSession: (prompt: string) => Promise<string | null>;
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — Free-talk Mode turn submission.
+   * Trims `prompt`; returns `null` immediately on empty input. Sets
+   * `chatStarting=true` then fires `postChatStart(trimmed,
+   * state.chatSession?.chat_session_id)` — passing the existing id on
+   * multi-turn so the server reuses the registered SwtSession.
+   *
+   * **Optimistic state pattern.** First turn: `chatSession === null`, so
+   * the action full-object-replaces it with `{chat_session_id: '',
+   * started_at, messages: [userMsg], streaming: true, status: 'streaming'}`.
+   * Multi-turn: appends `userMsg` to the existing `messages[]` and flips
+   * `streaming/status` back to in-progress. The real `chat_session_id`
+   * arrives via the first `chat.start` SSE event and is adopted by the
+   * `handleChatEvent` reducer (P04).
+   *
+   * **Error handling.** First-turn failure rolls back `chatSession` to
+   * `null` so the empty optimistic state doesn't linger. Multi-turn
+   * failure keeps `messages[]` intact and flips `status: 'error'` +
+   * `streaming: false` so the panel surfaces the failure inline. Both
+   * branches `pushError(...)` and return `null`.
+   *
+   * Returns the resolved `chat_session_id` on success (may be `''` on the
+   * first turn — adopted shortly after by the `chat.start` event), or
+   * `null` on empty/whitespace input or fetch failure.
+   */
+  startChat: (prompt: string) => Promise<string | null>;
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — wipe the local chat conversation.
+   * Synchronous: `setState('chatSession', null)`. NO HTTP call — the
+   * server's `ChatSessionRegistry` has a 10-minute TTL sweep that handles
+   * cleanup (Lead's v1 decision; Phase 04 may add `DELETE /api/chat/:id`).
+   */
+  clearChat: () => void;
   replyToActivePrompt: (answer: VibeReplyBody['answer']) => Promise<boolean>;
   /**
    * Fetch all four tools cells in parallel. No-op when the snapshot reports
@@ -520,6 +554,12 @@ export function createDashboardStore(
 
   let sse: SseConnection | null = null;
   let logSeq = 0;
+  // Plan 03-01 (milestone 12, Phase 03) — monotonic counter for chat message
+  // ids. Used by `startChat` (user messages) and `handleChatEvent` (assistant
+  // messages synthesized on delta/tool_call). Solid's <For> keys on
+  // `message.id` so stable, unique ids are required to avoid full-list
+  // re-renders on every delta.
+  let chatMsgSeq = 0;
   let sseHasOpened = false;
 
   // Tools polling runs two tiers: a fast 5 s timer for the volatile cells
@@ -1459,6 +1499,90 @@ export function createDashboardStore(
     }
   };
 
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — Free-talk Mode turn submission.
+   * Mirrors `startVibeSession`'s shape (trim+guard, loading flag, error
+   * path) but lives on a SEPARATE state slot (`chatSession`) and uses the
+   * OPTIMISTIC chat_session_id pattern: the first turn sets the id to ''
+   * before the POST resolves, and the `chat.start` SSE event (via
+   * `/api/events` bus) adopts the real id in `handleChatEvent` (P04).
+   *
+   * Multi-turn: when `state.chatSession?.chat_session_id` is non-empty, it
+   * is passed to `postChatStart` so the server reuses the registered
+   * SwtSession — Pi's `SessionManager.inMemory` accumulates conversation
+   * history natively, so the same session handle keeps prior turns in
+   * context.
+   *
+   * Error handling per Lead's plan: first-turn failure ROLLS BACK
+   * `chatSession` to `null` (the empty optimistic state would otherwise
+   * linger). Multi-turn failure KEEPS `messages[]` intact and flips
+   * `status: 'error'` + `streaming: false` so the panel surfaces the
+   * failure inline without losing the prior conversation.
+   */
+  const startChat = async (prompt: string): Promise<string | null> => {
+    const trimmed = prompt.trim();
+    if (trimmed.length === 0) return null;
+    setState('chatStarting', true);
+    const wasFirstTurn = state.chatSession === null;
+    const priorSessionId = state.chatSession?.chat_session_id ?? '';
+    const userMsg: ChatMessage = {
+      id: `chat-msg-${++chatMsgSeq}`,
+      role: 'user',
+      text: trimmed,
+      completed: true,
+    };
+    if (wasFirstTurn) {
+      // Full-object replace mirrors startVibeSession (Solid createStore
+      // semantics — explicit replace is atomic; no stale-field leak).
+      setState('chatSession', {
+        chat_session_id: '',
+        started_at: new Date().toISOString(),
+        messages: [userMsg],
+        streaming: true,
+        status: 'streaming',
+      });
+    } else {
+      // Multi-turn: append user message + flip streaming/status back to
+      // in-progress (a prior turn may have completed with status='done').
+      setState('chatSession', 'messages', (msgs) => [...msgs, userMsg]);
+      setState('chatSession', 'streaming', true);
+      setState('chatSession', 'status', 'streaming');
+    }
+    try {
+      await postChatStart(trimmed, priorSessionId.length > 0 ? priorSessionId : undefined);
+      appendLogLine('[chat] turn started');
+      return state.chatSession?.chat_session_id ?? '';
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`chat start failed: ${message}`);
+      if (wasFirstTurn) {
+        // Roll back: the empty optimistic chatSession would otherwise
+        // linger with one orphan user message and no path forward.
+        setState('chatSession', null);
+      } else {
+        // Multi-turn: keep the user message visible so the user can see
+        // their failed input; flip status so the panel can render an
+        // inline error banner.
+        setState('chatSession', 'streaming', false);
+        setState('chatSession', 'status', 'error');
+      }
+      return null;
+    } finally {
+      setState('chatStarting', false);
+    }
+  };
+
+  /**
+   * Plan 03-01 (milestone 12, Phase 03) — wipe the local chat conversation.
+   * Synchronous; no HTTP call. The server's `ChatSessionRegistry` has a
+   * 10-minute TTL sweep that handles cleanup (Lead's deliberate v1
+   * decision — Phase 04 may add `DELETE /api/chat/:id`).
+   */
+  const clearChat = (): void => {
+    setState('chatSession', null);
+    appendLogLine('[chat] conversation cleared');
+  };
+
   const replyToActivePrompt = async (answer: VibeReplyBody['answer']): Promise<boolean> => {
     const session = state.vibeSession;
     if (!session) return false;
@@ -1696,6 +1820,8 @@ export function createDashboardStore(
       initProject,
       runCommand,
       startVibeSession,
+      startChat,
+      clearChat,
       replyToActivePrompt,
       refreshTools,
       refreshToolsCell,
