@@ -1,6 +1,8 @@
 import Resizable from '@corvu/resizable';
 import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
+import { getContextWindow } from '@swt-labs/shared';
+
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { CommandPalette } from './components/CommandPalette.js';
@@ -13,6 +15,7 @@ import { InitScreen } from './components/InitScreen.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
+import { selectStatuslineKnobs } from './components/statusline-helpers.js';
 // Plan 01-03 — `ConfigPanel` deleted; the `tools` Resizable.Panel that
 // used to host it is gone, and the `tools` array shrinks from 4 → 3
 // entries. Config editing now lives entirely in the TopBar "Options ▾"
@@ -429,11 +432,24 @@ export const App: Component = () => {
       {/* Phase 02 T3 — viewport-fixed bottom statusline. Mounts UNCONDITIONALLY
           outside the `isInitialized()` Show gate per Scout Q6 + CONTEXT.md;
           `z-index: 10` on `.dashboard-statusline` clears the normal-flow
-          InitScreen. The 3 snapshot-derived props are the only inputs. */}
+          InitScreen.
+          Statusline-extension milestone (step 5) — widened from 3 to 8
+          props. Step 6 will refactor these direct reads to `createMemo`
+          so reactivity recomputes only when the underlying signals
+          change. */}
       <DashboardStatusline
         providerAuth={state.tools.providerAuth.data ?? null}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
+        knobs={selectStatuslineKnobs(state.tools.config.data?.config)}
+        orchestratorModel={state.orchestratorModel}
+        activeAgents={state.activeAgents}
+        contextWindow={getContextWindow(state.orchestratorModel)}
+        cumulativeInputTokens={
+          (state.snapshot?.cost_summary?.tokens?.in ?? 0) +
+          (state.snapshot?.cost_summary?.tokens?.cache_read ?? 0) +
+          (state.snapshot?.cost_summary?.tokens?.cache_creation ?? 0)
+        }
       />
     </div>
   );
