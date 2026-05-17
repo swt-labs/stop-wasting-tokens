@@ -321,7 +321,7 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
       });
       if (result.status === 'success' || result.status === 'partial') {
         io.stdout.write(
-          `\n✓ Lead bootstrap complete.\n\nDashboard now supports free-talk chat (default) and workflow verbs (cook/qa/...). Type to start chatting; pick a verb to drive a phase.\n\nNext: run \`swt vibe\` to scope the first milestone.\n`,
+          `\n✓ Lead bootstrap complete.\n\nDashboard is a unified panel — chat and interview-driven cook share one thread. Type to chat with the LLM; pick a verb (cook / qa / verify / ...) to drive a methodology phase. Cook will ask clarifying questions inline when scope is ambiguous.\n\nNext: run \`swt vibe\` to scope the first milestone.\n`,
         );
         return EXIT.SUCCESS;
       }

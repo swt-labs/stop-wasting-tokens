@@ -157,8 +157,8 @@ describe('@swt-labs/cli — initHandler (Plan 03-03 T5)', () => {
     expect(h.spawnAgentImpl).toHaveBeenCalledTimes(1);
     const args = h.spawnAgentImpl.mock.calls[0]?.[0];
     expect(args?.role).toBe('lead');
-    // Plan 04-01 P02 — success stdout advertises chat mode.
-    expect(h.stdout()).toContain('free-talk chat');
+    // Plan 04-01 (M13) — success stdout reflects unified panel + interview-driven cook.
+    expect(h.stdout()).toContain('unified panel');
   });
 
   it('loads commands/init.md and strips frontmatter before passing to the Lead', async () => {
