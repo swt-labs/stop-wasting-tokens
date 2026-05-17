@@ -139,6 +139,18 @@ const CORE_ENTRIES: ReadonlyArray<Entry> = [
     usage: '"<description>" [--detail] [--phase] [--files] [--priority] [--assignee]',
     category: 'core',
   },
+  // Plan 03-01 T5 — `list-todos` is a new non-interactive read-only verb.
+  // Reads STATE.md ## Todos and writes a session snapshot at
+  // .swt-planning/.cache/list-todos-snapshot.json. No Pi spawn, no
+  // askUser, no stdin prompts — dashboard_safe via
+  // ALLOWED_NON_INTERACTIVE_VERBS membership in allowed-verbs.ts.
+  {
+    name: 'list-todos',
+    description:
+      'List backlog todos from STATE.md (writes a session snapshot for bare-integer cook pickup)',
+    usage: '[--filter key=value] [--json]',
+    category: 'core',
+  },
 ];
 
 const STUB_ENTRIES: ReadonlyArray<Entry> = [

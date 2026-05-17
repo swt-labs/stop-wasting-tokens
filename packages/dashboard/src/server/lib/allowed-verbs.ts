@@ -69,6 +69,10 @@ export const ALLOWED_NON_INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
   // verb (append to STATE.md + optional sidecar). No Pi spawn, no
   // askUser, no stdin prompts; safe for the dashboard command bar.
   'todo',
+  // Plan 03-01 T5 — `list-todos` is a non-interactive read-only verb
+  // (parses STATE.md ## Todos + writes a session snapshot). No Pi spawn,
+  // no askUser, no stdin prompts; safe for the dashboard command bar.
+  'list-todos',
 ]);
 
 /**
