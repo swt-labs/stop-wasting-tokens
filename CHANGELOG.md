@@ -1,5 +1,55 @@
 # Changelog
 
+## 3.0.0-alpha.27 — 2026-05-17
+
+_18 commits since alpha.26. Three independent threads of dashboard work landed in this release: a small pre-milestone refactor merging PHASES + ARTIFACTS into a single dashboard card, milestone **`14-options-menu-consolidation`** consolidating the Config card into the Options dropdown (1 phase, 3 plans, 8 product commits, QA PASS via R01 remediation), and an extended dashboard statusline that surfaces config knobs + orchestrator/agent model identity + context-estimate alongside the existing cost/usage cells._
+
+### Dashboard refactor — PHASES + ARTIFACTS unified card
+
+- **`refactor(dashboard): merge PHASES + ARTIFACTS panes into single PhaseStepper card`** (`308a120`). The dual-pane left column collapsed into one `PhaseStepper` card that renders phase rows with inline artifact lists. Click semantics: row body selects the phase, chevron toggles expansion (disabled for zero-artifact phases). Single source of truth for "where are we" replaces the two-projection split. Companion `ArtifactTree.tsx` deleted; CSS pruned; tests rewritten.
+
+### Milestone 14 — Options Menu Consolidation
+
+The dashboard's `Config` card (`ConfigPanel.tsx`) deleted. All editable config settings now consolidated into the `Options` dropdown with curated 10-knob row (now including `backend`) + Advanced nested-tree section + sticky `[Discard] [Save (N changes)]` action bar. Settings flipped from immediate-apply to batched-staged-edit. Section collapse `<details>` wrappers stripped so Commands + Settings + Advanced + action bar all render inline immediately when the popover opens. **User intent (verbatim):** _"I want to get rid of the config card, and have all options available under the Options menu, with simple buttons for people to select their preference and a save button to apply it. When clicking the dropdown the entire options should appear, and not have to click the circle arrow for then to expand all the options."_
+
+#### Phase 01 — Wave 1: foundations
+
+- **`feat(dashboard): AdvancedConfigSection controlled recursive editor`** (`c8b6e15`). New `AdvancedConfigSection.tsx` ports `ConfigPanel`'s `ConfigEditTree` to a fully-controlled component (`config`/`pendingEdits`/`onChange` props, no internal edit state, no Edit/Cancel/Save buttons). Depth-1 entries render flat; depth ≥ 2 keeps `<details>` as a layout aid only. Two pure helpers (`getAtPath`, `isPathStaged`) exported for future test coverage. `data-modified="true"` on staged-but-not-saved leaves.
+- **`feat(dashboard): include backend in SETTINGS_FIELD_ORDER`** (`31e6c30`). Curated row goes from 9 to 10 keys. `backend` was previously excluded from `SETTINGS_FIELD_ORDER` and only editable via the (now-deleted) `ConfigPanel`'s tree view.
+
+#### Phase 02 — Wave 2: UI rework
+
+- **`refactor(01-02): SettingsSection controlled staged-edit props`** (`166b74e`). Removed `onApply` (immediate-write); added `pendingEdits` + `onStage` + `onDiscardKey`. Curated-button click stages a change locally without a network call. `mergeStagedConfig` helper introduced; `buildConfigPatch` retained as a back-compat alias spanning the 01-02 → 01-03 boundary (retired in plan 01-03's test-rewrite commit).
+- **`refactor(01-02): strip OptionsMenu section collapse, restructure body`** (`a068597`). All `<details>` wrappers around Commands/Settings/Advanced section bodies removed. Popover body restructured to Commands → Settings → Advanced → action bar, all visible inline immediately. `pendingEdits` signal hoisted to a local `OptionsMenu` signal so edits survive the popover close/open cycle.
+- **`feat(01-02): wire Save handler with deep-merge config write`** (`1d91f3a`). Save button POSTs once with `mergeStagedConfig(state.tools.config.data.config, pendingEdits)`. On success: clear pending, brief `Saved ✓` flash. On error: preserve pending, show error inline. `App.tsx` forwards `optionsMenu*` props through `TopBar.tsx` to the dropdown.
+
+#### Phase 03 — Wave 3: cleanup + tests
+
+- **`refactor(01-03): delete ConfigPanel and migrate tools layout array`** (`af30307`). `ConfigPanel.tsx` (345 LOC) deleted; `Resizable.Panel` slot + adjacent handle removed from `App.tsx`. `lib/layout-storage.ts` storage key bumped v8 → v9 with `migrateToolsArray` shim (slices over-length persisted arrays + once-only `console.debug` latch).
+- **`style(01-03): prune ConfigPanel CSS, add AdvancedConfigSection + action bar styles`** (`492b7d9`). Deleted `.config-tree*` / `.config-edit-*` / `.tools-panel-actions` rule blocks (~150 LOC); added `.advanced-config-*` rules, the shared `[data-modified="true"]` modifier, and the sticky `.options-menu-action-bar` family.
+- **`test(01-03): staged-edit test suite — settings, options-menu, advanced-config-section`** (`1e77b20`). Full rewrite of `settings-section.test.ts` (38 tests, `mergeStagedConfig` regression-guard); extended `options-menu.test.ts` (40 tests, inline-section structural + Save/Discard outcome semantics); new `advanced-config-section.test.ts` (29 tests, `getAtPath`/`isPathStaged` + staging round-trips + controlled-only structural assertions). `buildConfigPatch` back-compat alias retired in the same commit.
+
+#### Archive
+
+- **`chore(milestone): archive 14-options-menu-consolidation`** (`aa684d0`). Milestone closed: 1 phase, 3 plans, 7 tasks, 8 atomic product commits, **844 passing dashboard tests** (was 769 pre-milestone — +75 new), QA PASS via R01 remediation (9 declared deviations classified as process-exception, 4 known issues all accepted-process-exception so `known-issues.json` cleared). UAT skipped at user request via `--skip-audit`. Carry-forward `Popover.tsx:138` TS2322 ARIA-role-union DEVN-05 documented across milestones 13 and 14.
+
+### Dashboard statusline — extended developer telemetry
+
+The bottom-of-dashboard `DashboardStatusline` extended from 7 cells (provider · connection dot · context placeholder · session $ · in→out tokens · 7d $ · 30d $) to 14 cells covering the five config knobs (`effort`, `autonomy`, `model_profile`, `backend`, `verification_tier`) plus orchestrator + agent model identity plus a context-window estimate. Single-line layout with horizontal scroll on narrow viewports. **User intent (verbatim):** _"At the very bottom of the dashboard I'd like to have one single card that goes from all the left to the right. This will be our statusline, with all usual info for developers, like Context, Usage, Cost, LLM being used (main orchestrator, agents) and include the most relevant option selected."_
+
+- **`feat(events): include resolved model id in cook.provider_selected payload`** (`f95441b`). New `model: string` field on `CookProviderSelectedEventSchema`. Backward compatible (older consumers ignore the field). Resolves the "orchestrator model is not exposed anywhere" gap from the statusline audit.
+- **`feat(events): populate AgentLiveState.model from cook.agent_spawn`** (`24a5d9d`). `AgentLiveState.model` existed as an optional field but `dashboard-store.ts:cook.agent_spawn` reducer never populated it. The store reducer now plumbs the model id from the spawn event through to the live agents map.
+- **`feat(shared): per-model context-window lookup for statusline estimate`** (`3726a8c`). New shared module exporting `getContextWindow(modelId): number | null`. Hardcoded table covers claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5, current OpenAI/Codex models, and Ollama defaults. Unknown ids return null → cell renders `—`.
+- **`feat(dashboard): selectStatuslineKnobs helper`** (`0aae738`). Typed extractor for the five curated knobs from `state.tools.config.data.config`. Returns `string | null` per key; null values render as `—`. Reuses `CONFIG_ENUM_OPTIONS` vocabulary from `config-enum-vocab.ts`; defensive against missing/null/wrong-shape config.
+- **`feat(dashboard): extend statusline with knobs, models, context estimate`** (`4108548`). 7 new cells: 5 knob cells + orchestrator model + agents-with-models compact list (`agents: N [role:shortModel, ...]` with tooltip on overflow). Context cell now shows `ctx ~Xk/Yk` derived from cumulative session input tokens vs. the hardcoded window; falls through to `ctx —/—` when window or tokens are unknown.
+- **`feat(dashboard): wire new statusline props from store via createMemo`** (`0312468`). `App.tsx` mount passes the new props through using `createMemo` for derived values (knob selector, cumulative tokens, agents map).
+- **`style(dashboard): statusline horizontal scroll + new cell separators`** (`2d1149d`). `.dashboard-statusline` row container gets `overflow-x: auto; white-space: nowrap` so the bar fits one line on 1440px and scrolls on narrower viewports without wrapping or hiding cells. Subtle monochrome scrollbar matches the dashboard's terminal aesthetic. `data-modified` indicator surface added for the future Options-menu integration.
+- **`test(dashboard): coverage for extended statusline`** (`04f2f00`). New + extended tests cover all-cells-rendered with full data, missing-knobs → em-dashes, context-estimate when window unknown, agents-list truncation, horizontal-scroll container classes.
+
+### Carry-forward known issues
+
+- **`Popover.tsx:138` TS2322** — `role={props.role}` `string` not assignable to ARIA-role union. Pre-existing (last touched commit `90e3548`, before milestone 13 started). Documented as DEVN-05 / `accepted-process-exception` across milestones 13 and 14. Awaits a dedicated phase that can revisit `Popover.tsx`'s ARIA-role typing without scope creep into another feature milestone.
+
 ## 3.0.0-alpha.26 — 2026-05-17
 
 _Milestone **`13-unified-panel-and-cook-interview-bridge`** ships (4 phases, 4 plans, 13 commits). Dashboard cook is now the dashboard-native VBW-vibe interview: one unified log/chat panel replaces the dual `LogPanel` + `ChatPanel` split, cook's `askUser` flow surfaces as interactive cards, and the chat thread stays continuous across verb-chip mode switches. User intent (verbatim): "Cook is the conversion of 'VBW:Vibe' where one of the strongest points was to interview the user to understand the work better. 'cook' needs to work the same way... Do what is most elegant, optimal and future proof."_
