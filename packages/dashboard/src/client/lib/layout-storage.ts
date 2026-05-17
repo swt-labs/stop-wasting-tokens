@@ -46,7 +46,18 @@
 // the old 4-element shape, or anyone who manually edited the v9 key
 // with a stale length). The shim does NOT write back; the next persist
 // cycle (the first user resize) overwrites with the new shape.
-const STORAGE_KEY = 'swt:dashboard:layout-v9';
+//
+// It bumps to `-v10` (2026-05-17) because DoctorPanel and DetectPhasePanel
+// were removed at user request — they were diagnostic-only and not
+// driving the daily flow. UserNotesPanel is the only remaining tools-
+// column card, so the inner vertical Resizable wrapper is gone too
+// (one panel doesn't need resizing). The `tools` array shrinks from
+// 3 entries to an empty array (`[]`) — kept as a field on the
+// DashboardLayout shape so a future return of multi-panel tooling
+// doesn't need another schema migration. The forward-migration shim
+// from v9 still trims persisted-longer arrays (4 → 0, 3 → 0, etc.)
+// down to the new empty default with a single console.debug.
+const STORAGE_KEY = 'swt:dashboard:layout-v10';
 
 /**
  * Plan 01-03 — one-shot console.debug latch for the tools-array
@@ -70,10 +81,13 @@ export type DashboardLayout = {
    *  (CostPanel/BudgetPanel/CacheHitPanel/TpacPanel) were removed in
    *  Phase 03; right[1] now holds WorktreesPanel only. */
   right: number[];
-  /** 3 entries: vertical split inside the tools column —
-   *  [Doctor, DetectPhase, UserNotes]. Was 4 in v8 (Config was tools[0]);
-   *  plan 01-03 deleted ConfigPanel — config editing now lives in the
-   *  TopBar "Options ▾" dropdown. */
+  /** 0 entries — v10 collapsed the inner vertical Resizable when
+   *  DoctorPanel + DetectPhasePanel were removed at user request.
+   *  UserNotesPanel renders directly inside the outer tools-column
+   *  panel without an inner resize stack. The field is preserved on
+   *  the shape so a future multi-panel tools column does not need
+   *  another schema migration — extending the empty default is enough.
+   *  Was 3 in v9 (Doctor / DetectPhase / UserNotes). */
   tools: number[];
 };
 
@@ -83,9 +97,8 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
   main: [0.27, 0.45, 0.13, 0.15],
   center: [0.65, 0.35],
   right: [0.65, 0.35],
-  // 3-way split: roughly even fractions summing to 1.0 (0.34 + 0.33 + 0.33).
-  // Every entry is well above the 0.1 minSize floor.
-  tools: [0.34, 0.33, 0.33],
+  // v10: tools column has only UserNotesPanel; no inner resizing.
+  tools: [],
 };
 
 const isFractionArray = (value: unknown, length: number): value is number[] =>

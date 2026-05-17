@@ -7,8 +7,6 @@ import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
-import { DetectPhasePanel } from './components/DetectPhasePanel.js';
-import { DoctorPanel } from './components/DoctorPanel.js';
 import { FirstRunHint } from './components/FirstRunHint.js';
 import { InitScreen } from './components/InitScreen.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
@@ -359,73 +357,24 @@ export const App: Component = () => {
               minSize={0.08}
               class="resizable-panel resizable-stack"
             >
-              <Resizable
-                orientation="vertical"
-                initialSizes={initialLayout.tools}
-                onSizesChange={(sizes) => {
-                  layout.tools = sizes;
-                  persist();
-                }}
-                class="resizable-root resizable-root-v"
-              >
-                {/* Tools column: 3 resizable panels.
-                    Plan 01-03 removed ConfigPanel — config editing now
-                    lives entirely in the TopBar "Options ▾" dropdown
-                    (Settings curated + Advanced full tree + Save). The
-                    `tools` array shrinks from 4 → 3 entries. Pre-01-03
-                    ProjectStatePanel/UpdatePanel/ProviderCostPanel were
-                    removed in earlier passes — see `lib/layout-storage.ts`
-                    for the v9 storage-key bump (forward-migration shim
-                    slices longer persisted arrays on load). */}
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[0]}
-                  minSize={0.1}
-                  class="resizable-panel"
-                >
-                  <DoctorPanel
-                    data={state.tools.doctor.data}
-                    loading={state.tools.doctor.loading}
-                    error={state.tools.doctor.error}
-                    lastFetched={state.tools.doctor.lastFetched}
-                    onRefresh={() => void actions.refreshToolsCell('doctor')}
-                  />
-                </Resizable.Panel>
-                <Resizable.Handle
-                  class="resizable-handle resizable-handle-v"
-                  aria-label="Resize doctor / detect-phase"
-                />
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[1]}
-                  minSize={0.1}
-                  class="resizable-panel"
-                >
-                  <DetectPhasePanel
-                    data={state.tools.detectPhase.data}
-                    loading={state.tools.detectPhase.loading}
-                    error={state.tools.detectPhase.error}
-                    lastFetched={state.tools.detectPhase.lastFetched}
-                    onRefresh={() => void actions.refreshToolsCell('detectPhase')}
-                  />
-                </Resizable.Panel>
-                <Resizable.Handle
-                  class="resizable-handle resizable-handle-v"
-                  aria-label="Resize detect-phase / user-notes"
-                />
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[2]}
-                  minSize={0.1}
-                  class="resizable-panel"
-                >
-                  <UserNotesPanel
-                    data={state.tools.userNotes.data}
-                    loading={state.tools.userNotes.loading}
-                    error={state.tools.userNotes.error}
-                    lastFetched={state.tools.userNotes.lastFetched}
-                    onRefresh={() => void actions.refreshToolsCell('userNotes')}
-                    onSave={(notes) => actions.saveUserNotes(notes)}
-                  />
-                </Resizable.Panel>
-              </Resizable>
+              {/* Tools column: a single panel.
+                  v10 — DoctorPanel + DetectPhasePanel were removed at user
+                  request (they were diagnostic-only and not driving the
+                  daily flow). UserNotesPanel is the sole occupant, so the
+                  inner vertical Resizable wrapper is gone too — one panel
+                  doesn't need resizing. The persisted `tools` array shrinks
+                  to `[]`; see `lib/layout-storage.ts` for the v9 → v10
+                  storage-key bump. Plan 01-03's pre-bump trio
+                  (Doctor / DetectPhase / UserNotes) is now just
+                  UserNotes. */}
+              <UserNotesPanel
+                data={state.tools.userNotes.data}
+                loading={state.tools.userNotes.loading}
+                error={state.tools.userNotes.error}
+                lastFetched={state.tools.userNotes.lastFetched}
+                onRefresh={() => void actions.refreshToolsCell('userNotes')}
+                onSave={(notes) => actions.saveUserNotes(notes)}
+              />
             </Resizable.Panel>
           </Resizable>
         </main>
