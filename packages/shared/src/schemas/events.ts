@@ -182,6 +182,16 @@ const CookAgentSpawnEvent = z.object({
   role: CookAgentRoleSchema,
   sub_session_id: z.string().min(1),
   prompt_hash: z.string().optional(),
+  /**
+   * Statusline-extension milestone — the resolved model id for the spawned
+   * agent (or the orchestrator). Optional because the cook callsite often
+   * doesn't know the id (Pi's ModelRegistry resolves provider defaults
+   * internally); sub-agent spawns from
+   * `.swt-planning/.sessions/*.json` polling fold a model field in
+   * via the snapshot pipeline rather than this event. Pure addition;
+   * older consumers ignore it.
+   */
+  model: z.string().optional(),
 });
 
 const CookAgentResultEvent = z.object({

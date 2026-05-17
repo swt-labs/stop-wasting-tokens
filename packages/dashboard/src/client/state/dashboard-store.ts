@@ -735,6 +735,11 @@ export function createDashboardStore(
           cost_usd: 0,
           elapsed_ms: 0,
           started_at: evt.ts,
+          // Statusline-extension milestone — populate AgentLiveState.model
+          // when the spawn event carries it. AgentLiveStateSchema.model
+          // has been an optional field since plan 04-02 T1 (pre-dating
+          // this milestone); the reducer just stopped dropping it.
+          ...(evt.model !== undefined ? { model: evt.model } : {}),
         });
         setState('activeAgents', next);
         // Milestone 13 / Phase 01 — also surface the spawn as a cook-agent

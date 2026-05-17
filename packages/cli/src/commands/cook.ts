@@ -2799,12 +2799,22 @@ async function runMode(
   // the dashboard's active-agent pane.
   const subSessionId = ctx.sessionId;
 
+  // Statusline-extension milestone — carry the resolved orchestrator model
+  // when the cook callsite knows it. Same resolution rules as the
+  // cook.provider_selected emitter below (only `cost-optimized-rate-card`
+  // exposes a callsite-resolvable model id today). Omitted when Pi's
+  // ModelRegistry resolves the provider default internally.
+  const orchestratorModelHint =
+    config.providers.strategy.kind === 'cost-optimized-rate-card'
+      ? config.providers.strategy.model
+      : undefined;
   emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
     type: 'cook.agent_spawn',
     ts: new Date().toISOString(),
     session_id: ctx.sessionId,
     role: 'orchestrator',
     sub_session_id: subSessionId,
+    ...(orchestratorModelHint !== undefined ? { model: orchestratorModelHint } : {}),
   });
 
   // Plan 03-04 (Phase 3 / G-R4) — best-effort rate-card load for the

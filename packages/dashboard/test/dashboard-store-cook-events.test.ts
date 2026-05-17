@@ -93,6 +93,29 @@ describe('cook event reducer', () => {
       expect(row?.tokens_out).toBe(0);
       expect(row?.cost_usd).toBe(0);
       expect(row?.started_at).toBe('2026-05-13T10:00:00Z');
+      // Statusline-extension milestone — without an explicit `model` on
+      // the event, the AgentLiveState row should NOT carry one either
+      // (the optional schema field stays undefined).
+      expect(row?.model).toBeUndefined();
+      dispose();
+    });
+  });
+
+  it('cook.agent_spawn populates AgentLiveState.model when the event carries one', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: '2026-05-17T10:00:00Z',
+        session_id: 'sess-1',
+        role: 'orchestrator',
+        sub_session_id: 'sess-1',
+        model: 'claude-opus-4-7',
+      });
+      const row = state.activeAgents.get('sess-1');
+      expect(row).toBeDefined();
+      expect(row?.role).toBe('orchestrator');
+      expect(row?.model).toBe('claude-opus-4-7');
       dispose();
     });
   });
