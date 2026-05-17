@@ -9,7 +9,7 @@ import {
 } from '../src/server/lib/allowed-verbs.ts';
 
 describe('ALLOWED_VERBS allowlist', () => {
-  it('non-interactive allowlist covers v1.6.6 + plan 04-02 T5 + plan 15-01-01 T4 verbs', () => {
+  it('non-interactive allowlist covers v1.6.6 + plan 04-02 T5 + plan 15-01-01 T4 + plan 15-02-01 T4 verbs', () => {
     const expected = new Set([
       // v1.6.6 baseline
       'help',
@@ -31,6 +31,10 @@ describe('ALLOWED_VERBS allowlist', () => {
       'plan',
       'execute',
       'audit',
+      // Plan 15-02-01 T4 — `todo` graduated from STUB to a real
+      // line-by-line file I/O verb (append to STATE.md + optional
+      // sidecar). No Pi spawn, no askUser, no stdin prompts.
+      'todo',
     ]);
     expect(new Set([...ALLOWED_NON_INTERACTIVE_VERBS])).toEqual(expected);
   });

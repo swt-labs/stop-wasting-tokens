@@ -128,6 +128,17 @@ const CORE_ENTRIES: ReadonlyArray<Entry> = [
     usage: null,
     category: 'core',
   },
+  // Plan 15-02-01 T4 — `todo` graduates from STUB_ENTRIES (below) to a
+  // real non-interactive verb. The handler is line-by-line file I/O
+  // (no Pi spawn, no askUser), so `dashboard_safe: true` is correct;
+  // membership is conferred by ALLOWED_NON_INTERACTIVE_VERBS in
+  // allowed-verbs.ts via `withDashboardSafe`.
+  {
+    name: 'todo',
+    description: 'Add a backlog item to STATE.md ## Todos',
+    usage: '"<description>" [--detail] [--phase] [--files] [--priority] [--assignee]',
+    category: 'core',
+  },
 ];
 
 const STUB_ENTRIES: ReadonlyArray<Entry> = [
@@ -166,7 +177,7 @@ const STUB_ENTRIES: ReadonlyArray<Entry> = [
     usage: null,
     category: 'stub',
   },
-  { name: 'todo', description: 'Manage the STATE.md todo list', usage: null, category: 'stub' },
+  // Plan 15-02-01 T4 — `todo` moved to CORE_ENTRIES above (real verb).
   { name: 'skills', description: 'Search and install skills', usage: null, category: 'stub' },
   {
     name: 'whats-new',

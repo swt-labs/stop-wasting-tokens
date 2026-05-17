@@ -65,6 +65,10 @@ export const ALLOWED_NON_INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
   'plan',
   'execute',
   'audit',
+  // Plan 15-02-01 T4 — `todo` is a non-interactive line-by-line file I/O
+  // verb (append to STATE.md + optional sidecar). No Pi spawn, no
+  // askUser, no stdin prompts; safe for the dashboard command bar.
+  'todo',
 ]);
 
 /**
