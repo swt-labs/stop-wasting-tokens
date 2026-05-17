@@ -11,19 +11,19 @@ Generated from the `buildRegistry()` function in `@swt-labs/cli`. Run `swt help`
 
 ### `swt archive`
 
-Archive a milestone.
+Archive a completed milestone (alias for `swt cook --archive`).
 
 **Notes:** _(no override guidance documented)_
 
 ### `swt assumptions`
 
-Capture phase assumptions.
+Capture phase assumptions (alias for `swt cook --assumptions`).
 
 **Notes:** _(no override guidance documented)_
 
 ### `swt audit`
 
-Run the pre-archive audit matrix.
+Run the pre-archive audit matrix (alias for `swt cook --archive`).
 
 **Notes:** _(no override guidance documented)_
 
@@ -95,7 +95,9 @@ Check that SWT prerequisites are installed.
 
 ### `swt execute`
 
-Execute a planned phase.
+Execute a planned phase (alias for `swt cook --execute`).
+
+**Usage:** `swt execute [N] [--effort LEVEL]`
 
 **Notes:** _(no override guidance documented)_
 
@@ -141,13 +143,17 @@ Pause and stash session state.
 
 ### `swt phase`
 
-Add / insert / remove phases.
+Add / insert / remove phases (alias for cook --add/--insert/--remove).
+
+**Usage:** `swt phase [--add "name" | --insert N "name" | --remove N]`
 
 **Notes:** _(no override guidance documented)_
 
 ### `swt plan`
 
-Plan a phase (Scout + Lead).
+Plan a phase (alias for `swt cook --plan`).
+
+**Usage:** `swt plan [N] [--effort LEVEL]`
 
 **Notes:** _(no override guidance documented)_
 

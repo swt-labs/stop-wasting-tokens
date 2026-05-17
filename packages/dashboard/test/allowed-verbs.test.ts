@@ -9,7 +9,7 @@ import {
 } from '../src/server/lib/allowed-verbs.ts';
 
 describe('ALLOWED_VERBS allowlist', () => {
-  it('non-interactive allowlist covers v1.6.6 + plan 04-02 T5 quick verbs', () => {
+  it('non-interactive allowlist covers v1.6.6 + plan 04-02 T5 + plan 15-01-01 T4 verbs', () => {
     const expected = new Set([
       // v1.6.6 baseline
       'help',
@@ -25,6 +25,12 @@ describe('ALLOWED_VERBS allowlist', () => {
       'verify',
       'research',
       'map',
+      // Plan 15-01-01 T4 — newly-graduated cook aliases. plan/execute/audit
+      // are non-interactive in their cook routing; discuss/assumptions/
+      // archive/phase stay off the allowlist (they hit askUser checkpoints).
+      'plan',
+      'execute',
+      'audit',
     ]);
     expect(new Set([...ALLOWED_NON_INTERACTIVE_VERBS])).toEqual(expected);
   });
@@ -76,8 +82,13 @@ describe('classifyVerb', () => {
   it('classifies stub verbs as rejected_unknown', () => {
     // Per packages/cli/src/commands/stubs.ts — these are roadmap placeholders,
     // not runnable. Dashboard must reject them with a hint. (`qa` was a stub
-    // pre-04-02 but plan 04-02 T5 promoted it to the quick-action allowlist.)
-    const stubs = ['init', 'plan', 'execute', 'archive', 'release'];
+    // pre-04-02 but plan 04-02 T5 promoted it to the quick-action allowlist;
+    // `plan` / `execute` were stubs pre-15-01-01 but plan 15-01-01 T4
+    // promoted them to the cook-alias allowlist.) `archive` was promoted
+    // to a thin alias in plan 15-01-01 T3 but stays OFF the dashboard
+    // allowlist (interactive — hits askUser checkpoints inside cook), so
+    // it still classifies as rejected_unknown today.
+    const stubs = ['release', 'resume', 'pause', 'archive'];
     for (const verb of stubs) {
       expect(classifyVerb(verb)).toEqual({ decision: 'rejected_unknown', verb });
     }

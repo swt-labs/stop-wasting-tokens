@@ -53,10 +53,9 @@
  */
 
 import type { ParsedArgv } from '../argv.js';
+import { cookHandler } from '../commands/cook.js';
 import type { ExitCode } from '../exit-codes.js';
 import type { CommandIO } from '../router.js';
-
-import { cookHandler } from '../commands/cook.js';
 
 /**
  * Cook boolean flags this helper can set on a forwarded `ParsedArgv`.
