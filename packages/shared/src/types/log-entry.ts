@@ -116,6 +116,14 @@ export const CookAskUserEntrySchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * Whether the user can submit freeform text instead of selecting an option.
+   * Phase 02 reducer defaults this to `true` when mapping from `prompt.request`
+   * (the AskUserQuestion contract from `references/ask-user-question.md` says
+   * the `Other` path is always present unless explicitly opted out per-prompt).
+   * AskUserCard reads this to gate the `Other` button visibility.
+   */
+  allowFreeform: z.boolean().optional(),
   status: z.enum(['pending', 'answered', 'expired']),
   /** Set once the user has answered. */
   reply: z.string().optional(),

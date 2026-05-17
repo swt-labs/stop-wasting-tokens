@@ -1466,6 +1466,12 @@ export function createDashboardStore(
         prompt_id: evt.prompt_id,
         question: evt.question,
         options: translatedOptions,
+        // Phase 02 default per VBW `references/ask-user-question.md` — the
+        // Other (freeform) path is always present unless an explicit
+        // per-prompt opt-out is introduced. AskUserCard's `showOtherButton`
+        // gate reads this; without the field, `=== true` checks always fail
+        // and the Other button never renders (regression caught in M13 P04).
+        allowFreeform: true,
         status: 'pending',
       });
       // Single-card invariant (Scout §7): a second prompt.request while the
