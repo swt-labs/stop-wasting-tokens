@@ -23,11 +23,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   connectionDotState,
+  formatAgentsCell,
+  formatContextEstimate,
+  formatStatuslineKnob,
   formatStatuslineProvider,
   formatStatuslineRollup,
   formatStatuslineSessionCost,
   formatStatuslineTokens,
+  shortModelLabel,
 } from '../src/client/components/DashboardStatusline.jsx';
+import type { AgentLiveState } from '@swt-labs/shared';
 
 describe('formatStatuslineProvider', () => {
   it('returns the provider name verbatim when non-empty', () => {
@@ -209,5 +214,139 @@ describe('end-to-end format coverage', () => {
   it('imports are used (type-coverage suppression)', () => {
     const _used: Array<CostSummary | UsageRollup | undefined> = [undefined];
     expect(_used).toHaveLength(1);
+  });
+});
+
+// ── Statusline-extension milestone (step 8) — new helpers ──────────────
+// Coverage matches the artifacts.md test list:
+//   - all-cells-rendered with full data (formatStatuslineKnob full+missing)
+//   - missing-knobs → em-dashes (formatStatuslineKnob with null)
+//   - context-estimate when window unknown (formatContextEstimate)
+//   - agents-list truncation (formatAgentsCell over the 40-char cap)
+//   - horizontal scroll classes (deferred to CSS — exercised via the
+//     dashboard's manual smoke flow per acceptance criterion §3)
+
+describe('formatStatuslineKnob', () => {
+  it('renders `key:value` when value is non-null', () => {
+    expect(formatStatuslineKnob('eff', 'thorough')).toBe('eff:thorough');
+    expect(formatStatuslineKnob('auto', 'standard')).toBe('auto:standard');
+  });
+
+  it('renders `key:—` when value is null or empty', () => {
+    expect(formatStatuslineKnob('eff', null)).toBe('eff:—');
+    expect(formatStatuslineKnob('auto', '')).toBe('auto:—');
+  });
+});
+
+describe('shortModelLabel', () => {
+  it('strips the `claude-` family prefix from Anthropic ids', () => {
+    expect(shortModelLabel('claude-sonnet-4-6')).toBe('sonnet-4-6');
+    expect(shortModelLabel('claude-opus-4-7')).toBe('opus-4-7');
+    expect(shortModelLabel('claude-haiku-4-5-20251001')).toBe('haiku-4-5-20251001');
+  });
+
+  it('leaves non-Anthropic ids unchanged', () => {
+    expect(shortModelLabel('gpt-5-codex')).toBe('gpt-5-codex');
+    expect(shortModelLabel('llama3.1:8b')).toBe('llama3.1:8b');
+  });
+
+  it('returns `—` for null / undefined / empty inputs', () => {
+    expect(shortModelLabel(null)).toBe('—');
+    expect(shortModelLabel(undefined)).toBe('—');
+    expect(shortModelLabel('')).toBe('—');
+  });
+});
+
+describe('formatAgentsCell', () => {
+  const mkAgent = (sub: string, role: string, model?: string): AgentLiveState => ({
+    sub_session_id: sub,
+    role,
+    status: 'running',
+    tokens_in: 0,
+    tokens_out: 0,
+    cache_read: 0,
+    cache_creation: 0,
+    cost_usd: 0,
+    elapsed_ms: 0,
+    started_at: '2026-05-17T10:00:00Z',
+    ...(model !== undefined ? { model } : {}),
+  });
+
+  it('returns `agents:0` for an empty map', () => {
+    const out = formatAgentsCell(new Map());
+    expect(out.display).toBe('agents:0');
+    expect(out.fullList).toBe('');
+    expect(out.truncated).toBe(false);
+  });
+
+  it('inlines a short agent list', () => {
+    const map = new Map<string, AgentLiveState>([
+      ['s1', mkAgent('s1', 'dev', 'claude-sonnet-4-6')],
+    ]);
+    const out = formatAgentsCell(map);
+    expect(out.display).toBe('agents:1 [dev:sonnet-4-6]');
+    expect(out.fullList).toBe('dev:sonnet-4-6');
+    expect(out.truncated).toBe(false);
+  });
+
+  it('uses `—` for agents missing a model id', () => {
+    const map = new Map<string, AgentLiveState>([['s1', mkAgent('s1', 'dev')]]);
+    const out = formatAgentsCell(map);
+    expect(out.display).toContain('dev:—');
+    expect(out.truncated).toBe(false);
+  });
+
+  it('truncates to count when the inline list exceeds ~40 chars', () => {
+    // 3 verbose-model agents → roughly 60 chars of `role:model |` joiner.
+    const map = new Map<string, AgentLiveState>([
+      ['s1', mkAgent('s1', 'orchestrator', 'claude-opus-4-7')],
+      ['s2', mkAgent('s2', 'scout', 'claude-haiku-4-5-20251001')],
+      ['s3', mkAgent('s3', 'dev', 'claude-sonnet-4-6')],
+    ]);
+    const out = formatAgentsCell(map);
+    expect(out.display).toBe('agents:3');
+    expect(out.fullList).toContain('orchestrator:opus-4-7');
+    expect(out.fullList).toContain('scout:haiku-4-5-20251001');
+    expect(out.fullList).toContain('dev:sonnet-4-6');
+    expect(out.truncated).toBe(true);
+  });
+});
+
+describe('formatContextEstimate', () => {
+  it('renders both sides when known', () => {
+    expect(formatContextEstimate(42_000, 200_000)).toBe('ctx ~42k/200k');
+    expect(formatContextEstimate(0, 1_000_000)).toBe('ctx ~0k/1000k');
+  });
+
+  it('renders `ctx —/—` when both are unknown', () => {
+    expect(formatContextEstimate(null, null)).toBe('ctx —/—');
+    expect(formatContextEstimate(undefined, undefined)).toBe('ctx —/—');
+  });
+
+  it('renders `ctx ~Xk/—` when only the window is unknown', () => {
+    expect(formatContextEstimate(42_000, null)).toBe('ctx ~42k/—');
+  });
+
+  it('renders `ctx —/Yk` when only the cumulative is unknown', () => {
+    // The cumulative side is `null` only as a defensive case — in
+    // practice App.tsx always passes a number (cost_summary sums to 0
+    // pre-spawn). Still tested for robustness.
+    expect(formatContextEstimate(null, 200_000)).toBe('ctx —/200k');
+  });
+
+  it('rounds DOWN to the nearest 1k on both sides', () => {
+    expect(formatContextEstimate(42_999, 200_999)).toBe('ctx ~42k/200k');
+  });
+
+  it('treats NaN cumulative as unknown', () => {
+    expect(formatContextEstimate(Number.NaN, 200_000)).toBe('ctx —/200k');
+  });
+
+  it('treats zero / negative window as unknown', () => {
+    // Defensive — getContextWindow returns null for unknown models,
+    // so 0 or negative is structurally impossible in practice. The
+    // helper still maps them to `—` rather than printing `0k`.
+    expect(formatContextEstimate(42_000, 0)).toBe('ctx ~42k/—');
+    expect(formatContextEstimate(42_000, -1)).toBe('ctx ~42k/—');
   });
 });
