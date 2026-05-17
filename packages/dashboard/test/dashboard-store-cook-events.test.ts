@@ -555,6 +555,89 @@ describe('cook event reducer', () => {
       dispose();
     });
   });
+
+  // ── Statusline-extension milestone — cook.provider_selected.model ────────
+  // The cook callsite emits the resolved orchestrator model on
+  // cook.provider_selected when it knows it (today: `strategy.model` on
+  // cost-optimized-rate-card strategies). The reducer captures that into
+  // `state.orchestratorModel` for the statusline cell.
+  describe('cook.provider_selected → state.orchestratorModel', () => {
+    it('sets orchestratorModel when payload carries a non-empty model', () => {
+      createRoot((dispose) => {
+        const [state, actions] = createDashboardStore();
+        expect(state.orchestratorModel).toBeNull();
+        actions.applyEvent({
+          type: 'cook.provider_selected',
+          ts: '2026-05-17T10:00:00Z',
+          session_id: 'sess-1',
+          sub_session_id: 'sess-1',
+          selected_provider: 'anthropic',
+          selected_via: 'pinned',
+          model: 'claude-sonnet-4-6',
+        });
+        expect(state.orchestratorModel).toBe('claude-sonnet-4-6');
+        dispose();
+      });
+    });
+
+    it('leaves orchestratorModel unchanged when payload omits model', () => {
+      createRoot((dispose) => {
+        const [state, actions] = createDashboardStore();
+        actions.applyEvent({
+          type: 'cook.provider_selected',
+          ts: '2026-05-17T10:00:00Z',
+          session_id: 'sess-1',
+          sub_session_id: 'sess-1',
+          selected_provider: 'anthropic',
+          selected_via: 'pinned',
+          model: 'claude-opus-4-7',
+        });
+        expect(state.orchestratorModel).toBe('claude-opus-4-7');
+        // Second event without `model` — must NOT clobber to null.
+        actions.applyEvent({
+          type: 'cook.provider_selected',
+          ts: '2026-05-17T10:00:05Z',
+          session_id: 'sess-1',
+          sub_session_id: 'sess-1',
+          selected_provider: 'anthropic',
+          selected_via: 'tier-routed',
+          tier: 'quality',
+        });
+        expect(state.orchestratorModel).toBe('claude-opus-4-7');
+        dispose();
+      });
+    });
+
+    it('treats empty-string model as omitted (does not clobber existing value)', () => {
+      createRoot((dispose) => {
+        const [state, actions] = createDashboardStore();
+        actions.applyEvent({
+          type: 'cook.provider_selected',
+          ts: '2026-05-17T10:00:00Z',
+          session_id: 'sess-1',
+          sub_session_id: 'sess-1',
+          selected_provider: 'anthropic',
+          selected_via: 'pinned',
+          model: 'claude-haiku-4-5',
+        });
+        expect(state.orchestratorModel).toBe('claude-haiku-4-5');
+        // Empty string would be a Zod-rejected runtime payload but we
+        // defend at the reducer too.
+        actions.applyEvent({
+          type: 'cook.provider_selected',
+          ts: '2026-05-17T10:00:05Z',
+          session_id: 'sess-1',
+          sub_session_id: 'sess-1',
+          selected_provider: 'anthropic',
+          selected_via: 'pinned',
+          // @ts-expect-error — defensively tested even though Zod rejects ''
+          model: '',
+        });
+        expect(state.orchestratorModel).toBe('claude-haiku-4-5');
+        dispose();
+      });
+    });
+  });
 });
 
 /**

@@ -2870,7 +2870,18 @@ async function runMode(
       onResolveCredential: (provider) => resolveSpawnCredential(provider, config.auth),
       // Plan 02-04 (Phase 2 / G-R3) — emit cook.provider_selected onto the
       // JSONL channel once per spawn after the router resolves the primary.
+      // Statusline-extension milestone — also carry the resolved model id
+      // when the cook callsite knows it. Today the only callsite-resolvable
+      // model source is `strategy.model` on `cost-optimized-rate-card`
+      // strategies; for `pinned` / `tier-routed` / `round-robin` Pi's
+      // ModelRegistry resolves the provider default internally so the
+      // cook callsite doesn't see the id, and the dashboard statusline
+      // falls back to `—`.
       onSelectionEvent: (ev) => {
+        const resolvedModel =
+          config.providers.strategy.kind === 'cost-optimized-rate-card'
+            ? config.providers.strategy.model
+            : undefined;
         emitCookEvent(io.cwd, ctx.sessionId, ctx.startTs, {
           type: 'cook.provider_selected',
           ts: new Date().toISOString(),
@@ -2882,6 +2893,7 @@ async function runMode(
           ...(ev.rate_card_age_ms !== undefined ? { rate_card_age_ms: ev.rate_card_age_ms } : {}),
           ...(ev.rate_card_source !== undefined ? { rate_card_source: ev.rate_card_source } : {}),
           ...(ev.dimension !== undefined ? { dimension: ev.dimension } : {}),
+          ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
         });
       },
       // Plan 03-04 (Phase 3 / G-R4) — pre-spawn cost projection. Wired ONLY

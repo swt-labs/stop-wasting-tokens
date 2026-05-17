@@ -309,6 +309,15 @@ export interface DashboardState {
    */
   activeSessionId: string | null;
   /**
+   * Statusline-extension milestone — the resolved orchestrator model id
+   * captured from the latest `cook.provider_selected` event payload (when
+   * the cook callsite knew it; see cook.ts emit site for the resolution
+   * rules). `null` before the orchestrator has emitted, or when the
+   * callsite couldn't resolve the model (Pi's ModelRegistry resolved it
+   * internally). The dashboard statusline renders `—` when null.
+   */
+  orchestratorModel: string | null;
+  /**
    * Plan 02-01 (milestone 13, Phase 02) — the single in-flight cook askUser
    * prompt, or `null` when no cook prompt is awaiting a user response.
    * SET by the `prompt.request` reducer branch when the event's `session_id`
@@ -596,6 +605,7 @@ export function createDashboardStore(
     },
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
+    orchestratorModel: null,
     cookAwaitingUser: null,
     oauthFlow: null,
     initSession: null,
@@ -700,6 +710,16 @@ export function createDashboardStore(
           message: `started session ${sid8}`,
           mode: evt.mode,
         });
+        return;
+      }
+      case 'cook.provider_selected': {
+        // Statusline-extension milestone — capture the resolved orchestrator
+        // model id when the cook callsite carried it on the event. Omitted
+        // when Pi's ModelRegistry resolved internally; in that case the
+        // dashboard statusline keeps its prior value or renders `—`.
+        if (evt.model !== undefined && evt.model !== null && evt.model.length > 0) {
+          setState('orchestratorModel', evt.model);
+        }
         return;
       }
       case 'cook.agent_spawn': {

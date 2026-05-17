@@ -370,6 +370,15 @@ const CookProviderSelectedEvent = z.object({
   rate_card_age_ms: z.number().int().nonnegative().optional(),
   rate_card_source: z.enum(['embedded', 'project-override', 'fetched']).optional(),
   dimension: z.enum(['input', 'output', 'blended']).optional(),
+  /**
+   * Statusline-extension milestone — the resolved model id for the orchestrator
+   * Pi session (e.g. `claude-sonnet-4-6`, `gpt-5-mini`). Optional because Pi's
+   * `ModelRegistry` resolves the provider default internally for simple
+   * strategies and the cook callsite doesn't always know the id; the
+   * dashboard statusline renders `—` when omitted. Pure addition to the
+   * union — older consumers ignore it.
+   */
+  model: z.string().optional(),
 });
 
 // Plan 02-04 (Phase 2 / G-R3) — promotes the existing stderr-only
