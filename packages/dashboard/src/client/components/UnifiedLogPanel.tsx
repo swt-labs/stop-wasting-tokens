@@ -30,7 +30,7 @@
  * lives in this component rather than a helper.
  */
 
-import type { CookAskUserEntry, LogEntry, VibeReplyBody } from '@swt-labs/shared';
+import type { LogEntry, VibeReplyBody } from '@swt-labs/shared';
 import { For, Show, createEffect, createSignal, onMount, type Component } from 'solid-js';
 
 import { ansiToHtml } from '../lib/ansi-to-html.js';
@@ -160,10 +160,7 @@ export const UnifiedLogPanel: Component<UnifiedLogPanelProps> = (props) => {
         >
           <For each={props.log}>
             {(entry) => (
-              <UnifiedLogRow
-                entry={entry}
-                onCookAskUserRespond={props.onCookAskUserRespond}
-              />
+              <UnifiedLogRow entry={entry} onCookAskUserRespond={props.onCookAskUserRespond} />
             )}
           </For>
           <Show when={props.conversation.length > 0}>
@@ -274,12 +271,13 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
         {(() => {
           const e = props.entry;
           if (e.kind !== 'cook-ask-user') return null;
-          const askEntry = e as CookAskUserEntry;
+          // `e` is narrowed to CookAskUserEntry by the kind guard above;
+          // no cast needed (eslint @typescript-eslint/no-unnecessary-type-assertion).
           return (
             <AskUserCard
-              entry={askEntry}
+              entry={e}
               onRespond={async (body) => {
-                await props.onCookAskUserRespond?.(askEntry.prompt_id, body);
+                await props.onCookAskUserRespond?.(e.prompt_id, body);
               }}
             />
           );

@@ -977,3 +977,44 @@ body {
   font-size: 12px;
   color: var(--danger-red);
 }
+
+/* ── Milestone 13 / Phase 03 — TopBar answer-mode ──────────────────── */
+
+.topbar-cmd-answer-mode {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.4);
+}
+
+.topbar-cmd-answer-mode .topbar-cmd-prompt {
+  color: var(--neon-cyan);
+}
+
+.topbar-cmd-answer-mode .topbar-cmd-submit {
+  background: var(--neon-cyan);
+  color: var(--deep-void);
+  border-color: var(--neon-cyan);
+}
+
+.topbar-answer-mode-banner {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 12px;
+  margin-bottom: 4px;
+  background: rgba(0, 229, 255, 0.06);
+  border-left: 2px solid var(--neon-cyan);
+  font-size: 11px;
+  color: var(--ghost-white);
+}
+
+.topbar-answer-mode-banner-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neon-cyan);
+}
+
+.topbar-answer-mode-banner-question {
+  font-style: italic;
+  color: var(--slate-muted);
+}

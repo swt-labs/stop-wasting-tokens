@@ -40,10 +40,7 @@ import { askUserCardMode, classifyOptionStyle } from './askuser-card-helpers.js'
 
 export interface AskUserCardProps {
   entry: CookAskUserEntry;
-  onRespond: (body: {
-    selectedOption: string | null;
-    freeform: string | null;
-  }) => Promise<void>;
+  onRespond: (body: { selectedOption: string | null; freeform: string | null }) => Promise<void>;
 }
 
 export const AskUserCard: Component<AskUserCardProps> = (props) => {
@@ -61,8 +58,7 @@ export const AskUserCard: Component<AskUserCardProps> = (props) => {
   // Scout §8 — Other button visibility. Always-true `entry.allowFreeform`
   // is the current Phase 02 default; the explicit check future-proofs
   // against a per-prompt opt-out.
-  const showOtherButton = (): boolean =>
-    options().length > 0 && props.entry.allowFreeform === true;
+  const showOtherButton = (): boolean => options().length > 0 && props.entry.allowFreeform === true;
 
   // Shallow-acceptance prevention — `Send` is disabled when the trimmed
   // freeform text is empty (Scout §8). canSubmitFreeform mirrors the

@@ -4,8 +4,16 @@ import { Show, createMemo, createSignal, For, type Component, type JSX } from 's
 import type { WorkflowState } from '../lib/workflow-state.js';
 import type { ConnectionState } from '../state/dashboard-store.js';
 
+import { formatAskUserPlaceholder } from './askuser-card-helpers.js';
 import { OptionsMenu } from './OptionsMenu.js';
 import { ProviderMenu } from './ProviderMenu.js';
+
+/**
+ * Phase 03 — placeholder cap for answer-mode. Matches
+ * `formatAskUserPlaceholder`'s default (100 chars) so a runaway long
+ * question cannot blow out the input's visual width.
+ */
+const MAX_PLACEHOLDER_LEN = 100;
 
 export interface TopBarProps {
   project: ProjectSummary | null;
@@ -42,6 +50,29 @@ export interface TopBarProps {
    * slate-muted styling is the user-visible contract).
    */
   onChat?: (text: string) => Promise<unknown>;
+  /**
+   * Milestone 13 / Phase 03 — when non-null, TopBar enters answer-mode
+   * (verb chip disabled + clear-× hidden + placeholder driven by
+   * `formatAskUserPlaceholder` + submit routes to `onCookAskUserRespond`
+   * BEFORE the chat/verb branches + Send button labelled 'Answer' +
+   * `topbar-cmd-answer-mode` form class + banner). The mode-precedence
+   * is locked: cook-ask-user > chat > vibe > command (Scout §5 +
+   * cross-cutting #6). Optional so App.tsx and tests can omit it.
+   */
+  cookAwaitingUser?: {
+    askUserId: string;
+    question: string;
+    options: Array<{ value: string; label: string; description?: string }>;
+    allowFreeform: boolean;
+  } | null;
+  /**
+   * Milestone 13 / Phase 03 — answer-mode submit handler. Only
+   * freeform text is routed through the TopBar; option-button choice
+   * happens on `<AskUserCard>` directly. When `answerMode()` is true,
+   * the trimmed input is passed to this handler (the action maps it to
+   * `{selectedOption: null, freeform: text}` before POSTing).
+   */
+  onCookAskUserRespond?: (text: string) => Promise<unknown>;
   /**
    * Phase 1 (Dashboard Options Menu) — store-backed open state; when omitted,
    * TopBar falls back to a local signal so the dropdown is visibly working
@@ -159,6 +190,17 @@ export function canSubmit(verb: string | null, input: string): boolean {
   return true;
 }
 
+/**
+ * Phase 03 — submit gate for TopBar answer-mode. Answer-mode is only
+ * freeform text (option clicks happen on `<AskUserCard>` directly), so
+ * the gate is exactly "trimmed text is non-empty" — Scout §8
+ * shallow-acceptance prevention. Exported for direct unit-testing
+ * (mirrors `canSubmit` / `composeCommand`).
+ */
+export function canSubmitAnswerMode(input: string): boolean {
+  return input.trim().length > 0;
+}
+
 /** Verb-aware hint text describing what pressing ↵ / Run will do.
  *  Cook-verb branches on workflow state when supplied (Phase 04). */
 export function hintForVerb(
@@ -246,9 +288,24 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // flips to command mode. Clicking the `×` chip returns to neutral.
   const [verb, setVerb] = createSignal<string | null>(null);
 
+  // Phase 03 — answer-mode is reactive off `cookAwaitingUser`. When the
+  // SSE prompt.response arrives and clears the slot, `answerMode()`
+  // flips back to false and the TopBar returns to its prior verb/chat
+  // mode automatically (sticky verb signal is preserved across the
+  // answer-mode round-trip).
+  const answerMode = createMemo(() => props.cookAwaitingUser != null);
+
   // alpha.20 — `hint` memo removed alongside the hint row in JSX. The
   // `hintForVerb` helper stays exported (consumed by test files).
-  const placeholder = createMemo(() => placeholderForVerb(verb(), props.workflowState));
+  // Phase 03 — when in answer-mode, the placeholder is the truncated
+  // cook question (formatAskUserPlaceholder); otherwise fall through to
+  // the existing verb/workflow-state matrix.
+  const placeholder = createMemo(() => {
+    if (answerMode() && props.cookAwaitingUser) {
+      return formatAskUserPlaceholder(props.cookAwaitingUser.question, MAX_PLACEHOLDER_LEN);
+    }
+    return placeholderForVerb(verb(), props.workflowState);
+  });
 
   // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so
   // `App.tsx` (out of this plan's files_modified) needs no edit; when they
@@ -287,6 +344,18 @@ export const TopBar: Component<TopBarProps> = (props) => {
 
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
+    // Phase 03 — answer-mode branch MUST short-circuit BEFORE the
+    // chat/verb branches. Mode precedence: cook-ask-user > chat > vibe
+    // > command (Scout §5 + cross-cutting #6). When the slot is set,
+    // the trimmed input goes to onCookAskUserRespond; option-button
+    // choice happens on <AskUserCard> directly.
+    if (answerMode()) {
+      const text = input().trim();
+      if (!canSubmitAnswerMode(input())) return;
+      setInput('');
+      await props.onCookAskUserRespond?.(text);
+      return;
+    }
     const selectedVerb = verb();
     if (!canSubmit(selectedVerb, input())) return;
     // Phase 02 — neutral chat branch MUST short-circuit BEFORE composeCommand.
@@ -337,16 +406,27 @@ export const TopBar: Component<TopBarProps> = (props) => {
         <span class="topbar-brand-cursor">_</span>
       </h1>
       <div class="topbar-cmd-wrapper">
+        <Show when={answerMode() && props.cookAwaitingUser}>
+          <div class="topbar-answer-mode-banner" role="status">
+            <span class="topbar-answer-mode-banner-label">Cook asks:</span>{' '}
+            <span class="topbar-answer-mode-banner-question">
+              {formatAskUserPlaceholder(props.cookAwaitingUser!.question, MAX_PLACEHOLDER_LEN)}
+            </span>
+          </div>
+        </Show>
         <form
           class="topbar-cmd"
-          classList={{ 'topbar-cmd-neutral': verb() === null }}
+          classList={{
+            'topbar-cmd-neutral': verb() === null && !answerMode(),
+            'topbar-cmd-answer-mode': answerMode(),
+          }}
           onSubmit={(e) => void onSubmit(e)}
           aria-label="Run swt command"
         >
           <select
             class="topbar-cmd-verb"
             aria-label="Command"
-            disabled={controlsDisabled()}
+            disabled={controlsDisabled() || answerMode()}
             value={verb() ?? ''}
             onChange={(e) => setVerb(e.currentTarget.value || null)}
           >
@@ -355,7 +435,7 @@ export const TopBar: Component<TopBarProps> = (props) => {
             </option>
             <For each={ACTION_VERBS}>{(v) => <option value={v.value}>{v.label}</option>}</For>
           </select>
-          <Show when={verb() !== null}>
+          <Show when={verb() !== null && !answerMode()}>
             <button
               type="button"
               class="topbar-cmd-clear"
@@ -382,9 +462,12 @@ export const TopBar: Component<TopBarProps> = (props) => {
           <button
             type="submit"
             class="topbar-cmd-submit"
-            disabled={controlsDisabled() || !canSubmit(verb(), input())}
+            disabled={
+              controlsDisabled() ||
+              (answerMode() ? !canSubmitAnswerMode(input()) : !canSubmit(verb(), input()))
+            }
           >
-            {verb() === null ? 'Send' : 'Run'}
+            {answerMode() ? 'Answer' : verb() === null ? 'Send' : 'Run'}
           </button>
         </form>
         {/* alpha.20 — verb hint row removed at user request. Placeholder

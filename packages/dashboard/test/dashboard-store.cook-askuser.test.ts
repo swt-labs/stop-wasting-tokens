@@ -104,10 +104,7 @@ function seedPendingPrompt(
     session_id: sessionId,
     prompt_id: promptId,
     question: 'Which migration strategy?',
-    options: [
-      { label: 'Schema first' },
-      { label: 'Data first', isRecommended: true },
-    ],
+    options: [{ label: 'Schema first' }, { label: 'Data first', isRecommended: true }],
   });
 }
 

@@ -134,8 +134,10 @@ export function formatAskUserPlaceholder(
  * dedicated `isRecommended: boolean` field would require a Phase 01
  * schema change which Phase 03 deliberately does not make.
  */
-export function classifyOptionStyle(
-  option: { value: string; label: string; description?: string },
-): 'recommended' | 'default' {
+export function classifyOptionStyle(option: {
+  value: string;
+  label: string;
+  description?: string;
+}): 'recommended' | 'default' {
   return option.description === 'Recommended' ? 'recommended' : 'default';
 }

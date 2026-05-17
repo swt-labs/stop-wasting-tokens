@@ -2170,10 +2170,7 @@ export function createDashboardStore(
       return;
     }
     const matchIdx = state.unifiedLog.findIndex(
-      (e) =>
-        e.kind === 'cook-ask-user' &&
-        e.prompt_id === askUserId &&
-        e.status === 'pending',
+      (e) => e.kind === 'cook-ask-user' && e.prompt_id === askUserId && e.status === 'pending',
     );
     if (matchIdx === -1) {
       pushError('[cook-ask-user] no pending entry for askUserId — already answered?');

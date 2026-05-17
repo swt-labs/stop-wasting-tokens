@@ -116,6 +116,15 @@ export const App: Component = () => {
         onCommand={actions.runCommand}
         onVibe={actions.startVibeSession}
         onChat={actions.startChat}
+        cookAwaitingUser={state.cookAwaitingUser}
+        onCookAskUserRespond={async (text: string) => {
+          const cau = state.cookAwaitingUser;
+          if (!cau) return;
+          await actions.respondToCookAskUser(cau.askUserId, {
+            selectedOption: null,
+            freeform: text,
+          });
+        }}
         optionsMenuOpen={state.optionsMenuOpen}
         onToggleOptionsMenu={actions.toggleOptionsMenu}
         onCloseOptionsMenu={actions.closeOptionsMenu}
@@ -288,6 +297,9 @@ export const App: Component = () => {
                     onReply={actions.replyToActivePrompt}
                     agentBackend={state.vibeSession?.agent_backend ?? null}
                     onClearChat={actions.clearChat}
+                    onCookAskUserRespond={(askUserId, response) =>
+                      actions.respondToCookAskUser(askUserId, response)
+                    }
                   />
                 </Resizable.Panel>
               </Resizable>

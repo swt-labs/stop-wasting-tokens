@@ -46,7 +46,7 @@ function makeEntry(
     ],
     status,
     ...overrides,
-  } as CookAskUserEntry;
+  };
 }
 
 describe('askUserCardMode', () => {
