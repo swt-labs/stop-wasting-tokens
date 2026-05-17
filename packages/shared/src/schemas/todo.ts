@@ -62,3 +62,81 @@ export type TodoDetailsFile = z.infer<typeof TodoDetailsFileSchema>;
  * the stable order documented above.
  */
 export const TODO_LINE_PREFIX = '- [TODO]';
+
+/**
+ * Plan 03-01 T1 — read-side schemas for the `swt list-todos` verb.
+ *
+ * The schemas below are ADDITIVE to the Phase 02 surface above. They
+ * describe (a) the parsed shape of a single `## Todos` line, (b) the
+ * session-snapshot file written to `.swt-planning/.cache/list-todos-snapshot.json`
+ * that Phase 04's bare-integer cook resolver will consume, and (c) the
+ * separate JSON-output envelope emitted by `swt list-todos --json`
+ * (which carries full `entries` instead of `refs`).
+ *
+ * Locating these in shared (L0) keeps the dashboard, methodology layer,
+ * and any future tooling able to typecheck against them without taking
+ * a dep on the CLI package.
+ */
+
+/**
+ * The four possible bracket-prefix tags a `## Todos` line can carry.
+ * Phase 02 only writes `[TODO]`; the other three are forward-compatible
+ * with a future status-change verb (out of scope for milestone 15).
+ */
+export const TodoStatusSchema = z.enum(['[TODO]', '[IN-PROGRESS]', '[BLOCKED]', '[DONE]']);
+export type TodoStatus = z.infer<typeof TodoStatusSchema>;
+
+/**
+ * Parsed shape of a single `## Todos` line. Mirrors the canonical line
+ * format documented at `TODO_LINE_PREFIX`. The `ref` field is the 8-char
+ * sha256 prefix of the description (optionally suffixed with `-N` for
+ * the collision-resolution case Phase 02 reserves). Optional annotation
+ * fields are present when their bracketed suffix is on the source line.
+ */
+export const TodoEntrySchema = z.object({
+  status: TodoStatusSchema,
+  description: z.string().min(1),
+  added_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  ref: z.string().regex(/^[0-9a-f]{8}(-[0-9]+)?$/),
+  phase: z
+    .string()
+    .regex(/^[0-9]{2}$/)
+    .optional(),
+  priority: z.enum(TODO_PRIORITY_VALUES).optional(),
+  assignee: z.string().optional(),
+});
+export type TodoEntry = z.infer<typeof TodoEntrySchema>;
+
+/**
+ * Session-snapshot file written to `.swt-planning/.cache/list-todos-snapshot.json`
+ * by `swt list-todos` (default mode; `--json` skips the file write).
+ * `refs` is the ordered list of 8-char hash refs that match the
+ * displayed numbering — Phase 04's bare-integer resolver picks
+ * `refs[N - 1]` for `swt cook N`. `filter` is `null` when no
+ * `--filter` flag was applied, and a non-null `Record<string,string>`
+ * when at least one filter was applied.
+ */
+export const ListTodosSnapshotSchema = z.object({
+  schema_version: z.literal(1),
+  generated_at: z.string(),
+  filter: z.record(z.string(), z.string()).nullable(),
+  refs: z.array(z.string().regex(/^[0-9a-f]{8}(-[0-9]+)?$/)).readonly(),
+});
+export type ListTodosSnapshot = z.infer<typeof ListTodosSnapshotSchema>;
+
+/**
+ * Machine-readable JSON envelope emitted to stdout by `swt list-todos --json`.
+ * This is a SEPARATE schema from `ListTodosSnapshotSchema` (research §Risks
+ * option (a)): the snapshot file carries hash-only `refs` for fast
+ * Phase 04 lookup, while the `--json` payload carries full `entries`
+ * for downstream tooling that wants the parsed records directly.
+ * `filter` and `generated_at` shapes match the snapshot to keep parsing
+ * uniform across both surfaces.
+ */
+export const ListTodosJsonOutputSchema = z.object({
+  schema_version: z.literal(1),
+  generated_at: z.string(),
+  filter: z.record(z.string(), z.string()).nullable(),
+  entries: z.array(TodoEntrySchema),
+});
+export type ListTodosJsonOutput = z.infer<typeof ListTodosJsonOutputSchema>;
