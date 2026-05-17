@@ -69,12 +69,83 @@ body {
   font-size: 12px;
   color: var(--terminal-green);
   z-index: 10;
-  pointer-events: none;
+  /* Statusline-extension milestone (step 7) — `overflow-x: auto` lets the
+     bar scroll horizontally below its natural width without wrapping
+     to a second row. `pointer-events: auto` re-enables scrolling /
+     title-attr hover; the original `none` predates the agents cell's
+     hover-for-full-list affordance. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  pointer-events: auto;
   user-select: none;
+  /* Subtle terminal-aesthetic scrollbar. Keep it monochrome so the bar
+     stays visually quiet — Firefox uses `scrollbar-width`, Chromium
+     uses the ::-webkit-scrollbar pseudos below. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--slate-muted-15) transparent;
+}
+
+.dashboard-statusline::-webkit-scrollbar {
+  height: 3px;
+}
+
+.dashboard-statusline::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-statusline::-webkit-scrollbar-thumb {
+  background: var(--slate-muted-15);
+  border-radius: 1px;
 }
 
 .dashboard-statusline-cell {
   white-space: nowrap;
+  /* Statusline-extension milestone (step 7) — thin vertical separator
+     between adjacent cells. `flex` gap already handles spacing; the
+     ::before pipe is the visual divider. Hidden on the first cell via
+     the `:first-of-type` rule below so the bar doesn't open with a
+     leading pipe. */
+  position: relative;
+}
+
+.dashboard-statusline-cell::before {
+  content: '·';
+  color: var(--slate-muted-15);
+  margin-right: 12px;
+  /* The ::before pipe replaces the parent `gap` for adjacency — keep
+     the gap declaration too for the dot + first cells which skip the
+     ::before. */
+}
+
+.dashboard-statusline-cell:first-of-type::before,
+.dashboard-statusline-cell:nth-of-type(2)::before {
+  content: '';
+  margin-right: 0;
+}
+
+/* Knob cells render with a slightly muted colour so they read as
+   "indicator" rather than competing with the cost numbers. */
+.dashboard-statusline-knob {
+  color: var(--slate-muted);
+}
+
+/* Orchestrator model + agents cells get a touch of accent — these are
+   the new dynamic surfaces and benefit from being legible at a glance. */
+.dashboard-statusline-model {
+  color: var(--ghost-white);
+}
+
+.dashboard-statusline-agents {
+  color: var(--ghost-white);
+}
+
+/* When the agents-cell list overflows the inline cap, the cell collapses
+   to the count + hover-for-full-list — accent the count subtly so the
+   user has a cue that more state exists behind the tooltip. */
+.dashboard-statusline-agents-truncated {
+  color: var(--terminal-green);
+  cursor: help;
 }
 
 /* Connection-dot — keychain_available drives the green/amber split.
