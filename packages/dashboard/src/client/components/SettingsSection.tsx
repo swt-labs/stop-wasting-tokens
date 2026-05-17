@@ -1,30 +1,32 @@
 /**
- * Phase 2 (Dashboard Options Menu) — the per-project Settings surface mounted
- * into `OptionsMenu`'s `settingsSection` slot.
+ * Plan 01-02 (Options Menu Consolidation) — the curated Settings surface
+ * mounted into `OptionsMenu`'s body.
  *
- * `SettingsSection` is a DEDICATED, fully-controlled Solid component with
- * `ConfigPanel`-shaped props (`data`/`loading`/`error`/`lastFetched`/`onRefresh`
- * + an `onApply(key, value)` round-trip). It renders one segmented control per
- * `SETTINGS_FIELD_ORDER` enum (current value highlighted, click-to-set) plus an
- * `auto_uat` toggle, mirroring `ConfigPanel`'s optimistic-apply + error-banner
- * behaviour (R4 — segmented-control affordance).
+ * `SettingsSection` is now a fully CONTROLLED Solid component (plan 01-02
+ * flipped its semantics from immediate-apply to staged-edit). The component
+ * no longer owns `onApply` round-trips; the parent (`OptionsMenu`) owns the
+ * `pendingEdits` signal + the Save handler. This component just renders the
+ * curated 10-key segmented controls + boolean toggle and notifies the parent
+ * via `onStage(key, value)`.
  *
- * It shares the store's `config` tools-cell with `ConfigPanel` via `App.tsx`
- * wiring (R3 coexist — both surfaces read `state.tools.config` + the same
- * `actions.applyConfigUpdate` action). The component itself does NOT read the
- * store: the parent owns the fetched `data` + the `onApply` round-trip; the
- * component owns only local UI signals (the in-flight field key + a per-apply
- * error string). This keeps it pure-props and node-env unit-testable — the
- * dashboard workspace has no `@solidjs/testing-library`.
+ * It still reads from `state.tools.config` via the `data`/`loading`/`error`/
+ * `lastFetched` props (shared with `ConfigPanel` during the plan 01-02 →
+ * 01-03 interim window). The component itself does NOT read the store: the
+ * parent owns the fetched `data` + the staged-edit state; the component owns
+ * only the display logic. This keeps it pure-props and node-env
+ * unit-testable — the dashboard workspace has no `@solidjs/testing-library`.
  *
  * Load-bearing logic is factored into the exported pure helpers
- * (`currentSettingValue`, `isSegmentActive`, `buildConfigPatch`,
- * `nextBooleanValue`, `isFieldBusy`) so they can be unit-tested directly — the
- * same pattern as `ProviderAuthPanel` / `OptionsMenu`.
+ * (`currentSettingValue`, `isSegmentActive`, `mergeStagedConfig`,
+ * `nextBooleanValue`) so they can be unit-tested directly — the same pattern
+ * as `ProviderAuthPanel` / `OptionsMenu`. `buildConfigPatch` (the
+ * immediate-apply merge helper) is preserved as a re-export alias around the
+ * new `mergeStagedConfig(current, { [key]: value })` so plan 01-03's full
+ * test pass can decide whether to keep both or drop the alias.
  */
 
 import type { ConfigSnapshot } from '@swt-labs/shared';
-import { For, Show, createSignal, type Component, type JSX } from 'solid-js';
+import { For, Show, type Component, type JSX } from 'solid-js';
 
 import {
   CONFIG_ENUM_OPTIONS,
@@ -41,38 +43,101 @@ export function currentSettingValue(config: unknown, key: string): string | bool
   return typeof v === 'string' || typeof v === 'boolean' ? v : undefined;
 }
 
-/** True when `value` is the currently-set value for `key` — highlights the active segment. */
-export function isSegmentActive(config: unknown, key: string, value: string): boolean {
-  return currentSettingValue(config, key) === value;
+/**
+ * Resolve the value to display for a curated key. Staged value (from
+ * `pendingEdits[key]`) wins over the config snapshot. Mirrors the
+ * `getAtPath` precedence used by `AdvancedConfigSection` for nested paths.
+ */
+export function resolveDisplayValue(
+  config: unknown,
+  pendingEdits: Record<string, unknown>,
+  key: string,
+): unknown {
+  if (Object.prototype.hasOwnProperty.call(pendingEdits, key)) {
+    return pendingEdits[key];
+  }
+  return currentSettingValue(config, key);
 }
 
 /**
- * The FULL-config-merge body passed to applyConfigUpdate. MUST merge the one
- * field into the complete current config — a single-key partial would be a
- * data-loss bug: `parseConfig` (ConfigSchema.safeParse, every key
- * `.default()`/`.optional()`) ACCEPTS `{ effort: 'fast' }` and returns a full
- * config with every OTHER field reset to its default + `marketplace`/`hooks`
- * dropped, and the /api/config route writes that `validated` object directly
- * with no merge. So the caller passes the live config cell as `base` and this
- * helper produces `{ config: { ...base, [key]: value } }` — a fresh object,
- * `base` is never mutated. This is the single tested merge point.
+ * True when `value` is the currently-displayed value for `key` — highlights
+ * the active segment. Considers staged edits (pending) ahead of the snapshot.
+ */
+export function isSegmentActive(
+  config: unknown,
+  pendingEdits: Record<string, unknown>,
+  key: string,
+  value: string,
+): boolean {
+  return resolveDisplayValue(config, pendingEdits, key) === value;
+}
+
+/**
+ * Deep-merge `pending` into `current` and return a fresh object. Used by
+ * `OptionsMenu`'s Save handler to build the merged payload posted to
+ * `applyConfigUpdate({ config: merged })`.
+ *
+ * THE merge MUST preserve every non-target field in `current` — a single-key
+ * partial would be a data-loss bug. `parseConfig` (ConfigSchema.safeParse,
+ * every key `.default()`/`.optional()`) ACCEPTS `{ effort: 'fast' }` and
+ * returns a full config with every OTHER field reset to its default +
+ * `marketplace`/`hooks` dropped, and the /api/config route writes the
+ * validated object directly with no merge. So the caller passes the live
+ * config cell as `current` and this helper produces a fresh merged object —
+ * `current` is never mutated. This is the single tested merge point.
+ *
+ * Plain objects merge recursively; arrays + primitives are replaced
+ * wholesale (matches the staged-edit semantics — a user editing an array
+ * field replaces it). Non-object `current` is treated as `{}` so the
+ * greenfield / no-data case still returns the pending payload.
+ */
+export function mergeStagedConfig(
+  current: unknown,
+  pending: Record<string, unknown>,
+): Record<string, unknown> {
+  const base: Record<string, unknown> =
+    typeof current === 'object' && current !== null && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  const out: Record<string, unknown> = { ...base };
+  for (const [key, pendingValue] of Object.entries(pending)) {
+    const baseValue = out[key];
+    if (
+      typeof pendingValue === 'object' &&
+      pendingValue !== null &&
+      !Array.isArray(pendingValue) &&
+      typeof baseValue === 'object' &&
+      baseValue !== null &&
+      !Array.isArray(baseValue)
+    ) {
+      out[key] = mergeStagedConfig(baseValue, pendingValue as Record<string, unknown>);
+    } else {
+      out[key] = pendingValue;
+    }
+  }
+  return out;
+}
+
+/**
+ * BACK-COMPAT alias for the plan 01-01 / pre-01-02 immediate-apply API.
+ * `buildConfigPatch(base, key, value)` returned `{ config: { ...base, [key]:
+ * value } }` — a full-config merge wrapped in a `{ config }` envelope. Plan
+ * 01-02 retires the immediate-apply call site, but `settings-section.test.ts`
+ * still asserts the merge semantics via this helper; plan 01-03's test pass
+ * will decide whether to migrate the assertions to `mergeStagedConfig`
+ * directly or keep the alias.
  */
 export function buildConfigPatch(
   base: Record<string, unknown>,
   key: string,
   value: string | boolean,
 ): { config: Record<string, unknown> } {
-  return { config: { ...base, [key]: value } };
+  return { config: mergeStagedConfig(base, { [key]: value }) };
 }
 
 /** Toggle helper for the auto_uat boolean field. */
 export function nextBooleanValue(current: unknown): boolean {
   return !Boolean(current);
-}
-
-/** True while an onApply for `key` is in flight (pendingField holds the in-flight key). */
-export function isFieldBusy(pendingField: string | null, key: string): boolean {
-  return pendingField === key;
 }
 
 /**
@@ -101,35 +166,32 @@ export interface SettingsSectionProps {
   lastFetched: string | null;
   onRefresh: () => void;
   /**
-   * Click-to-set a single config field. The parent (App.tsx) wraps
-   * `actions.applyConfigUpdate(buildConfigPatch(<live config cell>, key, value))`
-   * — a FULL-config merge, NOT a single-key partial (a partial silently resets
-   * every non-target field — a confirmed data-loss bug). The merge lives in the
-   * App.tsx wiring; SettingsSection stays unaware of it and of the store.
-   * Returns {ok:true} on success or {error} on failure — the section surfaces
-   * the error inline.
+   * Parent-owned staged edits. Keys here override `data.config[key]` for the
+   * curated rows. `OptionsMenu` owns this signal so it survives popover
+   * close/open within a session. `{}` when nothing is staged.
    */
-  onApply: (key: string, value: string | boolean) => Promise<{ ok: true } | { error: string }>;
+  pendingEdits: Record<string, unknown>;
+  /**
+   * Stage a new value for `key` (curated row click). The parent merges this
+   * into its `pendingEdits` signal. NO network call from this component.
+   */
+  onStage: (key: string, value: string | boolean) => void;
+  /**
+   * Drop a staged key from `pendingEdits` (rarely called directly — Discard
+   * at the Options level clears the whole signal). Kept for symmetry +
+   * future per-row revert affordance.
+   */
+  onDiscardKey: (key: string) => void;
 }
 
 /* ── component ──────────────────────────────────────────────────────────── */
 
 export const SettingsSection: Component<SettingsSectionProps> = (props) => {
-  const [pendingField, setPendingField] = createSignal<string | null>(null);
-  const [applyError, setApplyError] = createSignal<string | null>(null);
-
   const sourceLabel = (): string =>
     props.data?.source === 'file' ? 'file' : props.data?.source === 'default' ? 'default' : '—';
 
-  const handleApply = async (key: string, value: string | boolean): Promise<void> => {
-    setPendingField(key);
-    setApplyError(null);
-    const result = await props.onApply(key, value);
-    setPendingField(null);
-    if ('error' in result) {
-      setApplyError(result.error);
-    }
-  };
+  const isModified = (key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(props.pendingEdits, key);
 
   return (
     <div class="settings-section">
@@ -160,28 +222,32 @@ export const SettingsSection: Component<SettingsSectionProps> = (props) => {
           <>
             <For each={SETTINGS_FIELD_ORDER}>
               {(key): JSX.Element => (
-                <div class="settings-field-row">
+                <div
+                  class="settings-field-row"
+                  data-modified={isModified(key) ? 'true' : undefined}
+                >
                   <span class="settings-field-label">{key}</span>
-                  <div class="settings-segment-group">
+                  <div class="settings-segment-group" role="radiogroup" aria-label={key}>
                     <For each={CONFIG_ENUM_OPTIONS[key] ?? []}>
-                      {(value): JSX.Element => (
-                        <button
-                          type="button"
-                          class="settings-segment"
-                          classList={{
-                            'settings-segment-active': isSegmentActive(data().config, key, value),
-                          }}
-                          aria-pressed={isSegmentActive(data().config, key, value)}
-                          disabled={isFieldBusy(pendingField(), key) || props.loading}
-                          onClick={(): void => {
-                            if (!isSegmentActive(data().config, key, value)) {
-                              void handleApply(key, value);
-                            }
-                          }}
-                        >
-                          {value}
-                        </button>
-                      )}
+                      {(value): JSX.Element => {
+                        const active = (): boolean =>
+                          isSegmentActive(data().config, props.pendingEdits, key, value);
+                        return (
+                          <button
+                            type="button"
+                            class="settings-segment"
+                            classList={{ 'settings-segment-active': active() }}
+                            role="radio"
+                            aria-checked={active()}
+                            aria-label={`${key}: ${value}`}
+                            onClick={(): void => {
+                              if (!active()) props.onStage(key, value);
+                            }}
+                          >
+                            {value}
+                          </button>
+                        );
+                      }}
                     </For>
                   </div>
                 </div>
@@ -190,21 +256,25 @@ export const SettingsSection: Component<SettingsSectionProps> = (props) => {
             <For each={SETTINGS_BOOLEAN_FIELDS}>
               {(key): JSX.Element => {
                 const current = (): boolean | undefined => {
-                  const v = currentSettingValue(data().config, key);
+                  const v = resolveDisplayValue(data().config, props.pendingEdits, key);
                   return typeof v === 'boolean' ? v : undefined;
                 };
                 return (
-                  <div class="settings-field-row">
+                  <div
+                    class="settings-field-row"
+                    data-modified={isModified(key) ? 'true' : undefined}
+                  >
                     <span class="settings-field-label">{key}</span>
-                    <div class="settings-segment-group">
+                    <div class="settings-segment-group" role="radiogroup" aria-label={key}>
                       <button
                         type="button"
                         class="settings-segment"
                         classList={{ 'settings-segment-active': current() === true }}
-                        aria-pressed={current() === true}
-                        disabled={isFieldBusy(pendingField(), key) || props.loading}
+                        role="radio"
+                        aria-checked={current() === true}
+                        aria-label={`${key}: on`}
                         onClick={(): void => {
-                          if (current() !== true) void handleApply(key, true);
+                          if (current() !== true) props.onStage(key, true);
                         }}
                       >
                         on
@@ -213,10 +283,11 @@ export const SettingsSection: Component<SettingsSectionProps> = (props) => {
                         type="button"
                         class="settings-segment"
                         classList={{ 'settings-segment-active': current() === false }}
-                        aria-pressed={current() === false}
-                        disabled={isFieldBusy(pendingField(), key) || props.loading}
+                        role="radio"
+                        aria-checked={current() === false}
+                        aria-label={`${key}: off`}
                         onClick={(): void => {
-                          if (current() !== false) void handleApply(key, false);
+                          if (current() !== false) props.onStage(key, false);
                         }}
                       >
                         off
@@ -229,7 +300,7 @@ export const SettingsSection: Component<SettingsSectionProps> = (props) => {
           </>
         )}
       </Show>
-      <Show when={applyError() ?? props.error}>
+      <Show when={props.error}>
         {(msg): JSX.Element => <p class="tools-panel-error">⚠ {msg()}</p>}
       </Show>
     </div>

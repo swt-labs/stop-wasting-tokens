@@ -35,7 +35,6 @@ import {
   SettingsSection,
   buildConfigPatch,
   currentSettingValue,
-  isFieldBusy,
   isSegmentActive,
   nextBooleanValue,
   type SettingsSectionProps,
@@ -68,22 +67,25 @@ describe('buildConfigPatch — full-config merge', () => {
   });
 });
 
-/* (2) isSegmentActive — current-value highlight, defensive on bad input. */
+/* (2) isSegmentActive — current-value highlight, defensive on bad input.
+ * Plan 01-02 added a `pendingEdits` arg between `config` and `key`; the
+ * full test rewrite lands in plan 01-03. These assertions pass `{}` for
+ * pendingEdits so the snapshot value is the resolved display value. */
 describe('isSegmentActive', () => {
   it('is true for the currently-set value', () => {
-    expect(isSegmentActive({ effort: 'balanced' }, 'effort', 'balanced')).toBe(true);
+    expect(isSegmentActive({ effort: 'balanced' }, {}, 'effort', 'balanced')).toBe(true);
   });
 
   it('is false for a non-current value', () => {
-    expect(isSegmentActive({ effort: 'balanced' }, 'effort', 'fast')).toBe(false);
+    expect(isSegmentActive({ effort: 'balanced' }, {}, 'effort', 'fast')).toBe(false);
   });
 
   it('is false when config is null', () => {
-    expect(isSegmentActive(null, 'effort', 'fast')).toBe(false);
+    expect(isSegmentActive(null, {}, 'effort', 'fast')).toBe(false);
   });
 
   it('is false when the key is absent from config', () => {
-    expect(isSegmentActive({}, 'effort', 'fast')).toBe(false);
+    expect(isSegmentActive({}, {}, 'effort', 'fast')).toBe(false);
   });
 });
 
@@ -121,20 +123,10 @@ describe('nextBooleanValue', () => {
   });
 });
 
-/* (5) isFieldBusy — the in-flight field-key gate. */
-describe('isFieldBusy', () => {
-  it('is true when the pending field matches the key', () => {
-    expect(isFieldBusy('effort', 'effort')).toBe(true);
-  });
-
-  it('is false when the pending field is a different key', () => {
-    expect(isFieldBusy('effort', 'autonomy')).toBe(false);
-  });
-
-  it('is false when no field is pending', () => {
-    expect(isFieldBusy(null, 'effort')).toBe(false);
-  });
-});
+/* (5) isFieldBusy — REMOVED in plan 01-02. The staged-edit refactor moved
+ * the in-flight gate to the Options-level Save button (`loading` prop).
+ * SettingsSection no longer owns an `applyError` / `pendingField` signal;
+ * Plan 01-03's test pass adds coverage for the new staged-edit primitives. */
 
 /* (6) shared enum vocabulary — single source (research R3 / SC "no second
  * copy that can drift"). The Settings section's vocabulary is sourced
@@ -168,14 +160,20 @@ describe('SettingsSection component', () => {
     expect(typeof SettingsSection).toBe('function');
   });
 
-  it('has the ConfigPanel-shaped controlled prop contract', () => {
+  it('has the staged-edit controlled prop contract (plan 01-02)', () => {
+    // Plan 01-02 flipped SettingsSection from immediate-apply to staged-edit
+    // — `onApply` is gone; `pendingEdits` + `onStage` + `onDiscardKey` are
+    // the new controlled prop shape. The plan 01-03 test pass adds the
+    // behavioural assertions (stage-not-POST, save-clears-pending, etc.).
     const props: SettingsSectionProps = {
       data: null,
       loading: false,
       error: null,
       lastFetched: null,
       onRefresh: () => {},
-      onApply: async () => ({ ok: true }),
+      pendingEdits: {},
+      onStage: () => {},
+      onDiscardKey: () => {},
     };
     expect(props.loading).toBe(false);
   });
