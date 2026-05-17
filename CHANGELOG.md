@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-alpha.29 — 2026-05-17
+
+_Format-check hotfix re-release. alpha.28's release pipeline cleared the Lint step (alpha.27's blocker) but failed at the next gate — Format-check found 10 dashboard + orchestration test/source files with prettier drift introduced by the parallel statusline + milestone-14 work. npm never received alpha.28. This release carries the same payload as alpha.28 plus the prettier auto-fix. All 5 pre-flight gates (typecheck, lint, format:check, test 2441/0/67, build) verified locally before push._
+
+- **`style(format): prettier --write across 10 files (alpha.28 hotfix)`** (`42db547`). `pnpm format` repaired drift in: App.tsx, AdvancedConfigSection.tsx, DashboardStatusline.tsx, OptionsMenu.tsx, TopBar.tsx, layout-storage.ts, advanced-config-section.test.ts, options-menu.test.ts, settings-section.test.ts, spawn-orchestrator-session.test.ts. No semantic change.
+
+See **3.0.0-alpha.27** entry below for the full milestone-14 + statusline + PhaseStepper-merge payload (unchanged in alpha.28 / alpha.29).
+
 ## 3.0.0-alpha.28 — 2026-05-17
 
 _Lint hotfix re-release. alpha.27's release pipeline failed at the Lint step (4 `import/order` errors in dashboard + orchestration test/source files introduced by parallel statusline + milestone-14 work). npm never received alpha.27. This release carries the same milestone-14 + statusline + PHASES+ARTIFACTS-merge payload as alpha.27 plus the lint fix._

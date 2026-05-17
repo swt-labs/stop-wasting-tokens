@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/dashboard",
-  "version": "3.0.0-alpha.28",
+  "version": "3.0.0-alpha.29",
   "description": "Localhost dashboard daemon (Hono) and SPA (Solid) for the stop-wasting-tokens CLI.",
   "license": "MIT",
   "type": "module",
