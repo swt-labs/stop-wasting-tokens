@@ -1548,154 +1548,15 @@ body {
   font-style: italic;
 }
 
-/* Config panel — JSON-tree renderer */
-
-.config-tree {
-  margin: 0;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  column-gap: 12px;
-  row-gap: 2px;
-}
-
-.config-tree-key {
-  margin: 0;
-  color: rgba(0, 255, 65, 0.85);
-  font-weight: 600;
-}
-
-.config-tree-leaf,
-.config-tree dd {
-  margin: 0;
-  min-width: 0;
-  word-break: break-word;
-}
-
-.config-tree-value-bool {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.config-tree-value-bool-true {
-  background: rgba(0, 255, 65, 0.18);
-  color: var(--terminal-green);
-}
-
-.config-tree-value-bool-false {
-  background: rgba(255, 64, 64, 0.16);
-  color: var(--danger-red);
-}
-
-.config-tree-value-num {
-  color: #ffb000;
-}
-
-.config-tree-value-str {
-  color: rgba(0, 255, 65, 0.7);
-}
-
-.config-tree-value-null {
-  color: rgba(255, 255, 255, 0.4);
-  font-style: italic;
-}
-
-.config-tree-nested {
-  margin: 2px 0;
-}
-
-.config-tree-nested-summary {
-  cursor: pointer;
-  color: rgba(0, 255, 65, 0.7);
-  font-size: 11px;
-}
-
-.config-tree-nested[open] > .config-tree-nested-summary {
-  margin-bottom: 4px;
-}
-
-/* v2.3 Phase 03: Config edit form */
-
-.tools-panel-actions {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.config-edit-btn,
-.config-save-btn,
-.config-cancel-btn {
-  background: transparent;
-  border: 1px solid rgba(0, 255, 65, 0.25);
-  color: var(--terminal-green);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background 80ms ease;
-}
-
-.config-edit-btn:hover:not([disabled]),
-.config-save-btn:hover:not([disabled]),
-.config-cancel-btn:hover:not([disabled]) {
-  background: rgba(0, 255, 65, 0.12);
-}
-
-.config-save-btn {
-  background: rgba(0, 255, 65, 0.18);
-}
-
-.config-cancel-btn {
-  border-color: rgba(255, 64, 64, 0.4);
-  color: rgba(255, 128, 128, 0.85);
-}
-
-.config-edit-btn[disabled],
-.config-save-btn[disabled],
-.config-cancel-btn[disabled] {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.config-edit-input,
-.config-edit-select {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 11px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 255, 65, 0.25);
-  color: var(--terminal-green);
-  padding: 2px 4px;
-  border-radius: 2px;
-  min-width: 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.config-edit-input:focus,
-.config-edit-select:focus {
-  outline: none;
-  border-color: var(--terminal-green);
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.config-edit-input[disabled],
-.config-edit-select[disabled] {
-  opacity: 0.5;
-}
-
-.config-edit-toggle {
-  accent-color: var(--terminal-green);
-  cursor: pointer;
-}
-
-.config-edit-toggle[disabled] {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
+/* Plan 01-03 — the ConfigPanel JSON-tree CSS block (.config-tree, plus
+ * the .config-edit family scoped to its Edit/Save/Cancel toolbar) was
+ * deleted alongside ConfigPanel.tsx. The .advanced-config-* rules below
+ * cover the controlled recursive editor that replaces ConfigEditTree.
+ * The .tools-panel-actions helper (originally introduced for the panel's
+ * inline Edit/Save/Cancel toolbar) is now unused — no remaining caller,
+ * so it was deleted with the rest of the block. Re-add as a sibling
+ * under the appropriate panel namespace if a future panel header needs
+ * an inline action group again. */
 
 /* Doctor panel — per-check status rows */
 
@@ -2405,7 +2266,7 @@ body {
   color: rgba(0, 255, 65, 0.85);
 }
 
-/* Mirrors .config-edit-select. */
+/* Terminal-input idiom shared with .advanced-config-select. */
 .provider-auth-select {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 11px;
@@ -2462,7 +2323,7 @@ body {
   color: rgba(255, 176, 0, 0.7);
 }
 
-/* Mirrors .config-edit-input. */
+/* Terminal-input idiom shared with .advanced-config-input. */
 .provider-auth-key-input {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 11px;
@@ -2768,10 +2629,11 @@ body {
 
 /* ── Phase 2: Options dropdown — SettingsSection ──────────────────────
  * The per-project config Settings surface mounted into OptionsMenu's
- * `.options-menu-section[data-section="settings"]` slot. Additive only —
- * the segmented-control palette mirrors `.config-edit-select` /
- * `.options-menu-*`; the meta / error / empty lines reuse
- * `.tools-panel-meta` / `.tools-panel-error` / `.tools-panel-empty`. */
+ * `.options-menu-section[data-section="settings"]` slot. The segmented-
+ * control palette uses the terminal-green idiom shared with
+ * `.advanced-config-select` / `.options-menu-*`; meta / error / empty
+ * lines reuse `.tools-panel-meta` / `.tools-panel-error` /
+ * `.tools-panel-empty`. */
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -2798,7 +2660,7 @@ body {
   padding: 2px 0;
 }
 
-/* The field name — small, muted-green, mirrors `.config-tree-key` sizing. */
+/* The field name — small, muted-green, mirrors `.advanced-config-key` sizing. */
 .settings-field-label {
   flex: 0 0 auto;
   min-width: 96px;
@@ -2814,7 +2676,7 @@ body {
   flex-wrap: wrap;
 }
 
-/* Each value button — the terminal-green idiom of `.config-edit-select`. */
+/* Each value button — the terminal-green idiom shared with `.advanced-config-select`. */
 .settings-segment {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 10px;
@@ -2840,11 +2702,227 @@ body {
   cursor: default;
 }
 
-/* Disabled covers the in-flight busy state — a field's whole segmented
- * control is `disabled` while its `onApply` is pending. */
+/* Disabled — staged-edit semantics (plan 01-02): SettingsSection has no
+ * in-flight gate of its own anymore; the gate moved to OptionsMenu's
+ * Save button. This rule covers any future opt-in `disabled` state. */
 .settings-segment:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* ── Plan 01-03: AdvancedConfigSection ────────────────────────────────
+ * The controlled recursive config-tree editor mounted into OptionsMenu's
+ * `.options-menu-section[data-section="advanced"]` slot. Replaces the
+ * deleted .config-edit-* / .config-tree rule blocks. Each control's
+ * staged-vs-snapshot state is communicated via the parent's
+ * `[data-modified="true"]` attribute on the wrapping `<dd>` — see the
+ * common modifier rule near the end of this block. */
+.advanced-config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Recursive tree container — narrow two-column grid (key / leaf-editor),
+ * mirroring the deleted .config-tree spacing. */
+.advanced-config-tree {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+
+/* The field name beside its leaf editor — small, muted-green, 11px. */
+.advanced-config-key {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 255, 65, 0.85);
+}
+
+/* The leaf cell — holds the input/select/checkbox. Carries
+ * `data-modified="true"` when the staged value differs from snapshot. */
+.advanced-config-leaf,
+.advanced-config-tree dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Per-row field container (legacy alias surface — kept narrow on purpose;
+ * existing tests assert no specific class beyond `.advanced-config-leaf`
+ * exists for individual rows). The 'row' rule below is a forward-compat
+ * hook if a future layout needs a horizontal split. */
+.advanced-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+/* Number / text input — terminal-green idiom shared with .provider-auth-key-input. */
+.advanced-config-input {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.advanced-config-input:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* Enum select — same terminal-green idiom as the input. */
+.advanced-config-select {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  color: var(--terminal-green);
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.advanced-config-select:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* Boolean checkbox — terminal-accent. */
+.advanced-config-toggle {
+  accent-color: var(--terminal-green);
+  cursor: pointer;
+}
+
+/* Unsupported-leaf fallback — italic muted text. */
+.advanced-config-value-null {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+  font-size: 11px;
+}
+
+/* Depth-2+ <details> wrapper — keeps deep objects collapsed by default. */
+.advanced-config-nested {
+  margin: 2px 0;
+}
+
+.advanced-config-nested-summary {
+  cursor: pointer;
+  color: rgba(0, 255, 65, 0.7);
+  font-size: 11px;
+}
+
+.advanced-config-nested[open] > .advanced-config-nested-summary {
+  margin-bottom: 4px;
+}
+
+/* ── Shared "staged" modifier ─────────────────────────────────────────
+ * Both SettingsSection's `.settings-field-row` and AdvancedConfigSection's
+ * `.advanced-config-leaf` mark themselves with `data-modified="true"`
+ * when the resolved display value differs from the snapshot. A subtle
+ * dashed accent + a faint glow keeps the cue terminal-aesthetic-consistent
+ * without shouting. The attribute selector deliberately matches both
+ * existing classes via a comma-separated rule. */
+.settings-field-row[data-modified='true'],
+.advanced-config-leaf[data-modified='true'] {
+  outline: 1px dashed rgba(0, 255, 65, 0.55);
+  outline-offset: 1px;
+  background: rgba(0, 255, 65, 0.06);
+  border-radius: 2px;
+}
+
+/* ── Plan 01-03: Options menu Save / Discard action bar ───────────────
+ * The sticky action bar at the bottom of the OptionsMenu popover. The
+ * `.options-menu-actions` block wraps the bar + the inline error /
+ * Saved-flash regions; the bar itself is the row of two buttons. */
+.options-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  bottom: 0;
+  background: var(--deep-void);
+  /* Slight inset top-border separator — mirrors the .options-menu-section
+   * top-border idiom one level above. */
+  border-top: 1px solid rgba(0, 255, 65, 0.2);
+}
+
+/* Inline error region rendered above the action bar. Reuses
+ * `.tools-panel-error` palette via the secondary class on the JSX. */
+.options-menu-save-error {
+  margin: 0;
+}
+
+/* "Saved ✓" flash — brief success indicator. */
+.options-menu-save-flash {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--terminal-green);
+}
+
+/* The actual button row. */
+.options-menu-action-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 4px 0 2px;
+}
+
+/* Base button styling shared by Save + Discard. */
+.options-menu-action {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  color: var(--terminal-green);
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.options-menu-action:hover:not([disabled]) {
+  background: rgba(0, 255, 65, 0.12);
+}
+
+.options-menu-action[disabled],
+.options-menu-action[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Save = filled (the affirmative action). */
+.options-menu-action-save {
+  background: rgba(0, 255, 65, 0.18);
+}
+
+.options-menu-action-save:hover:not([disabled]) {
+  background: rgba(0, 255, 65, 0.3);
+}
+
+/* Discard = danger-toned border (the destructive-revert action). */
+.options-menu-action-discard {
+  border-color: rgba(255, 64, 64, 0.4);
+  color: rgba(255, 128, 128, 0.85);
+}
+
+.options-menu-action-discard:hover:not([disabled]) {
+  background: rgba(255, 64, 64, 0.12);
 }
 
 /* ── CommandsSection (Phase 3 — Dashboard Options Menu) ───────────────
