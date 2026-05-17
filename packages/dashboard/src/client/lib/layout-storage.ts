@@ -35,7 +35,28 @@
 // never read because the storage key changed); the validator in
 // `loadLayout` rejects mismatched array lengths, so any direct
 // v7→v8 read attempts also fail-safe.
-const STORAGE_KEY = 'swt:dashboard:layout-v8';
+//
+// It bumps to `-v9` (Options Menu Consolidation / plan 01-03 —
+// 2026-05-17) because ConfigPanel was deleted and its `Resizable.Panel`
+// slot removed from the tools column. The `tools` array shrinks from
+// 4 → 3 entries: [Doctor, DetectPhase, UserNotes]. Per the plan, the
+// forward-migration shim in `loadLayout` SLICES any persisted-longer
+// `tools` array to the new length and logs ONE `console.debug` line
+// (the migration handles users who already had a v9 read attempt with
+// the old 4-element shape, or anyone who manually edited the v9 key
+// with a stale length). The shim does NOT write back; the next persist
+// cycle (the first user resize) overwrites with the new shape.
+const STORAGE_KEY = 'swt:dashboard:layout-v9';
+
+/**
+ * Plan 01-03 — one-shot console.debug latch for the tools-array
+ * forward-migration shim. The shim should log the slicing exactly once
+ * per page load (a user with a longer persisted array would otherwise
+ * see the line every time `loadLayout` is called — and loadLayout runs
+ * once at mount, but defensive against future refactors that might
+ * call it again).
+ */
+let toolsMigrationLogged = false;
 
 export type DashboardLayout = {
   /** 4 entries: [phasesCard, center, right, tools]. Was 5 in v7 — the
@@ -49,9 +70,10 @@ export type DashboardLayout = {
    *  (CostPanel/BudgetPanel/CacheHitPanel/TpacPanel) were removed in
    *  Phase 03; right[1] now holds WorktreesPanel only. */
   right: number[];
-  /** 4 entries: vertical split inside the tools column —
-   *  [Config, Doctor, DetectPhase, UserNotes]. ProjectState and Update
-   *  were removed by user request in the post-07-milestone cleanup. */
+  /** 3 entries: vertical split inside the tools column —
+   *  [Doctor, DetectPhase, UserNotes]. Was 4 in v8 (Config was tools[0]);
+   *  plan 01-03 deleted ConfigPanel — config editing now lives in the
+   *  TopBar "Options ▾" dropdown. */
   tools: number[];
 };
 
@@ -61,9 +83,9 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
   main: [0.27, 0.45, 0.13, 0.15],
   center: [0.65, 0.35],
   right: [0.65, 0.35],
-  // 4-way split: every entry gets 0.25 evenly. Sum is exactly 1.0 and
-  // every entry is well above the 0.1 minSize floor.
-  tools: [0.25, 0.25, 0.25, 0.25],
+  // 3-way split: roughly even fractions summing to 1.0 (0.34 + 0.33 + 0.33).
+  // Every entry is well above the 0.1 minSize floor.
+  tools: [0.34, 0.33, 0.33],
 };
 
 const isFractionArray = (value: unknown, length: number): value is number[] =>
@@ -82,6 +104,36 @@ function getStorage(): MinimalStorage | null {
   return ls ?? null;
 }
 
+/**
+ * Plan 01-03 — forward-migration shim for the `tools` array. The current
+ * default length is 3 (`DEFAULT_LAYOUT.tools.length`); a persisted-longer
+ * `tools` array (length 4 from a v9 read attempt of stale data, or
+ * length-N from a hypothetical future regression) is SLICED down to the
+ * new default length and a single `console.debug` line records the
+ * migration. Pure: it does NOT mutate the persisted storage value — the
+ * next persist cycle (first user resize) overwrites with the new shape.
+ *
+ * Exported only for testing. Production code reaches it via `loadLayout`.
+ */
+export function migrateToolsArray(raw: unknown): number[] | null {
+  if (!Array.isArray(raw)) return null;
+  const target = DEFAULT_LAYOUT.tools.length;
+  if (raw.length > target) {
+    const sliced = raw.slice(0, target);
+    if (isFractionArray(sliced, target)) {
+      if (!toolsMigrationLogged) {
+        toolsMigrationLogged = true;
+        // eslint-disable-next-line no-console
+        console.debug(
+          `[layout] migrating persisted tools array from ${raw.length} to ${target} entries`,
+        );
+      }
+      return sliced;
+    }
+  }
+  return null;
+}
+
 export function loadLayout(): DashboardLayout {
   const storage = getStorage();
   if (!storage) return DEFAULT_LAYOUT;
@@ -89,11 +141,15 @@ export function loadLayout(): DashboardLayout {
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_LAYOUT;
     const parsed = JSON.parse(raw) as Partial<DashboardLayout>;
+    const target = DEFAULT_LAYOUT.tools.length;
+    const tools = isFractionArray(parsed.tools, target)
+      ? parsed.tools
+      : (migrateToolsArray(parsed.tools) ?? DEFAULT_LAYOUT.tools);
     return {
       main: isFractionArray(parsed.main, 4) ? parsed.main : DEFAULT_LAYOUT.main,
       center: isFractionArray(parsed.center, 2) ? parsed.center : DEFAULT_LAYOUT.center,
       right: isFractionArray(parsed.right, 2) ? parsed.right : DEFAULT_LAYOUT.right,
-      tools: isFractionArray(parsed.tools, 4) ? parsed.tools : DEFAULT_LAYOUT.tools,
+      tools,
     };
   } catch {
     return DEFAULT_LAYOUT;

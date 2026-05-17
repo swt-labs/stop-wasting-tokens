@@ -5,7 +5,6 @@ import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
-import { ConfigPanel } from './components/ConfigPanel.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
 import { DetectPhasePanel } from './components/DetectPhasePanel.js';
 import { DoctorPanel } from './components/DoctorPanel.js';
@@ -14,11 +13,13 @@ import { InitScreen } from './components/InitScreen.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
-// Plan 01-02 — `SettingsSection` no longer mounted from App.tsx; it lives
-// inline inside `OptionsMenu`, fed by config props forwarded through
-// `TopBar`. `buildConfigPatch` was the immediate-apply merge helper —
-// retired alongside the JSX-prop slot. Plan 01-03 deletes ConfigPanel and
-// removes the remaining `tools` column Resizable slot for config.
+// Plan 01-03 — `ConfigPanel` deleted; the `tools` Resizable.Panel that
+// used to host it is gone, and the `tools` array shrinks from 4 → 3
+// entries. Config editing now lives entirely in the TopBar "Options ▾"
+// dropdown (Settings curated + Advanced full tree + sticky Save).
+// Plan 01-02 — `SettingsSection` is rendered inline inside `OptionsMenu`,
+// fed by config props forwarded through `TopBar`. The immediate-apply
+// `buildConfigPatch` helper retired alongside the JSX-prop slot.
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { UnifiedLogPanel } from './components/UnifiedLogPanel.js';
@@ -349,32 +350,17 @@ export const App: Component = () => {
                 }}
                 class="resizable-root resizable-root-v"
               >
-                {/* Tools column: 4 resizable panels.
-                    ProjectStatePanel (was index 0), UpdatePanel (was
-                    index 4) and ProviderCostPanel (middle-column inline
-                    stack) were removed by user request — the remaining
-                    panels renumber to [0..3]. ProviderAuthPanel still
-                    lives in the TopBar "Provider ▾" dropdown. */}
+                {/* Tools column: 3 resizable panels.
+                    Plan 01-03 removed ConfigPanel — config editing now
+                    lives entirely in the TopBar "Options ▾" dropdown
+                    (Settings curated + Advanced full tree + Save). The
+                    `tools` array shrinks from 4 → 3 entries. Pre-01-03
+                    ProjectStatePanel/UpdatePanel/ProviderCostPanel were
+                    removed in earlier passes — see `lib/layout-storage.ts`
+                    for the v9 storage-key bump (forward-migration shim
+                    slices longer persisted arrays on load). */}
                 <Resizable.Panel
                   initialSize={initialLayout.tools[0]}
-                  minSize={0.1}
-                  class="resizable-panel"
-                >
-                  <ConfigPanel
-                    data={state.tools.config.data}
-                    loading={state.tools.config.loading}
-                    error={state.tools.config.error}
-                    lastFetched={state.tools.config.lastFetched}
-                    onRefresh={() => void actions.refreshToolsCell('config')}
-                    onSave={(config) => actions.applyConfigUpdate({ config })}
-                  />
-                </Resizable.Panel>
-                <Resizable.Handle
-                  class="resizable-handle resizable-handle-v"
-                  aria-label="Resize config / doctor"
-                />
-                <Resizable.Panel
-                  initialSize={initialLayout.tools[1]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -391,7 +377,7 @@ export const App: Component = () => {
                   aria-label="Resize doctor / detect-phase"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[2]}
+                  initialSize={initialLayout.tools[1]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
@@ -408,7 +394,7 @@ export const App: Component = () => {
                   aria-label="Resize detect-phase / user-notes"
                 />
                 <Resizable.Panel
-                  initialSize={initialLayout.tools[3]}
+                  initialSize={initialLayout.tools[2]}
                   minSize={0.1}
                   class="resizable-panel"
                 >
