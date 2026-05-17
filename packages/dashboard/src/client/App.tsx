@@ -14,7 +14,11 @@ import { InitScreen } from './components/InitScreen.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { PromptCard } from './components/PromptCard.js';
 import { ProviderAuthPanel } from './components/ProviderAuthPanel.js';
-import { SettingsSection, buildConfigPatch } from './components/SettingsSection.js';
+// Plan 01-02 — `SettingsSection` no longer mounted from App.tsx; it lives
+// inline inside `OptionsMenu`, fed by config props forwarded through
+// `TopBar`. `buildConfigPatch` was the immediate-apply merge helper —
+// retired alongside the JSX-prop slot. Plan 01-03 deletes ConfigPanel and
+// removes the remaining `tools` column Resizable slot for config.
 import { TopBar } from './components/TopBar.js';
 import { UatModal } from './components/UatModal.js';
 import { UnifiedLogPanel } from './components/UnifiedLogPanel.js';
@@ -154,29 +158,18 @@ export const App: Component = () => {
             lastResult={null}
           />
         }
-        settingsSection={
-          <SettingsSection
-            data={state.tools.config.data}
-            loading={state.tools.config.loading}
-            error={state.tools.config.error}
-            lastFetched={state.tools.config.lastFetched}
-            onRefresh={() => void actions.refreshToolsCell('config')}
-            onApply={(key, value) =>
-              actions.applyConfigUpdate(
-                // FULL-config merge off the live config cell — NOT a single-key
-                // partial (a partial silently resets every non-target field, a
-                // confirmed data-loss bug). `ConfigSnapshot.config` is typed
-                // `unknown`, so the `?? {}` greenfield fallback needs the cast
-                // to land on `Record<string, unknown>` for `buildConfigPatch`.
-                buildConfigPatch(
-                  (state.tools.config.data?.config ?? {}) as Record<string, unknown>,
-                  key,
-                  value,
-                ),
-              )
-            }
-          />
-        }
+        // Plan 01-02 — OptionsMenu owns the SettingsSection + Advanced render
+        // inline (so both can read its local `pendingEdits` signal). App.tsx
+        // forwards the config tools-cell + the Save handler through TopBar
+        // instead of constructing a `<SettingsSection>` JSX slot. The deep-
+        // merge that the old `buildConfigPatch` provided now lives in
+        // `mergeStagedConfig` (called from inside OptionsMenu's Save handler).
+        optionsMenuConfigData={state.tools.config.data}
+        optionsMenuConfigLoading={state.tools.config.loading}
+        optionsMenuConfigError={state.tools.config.error}
+        optionsMenuConfigLastFetched={state.tools.config.lastFetched}
+        onOptionsMenuRefreshConfig={() => void actions.refreshToolsCell('config')}
+        onOptionsMenuSaveConfig={(merged) => actions.applyConfigUpdate({ config: merged })}
       />
       <Show
         when={isInitialized()}

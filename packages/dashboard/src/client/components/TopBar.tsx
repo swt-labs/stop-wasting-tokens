@@ -1,4 +1,4 @@
-import type { MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
+import type { ConfigSnapshot, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
 import type { WorkflowState } from '../lib/workflow-state.js';
@@ -91,11 +91,28 @@ export interface TopBarProps {
    */
   commandsSection?: JSX.Element;
   /**
-   * Phase 2 (Dashboard Options Menu) — the Settings section content mounted
-   * into OptionsMenu's `settingsSection` slot. Optional: when App.tsx does
-   * not pass it, OptionsMenu falls back to its Phase-1 'Coming soon' skeleton.
+   * Plan 01-02 retired the Settings JSX slot — OptionsMenu now renders the
+   * SettingsSection + AdvancedConfigSection inline so they can read its
+   * local `pendingEdits` signal directly. The prop is kept on TopBar for
+   * back-compat (an App.tsx still passing it does nothing harmful — the
+   * OptionsMenu accepts-and-ignores the slot). Plan 01-03 drops it when
+   * ConfigPanel is removed.
    */
   settingsSection?: JSX.Element;
+  /**
+   * Plan 01-02 — config tools-cell snapshot forwarded into the inlined
+   * SettingsSection + AdvancedConfigSection inside OptionsMenu. Optional
+   * so existing TopBar callers don't have to thread these props through
+   * before plan 01-02 lands the Options-menu Save handler.
+   */
+  optionsMenuConfigData?: ConfigSnapshot | null;
+  optionsMenuConfigLoading?: boolean;
+  optionsMenuConfigError?: string | null;
+  optionsMenuConfigLastFetched?: string | null;
+  onOptionsMenuRefreshConfig?: () => void;
+  onOptionsMenuSaveConfig?: (
+    mergedConfig: unknown,
+  ) => Promise<{ ok: true } | { error: string }>;
   /**
    * The "Provider ▾" dropdown's store-backed open state. Optional + mirrors
    * the `optionsMenuOpen` trio: when omitted, TopBar drives the dropdown off
@@ -543,6 +560,12 @@ export const TopBar: Component<TopBarProps> = (props) => {
             onClose={closeMenu}
             commandsSection={props.commandsSection}
             settingsSection={props.settingsSection}
+            data={props.optionsMenuConfigData ?? null}
+            loading={props.optionsMenuConfigLoading ?? false}
+            error={props.optionsMenuConfigError ?? null}
+            lastFetched={props.optionsMenuConfigLastFetched ?? null}
+            onRefresh={props.onOptionsMenuRefreshConfig}
+            onSave={props.onOptionsMenuSaveConfig}
           />
         </div>
       </div>
