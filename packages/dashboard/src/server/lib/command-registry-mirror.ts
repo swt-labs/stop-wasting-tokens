@@ -76,11 +76,64 @@ const CORE_ENTRIES: ReadonlyArray<Entry> = [
     usage: null,
     category: 'interactive',
   },
+  // Plan 15-01-01 T4 — 7 newly-graduated aliases (plan / execute /
+  // discuss / assumptions / archive / phase / audit). Each is a thin
+  // shim around `swt cook --<mode>` (see packages/cli/src/commands/
+  // {plan,execute,discuss,assumptions,archive,phase,audit}.ts). The
+  // `dashboard_safe` flag is derived by `withDashboardSafe` from
+  // `ALLOWED_NON_INTERACTIVE_VERBS` membership in allowed-verbs.ts:
+  // plan/execute/audit are added to that set (non-interactive — cook
+  // routes them through the methodology pipeline which prints + exits);
+  // discuss/assumptions/archive/phase stay out (interactive — they hit
+  // askUser checkpoints in their respective cook modes).
+  {
+    name: 'plan',
+    description: 'Plan a phase (alias for `swt cook --plan`)',
+    usage: '[N] [--effort LEVEL]',
+    category: 'core',
+  },
+  {
+    name: 'execute',
+    description: 'Execute a planned phase (alias for `swt cook --execute`)',
+    usage: '[N] [--effort LEVEL]',
+    category: 'core',
+  },
+  {
+    name: 'discuss',
+    description: 'Discuss the next move via cook priority-8 routing (interactive)',
+    usage: null,
+    category: 'core',
+  },
+  {
+    name: 'assumptions',
+    description: 'Capture phase assumptions (alias for `swt cook --assumptions`)',
+    usage: null,
+    category: 'core',
+  },
+  {
+    name: 'archive',
+    description: 'Archive a completed milestone (alias for `swt cook --archive`)',
+    usage: null,
+    category: 'core',
+  },
+  {
+    name: 'phase',
+    description: 'Add / insert / remove phases (alias for cook --add/--insert/--remove)',
+    usage: '[--add "name" | --insert N "name" | --remove N]',
+    category: 'core',
+  },
+  {
+    name: 'audit',
+    description: 'Run the pre-archive audit matrix (alias for `swt cook --archive`)',
+    usage: null,
+    category: 'core',
+  },
 ];
 
 const STUB_ENTRIES: ReadonlyArray<Entry> = [
-  { name: 'plan', description: 'Plan a phase (Scout + Lead)', usage: null, category: 'stub' },
-  { name: 'execute', description: 'Execute a planned phase', usage: null, category: 'stub' },
+  // Plan 15-01-01 T4 — plan / execute / discuss / assumptions / archive /
+  // phase / audit moved to CORE_ENTRIES above (now thin aliases for
+  // `swt cook --<mode>`).
   { name: 'qa', description: 'Run goal-backward QA', usage: null, category: 'stub' },
   { name: 'map', description: 'Map an existing codebase', usage: null, category: 'stub' },
   { name: 'debug', description: 'Hypothesis-driven debugging', usage: null, category: 'stub' },
@@ -90,7 +143,6 @@ const STUB_ENTRIES: ReadonlyArray<Entry> = [
     usage: null,
     category: 'stub',
   },
-  { name: 'archive', description: 'Archive a milestone', usage: null, category: 'stub' },
   {
     name: 'release',
     description: 'Cut a release via Changesets',
@@ -99,13 +151,6 @@ const STUB_ENTRIES: ReadonlyArray<Entry> = [
   },
   { name: 'resume', description: 'Resume a paused session', usage: null, category: 'stub' },
   { name: 'pause', description: 'Pause and stash session state', usage: null, category: 'stub' },
-  { name: 'audit', description: 'Run the pre-archive audit matrix', usage: null, category: 'stub' },
-  {
-    name: 'assumptions',
-    description: 'Capture phase assumptions',
-    usage: null,
-    category: 'stub',
-  },
   {
     name: 'research',
     description: 'Run a Scout-only research pass',
@@ -118,13 +163,6 @@ const STUB_ENTRIES: ReadonlyArray<Entry> = [
     // timeout to 90s (see allowed-verbs.ts QUICK_VERB_TIMEOUT_MS_OVERRIDE).
     name: 'verify',
     description: 'Run the QA + freshness verification pass',
-    usage: null,
-    category: 'stub',
-  },
-  { name: 'discuss', description: 'Run the discussion engine', usage: null, category: 'stub' },
-  {
-    name: 'phase',
-    description: 'Add / insert / remove phases',
     usage: null,
     category: 'stub',
   },

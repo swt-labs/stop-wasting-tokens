@@ -54,6 +54,17 @@ export const ALLOWED_NON_INTERACTIVE_VERBS: ReadonlySet<string> = new Set([
   'verify',
   'research',
   'map',
+  // Plan 15-01-01 T4 — newly-graduated cook aliases that are
+  // non-interactive in their cook routing. `plan` and `execute` go
+  // through methodology pipelines that print + exit; `audit` aliases to
+  // `--archive` which gates on the pre-archive audit matrix (cook.ts:904)
+  // but does not require terminal stdin. The other 4 aliases (`discuss`,
+  // `assumptions`, `archive`, `phase`) hit askUser checkpoints in their
+  // cook modes and stay off this allowlist (the dashboard rejects them
+  // with `routing_decision: 'rejected_interactive'`).
+  'plan',
+  'execute',
+  'audit',
 ]);
 
 /**
