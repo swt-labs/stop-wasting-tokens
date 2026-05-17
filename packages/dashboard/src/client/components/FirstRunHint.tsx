@@ -87,8 +87,10 @@ export const FirstRunHint: Component<FirstRunHintProps> = (props) => {
     <Show when={shouldShowHint(props.state, dismissed())}>
       <aside class="first-run-hint" aria-label="First-run hint">
         <div class="first-run-hint-body">
-          <strong>New here?</strong> Type to chat with the LLM, or pick a verb (cook / qa / verify /
-          ...) to drive a methodology phase. Both modes share the same provider credential.
+          <strong>New here?</strong> This is the unified panel — chat and cook share one thread.
+          Type a prompt to chat with the LLM, or pick a verb (cook / qa / verify / ...) to drive a
+          methodology phase. Cook will ask clarifying questions inline when scope is ambiguous. Both
+          modes share the same provider credential.
         </div>
         <button
           type="button"
