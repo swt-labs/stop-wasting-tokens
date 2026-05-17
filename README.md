@@ -259,15 +259,17 @@ This is what a typical first hour with SWT looks like.
 
 ### Chat vs Cook
 
-The dashboard's command bar has two modes. **Chat** (the default, slate-muted) routes a single prompt to the LLM and streams the answer back — no orchestrator, no methodology, no scope decisions. **Cook** (and the other verbs: `qa`, `verify`, `research`, `map`) routes through the orchestrator and drives a methodology phase.
+The dashboard is a **unified panel** — chat and cook share one continuous thread per project, and verb-chip switches do not break that thread. **Chat** routes a plain prompt to the LLM and streams the answer back inline. **Cook** (and the other verbs: `qa`, `verify`, `research`, `map`) routes through the orchestrator and drives a methodology phase. Cook is **interview-driven**: when scope is ambiguous it asks clarifying questions via an inline `askUser` card, and the command bar shifts to answer-mode (verb-chip disabled, placeholder shows the question, Enter routes the answer back to cook).
 
-**Chat example.** Leave the command bar in its neutral (slate-muted) state and type a question:
+Cook is the dashboard-native port of `/vbw:vibe`'s interview pattern. The contract lives in [`a_non_production_files/vibe-better-with-claude-code-vbw-main/references/discussion-engine.md`](a_non_production_files/vibe-better-with-claude-code-vbw-main/references/discussion-engine.md) and [`a_non_production_files/vibe-better-with-claude-code-vbw-main/references/ask-user-question.md`](a_non_production_files/vibe-better-with-claude-code-vbw-main/references/ask-user-question.md) — read those for the anti-patterns (canned questions, fake bounded menus, shallow acceptance) that cook's `askUser` card explicitly avoids.
+
+**Chat example.** Type a question; the request hits `/api/chat` and the answer streams inline in the unified panel:
 
 ```
 What does runtime/src/providers/role-resolver.ts do?
 ```
 
-The request hits `/api/chat` and ChatPanel streams the assistant's reply into the center pane — plain prompt + response, no scoping, no plan, no commits.
+Plain prompt + response — no scoping, no plan, no commits.
 
 **Cook example.** Click the `cook` verb chip to arm cook mode, then type a scope seed:
 
@@ -275,7 +277,7 @@ The request hits `/api/chat` and ChatPanel streams the assistant's reply into th
 Add a /api/usage endpoint that returns the last 7 days of token rollup
 ```
 
-The orchestrator runs Scope → Plan → Execute → Verify, writing artifacts under `.swt-planning/phases/NN/` and committing one atomic diff per task.
+Cook may ask a clarifying question first — e.g. _"Should /api/usage include the cost rollup or just token counts?"_ — as an inline `askUser` card in the unified panel. Answer in the command bar; cook resumes with your answer baked into the scope. Then the orchestrator runs Scope → Plan → Execute → Verify, writing artifacts under `.swt-planning/phases/NN/` and committing one atomic diff per task.
 
 Both modes share the same provider credential — there's no separate chat login.
 
