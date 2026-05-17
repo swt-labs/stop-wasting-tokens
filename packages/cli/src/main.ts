@@ -3,7 +3,9 @@ import { PiSpawnerEnvironment } from '@swt-labs/orchestration';
 import { applyEnvToProcess } from '@swt-labs/runtime';
 
 import { parseSwtArgv } from './argv.js';
+import { archiveHandler } from './commands/archive.js';
 import { assumptionsHandler } from './commands/assumptions.js';
+import { auditHandler } from './commands/audit.js';
 import { benchHandler } from './commands/bench.js';
 import { cleanupHandler } from './commands/cleanup.js';
 import { configHandler } from './commands/config.js';
@@ -17,6 +19,7 @@ import { executeHandler } from './commands/execute.js';
 import { initHandler } from './commands/init.js';
 import { mapHandler } from './commands/map.js';
 import { migrateHandler } from './commands/migrate.js';
+import { phaseHandler } from './commands/phase.js';
 import { planHandler } from './commands/plan.js';
 import { qaHandler } from './commands/qa.js';
 import { researchHandler } from './commands/research.js';
@@ -214,6 +217,28 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     name: 'assumptions',
     description: 'Capture phase assumptions (alias for `swt cook --assumptions`)',
     handler: assumptionsHandler,
+  });
+
+  // Plan 15-01-01 T3 — promote 3 sub-mode / sub-flag aliases (archive /
+  // phase / audit) from STUB_SPECS to thin shims around cookHandler.
+  // `phase` is a no-op forwarder (cook already routes --add/--insert/--remove);
+  // `audit` aliases to --archive today since cook has no standalone --audit
+  // flag (DEVN-02 partial — see audit.ts docstring).
+  registry.register({
+    name: 'archive',
+    description: 'Archive a completed milestone (alias for `swt cook --archive`)',
+    handler: archiveHandler,
+  });
+  registry.register({
+    name: 'phase',
+    usage: '[--add "name" | --insert N "name" | --remove N]',
+    description: 'Add / insert / remove phases (alias for cook --add/--insert/--remove)',
+    handler: phaseHandler,
+  });
+  registry.register({
+    name: 'audit',
+    description: 'Run the pre-archive audit matrix (alias for `swt cook --archive`)',
+    handler: auditHandler,
   });
 
   for (const spec of STUB_SPECS) {

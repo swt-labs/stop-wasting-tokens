@@ -60,18 +60,22 @@ export const STUB_SPECS: readonly StubSpec[] = [
   // `fix` is registered as a real (deprecated) command in main.ts via
   // fixDeprecatedHandler above — kept out of STUB_SPECS so the message
   // is meaningful instead of generic NOT_IMPLEMENTED scaffolding.
-  { name: 'archive', description: 'Archive a milestone', roadmap_phase: 'Phase 7' },
+  // `archive` graduated to a thin alias in Plan 15-01-01 T3; see
+  // packages/cli/src/commands/archive.ts and main.ts buildRegistry().
   { name: 'release', description: 'Cut a release via Changesets', roadmap_phase: 'Phase 10' },
   { name: 'resume', description: 'Resume a paused session', roadmap_phase: 'Phase 7' },
   { name: 'pause', description: 'Pause and stash session state', roadmap_phase: 'Phase 7' },
-  { name: 'audit', description: 'Run the pre-archive audit matrix', roadmap_phase: 'Phase 7' },
+  // `audit` graduated to a thin alias in Plan 15-01-01 T3 (maps to cook
+  // --archive until a standalone --audit-only cook flag exists); see
+  // packages/cli/src/commands/audit.ts and main.ts buildRegistry().
   // `assumptions` graduated to a thin alias in Plan 15-01-01 T2; see
   // packages/cli/src/commands/assumptions.ts and main.ts buildRegistry().
   // `research` graduated from stub to real command in Plan 03-03 T3; see
   // packages/cli/src/commands/research.ts and main.ts buildRegistry().
   // `discuss` graduated to a thin shim in Plan 06-05 T4; see
   // packages/cli/src/commands/discuss.ts and main.ts buildRegistry().
-  { name: 'phase', description: 'Add / insert / remove phases', roadmap_phase: 'Phase 7' },
+  // `phase` graduated to a thin alias in Plan 15-01-01 T3; see
+  // packages/cli/src/commands/phase.ts and main.ts buildRegistry().
   { name: 'todo', description: 'Manage the STATE.md todo list', roadmap_phase: 'Phase 7' },
   { name: 'skills', description: 'Search and install skills', roadmap_phase: 'Phase 9' },
   { name: 'whats-new', description: 'Show recent SWT release notes', roadmap_phase: 'Phase 9' },
