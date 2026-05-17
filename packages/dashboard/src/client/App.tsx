@@ -3,7 +3,6 @@ import { Show, createMemo, createSignal, onCleanup, onMount, type Component } fr
 
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
-import { ArtifactTree } from './components/ArtifactTree.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { ConfigPanel } from './components/ConfigPanel.js';
@@ -213,11 +212,18 @@ export const App: Component = () => {
                   already cue the user toward the next action; this card
                   was redundant in the left column. When `phases().length === 0`
                   the panel renders empty. */}
+              {/* Milestone 14 — PHASES + ARTIFACTS panes merged into a
+                  single PhaseStepper card. The previously-adjacent
+                  ArtifactTree panel is gone; its per-phase file list
+                  now expands inside each PhaseCard row. `main` array
+                  drops from 5 to 4 entries (see lib/layout-storage.ts
+                  v7 → v8). */}
               <Show when={phases().length > 0} fallback={<div class="preview-panel-empty" />}>
                 <PhaseStepper
                   phases={phases()}
                   currentIndex={state.snapshot?.milestone?.phase_index ?? 1}
                   selectedPhase={selectedPhaseSlug()}
+                  selectedArtifact={state.selectedArtifact}
                   onSelect={handleSelect}
                 />
               </Show>
@@ -228,21 +234,6 @@ export const App: Component = () => {
             />
             <Resizable.Panel
               initialSize={initialLayout.main[1]}
-              minSize={0.08}
-              class="panel resizable-panel"
-            >
-              <ArtifactTree
-                phases={phases()}
-                selected={state.selectedArtifact}
-                onSelect={handleSelect}
-              />
-            </Resizable.Panel>
-            <Resizable.Handle
-              class="resizable-handle resizable-handle-h"
-              aria-label="Resize artifact tree"
-            />
-            <Resizable.Panel
-              initialSize={initialLayout.main[2]}
               minSize={0.25}
               class="resizable-panel resizable-stack"
             >
@@ -309,7 +300,7 @@ export const App: Component = () => {
               aria-label="Resize right column"
             />
             <Resizable.Panel
-              initialSize={initialLayout.main[3]}
+              initialSize={initialLayout.main[2]}
               minSize={0.1}
               class="resizable-panel resizable-stack"
             >
@@ -352,7 +343,7 @@ export const App: Component = () => {
               aria-label="Resize tools column"
             />
             <Resizable.Panel
-              initialSize={initialLayout.main[4]}
+              initialSize={initialLayout.main[3]}
               minSize={0.08}
               class="resizable-panel resizable-stack"
             >

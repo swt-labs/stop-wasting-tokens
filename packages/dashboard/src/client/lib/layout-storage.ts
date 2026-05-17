@@ -25,10 +25,22 @@
 // rotation following the established pattern: old keys become orphaned
 // but don't break — `getStorage` only reads the current key and falls
 // through to `DEFAULT_LAYOUT` when it's absent.
-const STORAGE_KEY = 'swt:dashboard:layout-v7';
+//
+// It bumps to `-v8` because the PHASES and ARTIFACTS panes were merged
+// into a single PhaseStepper card (see a_non_production_files/
+// artifacts.md). The two previously-adjacent `main` entries collapse
+// into one. The `main` array shrinks from 5 → 4 entries:
+// [phasesCard, center, right, tools]. Users on v7 with a 5-element
+// `main` array fall through to DEFAULT_LAYOUT here (the v7 key is
+// never read because the storage key changed); the validator in
+// `loadLayout` rejects mismatched array lengths, so any direct
+// v7→v8 read attempts also fail-safe.
+const STORAGE_KEY = 'swt:dashboard:layout-v8';
 
 export type DashboardLayout = {
-  /** 5 entries: [phaseStepper, artifactTree, center, right, tools]. */
+  /** 4 entries: [phasesCard, center, right, tools]. Was 5 in v7 — the
+   *  ArtifactTree column was merged into the PhaseStepper card so the
+   *  artifactTree slot disappears entirely. */
   main: number[];
   /** 2 entries: [preview, log]. */
   center: number[];
@@ -44,7 +56,9 @@ export type DashboardLayout = {
 };
 
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  main: [0.12, 0.15, 0.45, 0.13, 0.15],
+  // v8: phasesCard absorbs the prior phaseStepper + artifactTree widths
+  // (0.12 + 0.15 = 0.27). center/right/tools proportions stay the same.
+  main: [0.27, 0.45, 0.13, 0.15],
   center: [0.65, 0.35],
   right: [0.65, 0.35],
   // 4-way split: every entry gets 0.25 evenly. Sum is exactly 1.0 and
@@ -76,7 +90,7 @@ export function loadLayout(): DashboardLayout {
     if (!raw) return DEFAULT_LAYOUT;
     const parsed = JSON.parse(raw) as Partial<DashboardLayout>;
     return {
-      main: isFractionArray(parsed.main, 5) ? parsed.main : DEFAULT_LAYOUT.main,
+      main: isFractionArray(parsed.main, 4) ? parsed.main : DEFAULT_LAYOUT.main,
       center: isFractionArray(parsed.center, 2) ? parsed.center : DEFAULT_LAYOUT.center,
       right: isFractionArray(parsed.right, 2) ? parsed.right : DEFAULT_LAYOUT.right,
       tools: isFractionArray(parsed.tools, 4) ? parsed.tools : DEFAULT_LAYOUT.tools,

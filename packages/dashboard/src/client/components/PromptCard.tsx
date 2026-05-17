@@ -17,9 +17,10 @@
  *
  * No ANSI colours — uses the existing dashboard CSS tokens (var(--…)) so the
  * card matches the rest of the dashboard's terminal-aesthetic theme. The
- * card is mounted in App.tsx between PhaseStepper and ArtifactTree so
- * unresolved prompts surface prominently (per TDD3 §15.1 pane 3 + plan
- * task 4 done criteria).
+ * card is mounted in App.tsx inside the right-column stack alongside
+ * ActiveAgentsPane so unresolved prompts surface prominently (per TDD3
+ * §15.1 pane 3 + plan task 4 done criteria). Pre-v8 it sat between
+ * PhaseStepper and ArtifactTree before those two panes merged.
  */
 
 import type { PromptRequestEvent } from '@swt-labs/shared';

@@ -677,7 +677,10 @@ body {
 .phase-stepper-button {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* Position | Name (flex) | State label | File count | Chevron.
+     v8 — added the trailing two `auto` columns when the PHASES +
+     ARTIFACTS panes merged. */
+  grid-template-columns: auto 1fr auto auto auto;
   gap: 8px;
   align-items: baseline;
   padding: 8px 10px;
@@ -689,6 +692,25 @@ body {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
+}
+
+.phase-card-count {
+  color: var(--slate-muted);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.phase-card-toggle {
+  color: var(--terminal-green);
+  font-size: 11px;
+  width: 12px;
+  text-align: center;
+}
+
+.phase-card-toggle-disabled {
+  opacity: 0.35;
+  cursor: default;
+  color: var(--slate-muted);
 }
 
 .phase-stepper-button:hover {
