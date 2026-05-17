@@ -39,3 +39,8 @@ export * from './rate-card.js';
 // dashboard's UnifiedLogPanel + dashboard-store reducers. Schema-only (zod);
 // L7 dashboard imports `LogEntry` via `import type`.
 export * from './log-entry.js';
+// Statusline-extension milestone — per-model context-window lookup
+// (`getContextWindow` + `KNOWN_MODEL_IDS`). Pure data table at L0; consumed
+// by the dashboard statusline's `ctx ~Xk/Yk` cell. Runtime + orchestration
+// can pick it up later if a use case shows up.
+export * from './model-info.js';
