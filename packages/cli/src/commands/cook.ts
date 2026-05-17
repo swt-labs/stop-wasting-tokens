@@ -1647,6 +1647,127 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       refHash = todoResolution.refHash;
     }
 
+    // 2.1. Plan 15-04-01 T3 — `--todo N` escape-hatch branch. Runs AFTER
+    //      the bare-integer resolver (so we can detect a `--todo 3 4`
+    //      collision via `argsAfterTodo`/`todoSelected`) but BEFORE
+    //      Path 1 flag detection. Skips both freshness + filter guards;
+    //      every failure mode emits a clear USAGE_ERROR rather than
+    //      silently falling through (explicit intent deserves explicit
+    //      failure per research §Risks). The loaded `detail` is captured
+    //      into `preloadedExtendedContext` so T4's post-pickup block can
+    //      reuse it without re-reading `todo-details.json`.
+    let preloadedExtendedContext: TodoDetail | undefined;
+    const todoFlagRaw = parsed.flags['todo'];
+    if (typeof todoFlagRaw === 'string') {
+      // (a) Mutual exclusion with cook mode flags. The `--plan` slot is
+      // special-cased because it carries a value (`--plan=NN`) and is
+      // truthy when present at all (empty string included). The other
+      // mode flags are boolean true when set.
+      const planFlagVal = parsed.flags['plan'];
+      const stringMutex: ReadonlyArray<{ flag: string; value: unknown }> = [
+        { flag: 'plan', value: planFlagVal },
+        { flag: 'add', value: parsed.flags['add'] },
+        { flag: 'insert', value: parsed.flags['insert'] },
+        { flag: 'remove', value: parsed.flags['remove'] },
+      ];
+      for (const { flag, value } of stringMutex) {
+        if (typeof value === 'string') {
+          io.stderr.write(
+            `swt cook: --todo and --${flag} are mutually exclusive. Use --todo N for todo pickup or --${flag} for that mode.\n`,
+          );
+          return EXIT.USAGE_ERROR;
+        }
+      }
+      const boolMutex: ReadonlyArray<string> = [
+        'execute',
+        'discuss',
+        'assumptions',
+        'scope',
+        'verify',
+        'archive',
+      ];
+      for (const flag of boolMutex) {
+        if (parsed.flags[flag] === true) {
+          io.stderr.write(
+            `swt cook: --todo and --${flag} are mutually exclusive. Use --todo N for todo pickup or --${flag} for that mode.\n`,
+          );
+          return EXIT.USAGE_ERROR;
+        }
+      }
+
+      // (b) Bare-integer positional collision — reject `swt cook --todo 3 4`
+      // and `swt cook --todo 3 5` etc. We detect either a leftover bare
+      // integer in `argsAfterTodo` OR the bare-integer resolver having
+      // already fired (`todoSelected === true`).
+      if (todoSelected || /^[0-9]+$/.test(argsAfterTodo.trim())) {
+        io.stderr.write(
+          `swt cook: --todo N and a bare positional integer are mutually exclusive. Pick one.\n`,
+        );
+        return EXIT.USAGE_ERROR;
+      }
+
+      // (c) Numeric validation — positive integer, no leading zero except
+      // a single '0' (which we reject anyway). Accepts '1', '23', etc.
+      if (!/^[1-9][0-9]*$/.test(todoFlagRaw)) {
+        io.stderr.write(
+          `swt cook: --todo must be a positive integer (got: ${todoFlagRaw}).\n`,
+        );
+        return EXIT.USAGE_ERROR;
+      }
+      const todoN = Number.parseInt(todoFlagRaw, 10);
+
+      // (d) Snapshot read — escape-hatch ignores TTL + filter guards.
+      const snapshot = await readSnapshotForPickup(io.cwd, {
+        requireFresh: false,
+        requireUnfiltered: false,
+      });
+      if (snapshot === null) {
+        io.stderr.write(
+          `swt cook: --todo N requires a list-todos snapshot. Run 'swt list-todos' first.\n`,
+        );
+        return EXIT.USAGE_ERROR;
+      }
+
+      // (e) Range check.
+      if (todoN - 1 >= snapshot.refs.length) {
+        const count = snapshot.refs.length;
+        io.stderr.write(
+          `swt cook: --todo ${todoN} is out of range (snapshot has ${count} todo${count === 1 ? '' : 's'}).\n`,
+        );
+        return EXIT.USAGE_ERROR;
+      }
+
+      // (f) Resolve hash + load detail. Malformed `todo-details.json`
+      // degrades gracefully — we warn on stderr and proceed without
+      // extended context (the description fallback below uses the bare
+      // hash, matching the bare-integer resolver's behavior).
+      const hash = snapshot.refs[todoN - 1]!;
+      let detail: TodoDetail | undefined;
+      try {
+        detail = await loadTodoDetailForRef(io.cwd, hash);
+      } catch {
+        io.stderr.write(
+          `swt cook: todo-details.json malformed — proceeding without extended context\n`,
+        );
+        detail = undefined;
+      }
+
+      // (g) Rewrite locals — fall through to Path 1/2/3 routing exactly
+      // as if the user had typed `swt cook "${description}" (ref:HASH)`.
+      argsAfterTodo = detail?.description ?? hash;
+      refHash = hash;
+      phaseTarget = undefined;
+      preloadedExtendedContext = detail;
+    }
+    // `preloadedExtendedContext` is consumed by Plan 15-04-01 T4 (the
+    // post-resolution `extendedContext` population block). When --todo
+    // fired, T4 reuses this value to avoid re-reading `todo-details.json`;
+    // when --todo did not fire, the variable stays undefined and T4 loads
+    // the detail itself based on whichever `refHash` is set. The explicit
+    // void reference below keeps T3 self-contained for review without
+    // tripping `noUnusedLocals`; T4 replaces it with real consumption.
+    void preloadedExtendedContext;
+
     // 2.5. Phase 02 / Plan 02-01 — read the dashboard cook bar's pre-seed
     //      idea ONCE per cook invocation. Mirrors loadCookConfig's
     //      graceful-fail discipline: absent file, unreadable file, or

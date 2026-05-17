@@ -112,6 +112,10 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       // `parsed.flags.filter` lands as `string[] | undefined`. Multiple
       // occurrences combine with AND in the handler.
       filter: { type: 'string', multiple: true },
+      // Plan 15-04-01 — `swt cook --todo N` escape hatch (snapshot pickup
+      // bypassing freshness + filter guards). The handler does numeric
+      // validation; the argv layer stays type-uniform.
+      todo: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,
