@@ -97,6 +97,24 @@ export const App: Component = () => {
     return state.artifactCache.get(`${sel.phase}/${sel.name}`) ?? null;
   });
 
+  // Statusline-extension milestone (step 6) — derived statusline props. Each
+  // memo isolates one upstream signal so Solid only recomputes the relevant
+  // statusline cell when its source changes, not on every snapshot tick.
+  // The `knobs` memo runs `selectStatuslineKnobs` (drift-guarded) over the
+  // config tools-cell so an out-of-band edit lands in the bar within one
+  // SSE round-trip (acceptance criterion §4 in artifacts.md).
+  const statuslineKnobs = createMemo(() =>
+    selectStatuslineKnobs(state.tools.config.data?.config),
+  );
+  const statuslineContextWindow = createMemo(() => getContextWindow(state.orchestratorModel));
+  // Cumulative session input tokens — input + cache_read + cache_creation
+  // per artifacts.md §3. Reads three independent snapshot fields, so Solid
+  // recomputes the memo when any of them changes.
+  const statuslineCumulativeTokens = createMemo(() => {
+    const tokens = state.snapshot?.cost_summary?.tokens;
+    return (tokens?.in ?? 0) + (tokens?.cache_read ?? 0) + (tokens?.cache_creation ?? 0);
+  });
+
   const handleSelect = (phaseSlug: string, artifactName: string): void => {
     void actions.selectArtifact(phaseSlug, artifactName);
   };
@@ -441,15 +459,11 @@ export const App: Component = () => {
         providerAuth={state.tools.providerAuth.data ?? null}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
-        knobs={selectStatuslineKnobs(state.tools.config.data?.config)}
+        knobs={statuslineKnobs()}
         orchestratorModel={state.orchestratorModel}
         activeAgents={state.activeAgents}
-        contextWindow={getContextWindow(state.orchestratorModel)}
-        cumulativeInputTokens={
-          (state.snapshot?.cost_summary?.tokens?.in ?? 0) +
-          (state.snapshot?.cost_summary?.tokens?.cache_read ?? 0) +
-          (state.snapshot?.cost_summary?.tokens?.cache_creation ?? 0)
-        }
+        contextWindow={statuslineContextWindow()}
+        cumulativeInputTokens={statuslineCumulativeTokens()}
       />
     </div>
   );
