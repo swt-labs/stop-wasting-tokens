@@ -149,8 +149,8 @@ describe('shared enum vocabulary — single source', () => {
     }
   });
 
-  it('SETTINGS_FIELD_ORDER does NOT include backend (display-only)', () => {
-    expect(SETTINGS_FIELD_ORDER).not.toContain('backend');
+  it('SETTINGS_FIELD_ORDER includes backend (plan 01-01 — curated knob)', () => {
+    expect(SETTINGS_FIELD_ORDER).toContain('backend');
   });
 
   it('worktree_isolation is present in CONFIG_ENUM_OPTIONS with the expected vocabulary', () => {

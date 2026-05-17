@@ -26,9 +26,11 @@ export const CONFIG_ENUM_OPTIONS: Readonly<Record<string, ReadonlyArray<string>>
 
 /**
  * The exact enum fields the Options dropdown's SettingsSection renders as
- * segmented controls, in display order. `backend` is intentionally EXCLUDED
- * (research §2.3 — single-value / display-only); ConfigPanel still shows it
- * in its raw tree via CONFIG_ENUM_OPTIONS.
+ * segmented controls, in display order. `backend` joins the curated row as
+ * of the Options Menu Consolidation milestone (plan 01-01) — it was
+ * previously excluded as "display-only" while ConfigPanel still owned the
+ * raw-tree editor; with ConfigPanel deleted in plan 01-03, backend belongs
+ * in the curated knobs alongside `effort`/`autonomy`/etc.
  */
 export const SETTINGS_FIELD_ORDER: ReadonlyArray<string> = [
   'effort',
@@ -39,6 +41,7 @@ export const SETTINGS_FIELD_ORDER: ReadonlyArray<string> = [
   'worktree_isolation',
   'planning_tracking',
   'auto_push',
+  'backend',
 ];
 
 /** Boolean config fields the SettingsSection renders as a toggle. */
