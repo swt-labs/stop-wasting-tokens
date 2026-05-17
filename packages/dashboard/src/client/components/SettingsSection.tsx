@@ -17,12 +17,12 @@
  * unit-testable — the dashboard workspace has no `@solidjs/testing-library`.
  *
  * Load-bearing logic is factored into the exported pure helpers
- * (`currentSettingValue`, `isSegmentActive`, `mergeStagedConfig`,
- * `nextBooleanValue`) so they can be unit-tested directly — the same pattern
- * as `ProviderAuthPanel` / `OptionsMenu`. `buildConfigPatch` (the
- * immediate-apply merge helper) is preserved as a re-export alias around the
- * new `mergeStagedConfig(current, { [key]: value })` so plan 01-03's full
- * test pass can decide whether to keep both or drop the alias.
+ * (`currentSettingValue`, `resolveDisplayValue`, `isSegmentActive`,
+ * `mergeStagedConfig`, `nextBooleanValue`) so they can be unit-tested
+ * directly — the same pattern as `ProviderAuthPanel` / `OptionsMenu`. The
+ * pre-01-02 `buildConfigPatch` back-compat alias was retired in plan 01-03
+ * once the test suite migrated its assertions to `mergeStagedConfig`
+ * directly.
  */
 
 import type { ConfigSnapshot } from '@swt-labs/shared';
@@ -116,23 +116,6 @@ export function mergeStagedConfig(
     }
   }
   return out;
-}
-
-/**
- * BACK-COMPAT alias for the plan 01-01 / pre-01-02 immediate-apply API.
- * `buildConfigPatch(base, key, value)` returned `{ config: { ...base, [key]:
- * value } }` — a full-config merge wrapped in a `{ config }` envelope. Plan
- * 01-02 retires the immediate-apply call site, but `settings-section.test.ts`
- * still asserts the merge semantics via this helper; plan 01-03's test pass
- * will decide whether to migrate the assertions to `mergeStagedConfig`
- * directly or keep the alias.
- */
-export function buildConfigPatch(
-  base: Record<string, unknown>,
-  key: string,
-  value: string | boolean,
-): { config: Record<string, unknown> } {
-  return { config: mergeStagedConfig(base, { [key]: value }) };
 }
 
 /** Toggle helper for the auto_uat boolean field. */
