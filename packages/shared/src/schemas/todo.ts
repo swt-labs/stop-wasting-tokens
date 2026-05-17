@@ -64,6 +64,22 @@ export type TodoDetailsFile = z.infer<typeof TodoDetailsFileSchema>;
 export const TODO_LINE_PREFIX = '- [TODO]';
 
 /**
+ * Plan 15-04-01 — Snapshot freshness window for `swt cook N` bare-integer
+ * pickup. After `swt list-todos` writes
+ * `.swt-planning/.cache/list-todos-snapshot.json`, the cook handler will
+ * resolve a bare positive integer to a todo number ONLY when the snapshot's
+ * `generated_at` falls within this window (10 minutes). Older snapshots
+ * fall through to phase-number resolution (existing behavior). Matches
+ * the CONTEXT decision documented in `04-CONTEXT.md` §"Snapshot freshness
+ * TTL" — long enough for normal "list → pick" flows, short enough that
+ * stale snapshots from a prior session don't ambiguate today's invocation.
+ *
+ * Pure number; no schema bundling. The `--todo N` escape hatch in cook
+ * intentionally bypasses this TTL (explicit intent > implicit freshness).
+ */
+export const LIST_TODOS_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
+
+/**
  * Plan 03-01 T1 — read-side schemas for the `swt list-todos` verb.
  *
  * The schemas below are ADDITIVE to the Phase 02 surface above. They
