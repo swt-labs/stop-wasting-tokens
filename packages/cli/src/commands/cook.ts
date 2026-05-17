@@ -1759,14 +1759,36 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       phaseTarget = undefined;
       preloadedExtendedContext = detail;
     }
-    // `preloadedExtendedContext` is consumed by Plan 15-04-01 T4 (the
-    // post-resolution `extendedContext` population block). When --todo
-    // fired, T4 reuses this value to avoid re-reading `todo-details.json`;
-    // when --todo did not fire, the variable stays undefined and T4 loads
-    // the detail itself based on whichever `refHash` is set. The explicit
-    // void reference below keeps T3 self-contained for review without
-    // tripping `noUnusedLocals`; T4 replaces it with real consumption.
-    void preloadedExtendedContext;
+    // 2.2. Plan 15-04-01 T4 — load `todo-details.json[refHash]` ONCE per
+    //      cook invocation so the orchestrator trailer can carry the
+    //      `extended_context:` line. Two sources populate `refHash` by
+    //      this point: the manually-typed `(ref:HASH)` token (extracted
+    //      at line ~1630) OR the bare-integer pickup / `--todo N` paths
+    //      (which set `refHash` to the snapshot ref). When `--todo` fired,
+    //      its branch already loaded the detail into
+    //      `preloadedExtendedContext` — we reuse it to avoid re-reading
+    //      the sidecar. Otherwise we call `loadTodoDetailForRef`. Missing
+    //      or malformed details degrade gracefully (warn on stderr, no
+    //      trailer line, no crash — research §Risks ref-tag with unknown
+    //      hash decision).
+    let extendedContext: TodoDetail | undefined;
+    if (preloadedExtendedContext !== undefined) {
+      extendedContext = preloadedExtendedContext;
+    } else if (refHash !== undefined) {
+      try {
+        extendedContext = await loadTodoDetailForRef(io.cwd, refHash);
+        if (extendedContext === undefined) {
+          io.stderr.write(
+            `[cook] ref hash ${refHash} not found in todo-details.json — proceeding without extended context\n`,
+          );
+        }
+      } catch {
+        io.stderr.write(
+          `[cook] todo-details.json malformed — proceeding without extended context\n`,
+        );
+        extendedContext = undefined;
+      }
+    }
 
     // 2.5. Phase 02 / Plan 02-01 — read the dashboard cook bar's pre-seed
     //      idea ONCE per cook invocation. Mirrors loadCookConfig's
@@ -1845,6 +1867,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
           refHash,
           startTs,
           seedIdea: flagWrittenSeed ?? seedIdea,
+          extendedContext,
         },
         { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
       );
@@ -1907,6 +1930,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             refHash,
             startTs,
             seedIdea: nlWrittenSeed ?? seedIdea,
+            extendedContext,
           },
           {
             askUserFn,
@@ -2022,6 +2046,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
             refHash,
             startTs,
             seedIdea,
+            extendedContext,
           },
           {
             askUserFn,
@@ -2069,6 +2094,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
         refHash,
         startTs,
         seedIdea: stateWrittenSeed ?? seedIdea,
+        extendedContext,
       },
       { askUserFn, spawnFn, execSyncFn, readFileSyncFn, budgetGateFactory: budgetGateFactoryFn },
     );
@@ -2092,6 +2118,16 @@ interface RunModeContext {
    * the dashboard cook bar.
    */
   readonly seedIdea: string;
+  /**
+   * Plan 15-04-01 T4 (MH-06) — `details.todos[refHash]` loaded ONCE in
+   * cookHandler after pickup / ref-tag resolution and consumed exactly
+   * once by `appendModeOptions` to emit the `extended_context:` trailer
+   * line. Undefined when no `refHash` is set, when the hash is missing
+   * from `todo-details.json`, or when the sidecar is malformed
+   * (graceful degradation — `appendModeOptions` simply omits the
+   * trailer line in those cases).
+   */
+  readonly extendedContext?: TodoDetail;
 }
 
 interface RunModeDeps {
@@ -2994,7 +3030,7 @@ async function runMode(
     { readFileSync: deps.readFileSyncFn },
   );
 
-  const promptWithOpts = appendModeOptions(prompt, opts, routing, ctx.refHash);
+  const promptWithOpts = appendModeOptions(prompt, opts, routing, ctx.refHash, ctx.extendedContext);
 
   const maxTurns = config.agent_max_turns_orchestrator ?? 100;
   // The sub-session-id is the orchestrator session id — we don't have a
@@ -3434,6 +3470,7 @@ function appendModeOptions(
   opts: ModeOptions,
   routing: RoutingDecision,
   refHash: string | undefined,
+  extendedContext: TodoDetail | undefined,
 ): string {
   const trailer: string[] = ['', '---', ''];
   trailer.push('## Orchestrator-Side Context (Plan 03-02)');
@@ -3450,6 +3487,19 @@ function appendModeOptions(
   if (opts.planTarget !== undefined) trailer.push(`- plan_target: ${opts.planTarget}`);
   if (opts.phaseTarget !== undefined) trailer.push(`- phase_target: ${opts.phaseTarget}`);
   if (refHash !== undefined) trailer.push(`- ref_hash: ${refHash}`);
+  // Plan 15-04-01 T4 — `extended_context:` trailer line. Emitted ONLY
+  // when `extendedContext.detail` is set (a todo created without
+  // `--detail` has the field undefined → graceful degradation, no line).
+  // The wording is the CONTEXT-specified literal so the orchestrator
+  // can pattern-match on it if needed. `Related files: ...` is omitted
+  // when the file list is empty/undefined.
+  if (extendedContext !== undefined && extendedContext.detail !== undefined) {
+    const files = extendedContext.files ?? [];
+    const filesClause = files.length > 0 ? ` Related files: ${files.join(', ')}.` : '';
+    trailer.push(
+      `- extended_context: Extended context (from todo detail): ${extendedContext.detail}.${filesClause}`,
+    );
+  }
   return `${prompt}\n${trailer.join('\n')}\n`;
 }
 
