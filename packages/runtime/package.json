@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/runtime",
-  "version": "3.0.0-alpha.25",
+  "version": "3.0.0-alpha.26",
   "description": "Layer 1 — thin adapter over @earendil-works/pi-coding-agent. Session factory, event normalization, tool factories, mock spawner environment. Token meter + provider quirks land in Plan 01-02.",
   "license": "MIT",
   "type": "module",

@@ -1,5 +1,57 @@
 # Changelog
 
+## 3.0.0-alpha.26 — 2026-05-17
+
+_Milestone **`13-unified-panel-and-cook-interview-bridge`** ships (4 phases, 4 plans, 13 commits). Dashboard cook is now the dashboard-native VBW-vibe interview: one unified log/chat panel replaces the dual `LogPanel` + `ChatPanel` split, cook's `askUser` flow surfaces as interactive cards, and the chat thread stays continuous across verb-chip mode switches. User intent (verbatim): "Cook is the conversion of 'VBW:Vibe' where one of the strongest points was to interview the user to understand the work better. 'cook' needs to work the same way... Do what is most elegant, optimal and future proof."_
+
+### Milestone 13 — Unified Panel + Cook Interview Bridge
+
+The interview engine already existed in SWT (`packages/methodology/src/discussion/` + `packages/runtime/src/ask-user/`) — what was missing was dashboard-side surfacing. Cook's `askUser` questions were CLI-rendered before this release; the dashboard subprocess never propagated them to the SSE stream. Milestone 13 wired the existing primitive end-to-end without forking the cook protocol or breaking the `ORCHESTRATOR-ONLY` invariant in `packages/runtime/src/ask-user/swt-ask-user-tool.ts`.
+
+#### Phase 01 — Unified log panel data model
+
+- **`feat(shared): LogEntry discriminated union for unified dashboard log`** (`43924e3`). `LogEntrySchema` in `@swt-labs/shared` (L0) — 9 variants: `init`, `cook-status`, `cook-agent`, `cook-tool`, `cook-ask-user`, `chat-user`, `chat-assistant`, `chat-error`, `system`. Single chronological feed model that replaces the dual-panel split. Each variant cites the dashboard-store.ts reducer branch that already receives the matching event.
+- **`test(dashboard): unified-log-helpers (TDD)`** (`b3b1232`). Pure helper extraction in node-env vitest precedent.
+- **`feat(dashboard): unified log reducer + continuous chat thread`** (`6448569`). `state.unifiedLog` added; `state.chat_session_id` hoisted to top-level (was nested in `chatSession`); `chatSession.messages[]` deleted. Continuous chat thread invariant — id survives verb-chip switches.
+- **`feat(dashboard): UnifiedLogPanel replaces LogPanel + ChatPanel`** (`d290741`).
+- **`refactor(dashboard): remove deprecated LogPanel + ChatPanel`** (`ec8eb25`). Both components deleted plus `chat-panel-helpers.ts` + `chat-panel.test.ts`.
+
+#### Phase 02 — Cook askUser SSE bridge
+
+- **Scout proof: transport already existed**. `POST /api/prompts/publish` → SSE `prompt.request` → `POST /api/prompts/:id/respond` → SSE `prompt.response` already round-tripped. Phase 02 collapsed from "build transport" to "store wiring + route alias + Zod schema".
+- **`feat(shared): add cook.ask_user_timeout SSE event variant`** (`a1d7aa0`). One new Zod variant — cosmetic, dashboard-side only. Cook-side `ask-user.ts` 10-min timeout unchanged.
+- **`feat(dashboard): map prompt.request/.response + cook.ask_user_timeout to cook-ask-user LogEntries`** (`7cd9abe`). Reducer with `session_id` correlation gate (non-cook sessions ignored). `state.cookAwaitingUser` single-slot — second `prompt.request` overwrites; first entry's `status='pending'` is preserved.
+- **`feat(dashboard): POST /api/cook/respond — cook-aware askUser write-back wrapper`** (`08d5e86`). 4-step validation: invalid_body → 400; unknown_ask_user_id → 404; cook_session_mismatch → 400; success → 200.
+- **`test(dashboard): cook askUser end-to-end SSE roundtrip + timeout + non-cook-ignored`** (`af511d9`).
+
+#### Phase 03 — Interactive askUser card + TopBar mode shift
+
+- **`test(03-01): askuser-card-helpers TDD — 4 pure helpers + 18 cases`** (`b7b607f`). `askUserCardMode`, `resolveSubmitTarget`, `formatAskUserPlaceholder`, `classifyOptionStyle`. Load-bearing precedence test: `cookAwaitingUser` non-null + `verb='cook'` + `chatSessionId` → `cook-ask-user` (not vibe, not chat).
+- **`feat(03-01): respondToCookAskUser action + postCookRespond api helper`** (`73cf10d`). Optimistic mark + revert on POST failure with system `LogEntry` appended.
+- **`feat(03-01): AskUserCard component + UnifiedLogPanel cook-ask-user branch`** (`8b868d6`). Three render modes (pending/answered/expired); `Recommended` badge gated on `description === 'Recommended'`; `Other` button gated on `options.length > 0 && allowFreeform`; Send disabled on empty trimmed text.
+- **`feat(03-01): TopBar answer-mode + App.tsx wires both surfaces`** (`87c9904`). Answer-mode banner; mode precedence `cook-ask-user > chat > vibe > command`.
+
+#### Phase 04 — Docs and onboarding hint refresh
+
+- **`docs(readme): rewrite Chat vs Cook for unified panel + cite VBW interview lineage`** (`f182530`). Cites `references/discussion-engine.md` + `references/ask-user-question.md`.
+- **`feat(init): stdout reflects unified panel + interview-driven cook`** (`decb2f9`).
+- **`feat(dashboard): FirstRunHint copy reflects unified panel + interview mode`** (`804da13`). Outer aside / close-button / dismissal wiring preserved verbatim from milestone 12.
+- **`fix(shared,dashboard): add allowFreeform field to CookAskUserEntry schema + populate from prompt.request`** (`d0a4e4a`). Declared as DEVN-04-A (`accepted-process-exception`). Inline fix closed a Phase 03 regression: `AskUserCard:61` read `props.entry.allowFreeform === true` but the schema field never existed, breaking the VBW `Other`-button contract. Phase 03 QA passed because workspace-root `tsc --build` does not catch dashboard-client errors (those require `pnpm --filter @swt-labs/dashboard typecheck`). 14-line addition; end-state honors VBW `references/ask-user-question.md` faithfully.
+
+### Verification
+
+- `pnpm typecheck`: clean (workspace `tsc --build` exit 0; Popover.tsx:138 TS2322 DEVN-05 carry-over only on dashboard-client typecheck).
+- `pnpm test`: **2317 passed / 67 skipped / 0 failed** (was 2214 pre-milestone; +103 new).
+- `pnpm lint`: 550 errors / 511 warnings — zero new errors (pre-existing pnpm-workspace eslint-import resolver baseline).
+- `pnpm format --check`: clean.
+- Files deleted: 4 (`LogPanel.tsx`, `ChatPanel.tsx`, `chat-panel-helpers.ts`, `chat-panel.test.ts`).
+
+**To take it:**
+
+```bash
+npm i -g stop-wasting-tokens@next
+```
+
 ## 3.0.0-alpha.25 — 2026-05-16
 
 _Hotfix on top of alpha.24. User smoke-tested the new free-talk chat in the dashboard: the assistant message bubble rendered ONLY the token-usage badge (e.g. `↑6 ↓122`) — the actual streamed text was missing. Token-usage flowed (proving the LLM responded), but every `chat.message_delta` event arrived with no text. Root cause: `packages/runtime/src/events.ts` was reading Pi `message_update` deltas from a non-existent `event.delta.text` path. Pi 0.74's actual shape puts streamed text at `event.assistantMessageEvent.delta` (with discriminator `assistantMessageEvent.type === 'text_delta'`, per `@earendil-works/pi-ai`'s `AssistantMessageEvent` discriminated union). Every chunk was silently dropped, leaving the chat panel empty. This bug pre-dates milestone 12 — it shipped with the original Pi-event mapping in milestone 01 and only surfaced now because chat is the first feature that renders assistant text directly to a user-visible panel (cook orchestrator harvests text via Pi's journal extension, which uses a different path)._
