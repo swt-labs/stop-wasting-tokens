@@ -26,6 +26,7 @@ import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
 import { statusHandler } from './commands/status.js';
 import { fixDeprecatedHandler, stubCommand, STUB_SPECS } from './commands/stubs.js';
+import { todoHandler } from './commands/todo.js';
 import { updateHandler } from './commands/update.js';
 import { verifyHandler } from './commands/verify.js';
 import { CURRENT_VERSION, versionHandler } from './commands/version.js';
@@ -239,6 +240,20 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     name: 'audit',
     description: 'Run the pre-archive audit matrix (alias for `swt cook --archive`)',
     handler: auditHandler,
+  });
+
+  // Plan 15-02-01 T3 — `swt todo "<description>"` graduates from
+  // STUB_SPECS to a real verb. Appends to STATE.md ## Todos with VBW
+  // format `- [TODO] {description} (added YYYY-MM-DD) (ref:HASH)` and
+  // optionally persists extended detail to .swt-planning/todo-details.json
+  // keyed by the same 8-char sha256 hash.
+  registry.register({
+    name: 'todo',
+    usage:
+      '"<description>" [--detail STR] [--phase NN] [--files CSV] [--priority high|medium|low] [--assignee USER]',
+    description:
+      'Add a backlog item to STATE.md ## Todos. Supports --detail, --phase, --files, --priority, --assignee.',
+    handler: todoHandler,
   });
 
   for (const spec of STUB_SPECS) {

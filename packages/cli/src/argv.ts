@@ -84,6 +84,20 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       // planning-tree migration. Plan 06-04 T1 (REQ-19).
       to: { type: 'string' },
       input: { type: 'string' },
+      // Plan 15-02-01 T3 — `swt todo` optional flags. `--detail` is the
+      // longer context written to the sidecar `.swt-planning/todo-details.json`;
+      // `--phase` adds a `(phase:NN)` STATE.md annotation; `--files` is a
+      // comma-separated path list persisted in the sidecar; `--priority`
+      // adds a `(priority:X)` annotation (enum: high|medium|low validated
+      // in the handler); `--assignee` adds an `(assignee:USER)` annotation.
+      // `description` was already declared for `swt init --description`
+      // and is reused by callers who prefer it — `swt todo` uses its
+      // FIRST positional for the description so the init reuse is safe.
+      detail: { type: 'string' },
+      phase: { type: 'string' },
+      files: { type: 'string' },
+      priority: { type: 'string' },
+      assignee: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,

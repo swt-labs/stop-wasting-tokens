@@ -76,7 +76,8 @@ export const STUB_SPECS: readonly StubSpec[] = [
   // packages/cli/src/commands/discuss.ts and main.ts buildRegistry().
   // `phase` graduated to a thin alias in Plan 15-01-01 T3; see
   // packages/cli/src/commands/phase.ts and main.ts buildRegistry().
-  { name: 'todo', description: 'Manage the STATE.md todo list', roadmap_phase: 'Phase 7' },
+  // `todo` graduated from stub to real command in Plan 15-02-01 T3; see
+  // packages/cli/src/commands/todo.ts and main.ts buildRegistry().
   { name: 'skills', description: 'Search and install skills', roadmap_phase: 'Phase 9' },
   { name: 'whats-new', description: 'Show recent SWT release notes', roadmap_phase: 'Phase 9' },
   // `update` is registered as a real command in main.ts (Phase 04 / Plan 04-02 added marketplace dispatch alongside npm); the stub entry was pre-existing v1.0 carryforward and removed here to fix the duplicate-registration error that surfaced when scripts/docs-gen.ts called buildRegistry().
