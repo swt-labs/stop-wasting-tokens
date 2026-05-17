@@ -776,3 +776,204 @@ body {
   color: var(--warm-amber);
   font-size: 12px;
 }
+
+/* ── Milestone 13 / Phase 03 — AskUserCard ────────────────────────── */
+
+.ask-user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  background: rgba(0, 229, 255, 0.04);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 4px;
+  color: var(--ghost-white);
+  font-size: 13px;
+}
+
+.ask-user-card--answered {
+  background: rgba(90, 101, 128, 0.06);
+  border-color: rgba(90, 101, 128, 0.3);
+  color: var(--slate-muted);
+  padding: 6px 12px;
+  gap: 2px;
+}
+
+.ask-user-card--expired {
+  background: rgba(255, 82, 82, 0.04);
+  border-color: rgba(255, 82, 82, 0.3);
+  color: var(--slate-muted);
+  padding: 6px 12px;
+  gap: 2px;
+}
+
+.ask-user-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ask-user-card-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neon-cyan);
+}
+
+.ask-user-card-question {
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ghost-white);
+}
+
+.ask-user-card-question--dimmed {
+  color: var(--slate-muted);
+  font-weight: 400;
+}
+
+.ask-user-card-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ask-user-card-option-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 3px;
+  color: var(--ghost-white);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ask-user-card-option-btn:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.16);
+  border-color: var(--neon-cyan);
+}
+
+.ask-user-card-option-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ask-user-card-option-btn--recommended {
+  background: rgba(0, 255, 65, 0.08);
+  border-color: rgba(0, 255, 65, 0.5);
+}
+
+.ask-user-card-option-btn--recommended:hover:not(:disabled) {
+  background: rgba(0, 255, 65, 0.16);
+  border-color: var(--terminal-green);
+}
+
+.ask-user-card-recommended-badge {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  background: var(--terminal-green);
+  color: var(--deep-void);
+  border-radius: 2px;
+}
+
+.ask-user-card-option-btn--other {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--slate-muted);
+  color: var(--slate-muted);
+}
+
+.ask-user-card-option-btn--other:hover:not(:disabled) {
+  border-color: var(--neon-cyan);
+  color: var(--ghost-white);
+}
+
+.ask-user-card-freeform-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ask-user-card-freeform-textarea {
+  resize: vertical;
+  min-height: 60px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--slate-muted);
+  border-radius: 3px;
+  color: var(--ghost-white);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.ask-user-card-freeform-textarea:focus {
+  outline: none;
+  border-color: var(--neon-cyan);
+}
+
+.ask-user-card-freeform-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.ask-user-card-back-btn,
+.ask-user-card-send-btn {
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ask-user-card-back-btn {
+  background: transparent;
+  border: 1px solid var(--slate-muted);
+  color: var(--slate-muted);
+}
+
+.ask-user-card-back-btn:hover:not(:disabled) {
+  border-color: var(--ghost-white);
+  color: var(--ghost-white);
+}
+
+.ask-user-card-send-btn {
+  background: var(--neon-cyan);
+  border: 1px solid var(--neon-cyan);
+  color: var(--deep-void);
+  font-weight: 500;
+}
+
+.ask-user-card-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ask-user-card-answered-reply {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.ask-user-card-reply-arrow {
+  color: var(--neon-cyan);
+}
+
+.ask-user-card-reply-text {
+  color: var(--ghost-white);
+}
+
+.ask-user-card-expired-note {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--danger-red);
+}

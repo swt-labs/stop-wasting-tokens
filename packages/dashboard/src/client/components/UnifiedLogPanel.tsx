@@ -30,12 +30,13 @@
  * lives in this component rather than a helper.
  */
 
-import type { LogEntry, VibeReplyBody } from '@swt-labs/shared';
+import type { CookAskUserEntry, LogEntry, VibeReplyBody } from '@swt-labs/shared';
 import { For, Show, createEffect, createSignal, onMount, type Component } from 'solid-js';
 
 import { ansiToHtml } from '../lib/ansi-to-html.js';
 import type { ConversationEntry } from '../state/dashboard-store.js';
 
+import { AskUserCard } from './ask-user-card.js';
 import { classifyEntry, entryToLine, shouldDisableClear } from './unified-log-helpers.js';
 
 export type AgentBackend = 'none' | 'pi';
@@ -45,9 +46,11 @@ export interface UnifiedLogPanelProps {
   log: LogEntry[];
   /**
    * Phase 01 keeps `vibeSession.conversation` as the askUser source for
-   * the inline `ConversationCard`. Phase 03 swaps to `cook-ask-user`
-   * LogEntries — at that point the `conversation` prop is removed and
-   * the panel reads `log.filter(e => e.kind === 'cook-ask-user')` instead.
+   * the inline `ConversationCard`. Phase 03 introduced `<AskUserCard>`
+   * for cook askUser LogEntries; the two card types coexist —
+   * ConversationCard drives vibeSession-level prompts (init Lead
+   * clarification, permission gates), AskUserCard drives
+   * cook-ask-user kind log entries.
    */
   conversation: ConversationEntry[];
   replying: ReplyingState;
@@ -55,6 +58,20 @@ export interface UnifiedLogPanelProps {
   onReply: (answer: VibeReplyBody['answer']) => Promise<boolean>;
   agentBackend: AgentBackend | null;
   onClearChat: () => void;
+  /**
+   * Milestone 13 / Phase 03 — optional dispatch for `<AskUserCard>`.
+   * When wired (via App.tsx), each cook-ask-user `<Show>` branch in the
+   * row dispatcher renders an interactive card whose option-button +
+   * freeform submits flow back through this callback. When omitted, the
+   * card renders in display-only mode (a button click is a no-op since
+   * onRespond receives an empty handler — UnifiedLogPanel keeps it
+   * defensive via the optional ?. call below). The store action
+   * `respondToCookAskUser` is the production wire.
+   */
+  onCookAskUserRespond?: (
+    askUserId: string,
+    response: { selectedOption: string | null; freeform: string | null },
+  ) => Promise<void>;
 }
 
 const PERMISSION_OPERATION_VERB: Record<string, string> = {
@@ -141,7 +158,14 @@ export const UnifiedLogPanel: Component<UnifiedLogPanelProps> = (props) => {
           when={props.log.length > 0 || props.conversation.length > 0}
           fallback={<div class="unified-log__empty">No log entries yet.</div>}
         >
-          <For each={props.log}>{(entry) => <UnifiedLogRow entry={entry} />}</For>
+          <For each={props.log}>
+            {(entry) => (
+              <UnifiedLogRow
+                entry={entry}
+                onCookAskUserRespond={props.onCookAskUserRespond}
+              />
+            )}
+          </For>
           <Show when={props.conversation.length > 0}>
             <For each={props.conversation}>
               {(entry) => (
@@ -162,9 +186,20 @@ export const UnifiedLogPanel: Component<UnifiedLogPanelProps> = (props) => {
 
 /**
  * Per-entry dispatcher — switches on `entry.kind` to pick the right
- * presentation (bubble vs monospace line vs inline chip).
+ * presentation (bubble vs monospace line vs inline chip vs interactive
+ * card). Phase 03 added the `cook-ask-user` branch — extracted from the
+ * monospace `<Show>` group below — which renders `<AskUserCard>` when
+ * an `onCookAskUserRespond` callback is wired.
  */
-const UnifiedLogRow: Component<{ entry: LogEntry }> = (props) => {
+interface UnifiedLogRowProps {
+  entry: LogEntry;
+  onCookAskUserRespond?: (
+    askUserId: string,
+    response: { selectedOption: string | null; freeform: string | null },
+  ) => Promise<void>;
+}
+
+const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
   const lane = (): 'chat' | 'cook' | 'init' | 'system' => classifyEntry(props.entry);
 
   return (
@@ -235,12 +270,26 @@ const UnifiedLogRow: Component<{ entry: LogEntry }> = (props) => {
           );
         })()}
       </Show>
+      <Show when={props.entry.kind === 'cook-ask-user'}>
+        {(() => {
+          const e = props.entry;
+          if (e.kind !== 'cook-ask-user') return null;
+          const askEntry = e as CookAskUserEntry;
+          return (
+            <AskUserCard
+              entry={askEntry}
+              onRespond={async (body) => {
+                await props.onCookAskUserRespond?.(askEntry.prompt_id, body);
+              }}
+            />
+          );
+        })()}
+      </Show>
       <Show
         when={
           props.entry.kind === 'init' ||
           props.entry.kind === 'cook-status' ||
           props.entry.kind === 'cook-agent' ||
-          props.entry.kind === 'cook-ask-user' ||
           props.entry.kind === 'system'
         }
       >
@@ -250,7 +299,6 @@ const UnifiedLogRow: Component<{ entry: LogEntry }> = (props) => {
             e.kind !== 'init' &&
             e.kind !== 'cook-status' &&
             e.kind !== 'cook-agent' &&
-            e.kind !== 'cook-ask-user' &&
             e.kind !== 'system'
           )
             return null;
