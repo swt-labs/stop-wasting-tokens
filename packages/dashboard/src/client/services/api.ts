@@ -590,3 +590,42 @@ export async function postPromptRespond(body: PromptRespondBody): Promise<void> 
     throw new ApiError(message, res.status);
   }
 }
+
+/**
+ * Milestone 13 / Phase 03 — `postCookRespond` / `POST /api/cook/respond`.
+ * The dashboard-side dispatch for `<AskUserCard>` option clicks + TopBar
+ * answer-mode submits. Mirrors `postPromptRespond` (the vibe/Lead
+ * conversation channel) but targets the cook askUser route locked by
+ * Phase 02 (cook-respond.ts).
+ *
+ * Wire body (`CookRespondBody`): `{cook_session_id, askUserId, response:
+ * {selectedOption, freeform}}` — `askUserId` is the same value as
+ * `prompt_id` on the CookAskUserEntry (cross-cutting #8 — single naming
+ * across action, store slot, route body, and api helper). Exactly one of
+ * `selectedOption` / `freeform` is non-null per call.
+ *
+ * Fire-and-forget on success: the route responds 200 and the SSE
+ * `prompt.response` event is the authoritative state-update channel
+ * (already consumed by the Phase 02 reducer). Non-2xx parses the error
+ * body via `readErrorMessage` and throws `ApiError(message, status)`.
+ */
+export interface CookRespondBody {
+  cook_session_id: string;
+  askUserId: string;
+  response: {
+    selectedOption: string | null;
+    freeform: string | null;
+  };
+}
+
+export async function postCookRespond(body: CookRespondBody): Promise<void> {
+  const res = await fetch('/api/cook/respond', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+}

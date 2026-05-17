@@ -34,6 +34,7 @@ import {
   postChatStart,
   postCommand,
   postConfig,
+  postCookRespond,
   postCookStart,
   postInit,
   postOAuthCode,
@@ -395,6 +396,42 @@ export interface DashboardActions {
    */
   clearChat: () => void;
   replyToActivePrompt: (answer: VibeReplyBody['answer']) => Promise<boolean>;
+  /**
+   * Milestone 13 / Phase 03 — dispatch a user response to the currently
+   * pending cook askUser prompt. Called by both surfaces:
+   *
+   *   - `<AskUserCard>` option-button click (`{selectedOption, freeform: null}`)
+   *   - `<AskUserCard>` freeform Send (`{selectedOption: null, freeform}`)
+   *   - TopBar answer-mode submit (always freeform — option choice happens
+   *     on the card, not the TopBar)
+   *
+   * Optimistic state pattern (Scout §7):
+   *   1. Snapshot the current `cookAwaitingUser` for revert.
+   *   2. Find the matching `CookAskUserEntry` by `prompt_id === askUserId`
+   *      AND `status === 'pending'`.
+   *   3. Optimistically mark the entry `status: 'answered'` with the reply
+   *      text (selectedOption ?? freeform ?? '').
+   *   4. Optimistically clear `cookAwaitingUser` to null BEFORE awaiting
+   *      the POST — TopBar's answer-mode disengages immediately so the
+   *      user can move on without waiting for the SSE round-trip.
+   *   5. POST to `/api/cook/respond`. On success, the Phase 02
+   *      `prompt.response` reducer (when it arrives) becomes a no-op for
+   *      the already-optimistic entry.
+   *   6. On POST failure: revert the entry to `pending`, restore the
+   *      snapshotted `cookAwaitingUser`, and append both a `pushError`
+   *      pill AND a system `LogEntry` so the user sees the failure inline.
+   *
+   * No-active-session and no-pending-entry are early-return errors — both
+   * `pushError` with documented messages and return without POSTing.
+   *
+   * `askUserId` (NOT `promptId`) is the parameter name to match the
+   * `cookAwaitingUser.askUserId` slot, the `/api/cook/respond` body, and
+   * the `postCookRespond` helper. Cross-cutting #8 consistency.
+   */
+  respondToCookAskUser: (
+    askUserId: string,
+    response: { selectedOption: string | null; freeform: string | null },
+  ) => Promise<void>;
   /**
    * Fetch all four tools cells in parallel. No-op when the snapshot reports
    * `is_initialized: false` (greenfield daemons have no project to inspect
@@ -2099,6 +2136,89 @@ export function createDashboardStore(
     appendLogLine('[chat] conversation cleared');
   };
 
+  /**
+   * Milestone 13 / Phase 03 — see the `DashboardActions.respondToCookAskUser`
+   * doc-comment for the full optimistic-mark + optimistic-clear +
+   * revert-on-error sequence (Scout §7). Implementation notes:
+   *
+   *   - The match predicate is `prompt_id === askUserId AND status === 'pending'`.
+   *     A prior pending entry that was already optimistically answered (e.g.
+   *     a fast double-click) will not re-match, and the action becomes a
+   *     no-op for that case — `pushError` documents the "already answered?"
+   *     hypothesis.
+   *   - The reply text uses `??` ordering: `selectedOption` first (option
+   *     buttons), `freeform` second (TopBar / textarea), empty string last
+   *     (defensive — schema requires `reply?: string` so undefined is
+   *     valid, but a visible empty string is more honest than a "no reply"
+   *     placeholder).
+   *   - The revert path re-applies the snapshotted `cookAwaitingUser`
+   *     verbatim — this is the same shape the Phase 02 `prompt.request`
+   *     reducer wrote, so visual state is bit-identical to the moment
+   *     before submit.
+   *   - `appendLogLine` writes a system-internal entry (`channel:
+   *     'internal'`) so the failure surfaces in the unified log alongside
+   *     the now-reverted `cook-ask-user` entry. `pushError` adds the
+   *     toast/pill pair (capped at the 10-entry `errors[]` ring).
+   */
+  const respondToCookAskUser = async (
+    askUserId: string,
+    response: { selectedOption: string | null; freeform: string | null },
+  ): Promise<void> => {
+    const cookSessionId = state.activeSessionId;
+    if (cookSessionId === null) {
+      pushError('[cook-ask-user] no active cook session — cannot respond');
+      return;
+    }
+    const matchIdx = state.unifiedLog.findIndex(
+      (e) =>
+        e.kind === 'cook-ask-user' &&
+        e.prompt_id === askUserId &&
+        e.status === 'pending',
+    );
+    if (matchIdx === -1) {
+      pushError('[cook-ask-user] no pending entry for askUserId — already answered?');
+      return;
+    }
+    // Snapshot cookAwaitingUser BEFORE the optimistic clear so the revert
+    // path can restore the exact pre-action shape.
+    const prevAwaiting = state.cookAwaitingUser;
+    const replyText = response.selectedOption ?? response.freeform ?? '';
+    // Optimistic mark — mutate the entry by index. The kind-guard is
+    // defensive (the `findIndex` predicate already filtered to
+    // 'cook-ask-user'); without it the discriminated-union narrows back
+    // to LogEntry and the spread fails type-checking.
+    setState('unifiedLog', matchIdx, (entry) =>
+      entry.kind === 'cook-ask-user'
+        ? { ...entry, status: 'answered' as const, reply: replyText }
+        : entry,
+    );
+    // Optimistic clear — TopBar disengages answer-mode immediately. The
+    // SSE prompt.response reducer (Phase 02) becomes a no-op for both
+    // the entry status AND the slot when the round-trip lands.
+    setState('cookAwaitingUser', null);
+    try {
+      await postCookRespond({
+        cook_session_id: cookSessionId,
+        askUserId,
+        response,
+      });
+      // Success — nothing to do. The Phase 02 reducer at prompt.response
+      // confirms the optimistic state when the SSE arrives.
+    } catch (err: unknown) {
+      // Revert: entry status → pending, slot → snapshotted shape, and
+      // surface both a toast and an inline system LogEntry.
+      setState('unifiedLog', matchIdx, (entry) =>
+        entry.kind === 'cook-ask-user'
+          ? { ...entry, status: 'pending' as const, reply: undefined }
+          : entry,
+      );
+      setState('cookAwaitingUser', prevAwaiting);
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`cook askUser respond failed: ${message}`);
+      appendLogLine(`[cook-ask-user] respond failed: ${message}`);
+    }
+  };
+
   const replyToActivePrompt = async (answer: VibeReplyBody['answer']): Promise<boolean> => {
     const session = state.vibeSession;
     if (!session) return false;
@@ -2339,6 +2459,7 @@ export function createDashboardStore(
       startChat,
       clearChat,
       replyToActivePrompt,
+      respondToCookAskUser,
       refreshTools,
       refreshToolsCell,
       applyConfigUpdate,
