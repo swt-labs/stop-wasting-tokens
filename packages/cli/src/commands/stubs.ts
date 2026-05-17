@@ -47,8 +47,10 @@ export const fixDeprecatedHandler: CommandHandler = (_parsed, io: CommandIO): Ex
 export const STUB_SPECS: readonly StubSpec[] = [
   // `init` graduated from stub to real command in v1.7.0; see
   // packages/cli/src/commands/init.ts and main.ts buildRegistry().
-  { name: 'plan', description: 'Plan a phase (Scout + Lead)', roadmap_phase: 'Phase 7' },
-  { name: 'execute', description: 'Execute a planned phase', roadmap_phase: 'Phase 7' },
+  // `plan` graduated to a thin alias in Plan 15-01-01 T2; see
+  // packages/cli/src/commands/plan.ts and main.ts buildRegistry().
+  // `execute` graduated to a thin alias in Plan 15-01-01 T2; see
+  // packages/cli/src/commands/execute.ts and main.ts buildRegistry().
   // `qa` graduated from stub to real command in Plan 03-03 T1; see
   // packages/cli/src/commands/qa.ts and main.ts buildRegistry().
   // `map` graduated from stub to real command in Plan 03-03 T4; see
@@ -63,7 +65,8 @@ export const STUB_SPECS: readonly StubSpec[] = [
   { name: 'resume', description: 'Resume a paused session', roadmap_phase: 'Phase 7' },
   { name: 'pause', description: 'Pause and stash session state', roadmap_phase: 'Phase 7' },
   { name: 'audit', description: 'Run the pre-archive audit matrix', roadmap_phase: 'Phase 7' },
-  { name: 'assumptions', description: 'Capture phase assumptions', roadmap_phase: 'Phase 7' },
+  // `assumptions` graduated to a thin alias in Plan 15-01-01 T2; see
+  // packages/cli/src/commands/assumptions.ts and main.ts buildRegistry().
   // `research` graduated from stub to real command in Plan 03-03 T3; see
   // packages/cli/src/commands/research.ts and main.ts buildRegistry().
   // `discuss` graduated to a thin shim in Plan 06-05 T4; see

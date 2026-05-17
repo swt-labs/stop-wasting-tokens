@@ -3,6 +3,7 @@ import { PiSpawnerEnvironment } from '@swt-labs/orchestration';
 import { applyEnvToProcess } from '@swt-labs/runtime';
 
 import { parseSwtArgv } from './argv.js';
+import { assumptionsHandler } from './commands/assumptions.js';
 import { benchHandler } from './commands/bench.js';
 import { cleanupHandler } from './commands/cleanup.js';
 import { configHandler } from './commands/config.js';
@@ -12,9 +13,11 @@ import { debugHandler } from './commands/debug.js';
 import { detectPhaseHandler } from './commands/detect-phase.js';
 import { discussHandler } from './commands/discuss.js';
 import { doctorHandler } from './commands/doctor.js';
+import { executeHandler } from './commands/execute.js';
 import { initHandler } from './commands/init.js';
 import { mapHandler } from './commands/map.js';
 import { migrateHandler } from './commands/migrate.js';
+import { planHandler } from './commands/plan.js';
 import { qaHandler } from './commands/qa.js';
 import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
@@ -189,6 +192,28 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     name: 'fix',
     description: 'Deprecated — use `swt cook` or `swt qa` for remediation',
     handler: fixDeprecatedHandler,
+  });
+
+  // Plan 15-01-01 T2 — promote 4 simple-flag aliases (plan / execute /
+  // assumptions) from STUB_SPECS to thin shims around cookHandler via the
+  // shared aliasToCook helper. `discuss` already shipped above (Plan 06-05
+  // T4); the remaining 3 aliases (archive / phase / audit) land in T3.
+  registry.register({
+    name: 'plan',
+    usage: '[N] [--effort LEVEL]',
+    description: 'Plan a phase (alias for `swt cook --plan`)',
+    handler: planHandler,
+  });
+  registry.register({
+    name: 'execute',
+    usage: '[N] [--effort LEVEL]',
+    description: 'Execute a planned phase (alias for `swt cook --execute`)',
+    handler: executeHandler,
+  });
+  registry.register({
+    name: 'assumptions',
+    description: 'Capture phase assumptions (alias for `swt cook --assumptions`)',
+    handler: assumptionsHandler,
   });
 
   for (const spec of STUB_SPECS) {
