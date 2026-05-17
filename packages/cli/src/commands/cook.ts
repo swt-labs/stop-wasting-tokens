@@ -107,7 +107,12 @@ import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared'
 import type { CookEvent } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
+import {
+  readSnapshotForPickup,
+  loadTodoDetailForRef,
+} from '../lib/list-todos-pickup.js';
 import type { CommandHandler, CommandIO } from '../router.js';
+import type { TodoDetail } from '@swt-labs/shared';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Plan 04-01 — Cook IPC event emitter (R1 file-tail decision).
@@ -618,31 +623,91 @@ export function extractRefTag(args: string): { args: string; refHash: string | u
 }
 
 /**
- * Resolve a bare integer arg to a todo. Stub for Phase 3 — when the
- * `.swt-planning/.last-list-todos-snapshot.json` exists with `filter=null`,
- * call `scripts/resolve-todo-item.sh`; otherwise treat the integer as a
- * phase number.
+ * Resolve a bare integer arg to a todo. Plan 15-04-01 T2 — replaces the
+ * Phase 3 stub with the real implementation now that Phase 03 ships the
+ * session snapshot at `.swt-planning/.cache/list-todos-snapshot.json`
+ * (canonical relative path via `SNAPSHOT_RELATIVE_PATH`).
  *
- * This is INTENTIONALLY a stub — the snapshot lifecycle is a Phase 7 swt
- * todo concern, not a Phase 3 orchestrator concern. The plan documents
- * the pickup boundary (claim only after confirmation succeeds), but the
- * todo-pickup integration ships with Plan 07-* when `swt todo` lands.
+ * Resolution flow when `args.trim()` is a positive integer N:
+ *   1. Read + Zod-validate the snapshot via `readSnapshotForPickup` with
+ *      `{requireFresh: true, requireUnfiltered: true}` — bare-integer
+ *      pickup is the implicit-intent path and must be conservative. The
+ *      helper returns `null` on ENOENT / parse / Zod / TTL-stale / filtered
+ *      and may log via the injected `logger` for the soft fall-throughs.
+ *   2. Null → return `{args, phaseTarget: N, todoSelected: false}` (the
+ *      pre-Phase-04 behavior — N is treated as a phase number).
+ *   3. `N - 1 >= snapshot.refs.length` → out-of-range fall-through to
+ *      phase-number, silent (research §Risks "Out-of-range" decision — the
+ *      user might have meant the phase number all along).
+ *   4. Otherwise: look up `details.todos[refs[N - 1]]` via
+ *      `loadTodoDetailForRef`. Any thrown error (malformed todo-details.json)
+ *      is caught + logged + degrades to phase-number per research §Risks.
+ *      The todo's `description` becomes the new `args` (with `hash` as the
+ *      fallback when the details file is missing the key); `refHash` is
+ *      the snapshot ref; `phaseTarget` is undefined.
  *
- * For Phase 3, the cook handler treats a bare integer as a phase target
- * — which is the dominant code path. Tests for the todo branch can be
- * added when `swt todo` materializes.
+ * Return shape extends Phase 3's stable fields with optional `refHash` and
+ * `todoDescription` for the call site to consume per Plan 15-04-01 MH-03.
  */
-export function resolveTodoNumber(
+export async function resolveTodoNumber(
   args: string,
-  _cwd: string,
-): { args: string; phaseTarget?: number; todoSelected?: false } {
+  cwd: string,
+  deps?: {
+    readSnapshotForPickup?: typeof readSnapshotForPickup;
+    loadTodoDetailForRef?: typeof loadTodoDetailForRef;
+    logger?: (msg: string) => void;
+  },
+): Promise<{
+  args: string;
+  phaseTarget?: number;
+  todoSelected?: boolean;
+  refHash?: string;
+  todoDescription?: string;
+}> {
   const trimmed = args.trim();
   if (!/^[0-9]+$/.test(trimmed)) {
     return { args };
   }
   const n = Number.parseInt(trimmed, 10);
   if (!Number.isFinite(n) || n <= 0) return { args };
-  return { args, phaseTarget: n, todoSelected: false };
+
+  const readSnapshot = deps?.readSnapshotForPickup ?? readSnapshotForPickup;
+  const loadDetail = deps?.loadTodoDetailForRef ?? loadTodoDetailForRef;
+  const logger = deps?.logger;
+
+  const snapshot = await readSnapshot(
+    cwd,
+    { requireFresh: true, requireUnfiltered: true },
+    logger,
+  );
+  if (snapshot === null) {
+    return { args, phaseTarget: n, todoSelected: false };
+  }
+
+  if (n - 1 >= snapshot.refs.length) {
+    // Out-of-range: silent fall-through to phase-number (research §Risks).
+    return { args, phaseTarget: n, todoSelected: false };
+  }
+
+  const hash = snapshot.refs[n - 1]!;
+  let detail: TodoDetail | undefined;
+  try {
+    detail = await loadDetail(cwd, hash);
+  } catch {
+    logger?.(
+      'todo-details.json malformed — falling through to phase-number resolution',
+    );
+    return { args, phaseTarget: n, todoSelected: false };
+  }
+
+  const todoDescription = detail?.description ?? hash;
+  return {
+    args: todoDescription,
+    phaseTarget: undefined,
+    todoSelected: true,
+    refHash: hash,
+    todoDescription,
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1562,8 +1627,25 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
     }
 
     // 2. Pre-parse: ref tag extraction then todo / phase number resolution.
-    const { args: argsAfterRef, refHash } = extractRefTag(rawArgs);
-    const { args: argsAfterTodo, phaseTarget } = resolveTodoNumber(argsAfterRef, io.cwd);
+    //    Plan 15-04-01 T2 — `resolveTodoNumber` is now async (reads the
+    //    Phase 03 snapshot + optional Phase 02 details). When the resolver
+    //    picks a todo (`todoSelected === true`), its `refHash` wins over
+    //    `extractRefTag`'s — by definition of pickup, the snapshot ref is
+    //    authoritative. Use `let` so the override is in-place. The logger
+    //    callback prefixes diagnostics with `[cook] ` so the soft
+    //    fall-through lines (stale/filtered) are visible.
+    const refTagResult = extractRefTag(rawArgs);
+    const argsAfterRef = refTagResult.args;
+    let refHash: string | undefined = refTagResult.refHash;
+    const todoResolution = await resolveTodoNumber(argsAfterRef, io.cwd, {
+      logger: (msg) => io.stderr.write(`[cook] ${msg}\n`),
+    });
+    let argsAfterTodo = todoResolution.args;
+    let phaseTarget = todoResolution.phaseTarget;
+    const todoSelected = todoResolution.todoSelected === true;
+    if (todoSelected && todoResolution.refHash !== undefined) {
+      refHash = todoResolution.refHash;
+    }
 
     // 2.5. Phase 02 / Plan 02-01 — read the dashboard cook bar's pre-seed
     //      idea ONCE per cook invocation. Mirrors loadCookConfig's

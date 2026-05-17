@@ -323,14 +323,17 @@ describe('@swt-labs/cli — cookHandler pre-parse (Plan 03-02 T5)', () => {
     expect(out.refHash).toBeUndefined();
   });
 
-  it("D.0' — resolveTodoNumber recognises a bare integer as a phase target", () => {
-    const out = resolveTodoNumber('3', REPO_ROOT);
+  it("D.0' — resolveTodoNumber recognises a bare integer as a phase target", async () => {
+    // No snapshot at REPO_ROOT → readSnapshotForPickup returns null →
+    // fall through to phase-number behavior (existing zero-behavior-
+    // change contract per Plan 15-04-01 AC-03).
+    const out = await resolveTodoNumber('3', REPO_ROOT);
     expect(out.phaseTarget).toBe(3);
     expect(out.args).toBe('3');
   });
 
-  it("D.0' — resolveTodoNumber ignores non-integer args", () => {
-    const out = resolveTodoNumber('plan it', REPO_ROOT);
+  it("D.0' — resolveTodoNumber ignores non-integer args", async () => {
+    const out = await resolveTodoNumber('plan it', REPO_ROOT);
     expect(out.phaseTarget).toBeUndefined();
   });
 });
