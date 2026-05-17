@@ -71,20 +71,23 @@ export function formatTimestamp(ts: string): string {
 }
 
 /**
- * Render a single inline string for monospace-laned entries. Used by the
- * panel's `<For>` body when `classifyEntry(entry) !== 'chat'`. Bubble-laned
- * entries (`chat-user` / `chat-assistant`) render via JSX directly and do
- * NOT go through this helper.
+ * Render a single inline string for every `LogEntry` kind. Used by the
+ * panel's `<For>` body to produce the canonical `HH:MM:SS [kind] message`
+ * line. Milestone 16 / Phase 01 folded chat-user / chat-assistant / chat-error
+ * into the unified monospace feed, so this helper is now total over
+ * `LogEntry` AND load-bearing for chat rendering.
  *
  * Shape per Scout §1 examples:
- *   - init        → `'14:23:45 [init] Lead detecting stack…'`
- *   - cook-status → `'14:23:45 [cook] started session 12345678 — "fix the bug"'`
- *   - cook-tool   → `'14:23:45 [cook] tool: Read packages/shared/...'`
- *   - cook-agent  → `'14:23:45 [cook] agent dev spawn (sub-abcd1234)'`
- *   - system      → `'14:23:45 [system] [internal] [chat] conversation cleared'`
- *   - chat-error  → `'14:23:45 [chat-error] CHAT_AUTH_FAILED: <message>'` (unused
- *                   in the chat lane; provided for completeness so the helper
- *                   is total over `LogEntry`)
+ *   - init           → `'14:23:45 [init] Lead detecting stack…'`
+ *   - cook-status    → `'14:23:45 [cook] started session 12345678 — "fix the bug"'`
+ *   - cook-tool      → `'14:23:45 [cook] tool: Read packages/shared/...'`
+ *   - cook-agent     → `'14:23:45 [cook] agent dev spawn (sub-abcd1234)'`
+ *   - system         → `'14:23:45 [system] [internal] [chat] conversation cleared'`
+ *   - chat-user      → `'14:23:45 [chat-user] hi'`
+ *   - chat-assistant → `'14:23:45 [chat-assistant] hello back [tool: Read] ↑12 ↓34'`
+ *                      (tools_called + usage suffixes are inlined when present;
+ *                      omitted when absent)
+ *   - chat-error     → `'14:23:45 [chat-error] CHAT_AUTH_FAILED: <message>'`
  */
 export function entryToLine(entry: LogEntry): string {
   const ts = formatTimestamp(entry.ts);
@@ -124,8 +127,14 @@ export function entryToLine(entry: LogEntry): string {
     }
     case 'chat-user':
       return `${prefix}[chat-user] ${entry.text}`;
-    case 'chat-assistant':
-      return `${prefix}[chat-assistant] ${entry.text}`;
+    case 'chat-assistant': {
+      const tools =
+        (entry.tools_called?.length ?? 0) > 0
+          ? ` [tool: ${(entry.tools_called ?? []).join(', tool: ')}]`
+          : '';
+      const usage = entry.usage ? ` ↑${entry.usage.input} ↓${entry.usage.output}` : '';
+      return `${prefix}[chat-assistant] ${entry.text}${tools}${usage}`;
+    }
     case 'chat-error':
       return `${prefix}[chat-error] ${entry.code}: ${entry.message}`;
   }

@@ -179,6 +179,64 @@ describe('entryToLine', () => {
       '14:23:45 [chat-error] CHAT_AUTH_FAILED: No credential available',
     );
   });
+
+  it('renders a chat-assistant entry with tools_called as an inline [tool: …] suffix', () => {
+    const assistantWithTools: LogEntry = {
+      kind: 'chat-assistant',
+      id: 'chat-msg-tools',
+      ts: TS,
+      chat_session_id: 'chat-1',
+      text: 'message',
+      completed: true,
+      tools_called: ['Read', 'Write'],
+    };
+    expect(entryToLine(assistantWithTools)).toBe(
+      '14:23:45 [chat-assistant] message [tool: Read, tool: Write]',
+    );
+  });
+
+  it('renders a chat-assistant entry with usage as a `↑in ↓out` suffix', () => {
+    const assistantWithUsage: LogEntry = {
+      kind: 'chat-assistant',
+      id: 'chat-msg-usage',
+      ts: TS,
+      chat_session_id: 'chat-1',
+      text: 'message',
+      completed: true,
+      usage: {
+        input: 12,
+        output: 34,
+        cacheRead: 0,
+        cacheWrite: 0,
+        provider: 'anthropic',
+        model: 'claude',
+      },
+    };
+    expect(entryToLine(assistantWithUsage)).toBe('14:23:45 [chat-assistant] message ↑12 ↓34');
+  });
+
+  it('renders a chat-assistant entry with both tools_called and usage folded into the same line', () => {
+    const assistantBoth: LogEntry = {
+      kind: 'chat-assistant',
+      id: 'chat-msg-both',
+      ts: TS,
+      chat_session_id: 'chat-1',
+      text: 'message',
+      completed: true,
+      tools_called: ['Read'],
+      usage: {
+        input: 12,
+        output: 34,
+        cacheRead: 0,
+        cacheWrite: 0,
+        provider: 'anthropic',
+        model: 'claude',
+      },
+    };
+    expect(entryToLine(assistantBoth)).toBe(
+      '14:23:45 [chat-assistant] message [tool: Read] ↑12 ↓34',
+    );
+  });
 });
 
 describe('filterChatEntries', () => {
