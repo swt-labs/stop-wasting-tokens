@@ -1,5 +1,76 @@
 # Changelog
 
+## Unreleased
+
+_Milestone **`15-command-alias-foundation-todo-workflow`** archived 2026-05-18. 20 product commits ahead of alpha.29 (commits `0a02283` → `f350aa0`). Two-thrust milestone closing 9 of VBW's 17 stub gaps in one shot: the verb-alias foundation graduates 7 stub verbs to thin cook wrappers, and the todo workflow delivers VBW's biggest UX feature (numbered-todo pickup with `swt cook 3` + `(ref:HASH)` detail injection). Not yet published to npm._
+
+### Milestone 15 — Command-Alias Foundation + Todo Workflow
+
+4 phases / 4 plans / 19 atomic tasks / 20 product commits. **Tests: 2498 passed / 67 skipped / 0 failed** (+96 new across the milestone, up from 2402 at start). Typecheck clean at HEAD `f350aa0`. QA PASS across all 4 phases.
+
+**End-to-end user flow now works:**
+```
+swt todo "fix login bug" --detail "Auth flow drops session" --priority high
+swt list-todos
+#  1. ○ fix login bug (priority:high) (ref:abc12345)
+swt cook 1              # picks up todo #1; detail injected into Dev prompt
+swt cook --todo 1       # always-pickup escape hatch (no TTL/filter checks)
+swt cook "X" (ref:abc12345)   # ref-tag extraction loads detail from todo-details.json
+```
+
+#### Phase 01 — Verb aliases to cook (`0a02283` → `719adfa`, 5 commits)
+
+7 stub verbs (`plan`, `execute`, `discuss`, `assumptions`, `archive`, `phase`, `audit`) graduated from `EXIT.NOT_IMPLEMENTED` to thin wrappers around `swt cook --<mode>`. Authoritative routing logic stays in `cook.ts:routeFromPhaseDetect()`; aliases just translate `swt plan N --effort fast` → `swt cook --plan N --effort fast` and propagate exit code + stdout/stderr byte-identically.
+
+- **`feat(cli): aliasToCook helper + phaseAlias + aliasToCookPlan exports`** (`0a02283`). `packages/cli/src/lib/alias-to-cook.ts` (new) with three exports: `aliasToCook(parsed, io, cookFlag)` for boolean flag aliases, `aliasToCookPlan(parsed, io)` for `--plan` (string-valued, with empty-string synthesis for bare-no-positional), `phaseAlias(parsed, io)` as a no-op forwarder that just rewrites `verb` to `cook`. In-process delegation matching the discussHandler/debugHandler pattern from Plan 06-05 T4 — byte-identical by construction (DEVN-01 accepted-process-exception).
+- **`feat(cli): 7 stub verbs graduated to real CommandHandlers`** (`e26ccd3`, `62e9f07`, `52fa5b5`). `plan.ts`, `execute.ts`, `discuss.ts`, `assumptions.ts`, `archive.ts`, `phase.ts`, `audit.ts` now delegate to `aliasToCook`/`aliasToCookPlan`/`phaseAlias`. `audit` aliases to `--archive` because cook has no standalone `--audit` flag (DEVN-02 accepted-process-exception). `stubs.ts` `STUB_SPECS` 7 entries removed with graduation breadcrumbs.
+- **`feat(dashboard): 7 new CORE_ENTRIES + ALLOWED_NON_INTERACTIVE_VERBS update`** (`52fa5b5`). `command-registry-mirror.ts` `CORE_ENTRIES` adds `plan`/`execute`/`discuss`/`assumptions`/`archive`/`phase`/`audit`. `allowed-verbs.ts` `ALLOWED_NON_INTERACTIVE_VERBS` adds `plan`/`execute`/`audit` (the three that don't hit askUser checkpoints).
+- **`test(cli): aliases.test.ts — 14 byte-identical regression cases`** (`719adfa`). 7 "byte-identical alias output" tests + 7 "alias verbs are no longer NOT_IMPLEMENTED stubs" tests. Bare `swt plan` (no positional) is NOT byte-identical to `swt cook --plan` because cook's argv parser rejects bare `--plan` with USAGE_ERROR; alias synthesizes empty value. Documented invocation pattern (`swt plan NN` vs `swt cook --plan NN`) IS byte-identical (DEVN-03 accepted-process-exception).
+
+QA: PASS via R01 + R02 remediation. R01 classified 4 declared deviations (DEVN-01..04) as accepted-process-exception. R02 closed 5 known-issue text variants (3 Popover.tsx variants + 2 workspace lint baseline variants) introduced by post-phase-04 verification re-run — also accepted-process-exception.
+
+#### Phase 02 — `todo` verb + state schema (`44a2199` → `0354048`, 6 commits)
+
+`swt todo "<description>"` appends `- [TODO] {description} (added YYYY-MM-DD) (ref:HASH)` to `STATE.md ## Todos` (atomic, idempotent under repeated invocations — same description → same 8-char SHA-256 hash → no duplicate line). Optional flags persist extended detail.
+
+- **`feat(shared): Zod schemas for todo + todo-details registry`** (`44a2199`). `packages/shared/src/schemas/todo.ts` (new) exports `TodoDetailSchema`, `TodoDetailsFileSchema`, `TODO_PRIORITY_VALUES` enum (`high|medium|low`), `TODO_LINE_PREFIX = '- [TODO]'`. L0 — imported by cli (L6).
+- **`feat(cli): todo-state.ts — STATE.md append helper + atomic detail writer`** (`f5d7b80`). `packages/cli/src/lib/todo-state.ts` exports `computeTodoHash` (SHA-256 prefix), `todoExistsInState` (literal `(ref:HASH)` substring scan), `appendTodoToState` (line-by-line parser preserving non-Todos sections byte-equal), `readTodoDetails`/`writeTodoDetail` (Zod-validated atomic temp+rename in same dir).
+- **`feat(cli): todoHandler — swt todo verb`** (`3287399`). `packages/cli/src/commands/todo.ts` (new — graduated from `STUB_SPECS`). Flag validation: `--priority` enum, `--phase` `/^[0-9]{2}$/` regex, `--files` CSV, `--assignee` string, description min-length 3. Bad input → `EXIT.USAGE_ERROR` (DEVN-02-01 accepted: plan said exit code 2, but `EXIT.USAGE_ERROR=1` is the semantic constant codebase-wide). Annotation suffixes appear in stable order: phase → priority → assignee. STATE.md mutation is atomic.
+- **`feat(cli): argv flags + main registry + dashboard allowlist`** (`064c558`). `argv.ts` declares `--detail`, `--phase`, `--files`, `--priority`, `--assignee` (strict parser; DEVN-02-03 accepted-process-exception). `main.ts:buildRegistry()` registers `todoHandler`. `command-registry-mirror.ts` CORE_ENTRIES + `allowed-verbs.ts` allowlist updated. `dashboard/test/allowed-verbs.test.ts` allowlist assertion bumped (DEVN-02-04 accepted-process-exception — file not in plan's files_modified but mechanically required by T4 verify gate).
+- **`test(cli): todo.test.ts — 18 cases`** (`4e0a531`). Hash determinism + STATE.md preserves untouched sections byte-equal + idempotency + annotation suffixes + details round-trip + Zod validation rejection + handler bad-input rejection.
+- **`docs(cli): regen cli.mdx for swt todo verb graduation`** (`0354048`). `docs/reference/cli.mdx` auto-regenerated from `buildRegistry()` after the new verb registration triggered `test/docs/drift.test.ts` (DEVN-02-05 accepted-process-exception).
+
+QA: PASS one-shot via pre-registered `accepted-deviations.json` (9 SUMMARY deviations classified accepted-process-exception by the orchestrator before QA spawn).
+
+#### Phase 03 — `list-todos` verb + session snapshot (`e710979` → `a894cc2`, 5 commits)
+
+`swt list-todos` reads `STATE.md ## Todos`, renders a numbered + status-iconified list (○ not-started, ◆ in-progress, ✗ blocked, ✓ done), and writes a session snapshot at `.swt-planning/.cache/list-todos-snapshot.json` so a future `swt cook N` can resolve `N` as a todo number.
+
+- **`feat(shared): TodoEntry + ListTodosSnapshot + ListTodosJsonOutput schemas`** (`e710979`). `TodoStatusSchema = z.enum(['[TODO]', '[IN-PROGRESS]', '[BLOCKED]', '[DONE]'])` (forward-compat — phase 02 only writes `[TODO]`; the other 3 are valid for a future status-change verb). `TodoEntrySchema` for parsed-line objects. `ListTodosSnapshotSchema`: `{schema_version, generated_at, filter: Record<string,string> | null, refs: readonly string[]}` (refs in display order). `ListTodosJsonOutputSchema` for `--json` mode: same envelope but carries full `entries: TodoEntry[]` instead of `refs`.
+- **`feat(cli): parseTodosFromState — STATE.md ## Todos line parser`** (`938eeec`). `packages/cli/src/lib/list-todos-state.ts` (new). `STATE_TODOS_LINE_REGEX = /^- (\[TODO\]|\[IN-PROGRESS\]|\[BLOCKED\]|\[DONE\]) (.+?) \(added (\d{4}-\d{2}-\d{2})\) \(ref:([0-9a-f]{8}(?:-[0-9]+)?)\)(.*)$/`. Parses annotation tail with secondary regexes for `(phase:NN)`/`(priority:X)`/`(assignee:USER)`. Validates each entry via Zod before returning. ENOENT or absent `## Todos` section → empty array. Pure read.
+- **`feat(cli): filter + renderer + snapshot writer for list-todos`** (`9a29ff6`). `packages/cli/src/lib/list-todos-render.ts` (new): `STATUS_ICONS` constant map (`○`/`◆`/`✗`/`✓` with `○` fallback for unknown tags — forward-compat), `SNAPSHOT_RELATIVE_PATH = '.cache/list-todos-snapshot.json'`, `filterTodos(entries, filter)` (pure AND-combinator, `Object.entries(filter).every(...)`), `renderTodoList(entries, options)` (1-indexed numbered list with width-padded indexes, `(no todos)\n` for empty backlog), `writeListTodosSnapshot(cwd, snapshot)` (atomic temp+rename in `.swt-planning/.cache/`, Zod-validated, < 10 KB cap by construction).
+- **`feat(cli): list-todos verb + argv + registry`** (`7f5a30b`). `packages/cli/src/commands/list-todos.ts` (new). Parses `--filter key=value` (repeatable string) + `--json` (boolean). Dispatches parser → filter → renderer → snapshot writer. `--json` skips snapshot write. `argv.ts` declares `filter: { type: 'string', multiple: true }` (first repeatable-string flag in the codebase — required `ParsedArgv.flags` widening from `string | boolean | undefined` to `string | string[] | boolean | undefined`, cascading signature-only updates into 6 sibling handler files — DEVN-01 T4 accepted-process-exception). `main.ts:buildRegistry()` registers `list-todos`. Dashboard registry + `ALLOWED_NON_INTERACTIVE_VERBS` updated.
+- **`test(cli): list-todos verb test suite + dashboard allowlist update`** (`a894cc2`). 29 cases covering parser (all 4 status tags + edge cases), filter (multi-AND + unknown-key exclusion), renderer (empty backlog + 100-entry width padding), snapshot write (size cap + atomic rename + Zod rejection), `--json` mode, end-to-end integration. `docs/reference/cli.mdx` regenerated (DEVN-01 T5 accepted-process-exception). Dashboard `allowed-verbs.test.ts` assertion updated.
+
+QA: PASS one-shot via pre-registered `accepted-deviations.json` (5 entries — 2 frontmatter deviations + 3 body bullets — classified accepted-process-exception).
+
+#### Phase 04 — Bare-integer pickup + `(ref:HASH)` tag (`fdb2623` → `f350aa0`, 5 commits)
+
+Final phase of milestone 15. Teaches `swt cook` to resolve a bare-integer argument as a todo pickup when a fresh `list-todos` snapshot exists (< 10 min old AND `filter=null`). Adds `--todo N` as the explicit-intent escape hatch. Extends cook's argv pipeline to extract trailing `(ref:HASH)` tags and inject `todo-details.json[hash]` content into the Dev task description.
+
+- **`feat(15-04-01): LIST_TODOS_SNAPSHOT_TTL_MS const + list-todos-pickup helper`** (`fdb2623`). `packages/shared/src/schemas/todo.ts` extended with `export const LIST_TODOS_SNAPSHOT_TTL_MS = 10 * 60 * 1000`. `packages/cli/src/lib/list-todos-pickup.ts` (new) exports `readSnapshotForPickup(cwd, opts: {requireFresh, requireUnfiltered})` (returns `null` on any non-fatal error — ENOENT/stale/filtered/malformed) and `loadTodoDetailForRef(cwd, hash)` (reads `todo-details.json[hash]`, returns `undefined` on miss). Logger is injected (no global mutable state — keeps unit tests pure).
+- **`feat(15-04-01): resolveTodoNumber snapshot-aware rewrite`** (`eda6a65`). `packages/cli/src/commands/cook.ts` `resolveTodoNumber` (lines 635-646 stub) replaced with real async implementation. Reads snapshot via `readSnapshotForPickup(cwd, {requireFresh: true, requireUnfiltered: true})` — eligibility guards. On hit: resolves N → refs[N-1] → hash → `readTodoDetails`[hash].description → returns `{args: description, refHash: hash, todoSelected: true}`. On miss/stale/filtered: returns `{args, phaseTarget: N, todoSelected: false}` with one-time `console.debug` line via `io.stderr.write`. Call site at lines 1565-1566 awaits the async result. Obsolete `.last-list-todos-snapshot.json` stub comment replaced with the canonical `.cache/list-todos-snapshot.json` path reference.
+- **`feat(15-04-01): --todo N escape-hatch flag`** (`48f233f`). `argv.ts` declares `todo: { type: 'string' }`. New branch in `cookHandler` (after the existing `extractRefTag`/`resolveTodoNumber` block, before `detectModeFromFlags`) handles `parsed.flags['todo']`: parse int, validate `>= 1`, mutual-exclusion check against all mode flags (`plan`/`execute`/`discuss`/`assumptions`/`add`/`insert`/`remove`/`verify`/`archive`) — co-set returns `EXIT.USAGE_ERROR` with text `--todo and --plan are mutually exclusive...`. Calls `readSnapshotForPickup` with `{requireFresh: false, requireUnfiltered: false}` (escape hatch — skip both guards). Out-of-range or missing snapshot → `EXIT.USAGE_ERROR`.
+- **`feat(15-04-01): extended_context trailer line via appendModeOptions`** (`df0c51b`). `RunModeContext` extended with `extendedContext?: {context: string, files: readonly string[]}`. `cookHandler` loads `loadTodoDetailForRef(cwd, refHash)` once when `refHash !== undefined`, threads the result into mode context. `appendModeOptions` emits `Extended context (from todo detail): {context}. Related files: {files.join(', ')}.` as a trailer (omits the `Related files: ...` clause when files is empty). Missing hash in `todo-details.json` → `io.stderr.write` warning, proceed without injection (matches VBW's `detail-warning` pattern).
+- **`test(15-04-01): pickup helper + cook-handler integration (33 cases)`** (`f350aa0`). `packages/cli/test/lib/list-todos-pickup.test.ts` — 14 helper cases (snapshot fresh/stale/filtered/missing/malformed × details hit/miss/file-missing). `packages/cli/test/commands/cook-pickup.test.ts` — 19 integration cases (bare-integer + fresh unfiltered → pickup, bare + stale → fallthrough w/ debug, bare + filtered → fallthrough, `--todo N` always pickup, `--todo N` out-of-range → USAGE_ERROR, `--todo` + `--plan` → USAGE_ERROR, ref-tag valid hash → injection, ref-tag missing → warning + no injection, regression: bare-integer phase-number still works without snapshot). Zero deviations.
+
+QA: PASS one-shot. Zero deviations declared.
+
+### Carry-forward known issues (accepted-process-exception, milestone-spanning)
+
+- **`packages/dashboard/src/client/components/Popover.tsx:138` TS2322** — ARIA-role union narrowing. Pre-existing on main pre-Plan 15-01-01. Statusline agent's territory; needs a dedicated phase for typing cleanup. Carries forward through milestones 13, 14, 15.
+- **`pnpm lint` workspace baseline** — ~1064 problems pre-existing on main. Plan 15-01-01 net-reduced by 2. Bulk lint remediation is a separate cross-cutting initiative.
+
 ## 3.0.0-alpha.29 — 2026-05-17
 
 _Format-check hotfix re-release. alpha.28's release pipeline cleared the Lint step (alpha.27's blocker) but failed at the next gate — Format-check found 10 dashboard + orchestration test/source files with prettier drift introduced by the parallel statusline + milestone-14 work. npm never received alpha.28. This release carries the same payload as alpha.28 plus the prettier auto-fix. All 5 pre-flight gates (typecheck, lint, format:check, test 2441/0/67, build) verified locally before push._
