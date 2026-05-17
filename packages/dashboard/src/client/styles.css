@@ -682,15 +682,21 @@ body {
 }
 
 /* ─── Milestone 13 / Phase 01 — UnifiedLogPanel styles ─────────────────────
+ * Updated by Milestone 16 / Phase 01: chat-* render inline in the monospace
+ * feed; the previous chat-card / messaging-style classes have been removed.
  *
- * Per-kind render styling per the plan (success criterion #4):
- *   - chat-user / chat-assistant render as bubbles (right / left).
- *   - init / cook-status / system render as monospace `HH:MM:SS [kind]` lines.
+ * Per-kind render styling:
+ *   - init / cook-status / cook-agent / system / chat-* render as monospace
+ *     `HH:MM:SS [kind]` lines.
  *   - cook-tool renders as an inline chip.
+ *   - cook-ask-user renders as an interactive AskUserCard.
  *
  * `.unified-log__line--internal` dims `system.channel === 'internal'`
  * entries so synthesized bookkeeping lines stay visually distinct from
- * real SSE stdout/stderr.
+ * real SSE stdout/stderr. `.unified-log__line--streaming` (opacity pulse)
+ * and `.unified-log__cursor` (blinking `▌`) render only while a
+ * chat-assistant entry has `completed === false`.
+ * `.unified-log__line--error` paints chat-error lines in danger-red.
  */
 
 .unified-log {
@@ -765,34 +771,11 @@ body {
   font-size: 11px;
 }
 
-.unified-log__bubble--user,
-.unified-log__bubble--assistant {
-  max-width: 80%;
-  padding: 8px 12px;
-  border-radius: 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 13px;
+.unified-log__line--streaming {
+  animation: unifiedLogStreamingPulse 1.4s ease-in-out infinite;
 }
 
-.unified-log__bubble--user {
-  align-self: flex-end;
-  background: var(--terminal-green-15, rgba(0, 255, 65, 0.15));
-  color: var(--ghost-white);
-}
-
-.unified-log__bubble--assistant {
-  align-self: flex-start;
-  background: rgba(0, 229, 255, 0.08);
-  color: var(--ghost-white);
-}
-
-.unified-log__bubble--streaming {
-  border-left: 2px solid var(--neon-cyan);
-  animation: unifiedLogPulse 1.4s ease-in-out infinite;
-}
-
-@keyframes unifiedLogPulse {
+@keyframes unifiedLogStreamingPulse {
   0%,
   100% {
     opacity: 1;
@@ -802,24 +785,26 @@ body {
   }
 }
 
-.unified-log__bubble--error {
-  align-self: stretch;
-  background: rgba(255, 82, 82, 0.1);
+.unified-log__line--error {
   color: var(--danger-red);
-  border: 1px solid rgba(255, 82, 82, 0.3);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 12px;
 }
 
-.unified-log__error-code {
+.unified-log__cursor {
   display: inline-block;
-  padding: 1px 6px;
-  border-radius: 3px;
-  margin-right: 6px;
-  background: rgba(255, 82, 82, 0.2);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  margin-left: 2px;
+  color: var(--neon-cyan);
+  animation: unifiedLogCursorBlink 1s steps(2, end) infinite;
+}
+
+@keyframes unifiedLogCursorBlink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .unified-log__pill--jump-live {

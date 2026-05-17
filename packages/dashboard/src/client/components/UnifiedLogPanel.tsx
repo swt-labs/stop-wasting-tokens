@@ -1,21 +1,27 @@
 /**
  * Milestone 13 / Phase 01 — Unified log panel.
+ * Milestone 16 / Phase 01 — chat entries now render inline in the monospace
+ * feed (previous chat card / messaging-style layout removed). Per-kind
+ * dispatch via `classifyEntry`
+ * (see `unified-log-helpers.ts`):
  *
- * Single panel replacing the dual `LogPanel` + `ChatPanel` split. Renders
- * `state.unifiedLog` as one chronological feed, with per-kind dispatch via
- * `classifyEntry` (see `unified-log-helpers.ts`):
- *
- *   - 'chat'  → bubble layout (user-right / assistant-left). Streaming
- *               chat-assistant entries get a pulse class while
- *               `entry.completed === false`. Streaming text updates land
- *               in place via the path-based reactivity from Plan 01-03.
+ *   - 'chat'  → monospace `HH:MM:SS [chat-user|chat-assistant|chat-error]
+ *               <text>` line, identical typography to cook/init/system.
+ *               Streaming chat-assistant entries get an opacity-pulse
+ *               (`.unified-log__line--streaming`) and an appended blinking
+ *               `▌` cursor (`.unified-log__cursor`) while
+ *               `entry.completed === false`. chat-error lines apply
+ *               `.unified-log__line--error` (foreground in danger-red).
+ *               Streaming text updates land in place via Solid path-based
+ *               reactivity on `entryToLine(e)` reads inside the children
+ *               rendering branch.
  *   - 'cook'  → monospace `HH:MM:SS [cook] message` lines for cook-status
  *               and cook-agent; cook-tool renders as an inline chip;
- *               cook-ask-user renders as a placeholder line (Phase 03
- *               swaps to an interactive ConversationCard).
+ *               cook-ask-user renders as an interactive AskUserCard.
  *   - 'init'  → monospace `HH:MM:SS [init] message` line.
  *   - 'system'→ monospace `HH:MM:SS [system] ...` line; `channel='internal'`
- *               adds a dimmer modifier class.
+ *               adds a dimmer modifier class; non-internal channels route
+ *               through `ansiToHtml` so process ANSI escapes survive.
  *
  * The `ConversationCard` sub-component is ported wholesale from
  * `LogPanel.tsx:142-293` (Scout Cross-Cutting Finding #3) — it drives the
@@ -116,7 +122,7 @@ export const UnifiedLogPanel: Component<UnifiedLogPanelProps> = (props) => {
   // Reactive read on props.log.length registers the dependency for the
   // auto-scroll effect. Without this, deltas that update an existing
   // entry in place (without growing the array) would not retrigger the
-  // snap — but bubble streaming wants snap-on-content-change too, so we
+  // snap — but inline streaming wants snap-on-content-change too, so we
   // also read the last entry's identity reference below in the effect.
   createEffect(() => {
     // Touch length + last identity so any push or in-place update fires.
@@ -183,10 +189,12 @@ export const UnifiedLogPanel: Component<UnifiedLogPanelProps> = (props) => {
 
 /**
  * Per-entry dispatcher — switches on `entry.kind` to pick the right
- * presentation (bubble vs monospace line vs inline chip vs interactive
- * card). Phase 03 added the `cook-ask-user` branch — extracted from the
+ * presentation (monospace line vs inline chip vs interactive card).
+ * Phase 03 added the `cook-ask-user` branch — extracted from the
  * monospace `<Show>` group below — which renders `<AskUserCard>` when
- * an `onCookAskUserRespond` callback is wired.
+ * an `onCookAskUserRespond` callback is wired. Milestone 16 / Phase 01
+ * folded chat-* kinds into the monospace `<Show>` group, deleting the
+ * three chat-card branches and the dead `escapeHtml` helper.
  */
 interface UnifiedLogRowProps {
   entry: LogEntry;
@@ -201,61 +209,6 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
 
   return (
     <>
-      <Show when={props.entry.kind === 'chat-user'}>
-        {(() => {
-          const e = props.entry;
-          if (e.kind !== 'chat-user') return null;
-          return (
-            <div class="unified-log__bubble--user" data-entry-id={e.id}>
-              {e.text}
-            </div>
-          );
-        })()}
-      </Show>
-      <Show when={props.entry.kind === 'chat-assistant'}>
-        {(() => {
-          const e = props.entry;
-          if (e.kind !== 'chat-assistant') return null;
-          return (
-            <div
-              class={
-                'unified-log__bubble--assistant' +
-                (e.completed ? '' : ' unified-log__bubble--streaming')
-              }
-              data-entry-id={e.id}
-            >
-              {e.text}
-              <Show when={(e.tools_called?.length ?? 0) > 0}>
-                <div>
-                  <For each={e.tools_called ?? []}>
-                    {(tool) => <span class="unified-log__chip--tool">[tool: {tool}]</span>}
-                  </For>
-                </div>
-              </Show>
-              <Show when={e.usage}>
-                {(usage) => (
-                  <span class="unified-log__line--internal">
-                    {' '}
-                    ↑{usage().input} ↓{usage().output}
-                  </span>
-                )}
-              </Show>
-            </div>
-          );
-        })()}
-      </Show>
-      <Show when={props.entry.kind === 'chat-error'}>
-        {(() => {
-          const e = props.entry;
-          if (e.kind !== 'chat-error') return null;
-          return (
-            <div class="unified-log__bubble--error" data-entry-id={e.id}>
-              <span class="unified-log__error-code">{e.code}</span>
-              {e.message}
-            </div>
-          );
-        })()}
-      </Show>
       <Show when={props.entry.kind === 'cook-tool'}>
         {(() => {
           const e = props.entry;
@@ -288,7 +241,10 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
           props.entry.kind === 'init' ||
           props.entry.kind === 'cook-status' ||
           props.entry.kind === 'cook-agent' ||
-          props.entry.kind === 'system'
+          props.entry.kind === 'system' ||
+          props.entry.kind === 'chat-user' ||
+          props.entry.kind === 'chat-assistant' ||
+          props.entry.kind === 'chat-error'
         }
       >
         {(() => {
@@ -297,52 +253,62 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
             e.kind !== 'init' &&
             e.kind !== 'cook-status' &&
             e.kind !== 'cook-agent' &&
-            e.kind !== 'system'
+            e.kind !== 'system' &&
+            e.kind !== 'chat-user' &&
+            e.kind !== 'chat-assistant' &&
+            e.kind !== 'chat-error'
           )
             return null;
-          const extraClass =
-            e.kind === 'system' && e.channel === 'internal'
-              ? ' unified-log__line--internal'
-              : e.kind === 'system' && e.channel === 'stderr'
-                ? ' unified-log__line--stderr'
-                : '';
+          let extraClass = '';
+          if (e.kind === 'system' && e.channel === 'internal') {
+            extraClass = ' unified-log__line--internal';
+          } else if (e.kind === 'system' && e.channel === 'stderr') {
+            extraClass = ' unified-log__line--stderr';
+          } else if (e.kind === 'chat-assistant' && e.completed === false) {
+            extraClass = ' unified-log__line--streaming';
+          } else if (e.kind === 'chat-error') {
+            extraClass = ' unified-log__line--error';
+          }
+          // Split the render branch on system + non-internal: that path keeps
+          // `innerHTML` so process ANSI escapes route through `ansiToHtml`.
+          // Everything else (init / cook-status / cook-agent / system+internal
+          // / chat-*) renders via children — JSX auto-escapes text and the
+          // optional streaming cursor sibling stays declarative. Solid's
+          // path-based reactivity re-evaluates `entryToLine(e)` on in-place
+          // mutation of `e.text` / `e.completed` without remounting the
+          // surrounding `<div>` (validated by dashboard-store.chat.test.ts's
+          // `chat.message_delta accumulates text` case).
+          if (e.kind === 'system' && e.channel !== 'internal') {
+            return (
+              <div
+                class={`unified-log__line--monospace${extraClass}`}
+                data-entry-id={e.id}
+                data-kind={e.kind}
+                data-lane={lane()}
+                innerHTML={`${entryToLine(e).split(e.line)[0] ?? ''}${ansiToHtml(e.line)}`}
+              />
+            );
+          }
           return (
             <div
               class={`unified-log__line--monospace${extraClass}`}
               data-entry-id={e.id}
               data-kind={e.kind}
               data-lane={lane()}
-              // log.append channels may carry ANSI escapes from real processes —
-              // mirror LogPanel.tsx:121's render policy so colored cook output
-              // survives the migration.
-              innerHTML={
-                e.kind === 'system' && e.channel !== 'internal'
-                  ? `${entryToLine(e).split(e.line)[0] ?? ''}${ansiToHtml(e.line)}`
-                  : escapeHtml(entryToLine(e))
-              }
-            />
+            >
+              {entryToLine(e)}
+              <Show when={e.kind === 'chat-assistant' && e.completed === false}>
+                <span class="unified-log__cursor" aria-hidden="true">
+                  ▌
+                </span>
+              </Show>
+            </div>
           );
         })()}
       </Show>
     </>
   );
 };
-
-/**
- * Minimal HTML escape for entry text rendered via `innerHTML`. The
- * `system.line` path uses `ansiToHtml` directly (it produces HTML); all
- * other kinds go through this escaper so user content never breaks out
- * of the bubble. Kept local — the dashboard does not import a dedicated
- * escape util elsewhere.
- */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 /**
  * Ported wholesale from LogPanel.tsx:142-293 (Scout Cross-Cutting Finding
