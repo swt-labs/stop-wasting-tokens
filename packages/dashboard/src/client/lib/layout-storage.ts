@@ -123,7 +123,7 @@ export function migrateToolsArray(raw: unknown): number[] | null {
     if (isFractionArray(sliced, target)) {
       if (!toolsMigrationLogged) {
         toolsMigrationLogged = true;
-         
+
         console.debug(
           `[layout] migrating persisted tools array from ${raw.length} to ${target} entries`,
         );

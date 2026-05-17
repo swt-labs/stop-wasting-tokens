@@ -110,9 +110,7 @@ export interface TopBarProps {
   optionsMenuConfigError?: string | null;
   optionsMenuConfigLastFetched?: string | null;
   onOptionsMenuRefreshConfig?: () => void;
-  onOptionsMenuSaveConfig?: (
-    mergedConfig: unknown,
-  ) => Promise<{ ok: true } | { error: string }>;
+  onOptionsMenuSaveConfig?: (mergedConfig: unknown) => Promise<{ ok: true } | { error: string }>;
   /**
    * The "Provider ▾" dropdown's store-backed open state. Optional + mirrors
    * the `optionsMenuOpen` trio: when omitted, TopBar drives the dropdown off

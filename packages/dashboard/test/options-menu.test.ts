@@ -256,9 +256,9 @@ describe('stagePathEdit', () => {
   });
 
   it('nested path deep-merges into an existing nested branch', () => {
-    expect(
-      stagePathEdit({ nested: { keep: 'kept' } }, ['nested', 'add'], 'val'),
-    ).toEqual({ nested: { keep: 'kept', add: 'val' } });
+    expect(stagePathEdit({ nested: { keep: 'kept' } }, ['nested', 'add'], 'val')).toEqual({
+      nested: { keep: 'kept', add: 'val' },
+    });
   });
 
   it('nested path under a NON-object existing branch overrides the branch wholesale', () => {

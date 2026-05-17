@@ -2,7 +2,6 @@ import Resizable from '@corvu/resizable';
 import { getContextWindow } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
-
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { CommandPalette } from './components/CommandPalette.js';
@@ -103,9 +102,7 @@ export const App: Component = () => {
   // The `knobs` memo runs `selectStatuslineKnobs` (drift-guarded) over the
   // config tools-cell so an out-of-band edit lands in the bar within one
   // SSE round-trip (acceptance criterion §4 in artifacts.md).
-  const statuslineKnobs = createMemo(() =>
-    selectStatuslineKnobs(state.tools.config.data?.config),
-  );
+  const statuslineKnobs = createMemo(() => selectStatuslineKnobs(state.tools.config.data?.config));
   const statuslineContextWindow = createMemo(() => getContextWindow(state.orchestratorModel));
   // Cumulative session input tokens — input + cache_read + cache_creation
   // per artifacts.md §3. Reads three independent snapshot fields, so Solid

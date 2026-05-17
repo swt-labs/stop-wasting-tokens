@@ -160,10 +160,7 @@ function AdvancedConfigTree(props: {
               fallback={
                 <>
                   <dt class="advanced-config-key">{key}</dt>
-                  <dd
-                    class="advanced-config-leaf"
-                    data-modified={modified() ? 'true' : undefined}
-                  >
+                  <dd class="advanced-config-leaf" data-modified={modified() ? 'true' : undefined}>
                     <AdvancedConfigLeaf
                       keyName={key}
                       value={display}

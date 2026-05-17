@@ -114,11 +114,7 @@ describe('isPathStaged', () => {
 
   it('handles nested-path staging (depth-2)', () => {
     expect(
-      isPathStaged(
-        { nested: { inner: 'new' } },
-        { nested: { inner: 'old' } },
-        ['nested', 'inner'],
-      ),
+      isPathStaged({ nested: { inner: 'new' } }, { nested: { inner: 'old' } }, ['nested', 'inner']),
     ).toBe(true);
   });
 

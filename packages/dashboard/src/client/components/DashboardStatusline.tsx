@@ -210,9 +210,7 @@ export interface AgentsCellResult {
 
 const AGENTS_LIST_CAP_CHARS = 40;
 
-export function formatAgentsCell(
-  agents: ReadonlyMap<string, AgentLiveState>,
-): AgentsCellResult {
+export function formatAgentsCell(agents: ReadonlyMap<string, AgentLiveState>): AgentsCellResult {
   const count = agents.size;
   if (count === 0) {
     return { display: 'agents:0', fullList: '', truncated: false };

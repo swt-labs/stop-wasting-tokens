@@ -61,9 +61,10 @@ describe('mergeStagedConfig — staged-edit deep merge', () => {
   });
 
   it('merges a boolean field while preserving the rest', () => {
-    expect(
-      mergeStagedConfig({ auto_uat: false, effort: 'turbo' }, { auto_uat: true }),
-    ).toEqual({ auto_uat: true, effort: 'turbo' });
+    expect(mergeStagedConfig({ auto_uat: false, effort: 'turbo' }, { auto_uat: true })).toEqual({
+      auto_uat: true,
+      effort: 'turbo',
+    });
   });
 
   it('handles an empty base — the greenfield / no-data case', () => {
@@ -85,9 +86,7 @@ describe('mergeStagedConfig — staged-edit deep merge', () => {
   });
 
   it('replaces arrays wholesale (not element-merged)', () => {
-    expect(
-      mergeStagedConfig({ list: ['a', 'b', 'c'] }, { list: ['x'] }),
-    ).toEqual({ list: ['x'] });
+    expect(mergeStagedConfig({ list: ['a', 'b', 'c'] }, { list: ['x'] })).toEqual({ list: ['x'] });
   });
 
   it('does NOT mutate the caller-provided base config cell', () => {
@@ -117,15 +116,15 @@ describe('isSegmentActive', () => {
   });
 
   it('flips to true for the staged value (pendingEdits override)', () => {
-    expect(
-      isSegmentActive({ effort: 'balanced' }, { effort: 'fast' }, 'effort', 'fast'),
-    ).toBe(true);
+    expect(isSegmentActive({ effort: 'balanced' }, { effort: 'fast' }, 'effort', 'fast')).toBe(
+      true,
+    );
   });
 
   it('flips to false for the snapshot value once a different value is staged', () => {
-    expect(
-      isSegmentActive({ effort: 'balanced' }, { effort: 'fast' }, 'effort', 'balanced'),
-    ).toBe(false);
+    expect(isSegmentActive({ effort: 'balanced' }, { effort: 'fast' }, 'effort', 'balanced')).toBe(
+      false,
+    );
   });
 
   it('is false when config is null', () => {
@@ -145,9 +144,7 @@ describe('resolveDisplayValue', () => {
   });
 
   it('resolves to the staged value when present in pendingEdits', () => {
-    expect(
-      resolveDisplayValue({ effort: 'balanced' }, { effort: 'fast' }, 'effort'),
-    ).toBe('fast');
+    expect(resolveDisplayValue({ effort: 'balanced' }, { effort: 'fast' }, 'effort')).toBe('fast');
   });
 
   it('treats a `pendingEdits[key] = undefined` as STAGED (hasOwnProperty wins)', () => {
@@ -261,9 +258,7 @@ describe('staged-edit behavioural contract', () => {
   });
 
   it('display value uses pendingEdits when staged', () => {
-    expect(
-      resolveDisplayValue({ effort: 'balanced' }, { effort: 'fast' }, 'effort'),
-    ).toBe('fast');
+    expect(resolveDisplayValue({ effort: 'balanced' }, { effort: 'fast' }, 'effort')).toBe('fast');
   });
 
   /* (c) data-modified resolves via `hasOwnProperty(pendingEdits, key)`. */

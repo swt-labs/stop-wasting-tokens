@@ -731,7 +731,7 @@ describe('@swt-labs/orchestration — spawnOrchestratorSession (Plan 03-02 T2)',
       // (always set in vitest env), the default writer should no-op.
       const writes: string[] = [];
       const originalWrite = process.stderr.write.bind(process.stderr);
-       
+
       (process.stderr as any).write = (chunk: string | Uint8Array): boolean => {
         writes.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
         return true;
