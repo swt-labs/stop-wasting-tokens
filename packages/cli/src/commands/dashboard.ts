@@ -24,7 +24,7 @@ interface DashboardFlags {
 }
 
 function parseFlags(parsed: {
-  flags: Readonly<Record<string, string | boolean | undefined>>;
+  flags: Readonly<Record<string, string | string[] | boolean | undefined>>;
 }): DashboardFlags {
   const portRaw = parsed.flags.port;
   const port = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : null;

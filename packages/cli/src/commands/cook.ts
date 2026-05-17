@@ -655,7 +655,7 @@ export function resolveTodoNumber(
  * confirmation gate (flags express explicit intent — TDD3 §7.2).
  */
 export function detectModeFromFlags(
-  flags: Readonly<Record<string, string | boolean | undefined>>,
+  flags: Readonly<Record<string, string | string[] | boolean | undefined>>,
 ): { mode: CookMode; opts: ModeOptions } | undefined {
   const skipQa = flags['skip-qa'] === true;
   const skipAudit = flags['skip-audit'] === true;
@@ -691,7 +691,9 @@ export function detectModeFromFlags(
   return undefined;
 }
 
-function normaliseEffort(raw: string | boolean | undefined): ModeOptions['effort'] | undefined {
+function normaliseEffort(
+  raw: string | string[] | boolean | undefined,
+): ModeOptions['effort'] | undefined {
   if (typeof raw !== 'string') return undefined;
   switch (raw) {
     case 'thorough':

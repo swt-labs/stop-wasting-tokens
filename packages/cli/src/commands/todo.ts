@@ -28,7 +28,7 @@ import type { CommandHandler, CommandIO } from '../router.js';
 
 const PHASE_REGEX = /^[0-9]{2}$/;
 
-function asString(value: string | boolean | undefined): string | undefined {
+function asString(value: string | string[] | boolean | undefined): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 

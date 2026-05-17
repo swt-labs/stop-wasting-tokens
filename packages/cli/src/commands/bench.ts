@@ -103,7 +103,7 @@ export const benchHandler: CommandHandler = async (parsed, io: CommandIO): Promi
 };
 
 function resolveOptions(
-  flags: Readonly<Record<string, string | boolean | undefined>>,
+  flags: Readonly<Record<string, string | string[] | boolean | undefined>>,
 ): BenchOptions {
   return {
     fixture: stringFlag(flags['fixture']) ?? DEFAULT_FIXTURE,
@@ -114,7 +114,7 @@ function resolveOptions(
   };
 }
 
-function stringFlag(value: string | boolean | undefined): string | undefined {
+function stringFlag(value: string | string[] | boolean | undefined): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 

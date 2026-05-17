@@ -106,7 +106,7 @@ export const migrateHandler: CommandHandler = (parsed, io: CommandIO): ExitCode 
 };
 
 function resolveOptions(
-  flags: Readonly<Record<string, string | boolean | undefined>>,
+  flags: Readonly<Record<string, string | string[] | boolean | undefined>>,
 ): MigrateOptions | null {
   // `--to=v3` is enforced syntactically — only the v3 target is supported.
   const to = stringFlag(flags['to']);
@@ -117,7 +117,7 @@ function resolveOptions(
   return { input, output };
 }
 
-function stringFlag(value: string | boolean | undefined): string | undefined {
+function stringFlag(value: string | string[] | boolean | undefined): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 

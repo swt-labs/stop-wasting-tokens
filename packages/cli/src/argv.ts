@@ -5,8 +5,17 @@ export interface ParsedArgv {
   readonly verb: string | undefined;
   /** Remaining positional arguments after the verb. */
   readonly positionals: readonly string[];
-  /** Parsed flag values keyed by flag name (without the leading --). */
-  readonly flags: Readonly<Record<string, string | boolean | undefined>>;
+  /**
+   * Parsed flag values keyed by flag name (without the leading --).
+   *
+   * The `string[]` branch is for Node's `parseArgs` native repeatable
+   * shape (declared via `multiple: true`). Plan 03-01 T4 adds the first
+   * such flag (`--filter`), but the type accepts arrays uniformly so
+   * downstream consumers don't need a special case at the call site.
+   * Boolean flags + single-occurrence string flags continue to land on
+   * the `string | boolean | undefined` branches as before.
+   */
+  readonly flags: Readonly<Record<string, string | string[] | boolean | undefined>>;
 }
 
 /**
@@ -98,6 +107,11 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       files: { type: 'string' },
       priority: { type: 'string' },
       assignee: { type: 'string' },
+      // Plan 03-01 T4 — `swt list-todos --filter key=value` repeatable
+      // string. Node's `parseArgs` native `multiple: true` shape:
+      // `parsed.flags.filter` lands as `string[] | undefined`. Multiple
+      // occurrences combine with AND in the handler.
+      filter: { type: 'string', multiple: true },
     },
     allowPositionals: true,
     strict: true,

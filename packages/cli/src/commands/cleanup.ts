@@ -103,7 +103,7 @@ export function createCleanupHandler(deps: CleanupDeps = {}): CommandHandler {
 export const cleanupHandler: CommandHandler = createCleanupHandler();
 
 function resolveOptions(
-  flags: Readonly<Record<string, string | boolean | undefined>>,
+  flags: Readonly<Record<string, string | string[] | boolean | undefined>>,
 ): CleanupOptions | null {
   const force = flags['force'] === true;
   const pruneLocks = flags['prune-locks'] === true;

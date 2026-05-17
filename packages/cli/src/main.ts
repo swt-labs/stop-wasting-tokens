@@ -17,6 +17,7 @@ import { discussHandler } from './commands/discuss.js';
 import { doctorHandler } from './commands/doctor.js';
 import { executeHandler } from './commands/execute.js';
 import { initHandler } from './commands/init.js';
+import { listTodosHandler } from './commands/list-todos.js';
 import { mapHandler } from './commands/map.js';
 import { migrateHandler } from './commands/migrate.js';
 import { phaseHandler } from './commands/phase.js';
@@ -254,6 +255,22 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     description:
       'Add a backlog item to STATE.md ## Todos. Supports --detail, --phase, --files, --priority, --assignee.',
     handler: todoHandler,
+  });
+
+  // Plan 03-01 T4 — `swt list-todos` is a new non-interactive read-only
+  // verb. NOT in STUB_SPECS prior to this plan (the milestone-15-2 audit
+  // only stubbed `todo` + future status-change verbs); registering it
+  // here directly is correct. Parses STATE.md `## Todos` into structured
+  // entries, applies repeatable `--filter key=value` (AND-combined),
+  // renders a numbered status-iconified list, and writes a session
+  // snapshot at `.swt-planning/.cache/list-todos-snapshot.json` for
+  // Phase 04's bare-integer cook resolver. `--json` skips the snapshot.
+  registry.register({
+    name: 'list-todos',
+    usage: '[--filter key=value ...] [--json]',
+    description:
+      'Read STATE.md ## Todos and render a numbered list (writes a session snapshot for bare-integer cook pickup).',
+    handler: listTodosHandler,
   });
 
   for (const spec of STUB_SPECS) {
