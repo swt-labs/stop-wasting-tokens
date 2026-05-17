@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-alpha.28 — 2026-05-17
+
+_Lint hotfix re-release. alpha.27's release pipeline failed at the Lint step (4 `import/order` errors in dashboard + orchestration test/source files introduced by parallel statusline + milestone-14 work). npm never received alpha.27. This release carries the same milestone-14 + statusline + PHASES+ARTIFACTS-merge payload as alpha.27 plus the lint fix._
+
+- **`fix(lint): auto-fix import/order in App.tsx + 3 sibling files`** (`e2e50ac`). `eslint --fix` output for the 4 errors: `App.tsx:2,4`, `dashboard-statusline.test.ts:24,35`, plus two adjacent files (`layout-storage.ts`, `spawn-orchestrator-session.test.ts`) that `--fix` repaired in passing. No behavior change — pure import reordering. Closes CI failure on `release.yml` run 25986582924.
+
+See **3.0.0-alpha.27** entry below for the full milestone-14 + statusline + PhaseStepper-merge payload (unchanged in alpha.28).
+
 ## 3.0.0-alpha.27 — 2026-05-17
 
 _18 commits since alpha.26. Three independent threads of dashboard work landed in this release: a small pre-milestone refactor merging PHASES + ARTIFACTS into a single dashboard card, milestone **`14-options-menu-consolidation`** consolidating the Config card into the Options dropdown (1 phase, 3 plans, 8 product commits, QA PASS via R01 remediation), and an extended dashboard statusline that surfaces config knobs + orchestrator/agent model identity + context-estimate alongside the existing cost/usage cells._
