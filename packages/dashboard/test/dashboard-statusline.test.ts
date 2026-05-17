@@ -19,6 +19,7 @@
  */
 
 import type { CostSummary, ProviderAuthSnapshot, UsageRollup, UsageWindow } from '@swt-labs/shared';
+import type { AgentLiveState } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -32,7 +33,6 @@ import {
   formatStatuslineTokens,
   shortModelLabel,
 } from '../src/client/components/DashboardStatusline.jsx';
-import type { AgentLiveState } from '@swt-labs/shared';
 
 describe('formatStatuslineProvider', () => {
   it('returns the provider name verbatim when non-empty', () => {

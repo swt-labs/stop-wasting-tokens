@@ -1,7 +1,7 @@
 import Resizable from '@corvu/resizable';
+import { getContextWindow } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
-import { getContextWindow } from '@swt-labs/shared';
 
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
