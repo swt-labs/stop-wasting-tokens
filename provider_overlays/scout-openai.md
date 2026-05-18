@@ -13,7 +13,7 @@ last_tuned: '2026-05-18'
 schema_version: 1
 ---
 
-# Intent-mirror of the canonical OpenAI Codex CLI system-prompt template for the scout role.
+# Intent-mirror of OpenAI Codex CLI canonical system-prompt template for the scout role.
 
 # Source: github.com/openai/codex (codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md + codex-rs/core/src/tools/handlers/shell_spec.rs)
 
