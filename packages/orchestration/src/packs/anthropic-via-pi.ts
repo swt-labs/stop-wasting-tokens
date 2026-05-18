@@ -75,7 +75,20 @@ export class AnthropicViaPiPack implements ProviderTuningPack {
   }
 
   upstreamSources(): readonly UpstreamSource[] {
-    // Anthropic has no upstream-prompt mirror today.
-    return [];
+    // Phase 5 — surface the Claude Agent SDK type surface as a watched
+    // upstream artifact so drift in `package/sdk.d.ts` is detected by
+    // the weekly `swt provider-tuning-sources` → `scripts/audit-upstream-
+    // prompts.sh` pipeline. The `npm:` URL-prefix convention discriminates
+    // the npm-tarball fetch path from plain http(s) URLs in the audit
+    // script. `lastReviewedSha` is omitted — npm tarballs carry no git
+    // commit SHA. `contentHash` was captured at Phase 05 exec against
+    // @anthropic-ai/claude-agent-sdk@0.3.143.
+    return [
+      {
+        url: 'npm:@anthropic-ai/claude-agent-sdk#package/sdk.d.ts',
+        description: 'Claude Agent SDK type surface (sdk.d.ts) — npm tarball fetch',
+        contentHash: '7e5aa93f89a104e4ca97e931621c978affb79b3ed1aa2469db2e7307301e48be',
+      },
+    ];
   }
 }

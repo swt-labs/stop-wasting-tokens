@@ -221,3 +221,11 @@ export {
   type FallbackSelection,
   type ProviderFallbackEvent,
 } from './provider-fallback.js';
+
+// Phase 17.5 — provider tuning pack registry surface (for `swt provider-tuning-sources` CLI verb).
+// Plan 05-01 T1: exposes the pack lookup + enumerator and the UpstreamSource /
+// ProviderTuningPack type contract so the CLI layer (L6) can iterate all packs
+// and emit their `upstreamSources()` entries as an enriched JSON envelope,
+// without breaking the L6 → L3 layer rule (CLI already depends on orchestration).
+export { getProviderTuningPack, getAllPacks } from './packs/registry.js';
+export type { UpstreamSource, ProviderTuningPack } from './provider-tuning-pack.js';

@@ -57,6 +57,23 @@ export function getProviderTuningPack(
 }
 
 /**
+ * Returns the full list of known provider tuning packs, sharing the
+ * same per-(providerId, installRoot) cache as getProviderTuningPack().
+ * Order is deterministic: anthropic, openai. New packs are added here
+ * AND in getProviderTuningPack()'s switch — keep the two surfaces in
+ * sync (one-place change is "add to the switch + add to the array").
+ *
+ * Used by `swt provider-tuning-sources` to enumerate all packs at the
+ * CLI layer without leaking the provider id list outside L3.
+ */
+export function getAllPacks(installRoot: string): readonly ProviderTuningPack[] {
+  return Object.freeze([
+    getProviderTuningPack('anthropic', installRoot),
+    getProviderTuningPack('openai', installRoot),
+  ]);
+}
+
+/**
  * Test-only — clears the pack cache. Use in test `beforeEach` hooks if you
  * need to assert against a fresh pack instance per test case. Production
  * code MUST NOT call this; the cache is benign for a single process and

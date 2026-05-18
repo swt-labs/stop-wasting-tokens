@@ -113,18 +113,19 @@ export class CodexViaOverlayPack implements ProviderTuningPack {
   }
 
   upstreamSources(): readonly UpstreamSource[] {
-    // Phase 2 populated the canonical Codex template entry. Phase 3 adds
-    // the AGENTS.md walk-up spec source (`agents_md.rs`). Phase 5's drift
-    // automation will iterate `pack.upstreamSources()` to detect when an
-    // upstream artifact has drifted vs the pinned `contentHash`. The two
-    // contentHashes recorded here match:
+    // Phase 2 populated the canonical Codex template entry. Phase 3 added
+    // the AGENTS.md walk-up spec source (`agents_md.rs`). Phase 5 appends
+    // entry 2 — `apply_patch.lark` (the canonical Lark grammar that the
+    // Phase 06 hand-rolled parser will be re-derived from). Phase 5's
+    // drift automation iterates `pack.upstreamSources()` to detect when
+    // an upstream artifact has drifted vs the pinned `contentHash`.
     //   - canonical template — sha256 in
     //     `references/codex/gpt-5.2-codex_instructions_template.md`
-    //     frontmatter + the audit-script baseline in
-    //     `.vbw-planning/upstream-prompt-snapshots/<date>/codex-prompt.sha256`.
+    //     frontmatter + the audit-script baseline.
     //   - agents_md.rs — sha256 of the pinned upstream at SHA 22dd9ad
-    //     (Scout §E.2 live-validated; Phase 5 drift refactor will diff
-    //     against the live URL).
+    //     (Scout §E.2 live-validated).
+    //   - apply_patch.lark — sha256 captured live at Phase 05 exec
+    //     (2026-05-18) against openai/codex main HEAD.
     return [
       {
         url: 'https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md',
@@ -139,6 +140,13 @@ export class CodexViaOverlayPack implements ProviderTuningPack {
           'Codex AgentsMdManager Rust source (walk-up + override semantics for AGENTS.md)',
         contentHash: 'ce3201eaee6cd92fa2728e526090991a9b6c2e6312b382536270d2570a45c2f9',
         lastReviewedSha: '22dd9ad3929253ed24d7ee4f10f238e95ab25f37',
+      },
+      {
+        url: 'https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/src/tools/handlers/apply_patch.lark',
+        description:
+          'Codex apply_patch Lark grammar (canonical parser source for Phase 6 derived parser)',
+        contentHash: 'd6367f4826ed608c424b0a308f3d6163527df63c22513d089b91863552f8bfeb',
+        lastReviewedSha: 'adca1b643fd0d2733030ef4fdaf5273036f02d9a',
       },
     ];
   }
