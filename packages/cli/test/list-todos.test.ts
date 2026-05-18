@@ -384,9 +384,7 @@ describe('writeListTodosSnapshot', () => {
   });
 
   it('atomic replacement — 100-entry snapshot < 10 KB (AC-06)', async () => {
-    const refs = Array.from({ length: 100 }, (_, i) =>
-      i.toString(16).padStart(8, '0'),
-    );
+    const refs = Array.from({ length: 100 }, (_, i) => i.toString(16).padStart(8, '0'));
     // Write a first (empty) snapshot so we exercise the replace path.
     await writeListTodosSnapshot(planningRoot, {
       schema_version: 1,
@@ -442,10 +440,7 @@ describe('listTodosHandler', () => {
       'utf8',
     );
     const { io, out, err } = makeIO();
-    const code = await listTodosHandler(
-      { verb: 'list-todos', positionals: [], flags: {} },
-      io,
-    );
+    const code = await listTodosHandler({ verb: 'list-todos', positionals: [], flags: {} }, io);
     expect(code).toBe(EXIT.SUCCESS);
     expect(err.text()).toBe('');
     expect(out.text()).toContain(' 1. ○ first (ref:11111111)');
@@ -519,11 +514,7 @@ describe('listTodosHandler', () => {
   it('--json — prints JSON to stdout, does NOT write snapshot (AC-05)', async () => {
     await writeFile(
       statePath,
-      [
-        '## Todos',
-        '- [TODO] entry (added 2026-05-17) (ref:abcdef01) (phase:03)',
-        '',
-      ].join('\n'),
+      ['## Todos', '- [TODO] entry (added 2026-05-17) (ref:abcdef01) (phase:03)', ''].join('\n'),
       'utf8',
     );
     const { io, out } = makeIO();
@@ -547,11 +538,7 @@ describe('listTodosHandler', () => {
   });
 
   it('malformed --filter token → USAGE_ERROR, no snapshot write', async () => {
-    await writeFile(
-      statePath,
-      `## Todos\n- [TODO] x (added 2026-05-17) (ref:abcdef01)\n`,
-      'utf8',
-    );
+    await writeFile(statePath, `## Todos\n- [TODO] x (added 2026-05-17) (ref:abcdef01)\n`, 'utf8');
     const { io, err } = makeIO();
     const code = await listTodosHandler(
       {
@@ -570,10 +557,7 @@ describe('listTodosHandler', () => {
   it('missing STATE.md → renders "(no todos)" + writes empty-refs snapshot, exit 0', async () => {
     expect(await exists(statePath)).toBe(false);
     const { io, out, err } = makeIO();
-    const code = await listTodosHandler(
-      { verb: 'list-todos', positionals: [], flags: {} },
-      io,
-    );
+    const code = await listTodosHandler({ verb: 'list-todos', positionals: [], flags: {} }, io);
     expect(code).toBe(EXIT.SUCCESS);
     expect(err.text()).toBe('');
     expect(out.text()).toBe('(no todos)\n');
@@ -620,10 +604,7 @@ describe('listTodosHandler', () => {
       });
     }
     const { io } = makeIO();
-    const code = await listTodosHandler(
-      { verb: 'list-todos', positionals: [], flags: {} },
-      io,
-    );
+    const code = await listTodosHandler({ verb: 'list-todos', positionals: [], flags: {} }, io);
     expect(code).toBe(EXIT.SUCCESS);
     const st = await stat(snapshotPath);
     expect(st.size).toBeLessThan(10 * 1024);

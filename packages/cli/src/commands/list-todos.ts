@@ -19,11 +19,7 @@
 
 import { join } from 'node:path';
 
-import {
-  type ListTodosJsonOutput,
-  type ListTodosSnapshot,
-  type TodoEntry,
-} from '@swt-labs/shared';
+import { type ListTodosJsonOutput, type ListTodosSnapshot, type TodoEntry } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import {
@@ -73,9 +69,7 @@ export const listTodosHandler: CommandHandler = async (
   try {
     filter = parseFilterTokens(filterTokens);
   } catch (err) {
-    io.stderr.write(
-      `swt list-todos: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
+    io.stderr.write(`swt list-todos: ${err instanceof Error ? err.message : String(err)}\n`);
     io.stderr.write('  Usage: swt list-todos [--filter key=value ...] [--json]\n');
     return EXIT.USAGE_ERROR;
   }

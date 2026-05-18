@@ -1,6 +1,6 @@
 {
   "name": "stop-wasting-tokens",
-  "version": "3.0.0-alpha.30",
+  "version": "3.0.0-alpha.31",
   "description": "Token-disciplined, methodology-first SDLC harness for AI coding agents. Vendor-neutral via Pi runtime — 25+ providers (Anthropic, OpenAI, OpenRouter, Google, Ollama, ...).",
   "license": "MIT",
   "author": "Tiago Serôdio (@yidakee)",
@@ -78,6 +78,7 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build && changeset publish",
+    "release:preflight": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
     "prepublishOnly": "pnpm build",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
     "check:offline": "node scripts/check-offline.mjs",

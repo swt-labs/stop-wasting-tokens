@@ -113,9 +113,7 @@ export async function readSnapshotForPickup(
     const filterStr = Object.entries(snapshot.filter)
       .map(([k, v]) => `${k}=${v}`)
       .join(', ');
-    logger?.(
-      `snapshot is filtered (${filterStr}) — falling through to phase-number resolution`,
-    );
+    logger?.(`snapshot is filtered (${filterStr}) — falling through to phase-number resolution`);
     return null;
   }
 

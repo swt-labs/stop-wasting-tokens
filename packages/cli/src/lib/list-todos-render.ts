@@ -24,11 +24,7 @@
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import {
-  ListTodosSnapshotSchema,
-  type ListTodosSnapshot,
-  type TodoEntry,
-} from '@swt-labs/shared';
+import { ListTodosSnapshotSchema, type ListTodosSnapshot, type TodoEntry } from '@swt-labs/shared';
 
 /** Bracketed status tag → display icon. Unknown tags fall back to ○. */
 export const STATUS_ICONS = {
@@ -93,8 +89,7 @@ export function renderTodoList(entries: readonly TodoEntry[]): string {
     entries
       .map((entry, idx) => {
         const number = String(idx + 1).padStart(width, ' ');
-        const icon =
-          STATUS_ICONS[entry.status as keyof typeof STATUS_ICONS] ?? FALLBACK_STATUS_ICON;
+        const icon = STATUS_ICONS[entry.status] ?? FALLBACK_STATUS_ICON;
         let line = ` ${number}. ${icon} ${entry.description}`;
         if (entry.phase !== undefined) line += ` (phase:${entry.phase})`;
         if (entry.priority !== undefined) line += ` (priority:${entry.priority})`;

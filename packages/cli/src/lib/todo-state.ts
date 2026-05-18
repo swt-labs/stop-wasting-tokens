@@ -217,11 +217,7 @@ function findExistingLineByHash(body: string, hash: string): string | null {
   return null;
 }
 
-function insertLineAtSectionEnd(
-  _raw: string,
-  section: TodosSection,
-  newLine: string,
-): string {
+function insertLineAtSectionEnd(_raw: string, section: TodosSection, newLine: string): string {
   const { lines, headingIndex, endIndex } = section;
   // Trim trailing blank lines from the section's content range — we
   // want to append BEFORE them so the file shape stays the same.

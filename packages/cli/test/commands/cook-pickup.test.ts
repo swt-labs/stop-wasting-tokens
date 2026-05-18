@@ -62,15 +62,8 @@ import { join } from 'node:path';
 
 import type { PhaseDetectResult } from '@swt-labs/methodology';
 import type { AskUserResponse } from '@swt-labs/runtime';
-import type {
-  ListTodosSnapshot,
-  TaskResult,
-  TodoDetail,
-  TodoDetailsFile,
-} from '@swt-labs/shared';
-import {
-  LIST_TODOS_SNAPSHOT_TTL_MS,
-} from '@swt-labs/shared';
+import type { ListTodosSnapshot, TaskResult, TodoDetail, TodoDetailsFile } from '@swt-labs/shared';
+import { LIST_TODOS_SNAPSHOT_TTL_MS } from '@swt-labs/shared';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { makeCookHandler } from '../../src/commands/cook.js';
@@ -317,9 +310,7 @@ function buildHarness(opts: HarnessOpts = {}): {
   };
 }
 
-function buildSnapshot(
-  overrides: Partial<ListTodosSnapshot> = {},
-): ListTodosSnapshot {
+function buildSnapshot(overrides: Partial<ListTodosSnapshot> = {}): ListTodosSnapshot {
   return {
     schema_version: 1,
     generated_at: new Date().toISOString(),
@@ -393,9 +384,7 @@ describe('@swt-labs/cli — cookHandler bare-integer pickup (Plan 15-04-01 T5)',
   });
 
   it('bare 3 + stale snapshot → fall-through (no ref_hash) with `[cook] snapshot stale` notice', async () => {
-    const staleTs = new Date(
-      Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000,
-    ).toISOString();
+    const staleTs = new Date(Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000).toISOString();
     await writeSnapshotFixture(buildSnapshot({ generated_at: staleTs }));
     const h = buildHarness();
     const code = await h.run(['3']);
@@ -468,9 +457,7 @@ describe('@swt-labs/cli — cookHandler --todo escape hatch (Plan 15-04-01 T5)',
   });
 
   it('--todo 3 + stale snapshot → pickup succeeds (escape-hatch bypasses TTL)', async () => {
-    const staleTs = new Date(
-      Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000,
-    ).toISOString();
+    const staleTs = new Date(Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000).toISOString();
     await writeSnapshotFixture(buildSnapshot({ generated_at: staleTs }));
     await writeDetailsFixture({
       schema_version: 1,
@@ -592,9 +579,7 @@ describe('@swt-labs/cli — cookHandler extended-context injection (Plan 15-04-0
     const code = await h.run(['fix (ref:abc12345)']);
     expect(code).toBe(EXIT.SUCCESS);
     const prompt = getSpawnedPrompt(h.spawnImpl);
-    expect(prompt).toContain(
-      '- extended_context: Extended context (from todo detail): context.',
-    );
+    expect(prompt).toContain('- extended_context: Extended context (from todo detail): context.');
     expect(prompt).not.toContain('Related files:');
   });
 
@@ -622,8 +607,6 @@ describe('@swt-labs/cli — cookHandler extended-context injection (Plan 15-04-0
     const prompt = getSpawnedPrompt(h.spawnImpl);
     expect(prompt).toContain('- ref_hash: abc12345');
     expect(prompt).not.toContain('- extended_context:');
-    expect(h.stderr()).toMatch(
-      /\[cook\] ref hash abc12345 not found in todo-details\.json/,
-    );
+    expect(h.stderr()).toMatch(/\[cook\] ref hash abc12345 not found in todo-details\.json/);
   });
 });

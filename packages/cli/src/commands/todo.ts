@@ -36,10 +36,7 @@ function isTodoPriority(value: string): value is TodoPriority {
   return (TODO_PRIORITY_VALUES as readonly string[]).includes(value);
 }
 
-export const todoHandler: CommandHandler = async (
-  parsed,
-  io: CommandIO,
-): Promise<ExitCode> => {
+export const todoHandler: CommandHandler = async (parsed, io: CommandIO): Promise<ExitCode> => {
   // 1. Description from positionals — accept space-separated tokens
   //    that the shell passed to us as separate argv entries, but the
   //    canonical form is a quoted single positional ("fix login bug").

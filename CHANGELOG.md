@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-alpha.31 — 2026-05-18
+
+_Lint-error hotfix re-release. alpha.30's tag push triggered the release workflow but failed at the Lint step — CI runs `pnpm lint` workspace-wide while QA had only scoped lint to milestone-modified files, so 3 errors in milestone-15 code (`cook.ts:114-115` import/order, `list-todos-render.ts:97` no-unnecessary-type-assertion) reached release uncaught. npm never received alpha.30. This release carries the same payload (milestone 15 + 16) plus the lint fix and a new `pnpm release:preflight` script (`typecheck && lint && format:check && test && build`) so the same gates that gate CI now gate the local release path._
+
+- **`fix(lint): import/order in cook.ts + unnecessary type assertion in list-todos-render.ts`**. `packages/cli/src/commands/cook.ts` reordered imports so `@swt-labs/shared` (external) precedes `../exit-codes.js` (internal); folded the separate `TodoDetail` type import into the existing `@swt-labs/shared` line. `packages/cli/src/lib/list-todos-render.ts:97` removed unnecessary `entry.status as keyof typeof STATUS_ICONS` assertion — `TodoStatusSchema`'s enum literals are already exact keys of `STATUS_ICONS`.
+- **`chore(release): add pnpm release:preflight gate`**. New script bundles the exact 5 gates the GHA release.yml runs (typecheck + lint + format:check + test + build). Running `pnpm release:preflight` before `bash scripts/bump-version.sh` catches all 3 prior failure classes (lint per alpha.27/30, format per alpha.28, build/test) at the local layer instead of after the tag push.
+
+See **3.0.0-alpha.30** entry below for the full milestone 15 + 16 payload (unchanged in alpha.31).
+
 ## 3.0.0-alpha.30 — 2026-05-18
 
 _Bundles two shipped milestones into one release: **`16-monospace-chat-log-consistency`** (archived 2026-05-18, 2 product commits) on top of **`15-command-alias-foundation-todo-workflow`** (archived 2026-05-17, 20 product commits ahead of alpha.29). 22 product commits total since alpha.29 (`0a02283` → `f13c264`). Milestone 16 restores monospace-timestamped visual consistency for chat entries in the dashboard's `UnifiedLogPanel.tsx`. Milestone 15 closes 9 of VBW's 17 stub gaps: verb-alias foundation (7 stub verbs → thin cook wrappers) + todo workflow (numbered-todo pickup with `swt cook 3` + `(ref:HASH)` detail injection)._
@@ -15,7 +24,7 @@ _Bundles two shipped milestones into one release: **`16-monospace-chat-log-consi
 #### Phase 01 — Monospace chat log consistency (`27a3a09` → `f13c264`, 2 commits)
 
 - **`refactor(dashboard): fold chat-assistant tools + usage into entryToLine`** (`27a3a09`). `packages/dashboard/src/client/components/unified-log-helpers.ts` extended `entryToLine` chat-assistant case to inline `tools_called` as `[tool: NAME, tool: NAME]` and `usage` as ` ↑in ↓out` suffixes. JSDoc updated to mark helper as total over `LogEntry` AND load-bearing for chat rendering. `packages/dashboard/test/unified-log-helpers.test.ts` adds 3 new test cases (tools-only, usage-only, both folded). 22 helper tests pass.
-- **`refactor(dashboard): render chat entries inline in the monospace log feed`** (`f13c264`). `packages/dashboard/src/client/components/UnifiedLogPanel.tsx` deletes the 3 bubble `<Show>` blocks; merges chat-user/chat-assistant/chat-error into the monospace `<Show>` group; splits ANSI branch on `e.kind === 'system' && e.channel !== 'internal'` (Shape B) so ANSI path keeps `innerHTML={ansiToHtml(...)}` and everything else (init/cook/system+internal/chat-*) renders via children with a `<span class="unified-log__cursor">▌</span>` sibling while streaming; extends `extraClass` for `--streaming` (chat-assistant + `completed === false`) and `--error` (chat-error); deletes dead `escapeHtml` helper. `packages/dashboard/src/client/styles.css` adds `.unified-log__line--streaming` + `@keyframes unifiedLogStreamingPulse`, `.unified-log__line--error`, `.unified-log__cursor` + `@keyframes unifiedLogCursorBlink`; deletes 6 dead bubble selectors (`bubble--user`/`--assistant`/`--streaming`/`--error`, `error-code`) + `@keyframes unifiedLogPulse`. File-level JSDoc + CSS block-comment header updated.
+- **`refactor(dashboard): render chat entries inline in the monospace log feed`** (`f13c264`). `packages/dashboard/src/client/components/UnifiedLogPanel.tsx` deletes the 3 bubble `<Show>` blocks; merges chat-user/chat-assistant/chat-error into the monospace `<Show>` group; splits ANSI branch on `e.kind === 'system' && e.channel !== 'internal'` (Shape B) so ANSI path keeps `innerHTML={ansiToHtml(...)}` and everything else (init/cook/system+internal/chat-\*) renders via children with a `<span class="unified-log__cursor">▌</span>` sibling while streaming; extends `extraClass` for `--streaming` (chat-assistant + `completed === false`) and `--error` (chat-error); deletes dead `escapeHtml` helper. `packages/dashboard/src/client/styles.css` adds `.unified-log__line--streaming` + `@keyframes unifiedLogStreamingPulse`, `.unified-log__line--error`, `.unified-log__cursor` + `@keyframes unifiedLogCursorBlink`; deletes 6 dead bubble selectors (`bubble--user`/`--assistant`/`--streaming`/`--error`, `error-code`) + `@keyframes unifiedLogPulse`. File-level JSDoc + CSS block-comment header updated.
 
 Net diff: +179 / −161 across 4 files. QA: PASS one-shot. Zero deviations, no remediation rounds. Visual smoke (`pnpm dev` chat with streaming + tool-call + forced auth-error) deferred to user — browser interaction required.
 
@@ -24,6 +33,7 @@ Net diff: +179 / −161 across 4 files. QA: PASS one-shot. Zero deviations, no r
 4 phases / 4 plans / 19 atomic tasks / 20 product commits. **Tests: 2498 passed / 67 skipped / 0 failed** (+96 new across the milestone, up from 2402 at start). Typecheck clean at HEAD `f350aa0`. QA PASS across all 4 phases.
 
 **End-to-end user flow now works:**
+
 ```
 swt todo "fix login bug" --detail "Auth flow drops session" --priority high
 swt list-todos

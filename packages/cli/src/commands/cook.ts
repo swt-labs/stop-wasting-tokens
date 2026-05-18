@@ -103,16 +103,12 @@ import {
   type AuthConfig,
   type AuthMode,
 } from '@swt-labs/runtime';
-import type { BudgetConfigSchemaT, RateCard, TaskBrief } from '@swt-labs/shared';
+import type { BudgetConfigSchemaT, RateCard, TaskBrief, TodoDetail } from '@swt-labs/shared';
 import type { CookEvent } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
-import {
-  readSnapshotForPickup,
-  loadTodoDetailForRef,
-} from '../lib/list-todos-pickup.js';
+import { readSnapshotForPickup, loadTodoDetailForRef } from '../lib/list-todos-pickup.js';
 import type { CommandHandler, CommandIO } from '../router.js';
-import type { TodoDetail } from '@swt-labs/shared';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Plan 04-01 — Cook IPC event emitter (R1 file-tail decision).
@@ -675,11 +671,7 @@ export async function resolveTodoNumber(
   const loadDetail = deps?.loadTodoDetailForRef ?? loadTodoDetailForRef;
   const logger = deps?.logger;
 
-  const snapshot = await readSnapshot(
-    cwd,
-    { requireFresh: true, requireUnfiltered: true },
-    logger,
-  );
+  const snapshot = await readSnapshot(cwd, { requireFresh: true, requireUnfiltered: true }, logger);
   if (snapshot === null) {
     return { args, phaseTarget: n, todoSelected: false };
   }
@@ -694,9 +686,7 @@ export async function resolveTodoNumber(
   try {
     detail = await loadDetail(cwd, hash);
   } catch {
-    logger?.(
-      'todo-details.json malformed — falling through to phase-number resolution',
-    );
+    logger?.('todo-details.json malformed — falling through to phase-number resolution');
     return { args, phaseTarget: n, todoSelected: false };
   }
 
@@ -1709,9 +1699,7 @@ export function makeCookHandler(deps: CookHandlerDeps = {}): CommandHandler {
       // (c) Numeric validation — positive integer, no leading zero except
       // a single '0' (which we reject anyway). Accepts '1', '23', etc.
       if (!/^[1-9][0-9]*$/.test(todoFlagRaw)) {
-        io.stderr.write(
-          `swt cook: --todo must be a positive integer (got: ${todoFlagRaw}).\n`,
-        );
+        io.stderr.write(`swt cook: --todo must be a positive integer (got: ${todoFlagRaw}).\n`);
         return EXIT.USAGE_ERROR;
       }
       const todoN = Number.parseInt(todoFlagRaw, 10);

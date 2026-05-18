@@ -104,10 +104,7 @@ export function aliasToCook(
  * plan target value; otherwise the flag is set to the empty string so
  * `detectModeFromFlags`'s `planFlag !== undefined` check still fires.
  */
-export function aliasToCookPlan(
-  parsed: ParsedArgv,
-  io: CommandIO,
-): Promise<ExitCode> | ExitCode {
+export function aliasToCookPlan(parsed: ParsedArgv, io: CommandIO): Promise<ExitCode> | ExitCode {
   // The cook argv parser accepts `--plan` (bare), `--plan NN`, and
   // `--plan=NN` all as a string flag (possibly empty). Forward the
   // positional NN — if present — into the flag value so cook's
@@ -142,10 +139,7 @@ export function aliasToCookPlan(
  * intentional: bare `swt phase` should report whatever phase work is
  * pending, matching the documented VBW `/vbw:phase` semantics.
  */
-export function phaseAlias(
-  parsed: ParsedArgv,
-  io: CommandIO,
-): Promise<ExitCode> | ExitCode {
+export function phaseAlias(parsed: ParsedArgv, io: CommandIO): Promise<ExitCode> | ExitCode {
   const shimmed: ParsedArgv = {
     verb: 'cook',
     positionals: parsed.positionals,

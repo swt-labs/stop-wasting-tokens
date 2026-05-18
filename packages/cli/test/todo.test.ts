@@ -91,7 +91,9 @@ describe('appendTodoToState', () => {
     expect(res.appended).toBe(true);
     const after = await readFile(statePath, 'utf8');
     // Activity Log block preserved byte-equal
-    expect(after).toContain('## Activity Log\n\n| Date | Event |\n|------|-------|\n| 2026-01-01 | seeded |');
+    expect(after).toContain(
+      '## Activity Log\n\n| Date | Event |\n|------|-------|\n| 2026-01-01 | seeded |',
+    );
     // Blockers section preserved byte-equal
     expect(after.endsWith('## Blockers\n\nNone.\n')).toBe(true);
     // Existing Todos line preserved

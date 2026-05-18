@@ -40,10 +40,7 @@ import {
 } from '@swt-labs/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  loadTodoDetailForRef,
-  readSnapshotForPickup,
-} from '../../src/lib/list-todos-pickup.js';
+import { loadTodoDetailForRef, readSnapshotForPickup } from '../../src/lib/list-todos-pickup.js';
 
 const SNAPSHOT_REL = '.swt-planning/.cache/list-todos-snapshot.json';
 const DETAILS_REL = '.swt-planning/todo-details.json';
@@ -82,9 +79,7 @@ async function writeRawDetails(raw: string): Promise<void> {
   await writeFile(path, raw, 'utf8');
 }
 
-function buildSnapshot(
-  overrides: Partial<ListTodosSnapshot> = {},
-): ListTodosSnapshot {
+function buildSnapshot(overrides: Partial<ListTodosSnapshot> = {}): ListTodosSnapshot {
   return {
     schema_version: 1,
     generated_at: new Date().toISOString(),
@@ -161,9 +156,7 @@ describe('readSnapshotForPickup', () => {
   });
 
   it('requireFresh=true + stale → null + logger invoked once with `stale`', async () => {
-    const staleTs = new Date(
-      Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000,
-    ).toISOString();
+    const staleTs = new Date(Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000).toISOString();
     await writeSnapshot(buildSnapshot({ generated_at: staleTs }));
     const logger = vi.fn();
     const result = await readSnapshotForPickup(
@@ -177,9 +170,7 @@ describe('readSnapshotForPickup', () => {
   });
 
   it('requireFresh=false + stale → returns the snapshot (escape-hatch path)', async () => {
-    const staleTs = new Date(
-      Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000,
-    ).toISOString();
+    const staleTs = new Date(Date.now() - LIST_TODOS_SNAPSHOT_TTL_MS - 60_000).toISOString();
     const snapshot = buildSnapshot({ generated_at: staleTs });
     await writeSnapshot(snapshot);
     const logger = vi.fn();
@@ -273,9 +264,7 @@ describe('loadTodoDetailForRef', () => {
 
   it('throws a Zod error when todo-details.json is malformed', async () => {
     // Wrong shape — `todos` is a string instead of a record.
-    await writeRawDetails(
-      JSON.stringify({ schema_version: 1, todos: 'oops' }),
-    );
+    await writeRawDetails(JSON.stringify({ schema_version: 1, todos: 'oops' }));
     await expect(loadTodoDetailForRef(cwd, 'aaaaaaaa')).rejects.toThrow();
   });
 });

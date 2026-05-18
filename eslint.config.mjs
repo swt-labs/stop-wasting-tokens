@@ -12,6 +12,7 @@ export default [
       '**/node_modules/**',
       '.vbw-planning/**',
       '.changeset/**',
+      'a_non_production_files/**',
     ],
   },
   {
