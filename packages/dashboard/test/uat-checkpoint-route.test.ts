@@ -28,7 +28,7 @@ function setupPhaseDir(slug: string, withUat = true): string {
 beforeEach(() => {
   projectRoot = mkdtempSync(path.join(tmpdir(), 'swt-uat-route-'));
   app = new Hono();
-  registerUatCheckpointRoute(app, projectRoot);
+  registerUatCheckpointRoute(app, () => projectRoot);
 });
 
 afterEach(() => {
@@ -97,5 +97,20 @@ describe('POST /api/uat/:phase/checkpoint', () => {
         path.join(projectRoot, '.swt-planning', 'phases', '03-live-event-stream', '03-UAT.md'),
       ),
     ).toBe(false);
+  });
+});
+
+describe('POST /api/uat/:phase/checkpoint — greenfield (null getter)', () => {
+  it('returns 503 with body containing "not yet initialized" when getProjectRoot returns null', async () => {
+    const greenApp = new Hono();
+    registerUatCheckpointRoute(greenApp, () => null);
+    const res = await greenApp.request('/api/uat/01-some-phase/checkpoint', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scenario: 'anything', result: 'pass' }),
+    });
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/dashboard not yet initialized/);
   });
 });

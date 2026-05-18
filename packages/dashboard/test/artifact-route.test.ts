@@ -29,7 +29,7 @@ describe('GET /api/artifact', () => {
   beforeEach(() => {
     setup();
     app = new Hono();
-    registerArtifactRoute(app, projectRoot);
+    registerArtifactRoute(app, () => projectRoot);
   });
 
   afterEach(() => {
@@ -89,5 +89,33 @@ describe('GET /api/artifact', () => {
   it('rejects absolute paths', async () => {
     const res = await fetch('/api/artifact?path=%2Fetc%2Fpasswd');
     expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/artifact — greenfield (null getter)', () => {
+  it('returns 503 with body containing "not yet initialized" when getProjectRoot returns null', async () => {
+    const greenApp = new Hono();
+    registerArtifactRoute(greenApp, () => null);
+    const res = await greenApp.request('http://x/api/artifact?path=anything');
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/dashboard not yet initialized/);
+  });
+
+  it('late-assign: 503 → 200 after getter starts returning a valid root', async () => {
+    let mutableRoot: string | null = null;
+    const lateApp = new Hono();
+    registerArtifactRoute(lateApp, () => mutableRoot);
+
+    const res1 = await lateApp.request('http://x/api/artifact?path=.swt-planning%2FSTATE.md');
+    expect(res1.status).toBe(503);
+
+    const tmpRoot = mkdtempSync(path.join(tmpdir(), 'swt-art-late-'));
+    mkdirSync(path.join(tmpRoot, '.swt-planning'), { recursive: true });
+    writeFileSync(path.join(tmpRoot, '.swt-planning', 'STATE.md'), '# Late\n');
+    mutableRoot = tmpRoot;
+
+    const res2 = await lateApp.request('http://x/api/artifact?path=.swt-planning%2FSTATE.md');
+    expect(res2.status).toBe(200);
   });
 });
