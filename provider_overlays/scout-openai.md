@@ -1,7 +1,7 @@
 ---
 overlay_for: scout
 provider: openai
-source: 'github.com/openai/codex (canonical system-prompt template)'
+source: 'github.com/openai/codex'
 source_paths:
   - 'codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md'
   - 'codex-rs/core/src/tools/handlers/shell_spec.rs'

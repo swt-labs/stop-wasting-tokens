@@ -1,7 +1,7 @@
 ---
 overlay_for: docs
 provider: openai
-source: 'github.com/openai/codex (canonical system-prompt template)'
+source: 'github.com/openai/codex'
 source_paths:
   - 'codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md'
 source_intent: 'reference paths over file dumps + dashed bullets + backticked monospace for commands/paths/env vars'
