@@ -28,9 +28,21 @@
  *     "thinkingLevel":              "<value or null>",
  *     "maxTurns":                   <int>,
  *     "sandboxMode":                "<value>",
- *     "contextFiles_count":         0,
+ *     "contextFiles_count":         <int — number of fragments returned by pack.contextFiles>,
+ *     "contextFiles_contentSha256": "<sha256 of fragments.join('\\n\\n'), or "" when empty>",
  *     "contextFiles_paths":         []
  *   }
+ *
+ * Phase 17 plan 03-01 T3 — `contextFiles_count` + `contextFiles_contentSha256`
+ * are populated deterministically from the resolved
+ * `SpawnAgentSessionConfig.contextFiles` (was hardcoded `0` / `[]` in
+ * Phase 1). Determinism choice = Option A: count + sha256 over the
+ * joined-with-`'\n\n'` content. Documented in
+ * `.vbw-planning/phases/03-agents-md-hierarchical-loader/spawn-snapshot.diff.md`.
+ * The `contextFiles_paths` field is retained as a stable empty array — the
+ * pack returns content strings, not paths (per
+ * `provider-tuning-pack.ts` ContextFilesTurnContext docstring), and the
+ * count + sha256 pair carries all the determinism we need.
  *
  * Determinism guarantees:
  *   - Fixed `installRoot` resolved from the script's own location (not
@@ -127,6 +139,7 @@ interface SnapshotEntry {
   readonly maxTurns: number;
   readonly sandboxMode: string;
   readonly contextFiles_count: number;
+  readonly contextFiles_contentSha256: string;
   readonly contextFiles_paths: readonly string[];
 }
 
@@ -139,9 +152,17 @@ function buildEntry(args: {
   thinkingLevel: string | null | undefined;
   maxTurns: number;
   sandboxMode: string;
+  contextFiles: readonly string[] | undefined;
 }): SnapshotEntry {
   const head = args.systemPrompt.slice(0, 256);
   const tail = args.systemPrompt.length <= 256 ? '' : args.systemPrompt.slice(-256);
+  // Phase 17 plan 03-01 T3 — determinism option A: count + sha256 of the
+  // joined-with-`'\n\n'` content. Empty array (or absent field) → count 0
+  // + empty-string sha256, NOT a sha256 of '' (which would be a
+  // legitimate-looking 64-char hex that could mask "no content" vs "empty
+  // content joined"). The empty-string sentinel is unambiguous.
+  const fragments = args.contextFiles ?? [];
+  const joined = fragments.join('\n\n');
   return {
     role: args.role,
     provider: args.provider,
@@ -158,8 +179,17 @@ function buildEntry(args: {
     thinkingLevel: args.thinkingLevel ?? null,
     maxTurns: args.maxTurns,
     sandboxMode: args.sandboxMode,
-    // Phase 1 — `contextFiles` is always [] (D4 — Phase 3 lights up AGENTS.md).
-    contextFiles_count: 0,
+    // Phase 17 plan 03-01 T3 — deterministic capture of the resolved
+    // `pack.contextFiles({cwd, role})` payload. For OpenAI sessions whose
+    // cwd contains an AGENTS.md walk, `count > 0` + a populated sha256;
+    // for Anthropic and for OpenAI sessions whose cwd has no AGENTS.md
+    // (including the snapshot tool's `/tmp/swt-spawn-snapshot`),
+    // `count == 0` + empty-string sha256.
+    contextFiles_count: fragments.length,
+    contextFiles_contentSha256: fragments.length === 0 ? '' : sha256Hex(joined),
+    // Retained as a stable empty array — pack returns content, not paths.
+    // Kept on the schema to minimize churn for the diff against Phase 2's
+    // snapshot baseline.
     contextFiles_paths: [],
   };
 }
@@ -183,6 +213,13 @@ function captureSdlcRoleEntry(role: AgentRole, provider: string): SnapshotEntry 
     thinkingLevel: config.thinkingLevel ?? null,
     maxTurns: config.maxTurns,
     sandboxMode: config.sandboxMode,
+    // Phase 17 plan 03-01 T3 — read pack-resolved AGENTS.md fragments
+    // from the resolved config (Task 2 wired the field). For
+    // `FIXED_CWD = '/tmp/swt-spawn-snapshot'` the loader returns `[]`
+    // (no `.git` ancestor, no AGENTS.md), so the OpenAI snapshot count
+    // stays 0 and the sha256 stays the empty-string sentinel. Walk-up
+    // correctness is proven via `packages/orchestration/test/agents-md-loader.test.ts`.
+    contextFiles: config.contextFiles,
   });
 }
 
@@ -204,6 +241,12 @@ function captureOrchestratorEntry(provider: string): SnapshotEntry {
     thinkingLevel: config.thinkingLevel ?? null,
     maxTurns: config.maxTurns,
     sandboxMode: config.sandboxMode,
+    // Orchestrator path never invokes `pack.contextFiles()` (Phase 1 §5
+    // surprise — orchestrator pack-selection is decoupled from agent
+    // pack-selection). `SpawnOrchestratorSessionConfig` has no
+    // `contextFiles` field; pass `undefined` so the entry shows
+    // count=0 + empty sha256.
+    contextFiles: undefined,
   });
 }
 
