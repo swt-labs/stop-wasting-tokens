@@ -140,11 +140,12 @@ STOP. Do NOT manually scan for project state or improvise routing — incorrect 
 
 ```bash
 NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-if [ -f "$NORM_SCRIPT" ]; then
-  for pdir in .swt-planning/phases/*/; do
-    [ -d "$pdir" ] && bash "$NORM_SCRIPT" "$pdir"
-  done
-fi
+[ -f "$NORM_SCRIPT" ] || { echo "SWT: required script missing: $NORM_SCRIPT" >&2; exit 1; }
+for pdir in .swt-planning/phases/*/; do
+  if [ -d "$pdir" ]; then
+    bash "$NORM_SCRIPT" "$pdir" || { echo "SWT: normalize-plan-filenames.sh failed for $pdir" >&2; exit 1; }
+  fi
+done
 ```
 
 Display: "⚠ Renamed misnamed plan files to `{NN}-PLAN.md` convention."
@@ -330,9 +331,7 @@ When `next_phase_state=needs_qa_remediation`, resume QA remediation at the persi
   - Existing-plan recovery before spawning Lead: before probing for an existing plan, run the normalizer on `{round_dir}`:
     ```bash
     NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-    if [ -f "$NORM_SCRIPT" ]; then
-      bash "$NORM_SCRIPT" "{round_dir}"
-    fi
+    bash "$NORM_SCRIPT" "{round_dir}" || { echo "SWT: required script missing or failed: $NORM_SCRIPT" >&2; exit 1; }
     ```
     If the canonical `{round_dir}/R{RR}-PLAN.md` exists after normalization, validate that exact artifact with the same validator command shown in the validation step below. If validation fails, display the validator error and STOP without advancing `.qa-remediation-stage`. If validation passes, do not spawn Lead again; reuse the persisted plan and continue at the final post-validation state-advance step below. This preserves a valid plan written before an interrupted `stage=plan` resume instead of overwriting it.
   - The orchestrator coordinates the remediation loop and spawns exactly one Lead subagent to write `{round_dir}/R{RR}-PLAN.md` (QA says what's wrong, planning says how to fix).
@@ -352,9 +351,7 @@ When `next_phase_state=needs_qa_remediation`, resume QA remediation at the persi
   - Normalize plan filenames before validation:
     ```bash
     NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-    if [ -f "$NORM_SCRIPT" ]; then
-      bash "$NORM_SCRIPT" "{round_dir}"
-    fi
+    bash "$NORM_SCRIPT" "{round_dir}" || { echo "SWT: required script missing or failed: $NORM_SCRIPT" >&2; exit 1; }
     ```
   - Validate the exact QA remediation plan artifact before advancing:
     ```bash
@@ -592,11 +589,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 - **B7: Planning commit boundary (conditional)** -- Run:
   ```bash
   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-  if [ -f "$PG_SCRIPT" ]; then
-    bash "$PG_SCRIPT" commit-boundary "bootstrap project files" .swt-planning/config.json
-  else
-    echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-  fi
+  bash "$PG_SCRIPT" commit-boundary "bootstrap project files" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
   ```
   Behavior: `planning_tracking=commit` commits `.swt-planning/` + `CLAUDE.md` if changed. Other modes no-op.
 - **B8: Transition** -- Display "Bootstrap complete. Transitioning to scoping..." Re-evaluate state, route to next match.
@@ -628,11 +621,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 7. **Scope commit boundary (conditional):**
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "scope milestone" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "scope milestone" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Behavior: `planning_tracking=commit` commits `.swt-planning/` if changed (ROADMAP.md, STATE.md, CONTEXT.md, phase dirs). Other modes no-op.
 8. Display "Scoping complete. {N} phases created." STOP -- do not auto-continue to planning.
@@ -651,11 +640,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 3. **Discussion commit boundary (conditional):**
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "discuss phase {NN}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "discuss phase {NN}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Behavior: `planning_tracking=commit` commits `{NN}-CONTEXT.md` and `discovery.json` if changed. Other modes no-op.
 4. Run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/suggest-next.sh vibe`.
@@ -674,11 +659,7 @@ If `planning_dir_exists=false`: display "Run swt init first to set up your proje
 3. **Discussion commit boundary (conditional):**
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "assumptions phase {NN}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "assumptions phase {NN}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Behavior: `planning_tracking=commit` commits `{NN}-CONTEXT.md` and `discovery.json` if changed. Other modes no-op.
 4. Run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/suggest-next.sh vibe`.
@@ -875,9 +856,7 @@ If `plan_path` is empty, spawn Lead as a **single subagent** to write the remedi
 - Normalize plan filenames:
   ```bash
   NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-  if [ -f "$NORM_SCRIPT" ]; then
-    bash "$NORM_SCRIPT" "{round_dir}"
-  fi
+  bash "$NORM_SCRIPT" "{round_dir}" || { echo "SWT: required script missing or failed: $NORM_SCRIPT" >&2; exit 1; }
   ```
 - Validate the exact plan artifact before advancing:
   ```bash
@@ -966,9 +945,7 @@ Execute the remediation plan by spawning Dev agents sequentially — one per tas
   - Planning artifact boundary commit (conditional):
     ```bash
     PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-    if [ -f "$PG_SCRIPT" ]; then
-      bash "$PG_SCRIPT" commit-boundary "execute phase {NN} remediation round {RR}" .swt-planning/config.json
-    fi
+    bash "$PG_SCRIPT" commit-boundary "execute phase {NN} remediation round {RR}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
     ```
   - **Continue directly into Verify mode** for this phase — do NOT stop, do NOT tell the user to run `swt cook`. Enter Verify mode (below) inline in the same turn. The pre-computed verify context may be stale (it was computed at session start, before remediation). Re-compute it:
     ```bash
@@ -1020,11 +997,7 @@ This mode handles the case where a milestone was archived before UAT issues were
    **Remediation commit boundary (conditional):**
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "create milestone remediation phases" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "create milestone remediation phases" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Then route to Plan mode for the first phase.
 4. If the user chooses start-fresh: persist acknowledgement markers for all affected archived phases before continuing:
@@ -1121,11 +1094,7 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 4. **Research commit boundary (conditional):** If Scout was spawned in step 3 (new RESEARCH.md written):
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "research phase {NN}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping research git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "research phase {NN}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Behavior: `planning_tracking=commit` commits RESEARCH.md if changed. Skipped when research was pre-existing or effort=turbo.
 5. **Context compilation:** If `config_context_compiler=true`, run `bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/compile-context.sh {phase} lead {phases_dir}`. Include `.context-lead.md` in Lead agent context if produced. When including it in the Lead prompt, describe its contents: "Read `.context-lead.md` for compiled context — includes milestone scope decisions (decomposition rationale, scope boundaries, cross-phase key decisions) and operational context (phase goal, success criteria, matched requirements, active decisions, research findings)."
@@ -1178,9 +1147,7 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 8. **Normalize plan filenames:**
    ```bash
    NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-   if [ -f "$NORM_SCRIPT" ]; then
-     bash "$NORM_SCRIPT" "{phase_dir}"
-   fi
+   bash "$NORM_SCRIPT" "{phase_dir}" || { echo "SWT: required script missing or failed: $NORM_SCRIPT" >&2; exit 1; }
    ```
    This catches any misnamed files written by Lead (e.g., turbo mode or models that bypass the PreToolUse block).
 9. **Validate output:** Verify PLAN.md has valid frontmatter (phase, plan, title, wave, depends_on, must_haves) and tasks. Check wave deps acyclic.
@@ -1205,11 +1172,7 @@ Model Profile: {profile}
 
 ```bash
 PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-if [ -f "$PG_SCRIPT" ]; then
-  bash "$PG_SCRIPT" commit-boundary "plan phase {NN}" .swt-planning/config.json
-else
-  echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-fi
+bash "$PG_SCRIPT" commit-boundary "plan phase {NN}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
 ```
 
 Behavior: `planning_tracking=commit` commits planning artifacts if changed. `auto_push=always` pushes when upstream exists. 12. **Cautious gate (autonomy=cautious only):** STOP after planning. Ask "Plans ready. Execute Phase {NN}?" Other levels: auto-chain.
@@ -1225,9 +1188,7 @@ This mode delegates entirely to the protocol file. **Orchestrator read-scope:** 
 Before reading: 0. **Pre-normalize filenames:**
 `bash
     NORM_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/normalize-plan-filenames.sh"
-    if [ -f "$NORM_SCRIPT" ]; then
-      bash "$NORM_SCRIPT" "{phase_dir}"
-    fi
+    bash "$NORM_SCRIPT" "{phase_dir}" || { echo "SWT: required script missing or failed: $NORM_SCRIPT" >&2; exit 1; }
     `
 
 1. **Parse arguments:** Phase number (auto-detect if omitted), --effort, --skip-qa, --plan=NN.
@@ -1380,11 +1341,7 @@ Missing name: STOP "Usage: `swt cook --add <phase-name>`"
 9. **Phase mutation commit boundary (conditional):**
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "add phase {NN}-{slug}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "add phase {NN}-{slug}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Behavior: `planning_tracking=commit` commits `.swt-planning/` if changed. Other modes no-op.
 10. Present: Phase Banner with position, goal. Checklist for roadmap update + dir creation. Next Up: `swt cook --discuss` or `swt cook --plan`.
@@ -1433,11 +1390,7 @@ After calling `Skill(...)`, if the loaded skill's instructions reference additio
 10. **Phase mutation commit boundary (conditional):**
     ```bash
     PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-    if [ -f "$PG_SCRIPT" ]; then
-      bash "$PG_SCRIPT" commit-boundary "insert phase {NN}-{slug} at position {position}" .swt-planning/config.json
-    else
-      echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-    fi
+    bash "$PG_SCRIPT" commit-boundary "insert phase {NN}-{slug} at position {position}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
     ```
     Behavior: `planning_tracking=commit` commits `.swt-planning/` if changed. Other modes no-op.
 11. Present: Phase Banner with renumber count, phase changes, file checklist, Next Up.
@@ -1462,11 +1415,7 @@ Completed ([x] in roadmap): STOP "Cannot remove completed Phase {NN}."
 8. **Phase mutation commit boundary (conditional):**
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "remove phase {NN}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "remove phase {NN}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Behavior: `planning_tracking=commit` commits `.swt-planning/` if changed. Other modes no-op.
 9. Present: Phase Banner with renumber count, phase changes, file checklist, Next Up.
@@ -1533,11 +1482,7 @@ Run 7-point audit matrix:
 6. Planning commit boundary (conditional):
    ```bash
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "archive milestone {SLUG}" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "archive milestone {SLUG}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
    Run this BEFORE branch merge/tag so shipped planning state is committed.
 7. Git branch merge: if `milestone/{SLUG}` branch exists, merge --no-ff. Conflict -> abort, warn. No branch -> skip.

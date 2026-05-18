@@ -365,11 +365,7 @@ Replace `{bug description from Step 1}` with the actual parsed bug description. 
    ```bash
    bash "{plugin-root}/scripts/debug-session-state.sh" set-status .swt-planning complete
    PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-   if [ -f "$PG_SCRIPT" ]; then
-     bash "$PG_SCRIPT" commit-boundary "complete debug session" .swt-planning/config.json
-   else
-     echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-   fi
+   bash "$PG_SCRIPT" commit-boundary "complete debug session" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
    ```
 
    For `no_fix_yet`, do **not** set `fix_applied`; keep the session status as `investigating`.
@@ -680,11 +676,7 @@ eval "$(bash "{plugin-root}/scripts/debug-session-state.sh" increment-uat .swt-p
      ```bash
      bash "{plugin-root}/scripts/debug-session-state.sh" set-status .swt-planning complete
      PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-     if [ -f "$PG_SCRIPT" ]; then
-       bash "$PG_SCRIPT" commit-boundary "complete debug session" .swt-planning/config.json
-     else
-       echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-     fi
+     bash "$PG_SCRIPT" commit-boundary "complete debug session" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
      ```
    - Any issues found → `bash .../debug-session-state.sh set-status .swt-planning uat_failed`
 

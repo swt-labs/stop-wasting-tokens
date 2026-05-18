@@ -189,11 +189,7 @@ Then align git ignore behavior with config:
 
 ```bash
 PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-if [ -f "$PG_SCRIPT" ]; then
-  bash "$PG_SCRIPT" sync-ignore .swt-planning/config.json
-else
-  echo "SWT: planning-git.sh unavailable; skipping .gitignore sync" >&2
-fi
+bash "$PG_SCRIPT" sync-ignore .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
 ```
 
 This applies any mode-specific root `.gitignore` behavior and keeps `.swt-planning/.gitignore` current for transient runtime files in every tracking mode.
@@ -509,11 +505,7 @@ If SKIP_INFERENCE=false (confirmed/corrected inference data):
 - Run:
   ```bash
   PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-  if [ -f "$PG_SCRIPT" ]; then
-    bash "$PG_SCRIPT" commit-boundary "bootstrap project files" .swt-planning/config.json
-  else
-    echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-  fi
+  bash "$PG_SCRIPT" commit-boundary "bootstrap project files" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
   ```
 - Behavior:
   - `planning_tracking=commit`: stages `.swt-planning/` + `CLAUDE.md` and commits if there are changes

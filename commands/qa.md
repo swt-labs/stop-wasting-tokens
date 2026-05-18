@@ -55,11 +55,12 @@ ${SWT_PHASE_DETECT_OUTPUT}
 - **Brownfield normalization:** If Phase state (from Context above) contains `misnamed_plans=true`, normalize all phase directories before proceeding:
   ```bash
   NORM_SCRIPT="{plugin-root}/scripts/normalize-plan-filenames.sh"
-  if [ -f "$NORM_SCRIPT" ]; then
-    for pdir in .swt-planning/phases/*/; do
-      [ -d "$pdir" ] && bash "$NORM_SCRIPT" "$pdir"
-    done
-  fi
+  [ -f "$NORM_SCRIPT" ] || { echo "SWT: required script missing: $NORM_SCRIPT" >&2; exit 1; }
+  for pdir in .swt-planning/phases/*/; do
+    if [ -d "$pdir" ]; then
+      bash "$NORM_SCRIPT" "$pdir" || { echo "SWT: normalize-plan-filenames.sh failed for $pdir" >&2; exit 1; }
+    fi
+  done
   ```
   Display: "⚠ Renamed misnamed plan files to `{NN}-PLAN.md` convention."
   Then re-run phase-detect.sh to refresh state (filenames changed):

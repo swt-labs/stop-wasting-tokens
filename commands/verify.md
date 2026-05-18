@@ -68,11 +68,12 @@ QA verification summary (pre-extracted from VERIFICATION.md):
 - **Brownfield normalization:** If Phase state (from Context above) contains `misnamed_plans=true`, normalize all phase directories before proceeding:
   ```bash
   NORM_SCRIPT="{plugin-root}/scripts/normalize-plan-filenames.sh"
-  if [ -f "$NORM_SCRIPT" ]; then
-    for pdir in .swt-planning/phases/*/; do
-      [ -d "$pdir" ] && bash "$NORM_SCRIPT" "$pdir"
-    done
-  fi
+  [ -f "$NORM_SCRIPT" ] || { echo "SWT: required script missing: $NORM_SCRIPT" >&2; exit 1; }
+  for pdir in .swt-planning/phases/*/; do
+    if [ -d "$pdir" ]; then
+      bash "$NORM_SCRIPT" "$pdir" || { echo "SWT: normalize-plan-filenames.sh failed for $pdir" >&2; exit 1; }
+    fi
+  done
   ```
   Display: "⚠ Renamed misnamed plan files to `{NN}-PLAN.md` convention."
   Then re-run phase-detect.sh to refresh state (filenames changed):
@@ -719,11 +720,7 @@ _uat_state_exists=false
 
 ```bash
 PG_SCRIPT="/tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/planning-git.sh"
-if [ -f "$PG_SCRIPT" ]; then
-  bash "$PG_SCRIPT" commit-boundary "verify phase {NN}" .swt-planning/config.json
-else
-  echo "SWT: planning-git.sh unavailable; skipping planning git boundary commit" >&2
-fi
+bash "$PG_SCRIPT" commit-boundary "verify phase {NN}" .swt-planning/config.json || { echo "SWT: planning-git.sh missing or failed at $PG_SCRIPT" >&2; exit 1; }
 ```
 
 - `planning_tracking=commit`: commits `.swt-planning/` + `CLAUDE.md` when changed (includes UAT report)
