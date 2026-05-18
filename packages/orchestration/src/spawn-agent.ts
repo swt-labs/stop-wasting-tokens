@@ -175,6 +175,24 @@ export interface SpawnAgentSessionConfig extends SwtSessionOptions {
    * content.
    */
   readonly systemPrompt: string;
+  /**
+   * Phase 17 plan 03-01 T2 — context-file fragments returned by
+   * `pack.contextFiles({cwd, role})`. Today populated for OpenAI sessions
+   * via `CodexViaOverlayPack` (AGENTS.md hierarchical walk-up); always `[]`
+   * for Anthropic / unknown providers (D2 isolation). The default factory
+   * forwards a `'\n\n'`-joined concatenation onto the same first-turn
+   * system-prompt prepend channel SWT uses for `systemPrompt` — once the
+   * Pi session-wiring follow-up materializes that channel into a real
+   * `systemPrompt` input, AGENTS.md content rides along behind the system
+   * prompt body.
+   *
+   * Optional + `readonly string[]` matches `ProviderTuningPack.contextFiles`'s
+   * return type verbatim. An empty array OR an absent field both mean
+   * "no AGENTS.md content for this spawn" and produce byte-identical
+   * snapshot output (the factory's conditional-spread skips the field
+   * entirely when empty).
+   */
+  readonly contextFiles?: readonly string[];
   /** Role-aware Pi tool list from `toolsForRole(role, cwd)`. */
   readonly tools: AgentToolList;
   /**
@@ -240,6 +258,19 @@ export type SpawnAgentSessionFactory = (config: SpawnAgentSessionConfig) => Prom
  * with the existing `enableResultProtocol` precedent at
  * `runtime/src/session.ts:78`) and activates them when the Pi session-wiring
  * follow-up lands.
+ *
+ * Phase 17 plan 03-01 T2 — `config.contextFiles` (the
+ * pack-resolved AGENTS.md fragments) rides on the SAME first-turn
+ * prepend channel as `config.systemPrompt`. Pi 0.74 has no
+ * `systemPrompt` or `contextFiles` input on `createAgentSession`; both
+ * fields are recorded on `SpawnAgentSessionConfig` for snapshot /
+ * recording-factory tests AND for the future session-wiring follow-up
+ * that will prepend `systemPrompt + '\n\n' + contextFiles.join('\n\n')`
+ * to the first `session.prompt()` call. That follow-up is the single
+ * site that consumes both fields together — the factory itself does not
+ * (and must not) hand-roll a partial forwarding today, because Pi's
+ * extension factory ordering + session-wiring contract is owned by the
+ * runtime package, not this factory.
  */
 const defaultSpawnSessionFactory: SpawnAgentSessionFactory = async (config) => {
   // Strip spawn-specific fields before passing to the runtime — the
@@ -445,6 +476,15 @@ export function resolveSpawnAgentConfig(
   const finalSystemPrompt =
     overlay !== undefined ? `${systemPrompt}\n\n---\n\n${overlay}` : systemPrompt;
 
+  // Phase 17 plan 03-01 T2 — pack-resolved context-file fragments. For
+  // OpenAI (Codex) sessions, `CodexViaOverlayPack.contextFiles` runs the
+  // AGENTS.md walk-up loader; for Anthropic / unknown providers, the pack
+  // returns `[]` (D2 isolation). Recorded on the resolved config so the
+  // spawn snapshot tool and recording-factory tests can introspect it,
+  // and so `defaultSpawnSessionFactory` can prepend the joined content to
+  // the first-turn prompt channel.
+  const contextFiles = pack.contextFiles({ cwd: opts.cwd, role: opts.role });
+
   const tools = toolsForRole(sdlcRole, opts.cwd);
 
   // CRITICAL — orchestrator-only askUser invariant.
@@ -522,6 +562,13 @@ export function resolveSpawnAgentConfig(
     model: opts.model,
     resolvedCredential: opts.resolvedCredential,
     systemPrompt: finalSystemPrompt,
+    // Phase 17 plan 03-01 T2 — only attach the field when the pack
+    // returned a non-empty array. Conditional spread keeps absent =
+    // absent (not `undefined`-valued), preserving byte-identical wire
+    // shape for Anthropic / unknown-provider spawns and for OpenAI
+    // spawns whose cwd has no AGENTS.md content (e.g. the
+    // spawn-snapshot tool's `/tmp/swt-spawn-snapshot`).
+    ...(contextFiles.length > 0 ? { contextFiles } : {}),
     tools,
     extensions,
     transcriptPath,
