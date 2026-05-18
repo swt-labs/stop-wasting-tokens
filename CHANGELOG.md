@@ -1,8 +1,23 @@
 # Changelog
 
-## Unreleased
+## 3.0.0-alpha.30 — 2026-05-18
 
-_Milestone **`15-command-alias-foundation-todo-workflow`** archived 2026-05-18. 20 product commits ahead of alpha.29 (commits `0a02283` → `f350aa0`). Two-thrust milestone closing 9 of VBW's 17 stub gaps in one shot: the verb-alias foundation graduates 7 stub verbs to thin cook wrappers, and the todo workflow delivers VBW's biggest UX feature (numbered-todo pickup with `swt cook 3` + `(ref:HASH)` detail injection). Not yet published to npm._
+_Bundles two shipped milestones into one release: **`16-monospace-chat-log-consistency`** (archived 2026-05-18, 2 product commits) on top of **`15-command-alias-foundation-todo-workflow`** (archived 2026-05-17, 20 product commits ahead of alpha.29). 22 product commits total since alpha.29 (`0a02283` → `f13c264`). Milestone 16 restores monospace-timestamped visual consistency for chat entries in the dashboard's `UnifiedLogPanel.tsx`. Milestone 15 closes 9 of VBW's 17 stub gaps: verb-alias foundation (7 stub verbs → thin cook wrappers) + todo workflow (numbered-todo pickup with `swt cook 3` + `(ref:HASH)` detail injection)._
+
+### Milestone 16 — Monospace Chat Log Consistency
+
+1 phase / 1 plan / 3 atomic tasks / 2 product commits. **Tests: 2534 passed / 67 skipped / 0 failed** (+3 new helper cases from milestone-15's 2531 baseline). Typecheck clean at HEAD `f13c264`. QA PASS one-shot, 12/12 ACs (6 visual-deferred for `pnpm dev` browser smoke).
+
+**The problem:** chat entries (user / assistant / error) in `UnifiedLogPanel.tsx` rendered as messaging-app-style bubbles (right-aligned green, left-aligned cyan, full-width red card) while every other lane (init / cook-status / cook-agent / system) rendered as timestamped monospace lines. The split broke the panel's one-visually-consistent-surface identity.
+
+**The fix is purely presentational.** `entryToLine` in `unified-log-helpers.ts` already produced canonical monospace strings for all three chat kinds (the helper is total over `LogEntry`); the renderer just chose bubbles. Schema (`@swt-labs/shared/src/types/log-entry.ts`) and `state.unifiedLog` reducer untouched.
+
+#### Phase 01 — Monospace chat log consistency (`27a3a09` → `f13c264`, 2 commits)
+
+- **`refactor(dashboard): fold chat-assistant tools + usage into entryToLine`** (`27a3a09`). `packages/dashboard/src/client/components/unified-log-helpers.ts` extended `entryToLine` chat-assistant case to inline `tools_called` as `[tool: NAME, tool: NAME]` and `usage` as ` ↑in ↓out` suffixes. JSDoc updated to mark helper as total over `LogEntry` AND load-bearing for chat rendering. `packages/dashboard/test/unified-log-helpers.test.ts` adds 3 new test cases (tools-only, usage-only, both folded). 22 helper tests pass.
+- **`refactor(dashboard): render chat entries inline in the monospace log feed`** (`f13c264`). `packages/dashboard/src/client/components/UnifiedLogPanel.tsx` deletes the 3 bubble `<Show>` blocks; merges chat-user/chat-assistant/chat-error into the monospace `<Show>` group; splits ANSI branch on `e.kind === 'system' && e.channel !== 'internal'` (Shape B) so ANSI path keeps `innerHTML={ansiToHtml(...)}` and everything else (init/cook/system+internal/chat-*) renders via children with a `<span class="unified-log__cursor">▌</span>` sibling while streaming; extends `extraClass` for `--streaming` (chat-assistant + `completed === false`) and `--error` (chat-error); deletes dead `escapeHtml` helper. `packages/dashboard/src/client/styles.css` adds `.unified-log__line--streaming` + `@keyframes unifiedLogStreamingPulse`, `.unified-log__line--error`, `.unified-log__cursor` + `@keyframes unifiedLogCursorBlink`; deletes 6 dead bubble selectors (`bubble--user`/`--assistant`/`--streaming`/`--error`, `error-code`) + `@keyframes unifiedLogPulse`. File-level JSDoc + CSS block-comment header updated.
+
+Net diff: +179 / −161 across 4 files. QA: PASS one-shot. Zero deviations, no remediation rounds. Visual smoke (`pnpm dev` chat with streaming + tool-call + forced auth-error) deferred to user — browser interaction required.
 
 ### Milestone 15 — Command-Alias Foundation + Todo Workflow
 
