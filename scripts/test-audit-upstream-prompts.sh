@@ -3,22 +3,27 @@
 # Test seam for scripts/audit-upstream-prompts.sh.
 #
 # Exercises the audit script's diff logic OFFLINE by driving --dry-run
-# with $SWT_AUDIT_FIXTURE_DIR. Three assertions:
+# with $SWT_AUDIT_FIXTURE_DIR + $SWT_AUDIT_SOURCES_FIXTURE. Phase 5
+# refactor: the script consumes JSON sources from `swt provider-tuning-
+# sources` (or the SWT_AUDIT_SOURCES_FIXTURE env override). This test
+# captures the live envelope once, derives a synthetic clean fixture
+# (one `<slug>.body` per source), and runs three assertions:
 #
 #   1. Clean fixture path  — fixture bytes match current baselines →
 #      --verify exits 0 with no stdout.
 #   2. Drift fixture path  — fixture bytes mutated → --verify exits 0
-#      with `DRIFT:` lines on stdout (one per artifact).
+#      with `DRIFT:` lines on stdout (one per source).
 #   3. Missing sha256 binary — PATH cleared so neither sha256sum nor
 #      shasum resolves → --verify exits 2 with the expected stderr
 #      message.
 #
 # This is a bash test (not vitest) because the audit script is bash,
 # lives outside the TypeScript workspace, and the integration we want
-# to assert is the bash invocation itself. Mocking curl/npm from a
-# vitest test would shell-out anyway.
+# to assert is the bash invocation itself.
 #
 # Usage:
+#   # Requires `swt` (or the local `dist/cli.mjs`) on PATH. From the
+#   # repo root after `pnpm build`:
 #   bash scripts/test-audit-upstream-prompts.sh
 #
 # Exits 0 on success, non-zero on any FAIL.
@@ -33,14 +38,12 @@ if [ ! -x "$SCRIPT" ]; then
   exit 1
 fi
 
-# --- locate latest baseline + fetch the bytes that hash to it ----------------
-#
-# To synthesize a "clean" fixture, we need files whose sha256 matches the
-# current pinned baseline. Two options: (a) reuse --update's tempdir (it
-# deletes on exit, so we can't), (b) fetch the upstream bytes ourselves
-# once for the test. Option (b) is what we do. If the network is offline,
-# this test cannot run — that's by design; the test exercises the diff
-# logic, which is only meaningful with bytes that match the baseline.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "✗ jq is required" >&2
+  exit 1
+fi
+
+# --- locate latest baseline + resolve sources --------------------------------
 
 SNAPSHOTS_DIR="$REPO_ROOT/.vbw-planning/upstream-prompt-snapshots"
 LATEST_BASELINE_DIR=$(find "$SNAPSHOTS_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' \
@@ -50,46 +53,40 @@ if [ -z "$LATEST_BASELINE_DIR" ]; then
   exit 1
 fi
 
-CODEX_BASELINE_HEX=$(awk '{print $1; exit}' "$LATEST_BASELINE_DIR/codex-prompt.sha256")
-SDK_BASELINE_HEX=$(awk '{print $1; exit}' "$LATEST_BASELINE_DIR/claude-agent-sdk.sha256")
+# Capture the source envelope once. If `swt` is not on PATH, fall back
+# to the local dist binary.
+SOURCES_JSON=""
+if command -v swt >/dev/null 2>&1 && swt help 2>/dev/null | grep -q provider-tuning-sources; then
+  SOURCES_JSON=$(swt provider-tuning-sources)
+elif [ -f "$REPO_ROOT/dist/cli.mjs" ]; then
+  SOURCES_JSON=$(node "$REPO_ROOT/dist/cli.mjs" provider-tuning-sources)
+else
+  echo "✗ neither \`swt\` nor \`dist/cli.mjs\` has the provider-tuning-sources verb." >&2
+  echo "  Run \`pnpm build\` in the repo root first." >&2
+  exit 1
+fi
 
-# Tempdir that holds the clean fixture (bytes hash to the current baseline).
+# Tempdirs for fixtures + sources JSON.
 CLEAN_FIXTURE_DIR=$(mktemp -d -t swt-audit-test-clean-XXXXXX)
 DRIFT_FIXTURE_DIR=$(mktemp -d -t swt-audit-test-drift-XXXXXX)
-EMPTY_BIN_DIR=$(mktemp -d -t swt-audit-test-empty-bin-XXXXXX)
+ISOLATED_BIN_DIR=""
+SOURCES_FIXTURE_FILE=$(mktemp -t swt-audit-test-sources-XXXXXX.json)
 
 cleanup() {
-  rm -rf "$CLEAN_FIXTURE_DIR" "$DRIFT_FIXTURE_DIR" "$EMPTY_BIN_DIR"
+  rm -rf "$CLEAN_FIXTURE_DIR" "$DRIFT_FIXTURE_DIR" "$SOURCES_FIXTURE_FILE"
+  if [ -n "$ISOLATED_BIN_DIR" ]; then
+    rm -rf "$ISOLATED_BIN_DIR"
+  fi
 }
 trap cleanup EXIT
 
-# Fetch current upstream bytes into the clean fixture. Mirrors the audit
-# script's fetch logic but for a fixed local target.
-fetch_into_clean_fixture() {
-  local codex_url="https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/gpt_5_codex_prompt.md"
-  local sdk_pkg="@anthropic-ai/claude-agent-sdk"
-  local sdk_file="package/sdk.d.ts"
+printf '%s' "$SOURCES_JSON" > "$SOURCES_FIXTURE_FILE"
 
-  if ! curl -fSL "$codex_url" -o "$CLEAN_FIXTURE_DIR/codex-prompt.md" 2>"$CLEAN_FIXTURE_DIR/curl.err"; then
-    echo "✗ test setup: failed to fetch Codex CLI prompt from $codex_url" >&2
-    sed 's/^/  /' "$CLEAN_FIXTURE_DIR/curl.err" >&2 || true
-    return 1
-  fi
-
-  local tarball_url
-  tarball_url=$(npm view "$sdk_pkg" dist.tarball 2>/dev/null)
-  if [ -z "$tarball_url" ]; then
-    echo "✗ test setup: failed to resolve tarball URL for $sdk_pkg via npm view" >&2
-    return 1
-  fi
-
-  if ! curl -fSL "$tarball_url" -o "$CLEAN_FIXTURE_DIR/sdk.tgz" 2>"$CLEAN_FIXTURE_DIR/curl.err"; then
-    echo "✗ test setup: failed to fetch SDK tarball from $tarball_url" >&2
-    sed 's/^/  /' "$CLEAN_FIXTURE_DIR/curl.err" >&2 || true
-    return 1
-  fi
-  tar -xzOf "$CLEAN_FIXTURE_DIR/sdk.tgz" "$sdk_file" > "$CLEAN_FIXTURE_DIR/claude-agent-sdk.d.ts"
-  rm -f "$CLEAN_FIXTURE_DIR/sdk.tgz" "$CLEAN_FIXTURE_DIR/curl.err"
+# --- slug helper -------------------------------------------------------------
+# Mirrors the audit script's slug_for() byte-for-byte so fixture filenames
+# line up with what the script computes from each source's description.
+slug_for() {
+  printf '%s' "$1" | tr -c '[:alnum:]' '-' | tr -s '-' | sed 's/^-//;s/-$//' | tr '[:upper:]' '[:lower:]'
 }
 
 # --- compute_sha256 helper for the test itself -------------------------------
@@ -102,29 +99,71 @@ test_sha256() {
   fi
 }
 
-# --- main --------------------------------------------------------------------
+# --- fetch every source into the clean fixture -------------------------------
 
-echo "Setup: fetching current upstream bytes into clean fixture..."
-if ! fetch_into_clean_fixture; then
-  echo "✗ test setup failed (network?) — cannot run diff tests offline" >&2
-  exit 1
-fi
+fetch_source() {
+  # $1 = url, $2 = destination path
+  local url="$1" dest="$2"
+  if [[ "$url" == npm:* ]]; then
+    local rest pkg file tarball_url tmp
+    rest="${url#npm:}"
+    pkg="${rest%%#*}"
+    file="${rest#*#}"
+    tarball_url=$(npm view "$pkg" dist.tarball 2>/dev/null)
+    if [ -z "$tarball_url" ]; then
+      echo "✗ test setup: npm view returned empty tarball for $pkg" >&2
+      return 1
+    fi
+    tmp="$(mktemp -t swt-audit-test-tarball-XXXXXX.tgz)"
+    if ! curl -fSL "$tarball_url" -o "$tmp" 2>/dev/null; then
+      rm -f "$tmp"
+      echo "✗ test setup: failed to fetch tarball for $pkg from $tarball_url" >&2
+      return 1
+    fi
+    if ! tar -xzOf "$tmp" "$file" > "$dest" 2>/dev/null; then
+      rm -f "$tmp"
+      echo "✗ test setup: failed to extract $file from $pkg tarball" >&2
+      return 1
+    fi
+    rm -f "$tmp"
+  else
+    if ! curl -fSL "$url" -o "$dest" 2>/dev/null; then
+      echo "✗ test setup: failed to fetch $url" >&2
+      return 1
+    fi
+  fi
+}
 
-# Sanity-check that the clean fixture's hashes actually match the baseline.
-# If they don't, the test would FALSE-fail assertion 1. This is the same
-# condition the real --verify would surface as drift.
-CLEAN_CODEX_HEX=$(test_sha256 "$CLEAN_FIXTURE_DIR/codex-prompt.md")
-CLEAN_SDK_HEX=$(test_sha256 "$CLEAN_FIXTURE_DIR/claude-agent-sdk.d.ts")
-if [ "$CLEAN_CODEX_HEX" != "$CODEX_BASELINE_HEX" ] || [ "$CLEAN_SDK_HEX" != "$SDK_BASELINE_HEX" ]; then
-  echo "✗ clean fixture does NOT match current baseline — upstream has drifted"
-  echo "  codex baseline=$CODEX_BASELINE_HEX current=$CLEAN_CODEX_HEX"
-  echo "  sdk   baseline=$SDK_BASELINE_HEX current=$CLEAN_SDK_HEX"
-  echo "  This means the real audit would also report drift. Refresh the"
-  echo "  baseline via 'bash scripts/audit-upstream-prompts.sh --update'"
-  echo "  before re-running this test."
-  exit 1
-fi
-echo "  fixture hashes match baseline."
+echo "Setup: fetching upstream bytes for every source into clean fixture..."
+SOURCE_COUNT=$(printf '%s' "$SOURCES_JSON" | jq -r '.sources | length')
+i=0
+ALL_SLUGS=()
+while [ "$i" -lt "$SOURCE_COUNT" ]; do
+  desc=$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].description")
+  url=$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].url")
+  slug=$(slug_for "$desc")
+  ALL_SLUGS+=("$slug")
+  if ! fetch_source "$url" "$CLEAN_FIXTURE_DIR/$slug.body"; then
+    echo "✗ test setup failed (network?) — cannot run diff tests offline" >&2
+    exit 1
+  fi
+  baseline_path="$LATEST_BASELINE_DIR/$slug.sha256"
+  if [ ! -f "$baseline_path" ]; then
+    echo "✗ baseline file missing for slug '$slug' — refresh with --update" >&2
+    exit 1
+  fi
+  baseline_hex=$(awk '{print $1; exit}' "$baseline_path")
+  actual_hex=$(test_sha256 "$CLEAN_FIXTURE_DIR/$slug.body")
+  if [ "$baseline_hex" != "$actual_hex" ]; then
+    echo "✗ clean fixture does NOT match current baseline — upstream has drifted"
+    echo "  slug=$slug baseline=$baseline_hex current=$actual_hex"
+    echo "  Refresh the baseline via 'bash scripts/audit-upstream-prompts.sh --update'"
+    echo "  before re-running this test."
+    exit 1
+  fi
+  i=$((i + 1))
+done
+echo "  fixture hashes match baseline for all $SOURCE_COUNT source(s)."
 echo ""
 
 FAIL_COUNT=0
@@ -132,7 +171,9 @@ FAIL_COUNT=0
 # Assertion 1: clean fixture → silent exit 0 ---------------------------------
 echo "Assertion 1: clean fixture → exit 0, no stdout"
 set +e
-OUT_1=$(SWT_AUDIT_FIXTURE_DIR="$CLEAN_FIXTURE_DIR" bash "$SCRIPT" --verify --dry-run 2>&1)
+OUT_1=$(SWT_AUDIT_FIXTURE_DIR="$CLEAN_FIXTURE_DIR" \
+        SWT_AUDIT_SOURCES_FIXTURE="$SOURCES_FIXTURE_FILE" \
+        bash "$SCRIPT" --verify --dry-run 2>&1)
 RC_1=$?
 set -e
 if [ "$RC_1" = "0" ] && [ -z "$OUT_1" ]; then
@@ -144,23 +185,25 @@ fi
 echo ""
 
 # Assertion 2: drift fixture → exit 0 with DRIFT lines -----------------------
-echo "Assertion 2: drift fixture → exit 0, stdout contains both DRIFT lines"
-cp "$CLEAN_FIXTURE_DIR/codex-prompt.md" "$DRIFT_FIXTURE_DIR/codex-prompt.md"
-cp "$CLEAN_FIXTURE_DIR/claude-agent-sdk.d.ts" "$DRIFT_FIXTURE_DIR/claude-agent-sdk.d.ts"
-# Append a single byte to each — guarantees a hash change.
-printf '\nx\n' >> "$DRIFT_FIXTURE_DIR/codex-prompt.md"
-printf '\nx\n' >> "$DRIFT_FIXTURE_DIR/claude-agent-sdk.d.ts"
+echo "Assertion 2: drift fixture → exit 0, stdout has one DRIFT line per source"
+for slug in "${ALL_SLUGS[@]}"; do
+  cp "$CLEAN_FIXTURE_DIR/$slug.body" "$DRIFT_FIXTURE_DIR/$slug.body"
+  printf '\nx\n' >> "$DRIFT_FIXTURE_DIR/$slug.body"
+done
 
 set +e
-OUT_2=$(SWT_AUDIT_FIXTURE_DIR="$DRIFT_FIXTURE_DIR" bash "$SCRIPT" --verify --dry-run 2>&1)
+OUT_2=$(SWT_AUDIT_FIXTURE_DIR="$DRIFT_FIXTURE_DIR" \
+        SWT_AUDIT_SOURCES_FIXTURE="$SOURCES_FIXTURE_FILE" \
+        bash "$SCRIPT" --verify --dry-run 2>&1)
 RC_2=$?
 set -e
-if [ "$RC_2" = "0" ] \
-    && echo "$OUT_2" | grep -q '^DRIFT: codex-prompt ' \
-    && echo "$OUT_2" | grep -q '^DRIFT: claude-agent-sdk '; then
-  echo "  ✓ PASS"
+DRIFT_LINES=$(echo "$OUT_2" | grep -c '^DRIFT: ' || true)
+if [ "$RC_2" = "0" ] && [ "$DRIFT_LINES" = "$SOURCE_COUNT" ] && echo "$OUT_2" | grep -q 'method=upstreamSources'; then
+  echo "  ✓ PASS ($DRIFT_LINES DRIFT line(s) for $SOURCE_COUNT source(s))"
 else
-  echo "  ✗ FAIL (rc=$RC_2, output='$OUT_2')"
+  echo "  ✗ FAIL (rc=$RC_2, DRIFT_LINES=$DRIFT_LINES, expected $SOURCE_COUNT)"
+  echo "  output:"
+  printf '%s\n' "$OUT_2" | sed 's/^/    /'
   FAIL_COUNT=$((FAIL_COUNT + 1))
 fi
 echo ""
@@ -169,37 +212,30 @@ echo ""
 echo "Assertion 3: PATH with no sha256 → exit 2, stderr names both sha256sum + shasum"
 # Strategy: build a minimal PATH dir that symlinks IN every coreutil the
 # audit script needs (dirname, mktemp, awk, find, sort, head, cp, rm, date,
-# mkdir, chmod, sed, cat, tar, npm, curl, etc.), but explicitly does NOT
-# include sha256sum or shasum. The script's `command -v sha256sum` /
+# mkdir, chmod, sed, cat, tar, npm, curl, jq, etc.), but explicitly does
+# NOT include sha256sum or shasum. The script's `command -v sha256sum` /
 # `command -v shasum` will both miss; the script must exit 2 with the
-# expected stderr message.
-#
-# This is more robust than PATH="" (script fails at dirname) or shadowing
-# (`command -v` skips non-executable hits and falls through to the real
-# binaries in /usr/bin).
+# expected stderr message. NOTE: with $SWT_AUDIT_SOURCES_FIXTURE set, the
+# script never invokes `swt`, so we don't need to link it.
 ISOLATED_BIN_DIR=$(mktemp -d -t swt-audit-test-isolated-bin-XXXXXX)
-for util in dirname mktemp awk find sort head cp rm date mkdir chmod sed cat tar npm curl bash env tr cut grep ls touch printf; do
-  # Resolve via the parent shell's PATH, then link into the isolated dir.
+for util in dirname mktemp awk find sort head cp rm date mkdir chmod sed cat tar npm curl bash env tr cut grep ls touch printf jq node uniq wc; do
   src=$(command -v "$util" 2>/dev/null || true)
   if [ -n "$src" ]; then
     ln -s "$src" "$ISOLATED_BIN_DIR/$util"
   fi
 done
-# Explicitly DO NOT link sha256sum or shasum. Confirm neither resolves in
-# the isolated PATH (defensive — fail fast if a Linux distro keeps them
-# somewhere unexpected that npm/curl/etc. happened to symlink to).
 if [ -e "$ISOLATED_BIN_DIR/sha256sum" ] || [ -e "$ISOLATED_BIN_DIR/shasum" ]; then
   echo "  ✗ FAIL test setup: isolated bin dir contains sha256 binaries" >&2
-  rm -rf "$ISOLATED_BIN_DIR"
   exit 1
 fi
 
 set +e
-OUT_3=$(PATH="$ISOLATED_BIN_DIR" SWT_AUDIT_FIXTURE_DIR="$CLEAN_FIXTURE_DIR" \
-  bash "$SCRIPT" --verify --dry-run 2>&1)
+OUT_3=$(PATH="$ISOLATED_BIN_DIR" \
+        SWT_AUDIT_FIXTURE_DIR="$CLEAN_FIXTURE_DIR" \
+        SWT_AUDIT_SOURCES_FIXTURE="$SOURCES_FIXTURE_FILE" \
+        bash "$SCRIPT" --verify --dry-run 2>&1)
 RC_3=$?
 set -e
-rm -rf "$ISOLATED_BIN_DIR"
 if [ "$RC_3" = "2" ] && echo "$OUT_3" | grep -q 'neither sha256sum nor shasum'; then
   echo "  ✓ PASS"
 else

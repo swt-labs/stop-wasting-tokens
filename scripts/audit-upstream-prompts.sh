@@ -4,24 +4,29 @@
 #
 # Purpose
 # -------
-# SWT's provider overlays (provider_overlays/*-openai.md) and frontmatter
-# `source_paths` cite specific upstream coding-agent artifacts:
-#   1. Codex CLI canonical system prompt template:
-#        github.com/openai/codex codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md
-#   2. Claude Agent SDK type surface:
-#        npm package @anthropic-ai/claude-agent-sdk → package/sdk.d.ts
+# SWT's provider overlays (provider_overlays/*-openai.md), `apply_patch`
+# parser, and frontmatter `source_paths` cite specific upstream
+# coding-agent artifacts. These upstreams WILL drift. Without automated
+# detection, the citations silently stale.
 #
-# These upstreams WILL drift. Without automated detection, the overlay
-# citations silently stale. This script fetches the two artifacts, computes
-# sha256 over each, and compares against pinned baselines under
-# .vbw-planning/upstream-prompt-snapshots/<YYYY-MM-DD>/. It is detection-only:
-# on drift it emits a one-line report per artifact to stdout; the wrapping
-# GitHub Actions workflow turns that report into a GitHub Issue.
+# Phase 5 refactor: this script no longer hard-codes URL constants.
+# The single source of truth is `swt provider-tuning-sources`, which
+# emits an enriched JSON envelope `{schema:"v1", generated_at,
+# sources:[{packId, packDisplayName, method:"upstreamSources",
+# url, description, contentHash?, lastReviewedSha?}, ...]}` driven by
+# each `ProviderTuningPack.upstreamSources()`. Adding a new watched
+# upstream is a one-place change in the pack — this script picks it up
+# automatically on the next run.
 #
-# CI hookup: .github/workflows/upstream-prompt-audit.yml runs this script
-# in --verify mode on a monthly cron (0 0 1 * *) plus manual workflow_dispatch.
-# Cadence rationale: TDD §11.6 (conservative default — monthly is intentional
-# under-sampling; escalate to weekly only if first cron detects drift).
+# URLs starting with `npm:` (e.g. `npm:@anthropic-ai/claude-agent-sdk
+# #package/sdk.d.ts`) signal the npm-tarball fetch path; everything
+# else is fetched with `curl -fSL`.
+#
+# The script computes sha256 over each fetched body and compares against
+# pinned baselines under .vbw-planning/upstream-prompt-snapshots/
+# <YYYY-MM-DD>/<slug>.sha256. It is detection-only: on drift it emits a
+# one-line report per source to stdout; the wrapping GitHub Actions
+# workflow turns that report into a GitHub Issue.
 #
 # License hygiene
 # ---------------
@@ -34,20 +39,24 @@
 # Usage
 # -----
 #   scripts/audit-upstream-prompts.sh --verify
-#       Read-only. Fetches upstream, compares to most-recent baseline.
-#       Exit 0 silently on clean. Exit 0 with `DRIFT: ...` stdout lines on
-#       drift (the CI workflow parses stdout — drift is informational, not
-#       a non-zero exit). Exit non-zero on fetch / sha256-binary failure.
+#       Read-only. Fetches each upstream named by `swt provider-tuning-
+#       sources`, compares to most-recent baseline. Exit 0 silently on
+#       clean. Exit 0 with `DRIFT: ...` stdout lines on drift (the CI
+#       workflow parses stdout — drift is informational, not a non-zero
+#       exit). Exit non-zero on fetch / sha256-binary failure.
 #
 #   scripts/audit-upstream-prompts.sh --update
 #       Mutates baselines. Writes new sha256 files under
-#       .vbw-planning/upstream-prompt-snapshots/$(date -u +%Y-%m-%d)/.
-#       Maintainer-driven only — NEVER invoked by the cron.
+#       .vbw-planning/upstream-prompt-snapshots/$(date -u +%Y-%m-%d)/,
+#       one file per source slug. Maintainer-driven only — NEVER
+#       invoked by the cron.
 #
 #   scripts/audit-upstream-prompts.sh --verify --dry-run
-#       Offline test seam. Reads `codex-prompt.md` + `claude-agent-sdk.d.ts`
-#       from $SWT_AUDIT_FIXTURE_DIR instead of fetching over the network.
-#       Used by scripts/test-audit-upstream-prompts.sh.
+#       Offline test seam. Reads $SWT_AUDIT_FIXTURE_DIR/<slug>.body for
+#       each source. The source list itself can be overridden by setting
+#       $SWT_AUDIT_SOURCES_FIXTURE to the path of a JSON envelope (same
+#       shape as `swt provider-tuning-sources`); when unset, the CLI is
+#       still invoked. Used by scripts/test-audit-upstream-prompts.sh.
 #
 #   scripts/audit-upstream-prompts.sh --help
 #       Print usage and exit 0.
@@ -55,17 +64,17 @@
 # Exit codes
 # ----------
 #   0 = clean OR drift detected (drift is via stdout) OR --update succeeded
-#   1 = generic failure (fetch failed, mode conflict, parse failed)
+#   1 = generic failure (fetch failed, mode conflict, parse failed, jq missing)
 #   2 = neither sha256sum nor shasum on PATH
 #   3 = baseline dir not found / baseline files malformed
 #
 set -euo pipefail
 
 # --- constants ---------------------------------------------------------------
-
-CODEX_URL="https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md"
-CLAUDE_SDK_PKG="@anthropic-ai/claude-agent-sdk"
-CLAUDE_SDK_FILE="package/sdk.d.ts"
+#
+# NOTE: no hardcoded http(s)/npm: URL constants live here anymore. The
+# source list is fetched from `swt provider-tuning-sources` (or from
+# $SWT_AUDIT_SOURCES_FIXTURE for offline tests).
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SNAPSHOTS_DIR="$REPO_ROOT/.vbw-planning/upstream-prompt-snapshots"
@@ -138,68 +147,146 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# --- jq dependency check -----------------------------------------------------
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "ERROR: jq is required (parses the swt provider-tuning-sources envelope)" >&2
+  exit 1
+fi
+
+# --- source list (single source of truth) ------------------------------------
+#
+# Fetch the source list from the CLI. Schema contract: `swt provider-
+# tuning-sources` emits `{schema: "v1", generated_at, sources: [...]}`
+# where each source has `{packId, packDisplayName, method, url,
+# description, contentHash?, lastReviewedSha?}`. We assert `schema ==
+# "v1"` so a future envelope change forces an explicit script refactor
+# instead of silent breakage.
+
+if [ "${SWT_AUDIT_SOURCES_FIXTURE:-}" != "" ]; then
+  if [ ! -f "$SWT_AUDIT_SOURCES_FIXTURE" ]; then
+    echo "ERROR: SWT_AUDIT_SOURCES_FIXTURE points at missing file: $SWT_AUDIT_SOURCES_FIXTURE" >&2
+    exit 1
+  fi
+  SOURCES_JSON="$(cat "$SWT_AUDIT_SOURCES_FIXTURE")"
+else
+  if ! SOURCES_JSON="$(swt provider-tuning-sources 2>"$WORK_DIR/swt.err")"; then
+    echo "ERROR: \`swt provider-tuning-sources\` failed — is the CLI built and on PATH?" >&2
+    sed 's/^/  swt: /' "$WORK_DIR/swt.err" >&2 || true
+    exit 1
+  fi
+fi
+
+SCHEMA="$(printf '%s' "$SOURCES_JSON" | jq -r '.schema')"
+if [ "$SCHEMA" != "v1" ]; then
+  echo "ERROR: unexpected provider-tuning-sources schema: $SCHEMA (expected v1)" >&2
+  exit 1
+fi
+
+# --- slug helper -------------------------------------------------------------
+#
+# Deterministic baseline filename derived from `description`. Lowercases
+# all alphanumerics, replaces runs of non-alphanumerics with single
+# dashes, and strips leading/trailing dashes. Slug uniqueness across
+# sources is asserted below.
+
+slug_for() {
+  printf '%s' "$1" | tr -c '[:alnum:]' '-' | tr -s '-' | sed 's/^-//;s/-$//' | tr '[:upper:]' '[:lower:]'
+}
+
+# --- slug-collision guard ----------------------------------------------------
+#
+# If two sources happen to share a description-derived slug, they would
+# collide at baseline-file write time and silently mask one another. Fail
+# fast with a clear error so the maintainer can rename a description.
+
+SOURCE_COUNT="$(printf '%s' "$SOURCES_JSON" | jq -r '.sources | length')"
+declare -a ALL_SLUGS=()
+i=0
+while [ "$i" -lt "$SOURCE_COUNT" ]; do
+  desc="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].description")"
+  ALL_SLUGS+=("$(slug_for "$desc")")
+  i=$((i + 1))
+done
+UNIQ_SLUGS="$(printf '%s\n' "${ALL_SLUGS[@]}" | sort -u | wc -l | tr -d ' ')"
+if [ "$UNIQ_SLUGS" != "$SOURCE_COUNT" ]; then
+  echo "ERROR: slug collision in source list — two sources share a description-derived slug" >&2
+  printf '  %s\n' "${ALL_SLUGS[@]}" | sort | uniq -c | awk '$1 > 1 {print "  duplicate: " $2}' >&2
+  exit 1
+fi
+unset ALL_SLUGS i desc UNIQ_SLUGS
+
 # --- fetch -------------------------------------------------------------------
 
 fetch_artifacts() {
-  # Populates $WORK_DIR/codex-prompt.md and $WORK_DIR/claude-agent-sdk.d.ts.
+  # Populates $WORK_DIR/<slug>.body for each source in $SOURCES_JSON.
   # Honors --dry-run + $SWT_AUDIT_FIXTURE_DIR for offline test seam.
+  local i=0
+  local count
+  count="$(printf '%s' "$SOURCES_JSON" | jq -r '.sources | length')"
+  while [ "$i" -lt "$count" ]; do
+    local url description slug out
+    url="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].url")"
+    description="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].description")"
+    slug="$(slug_for "$description")"
+    out="$WORK_DIR/$slug.body"
 
-  if [ "$DRY_RUN" = "1" ]; then
-    if [ -z "${SWT_AUDIT_FIXTURE_DIR:-}" ]; then
-      echo "ERROR: --dry-run requires SWT_AUDIT_FIXTURE_DIR to be set" >&2
-      exit 1
+    if [ "$DRY_RUN" = "1" ]; then
+      if [ -z "${SWT_AUDIT_FIXTURE_DIR:-}" ]; then
+        echo "ERROR: --dry-run requires SWT_AUDIT_FIXTURE_DIR to be set" >&2
+        exit 1
+      fi
+      local fixture="$SWT_AUDIT_FIXTURE_DIR/$slug.body"
+      if [ ! -f "$fixture" ]; then
+        echo "ERROR: fixture missing: $fixture" >&2
+        exit 1
+      fi
+      cp "$fixture" "$out"
+    elif [[ "$url" == npm:* ]]; then
+      # npm:@pkg#file → tarball fetch + extract path
+      local rest pkg file tarball_url
+      rest="${url#npm:}"
+      pkg="${rest%%#*}"
+      file="${rest#*#}"
+      if [ -z "$pkg" ] || [ -z "$file" ] || [ "$pkg" = "$rest" ]; then
+        echo "ERROR: malformed npm: URL (expected npm:<pkg>#<file>): $url" >&2
+        exit 1
+      fi
+      if ! tarball_url=$(npm view "$pkg" dist.tarball 2>"$WORK_DIR/npm.err"); then
+        echo "ERROR: failed to resolve tarball URL for $pkg via npm view" >&2
+        sed 's/^/  npm: /' "$WORK_DIR/npm.err" >&2 || true
+        exit 1
+      fi
+      if [ -z "$tarball_url" ]; then
+        echo "ERROR: npm view returned empty tarball URL for $pkg" >&2
+        exit 1
+      fi
+      if ! curl -fSL "$tarball_url" -o "$WORK_DIR/$slug.tgz" 2>"$WORK_DIR/curl.err"; then
+        echo "ERROR: failed to fetch tarball for $pkg from $tarball_url" >&2
+        sed 's/^/  curl: /' "$WORK_DIR/curl.err" >&2 || true
+        exit 1
+      fi
+      if ! tar -xzOf "$WORK_DIR/$slug.tgz" "$file" > "$out" 2>"$WORK_DIR/tar.err"; then
+        echo "ERROR: failed to extract $file from tarball for $pkg" >&2
+        sed 's/^/  tar: /' "$WORK_DIR/tar.err" >&2 || true
+        exit 1
+      fi
+      if [ ! -s "$out" ]; then
+        echo "ERROR: extracted $file is empty (pkg=$pkg)" >&2
+        exit 1
+      fi
+      rm -f "$WORK_DIR/$slug.tgz"
+    else
+      # Plain http(s) — direct curl.
+      if ! curl -fSL "$url" -o "$out" 2>"$WORK_DIR/curl.err"; then
+        echo "ERROR: failed to fetch upstream: $description" >&2
+        echo "  source: $url" >&2
+        sed 's/^/  curl: /' "$WORK_DIR/curl.err" >&2 || true
+        exit 1
+      fi
     fi
-    local fixture_codex="$SWT_AUDIT_FIXTURE_DIR/codex-prompt.md"
-    local fixture_sdk="$SWT_AUDIT_FIXTURE_DIR/claude-agent-sdk.d.ts"
-    if [ ! -f "$fixture_codex" ]; then
-      echo "ERROR: fixture missing: $fixture_codex" >&2
-      exit 1
-    fi
-    if [ ! -f "$fixture_sdk" ]; then
-      echo "ERROR: fixture missing: $fixture_sdk" >&2
-      exit 1
-    fi
-    cp "$fixture_codex" "$WORK_DIR/codex-prompt.md"
-    cp "$fixture_sdk" "$WORK_DIR/claude-agent-sdk.d.ts"
-    return 0
-  fi
-
-  # 1. Codex CLI base prompt — direct raw fetch.
-  if ! curl -fSL "$CODEX_URL" -o "$WORK_DIR/codex-prompt.md" 2>"$WORK_DIR/curl.err"; then
-    echo "ERROR: failed to fetch Codex CLI prompt from $CODEX_URL" >&2
-    sed 's/^/  curl: /' "$WORK_DIR/curl.err" >&2 || true
-    exit 1
-  fi
-
-  # 2. Claude Agent SDK — npm view → curl tarball → tar extract.
-  local tarball_url
-  if ! tarball_url=$(npm view "$CLAUDE_SDK_PKG" dist.tarball 2>"$WORK_DIR/npm.err"); then
-    echo "ERROR: failed to resolve tarball URL for $CLAUDE_SDK_PKG via npm view" >&2
-    sed 's/^/  npm: /' "$WORK_DIR/npm.err" >&2 || true
-    exit 1
-  fi
-  if [ -z "$tarball_url" ]; then
-    echo "ERROR: npm view returned empty tarball URL for $CLAUDE_SDK_PKG" >&2
-    exit 1
-  fi
-
-  if ! curl -fSL "$tarball_url" -o "$WORK_DIR/claude-agent-sdk.tgz" 2>"$WORK_DIR/curl.err"; then
-    echo "ERROR: failed to fetch Claude Agent SDK tarball from $tarball_url" >&2
-    sed 's/^/  curl: /' "$WORK_DIR/curl.err" >&2 || true
-    exit 1
-  fi
-
-  # Extract only the sdk.d.ts file; redirect to a fixed name in WORK_DIR.
-  if ! tar -xzOf "$WORK_DIR/claude-agent-sdk.tgz" "$CLAUDE_SDK_FILE" \
-      > "$WORK_DIR/claude-agent-sdk.d.ts" 2>"$WORK_DIR/tar.err"; then
-    echo "ERROR: failed to extract $CLAUDE_SDK_FILE from Claude Agent SDK tarball" >&2
-    sed 's/^/  tar: /' "$WORK_DIR/tar.err" >&2 || true
-    exit 1
-  fi
-  if [ ! -s "$WORK_DIR/claude-agent-sdk.d.ts" ]; then
-    echo "ERROR: extracted $CLAUDE_SDK_FILE is empty" >&2
-    exit 1
-  fi
+    i=$((i + 1))
+  done
 }
 
 # --- baseline resolution -----------------------------------------------------
@@ -245,27 +332,33 @@ run_verify() {
   local baseline_dir
   baseline_dir=$(resolve_baseline_dir)
 
-  local codex_baseline_hex sdk_baseline_hex
-  codex_baseline_hex=$(read_baseline_hash "$baseline_dir/codex-prompt.sha256")
-  sdk_baseline_hex=$(read_baseline_hash "$baseline_dir/claude-agent-sdk.sha256")
-
-  local codex_current_hex sdk_current_hex
-  codex_current_hex=$(compute_sha256 "$WORK_DIR/codex-prompt.md")
-  sdk_current_hex=$(compute_sha256 "$WORK_DIR/claude-agent-sdk.d.ts")
-
+  local i=0
+  local count
+  count="$(printf '%s' "$SOURCES_JSON" | jq -r '.sources | length')"
   local drift_count=0
 
-  if [ "$codex_current_hex" != "$codex_baseline_hex" ]; then
-    printf 'DRIFT: codex-prompt baseline=%s... current=%s... source=%s\n' \
-      "${codex_baseline_hex:0:8}" "${codex_current_hex:0:8}" "$CODEX_URL"
-    drift_count=$((drift_count + 1))
-  fi
-
-  if [ "$sdk_current_hex" != "$sdk_baseline_hex" ]; then
-    printf 'DRIFT: claude-agent-sdk baseline=%s... current=%s... source=npm:%s/%s\n' \
-      "${sdk_baseline_hex:0:8}" "${sdk_current_hex:0:8}" "$CLAUDE_SDK_PKG" "$CLAUDE_SDK_FILE"
-    drift_count=$((drift_count + 1))
-  fi
+  while [ "$i" -lt "$count" ]; do
+    local description url pack_display slug current_hex baseline_path expected_hex
+    description="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].description")"
+    url="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].url")"
+    pack_display="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].packDisplayName")"
+    slug="$(slug_for "$description")"
+    current_hex="$(compute_sha256 "$WORK_DIR/$slug.body")"
+    baseline_path="$baseline_dir/$slug.sha256"
+    if [ ! -f "$baseline_path" ]; then
+      printf 'DRIFT: %s pack=%s method=upstreamSources baseline=MISSING current=%s... source=%s\n' \
+        "$description" "$pack_display" "${current_hex:0:8}" "$url"
+      drift_count=$((drift_count + 1))
+    else
+      expected_hex="$(read_baseline_hash "$baseline_path")"
+      if [ "$expected_hex" != "$current_hex" ]; then
+        printf 'DRIFT: %s pack=%s method=upstreamSources baseline=%s... current=%s... source=%s\n' \
+          "$description" "$pack_display" "${expected_hex:0:8}" "${current_hex:0:8}" "$url"
+        drift_count=$((drift_count + 1))
+      fi
+    fi
+    i=$((i + 1))
+  done
 
   # Exit 0 either way — drift uses stdout, not exit code (per --verify contract).
   if [ "$drift_count" = "0" ]; then
@@ -280,23 +373,28 @@ run_verify() {
 run_update() {
   fetch_artifacts
 
-  local codex_hex sdk_hex
-  codex_hex=$(compute_sha256 "$WORK_DIR/codex-prompt.md")
-  sdk_hex=$(compute_sha256 "$WORK_DIR/claude-agent-sdk.d.ts")
-
   local date_dir
   date_dir="$SNAPSHOTS_DIR/$(date -u +%Y-%m-%d)"
   mkdir -p "$date_dir"
 
-  # sha256sum-output format: <hex><two spaces><filename>
-  printf '%s  %s\n' "$codex_hex" "codex-prompt.md" > "$date_dir/codex-prompt.sha256"
-  printf '%s  %s\n' "$sdk_hex" "claude-agent-sdk.d.ts" > "$date_dir/claude-agent-sdk.sha256"
-
+  local i=0
+  local count
+  count="$(printf '%s' "$SOURCES_JSON" | jq -r '.sources | length')"
   {
     echo "Wrote baselines to: $date_dir"
-    echo "  codex-prompt.sha256        = $codex_hex"
-    echo "  claude-agent-sdk.sha256    = $sdk_hex"
   } >&2
+  while [ "$i" -lt "$count" ]; do
+    local description slug current_hex
+    description="$(printf '%s' "$SOURCES_JSON" | jq -r ".sources[$i].description")"
+    slug="$(slug_for "$description")"
+    current_hex="$(compute_sha256 "$WORK_DIR/$slug.body")"
+    # sha256sum-output format: <hex><two spaces><filename>.
+    printf '%s  %s\n' "$current_hex" "$slug.body" > "$date_dir/$slug.sha256"
+    {
+      printf '  %-40s = %s\n' "$slug.sha256" "$current_hex"
+    } >&2
+    i=$((i + 1))
+  done
 
   exit 0
 }
