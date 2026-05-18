@@ -29,6 +29,7 @@
 import { buildApplyPatchExtension, extractOpenAI } from '@swt-labs/runtime';
 import type { AgentRole, TaskTokenUsage } from '@swt-labs/shared';
 
+import { loadAgentsMd } from '../context/agents-md-loader.js';
 import { readProviderOverlay } from '../provider-overlay.js';
 import type {
   ContextFilesTurnContext,
@@ -65,9 +66,22 @@ export class CodexViaOverlayPack implements ProviderTuningPack {
     return [{ name: 'applyPatch' as const, factory: buildApplyPatchExtension() }];
   }
 
-  contextFiles(_turnContext: ContextFilesTurnContext): readonly string[] {
-    // D4 — Phase 1 returns []. Phase 3 will populate for AGENTS.md.
-    return [];
+  contextFiles(turnContext: ContextFilesTurnContext): readonly string[] {
+    // D4 — Phase 3 populated for AGENTS.md hierarchical walk-up.
+    // `AnthropicViaPiPack` still returns `[]` (D2 isolation — the
+    // Anthropic pack file is NOT edited by this milestone).
+    //
+    // Scout §F.3 — AGENTS.md applies to ALL roles when injected via the
+    // OpenAI pack. No role-specific exclusion. The `role` field on
+    // `turnContext` is accepted (interface contract) but unused inside
+    // this pack body.
+    //
+    // The loader walks ancestors from `cwd` looking for a `.git` marker;
+    // when `cwd` has no `.git` ancestor (e.g. the spawn-snapshot tool's
+    // `/tmp/swt-spawn-snapshot`), the loader falls back to cwd-only,
+    // finds no AGENTS.md, and returns `[]` — preserving wire-level
+    // shape for cwd's without AGENTS.md content.
+    return loadAgentsMd({ cwd: turnContext.cwd });
   }
 
   extractUsage(rawUsage: unknown): TaskTokenUsage | undefined {
