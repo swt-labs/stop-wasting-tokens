@@ -17,17 +17,11 @@ function setupRepoWithChange(root: string): void {
   writeFileSync(planPath, '# Plan v1\n');
   execSync('git init -q', { cwd: root });
   execSync('git add -A', { cwd: root });
-  execSync(
-    'git -c user.email=t@t -c user.name=t commit -q -m "v1"',
-    { cwd: root },
-  );
+  execSync('git -c user.email=t@t -c user.name=t commit -q -m "v1"', { cwd: root });
   // Make a second commit so HEAD~1 resolves.
   writeFileSync(planPath, '# Plan v2\n');
   execSync('git add -A', { cwd: root });
-  execSync(
-    'git -c user.email=t@t -c user.name=t commit -q -m "v2"',
-    { cwd: root },
-  );
+  execSync('git -c user.email=t@t -c user.name=t commit -q -m "v2"', { cwd: root });
 }
 
 beforeEach(() => {

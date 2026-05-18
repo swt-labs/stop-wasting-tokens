@@ -15,10 +15,7 @@ function setupRepo(root: string): void {
   mkdirSync(path.join(root, '.swt-planning', 'phases', '01'), { recursive: true });
   writeFileSync(path.join(root, '.swt-planning', 'phases', '01', '01-PLAN.md'), '# Plan v1\n');
   execSync('git init -q', { cwd: root });
-  execSync(
-    'git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init',
-    { cwd: root },
-  );
+  execSync('git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init', { cwd: root });
   execSync('git add -A', { cwd: root });
   execSync('git -c user.email=t@t -c user.name=t commit -q -m "add plan"', { cwd: root });
 }

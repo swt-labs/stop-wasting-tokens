@@ -33,10 +33,7 @@ export interface ArtifactHistoryCommit {
   date: string;
 }
 
-export function registerArtifactHistoryRoute(
-  app: Hono,
-  getProjectRoot: () => string | null,
-): void {
+export function registerArtifactHistoryRoute(app: Hono, getProjectRoot: () => string | null): void {
   app.get('/api/artifact-history', async (c) => {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {

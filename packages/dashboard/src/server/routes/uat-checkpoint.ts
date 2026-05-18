@@ -87,10 +87,7 @@ function appendCheckpointBlock(
   return uatText.replace(/\n*$/, '') + '\n' + block;
 }
 
-export function registerUatCheckpointRoute(
-  app: Hono,
-  getProjectRoot: () => string | null,
-): void {
+export function registerUatCheckpointRoute(app: Hono, getProjectRoot: () => string | null): void {
   app.post('/api/uat/:phase/checkpoint', async (c) => {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
