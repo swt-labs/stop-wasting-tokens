@@ -22,6 +22,7 @@
  */
 
 import { getAllPacks, type UpstreamSource } from '@swt-labs/orchestration';
+import { resolveInstallRoot } from '@swt-labs/runtime';
 
 import type { ParsedArgv } from '../argv.js';
 import { EXIT, type ExitCode } from '../exit-codes.js';
@@ -43,7 +44,13 @@ export const providerTuningSourcesHandler: CommandHandler = (
   _parsed: ParsedArgv,
   io: CommandIO,
 ): ExitCode => {
-  const installRoot = process.env['SWT_INSTALL_ROOT'] ?? io.cwd;
+  let installRoot: string;
+  try {
+    installRoot = resolveInstallRoot();
+  } catch (err) {
+    io.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    return EXIT.RUNTIME_ERROR;
+  }
   const packs = getAllPacks(installRoot);
   const sources: EnrichedSource[] = [];
   for (const pack of packs) {

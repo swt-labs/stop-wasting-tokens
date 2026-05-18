@@ -38,7 +38,11 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { resolve } from 'node:path';
 
 import { detectPhase } from '@swt-labs/methodology';
-import { askUser as defaultAskUser, type AskUserResponse } from '@swt-labs/runtime';
+import {
+  askUser as defaultAskUser,
+  resolveInstallRoot,
+  type AskUserResponse,
+} from '@swt-labs/runtime';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
@@ -450,7 +454,7 @@ export function makeVerifyHandler(deps: VerifyHandlerDeps = {}): CommandHandler 
     const hasFailures = rows.some((r) => r.verdict === 'fail');
     if (hasFailures && config.verify_scope === 'remediation') {
       try {
-        const installRoot = process.env['SWT_INSTALL_ROOT'] ?? io.cwd;
+        const installRoot = resolveInstallRoot();
         const scriptPath = resolve(installRoot, 'scripts', 'prepare-reverification.sh');
         execSyncFn(
           `bash ${JSON.stringify(scriptPath)} ${JSON.stringify(`.swt-planning/phases/${slug}`)}`,

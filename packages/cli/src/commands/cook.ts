@@ -96,6 +96,8 @@ import {
   parseAuthConfig,
   DEFAULT_AUTH_CONFIG,
   resolveSpawnCredential,
+  resolveInstallRoot,
+  resolveSessionId,
   type AskUserResponse,
   type BudgetGate,
   type BudgetProjectionResult,
@@ -3515,20 +3517,6 @@ function isAcceptResponse(response: AskUserResponse): boolean {
  */
 function stringifyPhaseDetect(state: PhaseDetectResult): string {
   return JSON.stringify(state, null, 2);
-}
-
-function resolveInstallRoot(): string {
-  return process.env['SWT_INSTALL_ROOT'] ?? process.cwd();
-}
-
-function resolveSessionId(): string {
-  // SWT_SESSION_ID is set by applyEnvToProcess() at CLI bootstrap. The
-  // ?? fallback covers the test path where applyEnvToProcess is not
-  // called (tests inject the env directly when needed).
-  return (
-    process.env['SWT_SESSION_ID'] ??
-    `cook-${Math.random().toString(16).slice(2, 10)}-${Date.now().toString(16)}`
-  );
 }
 
 /**

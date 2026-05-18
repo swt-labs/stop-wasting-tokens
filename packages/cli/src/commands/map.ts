@@ -32,6 +32,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { spawnAgent } from '@swt-labs/orchestration';
+import { resolveInstallRoot, resolveSessionId } from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
@@ -94,10 +95,15 @@ export function makeMapHandler(deps: MapHandlerDeps = {}): CommandHandler {
   const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
 
   return async (_parsed, io: CommandIO): Promise<ExitCode> => {
-    const installRoot = process.env['SWT_INSTALL_ROOT'] ?? process.cwd();
-    const baseSessionId =
-      process.env['SWT_SESSION_ID'] ??
-      `map-${Math.random().toString(16).slice(2, 10)}-${Date.now().toString(16)}`;
+    let installRoot: string;
+    let baseSessionId: string;
+    try {
+      installRoot = resolveInstallRoot();
+      baseSessionId = resolveSessionId();
+    } catch (err) {
+      io.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      return EXIT.RUNTIME_ERROR;
+    }
 
     // 1. Load + strip frontmatter from commands/map.md (once — shared body).
     let body: string;

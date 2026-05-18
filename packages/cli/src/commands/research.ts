@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { spawnAgent } from '@swt-labs/orchestration';
+import { resolveInstallRoot, resolveSessionId } from '@swt-labs/runtime';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
@@ -30,10 +31,15 @@ export function makeResearchHandler(deps: ResearchHandlerDeps = {}): CommandHand
   const readFileSyncFn = deps.readFileSyncImpl ?? readFileSync;
 
   return async (parsed, io: CommandIO): Promise<ExitCode> => {
-    const installRoot = process.env['SWT_INSTALL_ROOT'] ?? process.cwd();
-    const sessionId =
-      process.env['SWT_SESSION_ID'] ??
-      `research-${Math.random().toString(16).slice(2, 10)}-${Date.now().toString(16)}`;
+    let installRoot: string;
+    let sessionId: string;
+    try {
+      installRoot = resolveInstallRoot();
+      sessionId = resolveSessionId();
+    } catch (err) {
+      io.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      return EXIT.RUNTIME_ERROR;
+    }
 
     // 1. Topic must be a non-empty positional joined string.
     const topic = parsed.positionals.join(' ').trim();

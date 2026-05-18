@@ -25,6 +25,8 @@ import { AlreadyInitializedError, initProject } from '@swt-labs/core';
 import { spawnAgent } from '@swt-labs/orchestration';
 import {
   resolveCredentialStore,
+  resolveInstallRoot,
+  resolveSessionId,
   resolveSpawnCredential,
   type AuthConfig,
   type AuthMode,
@@ -206,10 +208,15 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
     }
 
     // ── Step 3: Lead spawn loading commands/init.md. ──
-    const installRoot = process.env['SWT_INSTALL_ROOT'] ?? process.cwd();
-    const sessionId =
-      process.env['SWT_SESSION_ID'] ??
-      `init-${Math.random().toString(16).slice(2, 10)}-${Date.now().toString(16)}`;
+    let installRoot: string;
+    let sessionId: string;
+    try {
+      installRoot = resolveInstallRoot();
+      sessionId = resolveSessionId();
+    } catch (err) {
+      io.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      return EXIT.RUNTIME_ERROR;
+    }
 
     let body: string;
     try {
