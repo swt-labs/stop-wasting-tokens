@@ -235,12 +235,14 @@ export function createApp(
   // (cwd-relative, greenfield-tolerant) alongside the other tools routes.
   // Deliberately isolated — the POST route publishes no SSE event.
   registerUserNotesRoute(app, cwd, bus);
-  if (projectRoot) {
-    registerArtifactRoute(app, projectRoot);
-    registerArtifactHistoryRoute(app, projectRoot);
-    registerArtifactDiffRoute(app, projectRoot);
-    registerUatCheckpointRoute(app, projectRoot);
-  }
+  // Artifact-family routes register unconditionally with getter closures so a
+  // post-init projectRoot (assigned by the greenfield watcher above) is picked
+  // up on the next request without re-registration. Mirrors the snapshot route's
+  // `() => snapshotter` pattern. Pre-init: each route returns 503 with body.
+  registerArtifactRoute(app, () => projectRoot);
+  registerArtifactHistoryRoute(app, () => projectRoot);
+  registerArtifactDiffRoute(app, () => projectRoot);
+  registerUatCheckpointRoute(app, () => projectRoot);
   // Plan 03-04 PR-27: Worktrees panel SSE route. Registers unconditionally
   // with a nullable projectRoot — the route returns 503 when projectRoot is
   // null (greenfield daemon) so the client can still discover the endpoint.
