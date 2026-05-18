@@ -247,13 +247,13 @@ Note: Continuous verification handled by hooks. This command is for deep, on-dem
    - Resolve the VERIFICATION output path before spawning QA:
 
      ```bash
-     QA_STATE=$(bash "{plugin-root}/scripts/qa-remediation-state.sh" get "{phase-dir}" 2>/dev/null || true)
+     QA_STATE=$(bash "{plugin-root}/scripts/qa-remediation-state.sh" get "{phase-dir}") || { echo "SWT: qa-remediation-state.sh get failed for {phase-dir}" >&2; exit 1; }
      QA_STAGE=$(printf '%s\n' "$QA_STATE" | head -1)
      VERIF_PATH=$(printf '%s\n' "$QA_STATE" | awk -F= '/^verification_path=/{print $2; exit}')
      case "$QA_STAGE" in
        verify) ;;
        done)
-         VERIF_PATH=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" current "{phase-dir}" 2>/dev/null || true)
+         VERIF_PATH=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" current "{phase-dir}") || { echo "SWT: resolve-verification-path.sh current failed for {phase-dir}" >&2; exit 1; }
          [ -n "$VERIF_PATH" ] && [ ! -f "$VERIF_PATH" ] && VERIF_PATH=""
          if [ -z "$VERIF_PATH" ] || [ ! -f "$VERIF_PATH" ]; then
            echo "Phase {NN} QA remediation is done, but the round-scoped VERIFICATION artifact is missing. Re-run swt cook to restore the remediation artifact before standalone QA." >&2
@@ -271,7 +271,7 @@ Note: Continuous verification handled by hooks. This command is for deep, on-dem
        VERIF_PATH="{phase-dir}/${VERIF_NAME}"
      fi
      if [ ! -f "$VERIF_PATH" ]; then
-       bash "{plugin-root}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" 2>/dev/null || true
+       bash "{plugin-root}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" || { echo "SWT: track-known-issues.sh sync-summaries failed for {phase-dir}" >&2; exit 1; }
      fi
      ```
 
@@ -336,13 +336,13 @@ Note: Continuous verification handled by hooks. This command is for deep, on-dem
    - Immediately after QA persists `VERIFICATION.md`, sync tracked known issues from the written artifact:
 
      ```bash
-     bash "{plugin-root}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{VERIF_PATH}" 2>/dev/null || true
+     bash "{plugin-root}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{VERIF_PATH}" || { echo "SWT: track-known-issues.sh sync-verification failed for {phase-dir}" >&2; exit 1; }
      ```
 
      After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
 
      ```bash
-     bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
+     bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" || { echo "SWT: track-known-issues.sh promote-todos failed for {phase-dir}" >&2; exit 1; }
      ```
 
      Phase-level `VERIFICATION.md` merges newly found pre-existing issues into `{phase-dir}/known-issues.json` without clearing the execution-time backlog. Round-scoped `R{RR}-VERIFICATION.md` is authoritative for unresolved known issues and prunes/clears the registry when issues are fixed.
@@ -350,7 +350,7 @@ Note: Continuous verification handled by hooks. This command is for deep, on-dem
    - Then run:
 
      ```bash
-     QA_GATE=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "{phase-dir}" 2>/dev/null || true)
+     QA_GATE=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "{phase-dir}") || { echo "SWT: qa-result-gate.sh failed to evaluate {phase-dir}" >&2; exit 1; }
      QA_GATE_ROUTING=$(printf '%s\n' "$QA_GATE" | awk -F= '/^qa_gate_routing=/{print $2; exit}')
      ```
 
@@ -374,7 +374,7 @@ Note: Continuous verification handled by hooks. This command is for deep, on-dem
      - `REMEDIATION_REQUIRED` → if `VERIF_PATH` is phase-level, initialize QA remediation state first so plain `swt cook` has a deterministic resume target:
 
        ```bash
-       bash "{plugin-root}/scripts/qa-remediation-state.sh" init "{phase-dir}" 2>/dev/null || true
+       bash "{plugin-root}/scripts/qa-remediation-state.sh" init "{phase-dir}" || { echo "SWT: qa-remediation-state.sh init failed for {phase-dir}" >&2; exit 1; }
        ```
 
        Then display that the phase-level QA result was written, but the deterministic gate still requires remediation; tell the user to continue via `swt cook`. Do **not** continue to the generic verified presentation. If `qa_gate_process_exception_evidence_missing=true`, say the round has a clean verification result but lacks recorded remediation-artifact evidence, and the next round should record an existing remediation `RNN-PLAN.md`/`RNN-SUMMARY.md` or valid original phase `PLAN.md`. If `qa_gate_known_issues_override=true`, note that the contract checks passed but `{qa_gate_known_issue_count}` tracked known issues remain unresolved in `{phase-dir}/known-issues.json`.

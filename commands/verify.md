@@ -93,7 +93,7 @@ QA verification summary (pre-extracted from VERIFICATION.md):
   ```bash
   PDIR=".swt-planning/phases/{target-slug}"
   PHASE_NUM=$(echo "{target-slug}" | sed 's/^\([0-9]*\).*/\1/')
-  VERIF_FILE=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" phase "$PDIR" 2>/dev/null || true)
+  VERIF_FILE=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" phase "$PDIR") || { echo "SWT: resolve-verification-path.sh phase failed for $PDIR" >&2; exit 1; }
   [ -n "$VERIF_FILE" ] && [ ! -f "$VERIF_FILE" ] && VERIF_FILE=""
   QA_REM_FILE="$PDIR/remediation/qa/.qa-remediation-stage"
   QA_REM_STAGE="none"
@@ -110,7 +110,7 @@ QA verification summary (pre-extracted from VERIFICATION.md):
   - If `QA_REM_STAGE` is `plan`, `execute`, or `verify`: STOP "Phase {NN} has active QA remediation (round {round}, stage {stage}). Run `swt cook` to continue QA remediation before UAT."
   - If `QA_REM_STAGE=done`: refresh `VERIF_FILE` before reading `result:` or running stale-QA checks:
     ```bash
-    VERIF_FILE=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" current "$PDIR" 2>/dev/null || true)
+    VERIF_FILE=$(bash "{plugin-root}/scripts/resolve-verification-path.sh" current "$PDIR") || { echo "SWT: resolve-verification-path.sh current failed for $PDIR" >&2; exit 1; }
     [ -n "$VERIF_FILE" ] && [ ! -f "$VERIF_FILE" ] && VERIF_FILE=""
     if [ -z "$VERIF_FILE" ]; then
       echo "Phase {NN} QA remediation is done, but the round-scoped VERIFICATION artifact is missing. Run swt cook to restore the remediation artifact before UAT." >&2
@@ -122,17 +122,18 @@ QA verification summary (pre-extracted from VERIFICATION.md):
   - If no VERIFICATION.md and no `--skip-qa`: STOP "Phase {NN} has no QA verification. Run `swt cook` to execute QA first, or use `swt verify --skip-qa` to bypass."
   - If `VERIF_FILE` exists but `known-issues.json` is missing or malformed, restore the authoritative registry before trusting QA/UAT state:
     ```bash
-    KNOWN_ISSUES_META=$(bash "{plugin-root}/scripts/track-known-issues.sh" status "$PDIR" 2>/dev/null || true)
+    KNOWN_ISSUES_META=$(bash "{plugin-root}/scripts/track-known-issues.sh" status "$PDIR") || { echo "SWT: track-known-issues.sh status failed for $PDIR" >&2; exit 1; }
     KNOWN_ISSUES_STATUS=$(printf '%s\n' "$KNOWN_ISSUES_META" | awk -F= '/^known_issues_status=/{print $2; exit}')
     if [ -n "$VERIF_FILE" ] && { [ "$KNOWN_ISSUES_STATUS" = "missing" ] || [ "$KNOWN_ISSUES_STATUS" = "malformed" ]; }; then
-      bash "{plugin-root}/scripts/track-known-issues.sh" sync-verification "$PDIR" "$VERIF_FILE" 2>/dev/null || true
-      bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos "$PDIR" 2>/dev/null || true
+      bash "{plugin-root}/scripts/track-known-issues.sh" sync-verification "$PDIR" "$VERIF_FILE" || { echo "SWT: track-known-issues.sh sync-verification failed for $PDIR" >&2; exit 1; }
+      bash "{plugin-root}/scripts/track-known-issues.sh" promote-todos "$PDIR" || { echo "SWT: track-known-issues.sh promote-todos failed for $PDIR" >&2; exit 1; }
     fi
     ```
   - Before trusting any PASS artifact, re-run the deterministic QA gate for the target phase:
 
     ```bash
-    QA_GATE_ROUTING=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "$PDIR" 2>/dev/null | awk -F= '/^qa_gate_routing=/{print $2; exit}')
+    _qa_gate_out=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "$PDIR") || { echo "SWT: qa-result-gate.sh failed to evaluate $PDIR" >&2; exit 1; }
+    QA_GATE_ROUTING=$(printf '%s\n' "$_qa_gate_out" | awk -F= '/^qa_gate_routing=/{print $2; exit}')
     ```
 
     - `PROCEED_TO_UAT`: continue to the freshness checks below.
@@ -144,14 +145,14 @@ QA verification summary (pre-extracted from VERIFICATION.md):
     - `FAIL` or `PARTIAL`: STOP "Phase {NN} QA result is {result}. Run `swt cook` to continue QA remediation, or use `swt verify --skip-qa` to bypass."
   - If `--skip-qa` flag is present: bypass QA execution and PASS freshness checks only. This does **not** bypass unresolved phase known issues. Before entering UAT, run:
     ```bash
-    KNOWN_ISSUES_META=$(bash "{plugin-root}/scripts/track-known-issues.sh" status "$PDIR" 2>/dev/null || true)
+    KNOWN_ISSUES_META=$(bash "{plugin-root}/scripts/track-known-issues.sh" status "$PDIR") || { echo "SWT: track-known-issues.sh status failed for $PDIR" >&2; exit 1; }
     KNOWN_ISSUES_STATUS=$(printf '%s\n' "$KNOWN_ISSUES_META" | awk -F= '/^known_issues_status=/{print $2; exit}')
     KNOWN_ISSUES_COUNT=$(printf '%s\n' "$KNOWN_ISSUES_META" | awk -F= '/^known_issues_count=/{print $2; exit}')
     ```
     If `KNOWN_ISSUES_STATUS=malformed`, STOP: "Phase {NN} has unreadable tracked known issues. Run `swt cook` to continue QA remediation before UAT."
     If `KNOWN_ISSUES_COUNT > 0`, run the qa-result-gate for this phase to check whether all known issues were addressed by the latest remediation round:
     ```bash
-    _gate_output=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "$PDIR" 2>/dev/null || true)
+    _gate_output=$(bash "{plugin-root}/scripts/qa-result-gate.sh" "$PDIR") || { echo "SWT: qa-result-gate.sh failed to evaluate $PDIR" >&2; exit 1; }
     _gate_routing=$(printf '%s\n' "$_gate_output" | awk -F= '/^qa_gate_routing=/{print $2; exit}')
     _gate_all_addressed=$(printf '%s\n' "$_gate_output" | awk -F= '/^qa_gate_known_issues_all_addressed=/{print $2; exit}')
     ```

@@ -249,18 +249,18 @@ Before entering Verify mode (UAT), check `qa_status` from phase-detect output:
   Then continue with QA:
   - If the phase-level verification artifact does not yet exist, backfill tracked known issues from completed summaries before QA starts:
     ```bash
-    bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" 2>/dev/null || true
+    bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-summaries "{phase-dir}" || { echo "SWT: track-known-issues.sh sync-summaries failed for {phase-dir}" >&2; exit 1; }
     ```
     This backfill is only for the first phase-level QA run after execution. Do not reuse it for round-scoped remediation verification or generic stale-verification reruns.
 
   ```bash
-  bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{QA-output-path}" 2>/dev/null || true
+  bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{QA-output-path}" || { echo "SWT: track-known-issues.sh sync-verification failed for {phase-dir}" >&2; exit 1; }
   ```
 
   After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos`:
 
   ```bash
-  bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
+  bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" || { echo "SWT: track-known-issues.sh promote-todos failed for {phase-dir}" >&2; exit 1; }
   ```
 
   Then run the deterministic gate:
@@ -419,11 +419,11 @@ When `next_phase_state=needs_qa_remediation`, resume QA remediation at the persi
     - After QA returns, apply the QA remediation no-tool circuit breaker before syncing known issues or running the deterministic gate. If QA reports unavailable tools, shell/Bash, filesystem, edits, or API-session access, STOP without advancing `.qa-remediation-stage` and do not retry that same QA prompt.
     - After QA persists `{verification_path}`, immediately sync tracked known issues:
       ```bash
-      bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{verification_path}" 2>/dev/null || true
+      bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" sync-verification "{phase-dir}" "{verification_path}" || { echo "SWT: track-known-issues.sh sync-verification failed for {phase-dir}" >&2; exit 1; }
       ```
     - After sync-verification, auto-promote surviving known issues to `STATE.md ## Todos` so they are visible via `swt list-todos` and `swt resume`:
       ```bash
-      bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" 2>/dev/null || true
+      bash "${SWT_INSTALL_ROOT}/scripts/track-known-issues.sh" promote-todos "{phase-dir}" || { echo "SWT: track-known-issues.sh promote-todos failed for {phase-dir}" >&2; exit 1; }
       ```
     - **Include in QA task description:** "In addition to verifying the remediation plan's own must_haves, you MUST re-verify each original FAIL from the VERIFICATION HISTORY section. For each FAIL_ID: if classified as code-fix, verify the code now matches the plan; if classified as plan-amendment, verify the original PLAN.md has been updated with the actual approach and rationale; if classified as process-exception, verify the exception is documented with non-fixable justification and that the justification is credible for this FAIL; if code-fix or plan-amendment still appears viable, keep the FAIL open. Any original FAIL that has not been addressed by one of these three paths is still a FAIL."
     - **Include in QA task description when a KNOWN ISSUES block is present:** "Tracked phase known issues are not informational in remediation rounds. Re-check every carried known issue from `known_issues_input` / `known_issue_resolutions`. Return only still-blocking issues in `pre_existing_issues`. If a carried issue is verified as an `accepted-process-exception`, omit it from `pre_existing_issues`, confirm that the accepted non-blocking disposition is credible for this phase, and rely on the matching `known_issue_outcomes` entry to preserve visibility after the blocking registry clears. A clean remediation QA run must return an empty `pre_existing_issues` array for all resolved or accepted non-blocking carried issues so `{phase-dir}/known-issues.json` can clear."
@@ -1010,7 +1010,7 @@ This mode handles the case where a milestone was archived before UAT issues were
    ```
    **Re-route after marking (NON-NEGOTIABLE):** The pre-computed routing state is now stale — `.remediated` markers changed on-disk state. Re-run phase-detect to discover existing phases or new-work eligibility:
    ```bash
-   FRESH_PD=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/phase-detect.sh 2>/dev/null)
+   FRESH_PD=$(bash /tmp/.swt-install-root-link-${SWT_SESSION_ID:-default}/scripts/phase-detect.sh) || { echo "SWT: phase-detect.sh failed" >&2; exit 1; }
    ```
    **Error guard:** If `FRESH_PD` is empty or contains `phase_detect_error=true`, display "⚠ Phase detection failed after marking milestones. Run `swt cook` again." and STOP.
    **Re-trigger guard:** If `FRESH_PD` still shows `milestone_uat_issues=true`, check whether `milestone_uat_slug` from `FRESH_PD` matches the slug that was just processed (the original `milestone_uat_slug` from the pre-computed state). If it matches — the marking failed for this milestone. Display "⚠ Some milestone UAT markers could not be written. Manually create `.remediated` files in the affected phase dirs, then run `swt cook`." and STOP (prevents infinite loop). If it does NOT match — a different older milestone has unresolved UAT; let routing continue (the priority table will handle it, which may route to Milestone UAT Recovery for that other milestone).
