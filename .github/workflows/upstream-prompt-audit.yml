@@ -1,16 +1,19 @@
-name: Upstream Prompt Audit
+name: Upstream Drift
 
-# Detects drift between SWT's overlay citations (TDD §4 Phase 04) and the
-# current upstream artifacts (Codex CLI base prompt, Claude Agent SDK types).
+# Detects drift between SWT's overlay citations and the current upstream
+# artifacts (Codex CLI base prompt, AGENTS.md spec, apply_patch.lark grammar,
+# Claude Agent SDK type surface). Sources enumerated via `swt provider-
+# tuning-sources` — a single source of truth driven by
+# `pack.upstreamSources()` (Plan 05-01).
 # Detection-only — opens a GitHub Issue on drift; does NOT auto-PR.
 #
-# Cadence: monthly (1st of month, 00:00 UTC) per TDD §11.6. Escalate to
-# weekly if drift is faster than monthly (see provider_overlays/README.md
-# "Upstream-drift audit" section for the escalation criterion).
+# Cadence: weekly (Monday 06:00 UTC) per Plan 05-01 brief. Adding new
+# watched upstreams is a one-place change in the orchestration pack;
+# this workflow + the audit script pick them up automatically.
 
 on:
   schedule:
-    - cron: '0 0 1 * *' # monthly, 1st of month, 00:00 UTC
+    - cron: '0 6 * * 1' # weekly, Monday 06:00 UTC
   workflow_dispatch: {} # manual trigger from Actions tab
 
 permissions:
@@ -20,21 +23,32 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node (for `npm view`)
+      - name: Setup Node (for pnpm + npm view)
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SWT
+        run: pnpm build
 
       - name: Run drift audit
         id: audit
         run: |
           set -euo pipefail
           set +e
-          REPORT=$(bash scripts/audit-upstream-prompts.sh --verify 2>&1)
+          # pnpm exec puts the workspace bin on PATH for this run, so the
+          # audit script can invoke `swt provider-tuning-sources` directly.
+          REPORT=$(pnpm exec bash scripts/audit-upstream-prompts.sh --verify 2>&1)
           AUDIT_RC=$?
           set -e
           if [ "$AUDIT_RC" -ne 0 ]; then
@@ -59,11 +73,14 @@ jobs:
         with:
           script: |
             const today = new Date().toISOString().slice(0, 10);
-            const title = `[Upstream Drift] Codex CLI / Claude Agent SDK prompt audit — ${today}`;
+            const title = `[Upstream Drift] Provider tuning pack source audit — ${today}`;
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const report = `${{ steps.audit.outputs.report }}`;
             const body = [
-              `Drift detected by monthly audit (see [run](${runUrl})).`,
+              `Drift detected by weekly Upstream Drift audit (see [run](${runUrl})).`,
+              ``,
+              `Each \`DRIFT:\` line cites the source description, owning pack, method (\`upstreamSources\`),`,
+              `baseline hash (8-char prefix), current hash (8-char prefix), and upstream URL.`,
               ``,
               '```',
               report,
@@ -71,7 +88,7 @@ jobs:
               ``,
               `Maintainer response procedure: see [provider_overlays/README.md](../blob/main/provider_overlays/README.md#upstream-drift-audit).`,
               ``,
-              `tl;dr: review the diff context upstream, decide whether the overlays need updating, then run \`bash scripts/audit-upstream-prompts.sh --update\` locally to refresh the baseline and close this issue.`,
+              `tl;dr: review the diff context upstream, decide whether the overlays / pack metadata need updating, then run \`bash scripts/audit-upstream-prompts.sh --update\` locally to refresh the baseline and close this issue.`,
             ].join('\n');
             await github.rest.issues.create({
               owner: context.repo.owner,
