@@ -87,8 +87,15 @@ function appendCheckpointBlock(
   return uatText.replace(/\n*$/, '') + '\n' + block;
 }
 
-export function registerUatCheckpointRoute(app: Hono, projectRoot: string): void {
+export function registerUatCheckpointRoute(
+  app: Hono,
+  getProjectRoot: () => string | null,
+): void {
   app.post('/api/uat/:phase/checkpoint', async (c) => {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      return c.json({ error: 'dashboard not yet initialized — run `swt init` then retry' }, 503);
+    }
     const phaseQuery = c.req.param('phase');
     const phase = resolvePhaseDir(projectRoot, phaseQuery);
     if (!phase) {

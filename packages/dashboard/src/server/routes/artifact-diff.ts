@@ -25,8 +25,15 @@ const BASE_REF_PATTERN = /^[A-Za-z0-9~^_./-]+$/;
 const GIT_TIMEOUT_MS = 10_000;
 const MAX_DIFF_BYTES = 2 * 1024 * 1024;
 
-export function registerArtifactDiffRoute(app: Hono, projectRoot: string): void {
+export function registerArtifactDiffRoute(
+  app: Hono,
+  getProjectRoot: () => string | null,
+): void {
   app.get('/api/artifact-diff', async (c) => {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      return c.json({ error: 'dashboard not yet initialized — run `swt init` then retry' }, 503);
+    }
     const requested = c.req.query('path') ?? '';
     const decoded = (() => {
       try {

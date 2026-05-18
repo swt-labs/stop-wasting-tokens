@@ -33,8 +33,15 @@ export interface ArtifactHistoryCommit {
   date: string;
 }
 
-export function registerArtifactHistoryRoute(app: Hono, projectRoot: string): void {
+export function registerArtifactHistoryRoute(
+  app: Hono,
+  getProjectRoot: () => string | null,
+): void {
   app.get('/api/artifact-history', async (c) => {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      return c.json({ error: 'dashboard not yet initialized — run `swt init` then retry' }, 503);
+    }
     const requested = c.req.query('path') ?? '';
     const decoded = (() => {
       try {

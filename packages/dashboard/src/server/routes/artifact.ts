@@ -11,8 +11,12 @@ import { renderMarkdown } from '../markdown/render.js';
 // arbitrary dist/ paths via /api/artifact was unnecessary surface area.
 const ALLOWLIST = ['.swt-planning/'] as const;
 
-export function registerArtifactRoute(app: Hono, projectRoot: string): void {
+export function registerArtifactRoute(app: Hono, getProjectRoot: () => string | null): void {
   app.get('/api/artifact', async (c) => {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      return c.json({ error: 'dashboard not yet initialized — run `swt init` then retry' }, 503);
+    }
     const requested = c.req.query('path') ?? '';
     const decoded = (() => {
       try {
