@@ -22,6 +22,7 @@ import { mapHandler } from './commands/map.js';
 import { migrateHandler } from './commands/migrate.js';
 import { phaseHandler } from './commands/phase.js';
 import { planHandler } from './commands/plan.js';
+import { providerTuningSourcesHandler } from './commands/provider-tuning-sources.js';
 import { qaHandler } from './commands/qa.js';
 import { researchHandler } from './commands/research.js';
 import { rpcHandler } from './commands/rpc.js';
@@ -271,6 +272,21 @@ export function buildRegistry(version: string = CURRENT_VERSION): CommandRegistr
     description:
       'Read STATE.md ## Todos and render a numbered list (writes a session snapshot for bare-integer cook pickup).',
     handler: listTodosHandler,
+  });
+
+  // Plan 05-01 T2 (Phase 5) — `swt provider-tuning-sources` is a read-only
+  // data-output verb. Emits an enriched JSON envelope of every
+  // ProviderTuningPack's `upstreamSources()` entries (schema v1, sorted
+  // anthropic-then-openai). Primary consumer is the drift-audit pipeline
+  // `scripts/audit-upstream-prompts.sh` + the `.github/workflows/
+  // upstream-prompt-audit.yml` GHA workflow — a single source of truth
+  // for upstream artifacts SWT mirrors (Codex template + AGENTS.md +
+  // apply_patch.lark + Claude Agent SDK type surface).
+  registry.register({
+    name: 'provider-tuning-sources',
+    description:
+      'Emit JSON document of all ProviderTuningPack upstreamSources() entries (consumed by drift audit script)',
+    handler: providerTuningSourcesHandler,
   });
 
   for (const spec of STUB_SPECS) {
