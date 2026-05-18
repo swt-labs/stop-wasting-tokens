@@ -83,6 +83,19 @@ Rationale: shipping 3 overlays × 1 provider = 3 files is the minimum viable sur
 - No overlay file → no append → vendor-neutrality preserved (Anthropic/Google/OpenRouter runs byte-identical to pre-Phase-1).
 - Resolver is ENOENT-safe: missing file returns `undefined`, never throws. Every non-overlay spawn hits this path; throwing would break the runtime.
 
+## AGENTS.md hierarchical loading (OpenAI-only)
+
+When a session is spawned with `provider=openai`, SWT walks the filesystem from `opts.cwd` upward to the nearest `.git`-ancestor (the project root), collecting `AGENTS.md` (or `AGENTS.override.md` when present) at each directory level, and concatenates them root-first into the first-turn prompt prepend channel. This mirrors Codex CLI's `AgentsMdManager` behavior so a single `AGENTS.md` authored for Codex CLI works unchanged in SWT-on-OpenAI sessions.
+
+- `AGENTS.override.md` REPLACES `AGENTS.md` at the same directory level — at each level, the loader checks the override filename first and `break`s on the first hit. Layered concatenation across levels still applies.
+- Concatenation order is root → cwd (root-first), with `\n\n` separator between levels.
+- OpenAI-only injection. Anthropic sessions receive NO `AGENTS.md` content by design (D2 provider-isolation invariant + D5 — no Anthropic-side AGENTS.md spec exists).
+- The orchestrator role does NOT receive AGENTS.md content. The orchestrator's pack-selection path (`spawn-orchestrator-session.ts`) never invokes `pack.contextFiles()` — orchestrator system prompts come from `commands/cook.md`, not from project-level AGENTS.md.
+- Loader implementation: `packages/orchestration/src/context/agents-md-loader.ts`. Tests at `packages/orchestration/test/agents-md-loader.test.ts`.
+- Wiring: `pack.contextFiles({cwd, role})` → `SpawnAgentSessionConfig.contextFiles` → `defaultSpawnSessionFactory` first-turn prepend channel (the same channel that already carries the role's system prompt, since Pi 0.74 has no native `systemPrompt` input).
+
+See `docs/agents-md.md` for end-user details on authoring AGENTS.md content.
+
 ## Authoring a new overlay
 
 1. `cp templates/provider-overlay.md provider_overlays/<role>-<provider>.md`
