@@ -130,6 +130,8 @@ scripts/lib/*
 !scripts/check-bundle-size.mjs
 !scripts/check-offline.mjs
 !scripts/docs-gen.ts
+# Phase 17 plan 01-01 T1: spawn-snapshot determinism tool (gates Provider-isolation invariant D2).
+!scripts/spawn-snapshot.ts
 !scripts/public-benchmark.mjs
 !scripts/record-cassette.mjs
 # Phase 2 / Plan 02-01 (G-R3): developer-local rate-card refresh.
