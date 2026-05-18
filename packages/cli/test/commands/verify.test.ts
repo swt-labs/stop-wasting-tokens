@@ -13,8 +13,28 @@
 import type { PathLike, PathOrFileDescriptor } from 'node:fs';
 
 import type { PhaseDetectResult } from '@swt-labs/methodology';
+import type * as SwtRuntime from '@swt-labs/runtime';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Phase 03 G-03 T5: controllable mock for resolveInstallRoot — toggled in the
+// missing-precondition / io.cwd-bug regression test. Defaults to passthrough
+// so existing tests see the real runtime resolver.
+const runtimeMockState = vi.hoisted(() => ({ resolveInstallRootShouldThrow: false }));
+vi.mock('@swt-labs/runtime', async () => {
+  const actual = await vi.importActual<typeof SwtRuntime>('@swt-labs/runtime');
+  return {
+    ...actual,
+    resolveInstallRoot: () => {
+      if (runtimeMockState.resolveInstallRootShouldThrow) {
+        throw new Error(
+          'swt:installRoot — could not locate the SWT package root. Set SWT_INSTALL_ROOT explicitly.',
+        );
+      }
+      return actual.resolveInstallRoot();
+    },
+  };
+});
 
 import {
   extractFromVerification,
@@ -330,5 +350,34 @@ describe('@swt-labs/cli — verifyHandler integration (Plan 03-03 T2)', () => {
     });
     await h.run();
     expect(h.execSyncImpl).not.toHaveBeenCalled();
+  });
+
+  // Phase 03 G-03 T5 — DEVN-PHASE-03-CRITICAL-VERIFY-IO-CWD-BUG regression guard.
+  // The previous verify.ts:453 fell back to `io.cwd` (the user's project dir)
+  // when SWT_INSTALL_ROOT was unset, silently loading scripts from the wrong
+  // filesystem location. After the fix, verify.ts calls resolveInstallRoot()
+  // which throws on missing env. This test asserts EXIT.RUNTIME_ERROR + the
+  // SWT_INSTALL_ROOT diagnostic message.
+  it('exits EXIT.RUNTIME_ERROR when resolveInstallRoot throws in remediation path', async () => {
+    runtimeMockState.resolveInstallRootShouldThrow = true;
+    try {
+      const h = buildVerifyHarness({
+        verifyScope: 'remediation',
+        askResponses: [
+          { selectedOption: 'Pass', freeform: null },
+          { selectedOption: 'Fail', freeform: null },
+          { selectedOption: null, freeform: 'reproduce in CI' },
+          { selectedOption: 'Pass', freeform: null },
+        ],
+      });
+      const exit = await h.run();
+      expect(exit).toBe(3);
+      expect(h.stderr()).toContain('SWT_INSTALL_ROOT');
+      // execSync must NOT have been invoked — the throw fires before the
+      // script-path resolution would reach `prepare-reverification.sh`.
+      expect(h.execSyncImpl).not.toHaveBeenCalled();
+    } finally {
+      runtimeMockState.resolveInstallRootShouldThrow = false;
+    }
   });
 });

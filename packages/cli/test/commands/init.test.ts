@@ -13,8 +13,28 @@
  */
 
 import { AlreadyInitializedError } from '@swt-labs/core';
+import type * as SwtRuntime from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Phase 03 G-03 T5: controllable mock for resolveInstallRoot — toggled in the
+// missing-precondition test. Defaults to passthrough so existing tests see the
+// real runtime resolver (which honors process.env.SWT_INSTALL_ROOT).
+const runtimeMockState = vi.hoisted(() => ({ resolveInstallRootShouldThrow: false }));
+vi.mock('@swt-labs/runtime', async () => {
+  const actual = await vi.importActual<typeof SwtRuntime>('@swt-labs/runtime');
+  return {
+    ...actual,
+    resolveInstallRoot: () => {
+      if (runtimeMockState.resolveInstallRootShouldThrow) {
+        throw new Error(
+          'swt:installRoot — could not locate the SWT package root. Set SWT_INSTALL_ROOT explicitly.',
+        );
+      }
+      return actual.resolveInstallRoot();
+    },
+  };
+});
 
 import { makeInitHandler } from '../../src/commands/init.js';
 import { buildRegistry } from '../../src/main.js';
@@ -321,5 +341,19 @@ describe('@swt-labs/cli — initHandler (Plan 03-03 T5)', () => {
       // Init handler still completes successfully — persist failure is a
       // soft warning, not a fatal error.
     });
+  });
+
+  // Phase 03 G-03 T5: missing-precondition regression — handler must hard-fail
+  // when resolveInstallRoot throws. Per Locked Decision #6.
+  it('exits EXIT.RUNTIME_ERROR when resolveInstallRoot throws (SWT_INSTALL_ROOT unresolvable)', async () => {
+    runtimeMockState.resolveInstallRootShouldThrow = true;
+    try {
+      const h = buildInitHarness();
+      const exit = await h.run(['my-proj']);
+      expect(exit).toBe(3);
+      expect(h.stderr()).toContain('SWT_INSTALL_ROOT');
+    } finally {
+      runtimeMockState.resolveInstallRootShouldThrow = false;
+    }
   });
 });

@@ -39,9 +39,29 @@ import type { execSync as ExecSyncFn } from 'node:child_process';
 import type { PathLike, PathOrFileDescriptor } from 'node:fs';
 
 import type { PhaseDetectResult } from '@swt-labs/methodology';
+import type * as SwtRuntime from '@swt-labs/runtime';
 import type { AskUserResponse } from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Phase 03 G-03 T5: controllable mock for resolveInstallRoot — toggled in the
+// missing-precondition test. Defaults to passthrough so existing tests see the
+// real runtime resolver (which honors process.env.SWT_INSTALL_ROOT).
+const runtimeMockState = vi.hoisted(() => ({ resolveInstallRootShouldThrow: false }));
+vi.mock('@swt-labs/runtime', async () => {
+  const actual = await vi.importActual<typeof SwtRuntime>('@swt-labs/runtime');
+  return {
+    ...actual,
+    resolveInstallRoot: () => {
+      if (runtimeMockState.resolveInstallRootShouldThrow) {
+        throw new Error(
+          'swt:installRoot — could not locate the SWT package root. Set SWT_INSTALL_ROOT explicitly.',
+        );
+      }
+      return actual.resolveInstallRoot();
+    },
+  };
+});
 
 import { DEFAULT_AUTH_CONFIG } from '../../src/commands/auth-config.js';
 import {
@@ -502,6 +522,26 @@ describe('@swt-labs/cli — cookHandler flag-detection path (Plan 03-02 T5 / D.3
     await h.run([], { archive: true });
     expect(h.askUserImpl).not.toHaveBeenCalled();
     expect(h.spawnImpl.mock.calls[0]?.[0]?.prompt).toContain('### Mode: Archive');
+  });
+
+  // Phase 03 G-03 T5: missing-precondition regression — when resolveInstallRoot
+  // throws (SWT_INSTALL_ROOT unresolvable), the cook handler propagates the
+  // error rather than silently falling back. Per Locked Decision #6.
+  it('propagates the resolveInstallRoot throw when SWT_INSTALL_ROOT is unresolvable', async () => {
+    runtimeMockState.resolveInstallRootShouldThrow = true;
+    try {
+      const h = buildHarness({ state: makePhaseDetect() });
+      // The `--plan=01` flag path hits resolveSessionId()→resolveInstallRoot()
+      // early (cook.ts:1821 + 1854) before any spawn. The runtime's
+      // resolveInstallRoot throws because our hoisted mock is active.
+      // The handler does not have a top-level catch around this site, so the
+      // error propagates as a rejected Promise — that IS the desired
+      // Locked Decision #6 hard-fail signal: no silent process.cwd() recovery.
+      await expect(h.run([], { plan: '01' })).rejects.toThrow(/SWT_INSTALL_ROOT/);
+      expect(h.spawnImpl).not.toHaveBeenCalled();
+    } finally {
+      runtimeMockState.resolveInstallRootShouldThrow = false;
+    }
   });
 });
 
