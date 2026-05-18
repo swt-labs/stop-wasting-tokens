@@ -13,3 +13,9 @@ pnpm-lock.yaml
 docs/reference/artifacts.mdx
 docs/reference/cli.mdx
 docs/reference/config.mdx
+
+# Vendored upstream templates — body MUST stay byte-exact with upstream so
+# the recorded sha256 (in YAML frontmatter + audit-script baseline +
+# CodexViaOverlayPack.upstreamSources contentHash) verifies. Letting
+# Prettier reformat the body would silently break the drift-audit invariant.
+references/codex/

@@ -86,7 +86,8 @@ export class CodexViaOverlayPack implements ProviderTuningPack {
     return [
       {
         url: 'https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md',
-        description: 'Canonical Codex system prompt template (replaces legacy gpt_5_codex_prompt.md)',
+        description:
+          'Canonical Codex system prompt template (replaces legacy gpt_5_codex_prompt.md)',
         contentHash: '492a212d8a23be8b03c488177d8986f4db4ee54a34b2e8a60779e5e5c89a1b63',
         lastReviewedSha: '22dd9ad3929253ed24d7ee4f10f238e95ab25f37',
       },
