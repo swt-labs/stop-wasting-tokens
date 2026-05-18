@@ -161,9 +161,7 @@ export function loadAgentsMd(opts: { cwd: string }): readonly string[] {
         // Do NOT surface the error to the model; Codex's tracing::error!
         // path is equivalent (logged, content omitted).
         console.warn(
-          `[agents-md-loader] Failed to read ${filePath}: ${
-            nodeErr?.message ?? String(err)
-          }`,
+          `[agents-md-loader] Failed to read ${filePath}: ${nodeErr?.message ?? String(err)}`,
         );
         continue;
       }
