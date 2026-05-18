@@ -76,10 +76,11 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build && changeset publish",
-    "release:preflight": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
+    "release:preflight": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:tarball-shape",
     "prepublishOnly": "pnpm build",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
     "check:offline": "node scripts/check-offline.mjs",
+    "check:tarball-shape": "node scripts/check-tarball-shape.mjs",
     "record": "pnpm --filter @swt-labs/test-utils record"
   },
   "dependencies": {
