@@ -44,6 +44,7 @@ export function classifyEntry(entry: LogEntry): 'chat' | 'cook' | 'init' | 'syst
     case 'cook-agent':
     case 'cook-tool':
     case 'cook-ask-user':
+    case 'cook-plan-update':
       return 'cook';
     case 'init':
       return 'init';
@@ -121,6 +122,24 @@ export function entryToLine(entry: LogEntry): string {
     }
     case 'cook-ask-user':
       return `${prefix}[cook-ask-user] ${entry.question}`;
+    case 'cook-plan-update': {
+      // Phase 17 plan 04-01 Task 2 — Codex parity update_plan render.
+      // Single-line monospace shape:
+      //   `HH:MM:SS [cook] plan: [x] step | [~] step | [ ] step`
+      // matching milestone 16's monospace-uniformity discipline. Status
+      // glyphs: `[x]` completed, `[~]` in_progress, `[ ]` pending. When
+      // `explanation` is present, append `— <explanation>` after the
+      // step list so the model's free-form context renders inline.
+      const items = entry.plan
+        .map((item) => {
+          const icon =
+            item.status === 'completed' ? '[x]' : item.status === 'in_progress' ? '[~]' : '[ ]';
+          return `${icon} ${item.step}`;
+        })
+        .join(' | ');
+      const explanationSuffix = entry.explanation ? ` — ${entry.explanation}` : '';
+      return `${prefix}[cook] plan: ${items}${explanationSuffix}`;
+    }
     case 'system': {
       const channelTag = entry.channel === 'internal' ? '[internal] ' : '';
       return `${prefix}[system] ${channelTag}${entry.line}`;

@@ -183,6 +183,38 @@ export const ChatErrorEntrySchema = z.object({
   message: z.string(),
 });
 
+// ── cook-plan-update ─────────────────────────────────────────────────────────
+// Phase 17 plan 04-01 Task 2 — Codex parity. Mirrors the on-wire shape of the
+// `cook.plan_update` SwtEvent (see schemas/events.ts) that the
+// `update_plan` Pi customTool emits via `pi.appendEntry('cook.plan_update',
+// parsedArgs)` from `packages/runtime/src/extensions/update-plan-tool.ts`.
+//
+// REPLACE semantics — the dashboard reducer (handleCookEvent
+// 'cook.plan_update' branch) replaces the most-recent entry of this kind for
+// the same session_id rather than appending. The Solid <For> keys on `id`,
+// so the reducer reuses the prior entry's id when replacing to avoid a
+// remount (mirrors the chat-assistant streaming pattern at
+// packages/dashboard/src/client/state/dashboard-store.ts handleChatEvent).
+//
+// `plan` items use the same status enum the runtime Zod schema validates:
+// 'pending' / 'in_progress' / 'completed'.
+export const CookPlanUpdateEntrySchema = z.object({
+  kind: z.literal('cook-plan-update'),
+  id: z.string(),
+  ts: z.string(),
+  session_id: z.string(),
+  sub_session_id: z.string(),
+  explanation: z.string().optional(),
+  plan: z.array(
+    z
+      .object({
+        step: z.string(),
+        status: z.enum(['pending', 'in_progress', 'completed']),
+      })
+      .strict(),
+  ),
+});
+
 // ── system ───────────────────────────────────────────────────────────────────
 // Covers log.append SSE events, error events, and internal appendLogLine()
 // synthesized lines. Channel 'internal' is NEW per Scout §1 K-3 — distinguishes
@@ -198,7 +230,9 @@ export const SystemEntrySchema = z.object({
 });
 
 /**
- * The discriminated union — exactly 9 variants. Order matches Scout §1.
+ * The discriminated union — exactly 10 variants. Order matches Scout §1
+ * plus the Phase 17 plan 04-01 addition (`cook-plan-update`) appended
+ * after the other `cook-*` variants and before `system`.
  * Discriminant: `kind`.
  */
 export const LogEntrySchema = z.discriminatedUnion('kind', [
@@ -207,6 +241,7 @@ export const LogEntrySchema = z.discriminatedUnion('kind', [
   CookAgentEntrySchema,
   CookToolEntrySchema,
   CookAskUserEntrySchema,
+  CookPlanUpdateEntrySchema,
   ChatUserEntrySchema,
   ChatAssistantEntrySchema,
   ChatErrorEntrySchema,
@@ -223,6 +258,7 @@ export type CookStatusEntry = Extract<LogEntry, { kind: 'cook-status' }>;
 export type CookAgentEntry = Extract<LogEntry, { kind: 'cook-agent' }>;
 export type CookToolEntry = Extract<LogEntry, { kind: 'cook-tool' }>;
 export type CookAskUserEntry = Extract<LogEntry, { kind: 'cook-ask-user' }>;
+export type CookPlanUpdateEntry = Extract<LogEntry, { kind: 'cook-plan-update' }>;
 export type ChatUserEntry = Extract<LogEntry, { kind: 'chat-user' }>;
 export type ChatAssistantEntry = Extract<LogEntry, { kind: 'chat-assistant' }>;
 export type ChatErrorEntry = Extract<LogEntry, { kind: 'chat-error' }>;

@@ -2,7 +2,7 @@
 // for the plan's grep verify gate (`^import type \{ LogEntry`). Keeping it
 // separate from the broader shared-type bundle below also documents the
 // L7 → L0 downward import direction at a glance.
-import type { LogEntry } from '@swt-labs/shared';
+import type { CookPlanUpdateEntry, LogEntry } from '@swt-labs/shared';
 import type {
   AgentLiveState,
   AgentPromptContext,
@@ -949,6 +949,49 @@ export function createDashboardStore(
           subtype: 'budget_resume',
           message: `budget refilled — session ${evt.session_id.slice(0, 8)} resuming`,
         });
+        return;
+      }
+      case 'cook.plan_update': {
+        // Phase 17 plan 04-01 Task 2 — Codex parity update_plan reducer.
+        // REPLACE semantics: every `cook.plan_update` event REPLACES the
+        // most-recent CookPlanUpdateEntry for the same `session_id` rather
+        // than appending, matching Codex's plan-replace contract
+        // (`plan_tool.rs`). The Solid <For> keys on entry.id, so we
+        // reuse the prior entry's id when replacing — prevents a row
+        // remount and mirrors the chat-assistant streaming pattern.
+        // First call for a session falls through to pushLogEntry.
+        //
+        // `findLastIndex` is ES2023; workspace tsconfig pins `lib:
+        // ['ES2022']` so TS doesn't know the method exists. The runtime
+        // (Node ≥18, all evergreen browsers) does ship it, so we narrow
+        // through a local `Array.prototype.findLastIndex`-shaped helper
+        // typed at the call site rather than widening the tsconfig
+        // workspace-wide.
+        const findLastIndex = <T>(arr: readonly T[], predicate: (value: T) => boolean): number =>
+          (
+            arr as unknown as {
+              findLastIndex(p: (value: T) => boolean): number;
+            }
+          ).findLastIndex(predicate);
+        const lastPlanIdx = findLastIndex(
+          state.unifiedLog,
+          (e) => e.kind === 'cook-plan-update' && e.session_id === evt.session_id,
+        );
+        const prior = lastPlanIdx >= 0 ? state.unifiedLog[lastPlanIdx] : undefined;
+        const entry: CookPlanUpdateEntry = {
+          kind: 'cook-plan-update',
+          id: prior?.id ?? `log-plan-${++logSeq}`,
+          ts: evt.ts,
+          session_id: evt.session_id,
+          sub_session_id: evt.sub_session_id,
+          plan: evt.plan,
+          ...(evt.explanation !== undefined ? { explanation: evt.explanation } : {}),
+        };
+        if (lastPlanIdx >= 0) {
+          setState('unifiedLog', lastPlanIdx, entry);
+        } else {
+          pushLogEntry(entry);
+        }
         return;
       }
       case 'cook.ask_user_timeout': {

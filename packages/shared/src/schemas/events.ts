@@ -326,6 +326,33 @@ const CookBudgetResumeEvent = z.object({
   ceiling_usd: z.number().nonnegative(),
 });
 
+// Phase 17 plan 04-01 (Codex parity, update_plan tool) — emitted by the
+// `update_plan` Pi customTool (packages/runtime/src/extensions/update-plan-tool.ts)
+// via `pi.appendEntry('cook.plan_update', parsedArgs)` on each successful
+// invocation. The customType on the Pi entry maps to this event's `type`
+// when the cook events JSONL bridge surfaces it to SSE consumers. The
+// dashboard reducer (handleCookEvent 'cook.plan_update' branch) consumes
+// this and applies REPLACE semantics — the most-recent CookPlanUpdateEntry
+// for the same `session_id` is replaced in place rather than appended,
+// matching Codex's plan-replace contract (`plan_tool.rs`). `plan` mirrors
+// the runtime `UpdatePlanArgs` schema (status enum verbatim); `explanation`
+// is optional.
+const CookPlanUpdateEvent = z.object({
+  type: z.literal('cook.plan_update'),
+  ts: TimestampSchema,
+  session_id: z.string().min(1),
+  sub_session_id: z.string().min(1),
+  plan: z.array(
+    z
+      .object({
+        step: z.string(),
+        status: z.enum(['pending', 'in_progress', 'completed']),
+      })
+      .strict(),
+  ),
+  explanation: z.string().optional(),
+});
+
 // Plan 02-01 (milestone 13, Phase 02) — Cook askUser UI timeout.
 // UI-cosmetic only: dashboard tracks its own setTimeout per cook-correlated
 // prompt.request and emits this on expiry to mark the CookAskUserEntry
@@ -628,6 +655,7 @@ export const SnapshotEventSchema = z.discriminatedUnion('type', [
   CookResumeEvent,
   CookBudgetExceededEvent,
   CookBudgetResumeEvent,
+  CookPlanUpdateEvent,
   CookAskUserTimeoutEvent,
   CookWorktreeIsolationWarningEvent,
   CookProviderSelectedEvent,
@@ -700,6 +728,11 @@ export const SNAPSHOT_EVENT_TYPES = [
   'cook.resume',
   'cook.budget_exceeded',
   'cook.budget_resume',
+  // Phase 17 plan 04-01 — Codex parity update_plan customTool entry. The
+  // tool's pi.appendEntry call surfaces through the cook events JSONL
+  // bridge as this type; the dashboard reducer applies REPLACE semantics
+  // on a same-session_id match.
+  'cook.plan_update',
   // Plan 02-01 (milestone 13, Phase 02) — UI-cosmetic timeout marker emitted
   // by the dashboard when its per-prompt setTimeout expires; the reducer
   // sets the matching CookAskUserEntry to `status: 'expired'`.
@@ -749,6 +782,10 @@ export type CookProviderFallbackEvent = z.infer<typeof CookProviderFallbackEvent
 // this when clearing cookAwaitingUser + marking the matching
 // CookAskUserEntry `status: 'expired'`.
 export type CookAskUserTimeoutEvent = z.infer<typeof CookAskUserTimeoutEvent>;
+// Phase 17 plan 04-01 — inferred TS type for the update_plan customTool
+// event. handleCookEvent's 'cook.plan_update' branch narrows on this and
+// constructs a CookPlanUpdateEntry under REPLACE semantics.
+export type CookPlanUpdateEvent = z.infer<typeof CookPlanUpdateEvent>;
 // Plan 03-02 (Phase 3 / G-R4) — inferred TS type for the pre-spawn cost
 // forecast event; plan 03-04's cook.ts emitter narrows on this. The
 // CookBudgetProjectedEventSchema const is already exported at its declaration.
@@ -808,6 +845,10 @@ export {
   // `cook.ask_user_timeout` UI-cosmetic timeout event so route emitters and
   // tests can validate payloads before publishing onto the EventBus.
   CookAskUserTimeoutEvent as CookAskUserTimeoutEventSchema,
+  // Phase 17 plan 04-01 — Zod schema alias for the cook.plan_update event
+  // (Codex parity update_plan customTool). Route emitters / tests can
+  // validate payloads before publishing onto the EventBus.
+  CookPlanUpdateEvent as CookPlanUpdateEventSchema,
   // Plan 04-01 (Phase 4) — Zod schema aliases so plan 04-02's route can
   // validate the `oauth.*` payloads it publishes onto the EventBus.
   OAuthAuthUrlEvent as OAuthAuthUrlEventSchema,

@@ -241,6 +241,7 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
           props.entry.kind === 'init' ||
           props.entry.kind === 'cook-status' ||
           props.entry.kind === 'cook-agent' ||
+          props.entry.kind === 'cook-plan-update' ||
           props.entry.kind === 'system' ||
           props.entry.kind === 'chat-user' ||
           props.entry.kind === 'chat-assistant' ||
@@ -253,6 +254,7 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
             e.kind !== 'init' &&
             e.kind !== 'cook-status' &&
             e.kind !== 'cook-agent' &&
+            e.kind !== 'cook-plan-update' &&
             e.kind !== 'system' &&
             e.kind !== 'chat-user' &&
             e.kind !== 'chat-assistant' &&

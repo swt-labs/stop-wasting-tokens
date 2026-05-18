@@ -46,6 +46,11 @@ describe('@swt-labs/shared — CookEvent variants', () => {
       // a manual ceiling bump via /api/budget/bump.
       'cook.budget_exceeded',
       'cook.budget_resume',
+      // Phase 17 plan 04-01 — Codex parity update_plan customTool entry.
+      // Surfaces via pi.appendEntry('cook.plan_update', parsedArgs) from
+      // packages/runtime/src/extensions/update-plan-tool.ts; the dashboard
+      // reducer applies REPLACE semantics on a same-session_id match.
+      'cook.plan_update',
       // Plan 02-01 (milestone 13, Phase 02) — Cook askUser UI timeout marker
       // emitted by the dashboard when its per-prompt setTimeout expires.
       'cook.ask_user_timeout',
