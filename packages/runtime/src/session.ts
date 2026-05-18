@@ -157,6 +157,35 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
   // `resourceLoader` option (preserves pre-R01 byte-identity).
   const resourceLoader = await buildPiResourceLoader(opts);
 
+  // Phase 04 (G-04) — hoist `materializeExtensionsToCustomTools` to a SINGLE
+  // shared site shared by both the auth and no-auth branches below
+  // (DEVN-PHASE-04-DUAL-CALLSITE-LIFT-TO-SHARED). Byte-equivalent on the
+  // wire: identical `customTools` array is consumed by either branch's
+  // `createAgentSession` — just computed once instead of twice.
+  const customTools = materializeExtensionsToCustomTools(opts.extensionFactories);
+
+  // Phase 04 (G-04) — Locked Decision #6 ("No silent fallbacks") applied to
+  // the Pi-extension registration boundary. If a caller supplied extension
+  // factories but every factory silently failed to register a tool (the
+  // structural signature of Bug E from weird-vibes.md — "I'll proceed in
+  // turbo mode"), hard-throw instead of returning a half-broken SwtSession.
+  // See .vbw-planning/CONTEXT.md key decision row "No silent fallbacks
+  // (Locked Decision #6)" + commands.md Locked Decision #6 + Phase 04
+  // RESEARCH §E/§J.
+  if (
+    opts.extensionFactories !== undefined &&
+    opts.extensionFactories.length > 0 &&
+    customTools.length === 0
+  ) {
+    throw new Error(
+      `SWT: Pi extension registration check failed — ` +
+        `${opts.extensionFactories.length} factory(s) supplied but zero customTools materialized.\n` +
+        `     Every factory must call pi.registerTool({...}) at least once.\n` +
+        `     Wire site: packages/orchestration/src/spawn-orchestrator-session.ts (extensions[] array).\n` +
+        `     This likely means a factory was dropped or returned before calling registerTool — re-install or run \`swt doctor\` for diagnostics.`,
+    );
+  }
+
   let agentSession: AgentSession;
   if (opts.resolvedCredential !== undefined && opts.provider !== undefined) {
     // Phase 2 — inject the keychain-resolved credential via an in-memory
@@ -195,7 +224,6 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     // string. Phase 2 never sets `opts.model` (Risk 8); omitting it lets
     // Pi's `ModelRegistry` resolve the chosen provider's default model. The
     // model-picker fast-follow owns the id -> `Model` resolution.
-    const customTools = materializeExtensionsToCustomTools(opts.extensionFactories);
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
@@ -233,7 +261,6 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     // block configured, or the cook callsite resolved nothing (headless
     // host, env-fallback empty): Pi falls through to its own auth.json +
     // env-var resolution.
-    const customTools = materializeExtensionsToCustomTools(opts.extensionFactories);
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
