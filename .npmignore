@@ -1,0 +1,7 @@
+# .npmignore — additional carve-outs on top of package.json `files[]`.
+# Once this file exists, npm STOPS consulting .gitignore for tarball-pack decisions.
+# Keep this file minimal — files[] is the primary allowlist; .npmignore only further restricts.
+
+# Internal porter and dev-only metadata (out-of-scope for end users).
+scripts/internal/
+scripts/.port-rewrites.json
