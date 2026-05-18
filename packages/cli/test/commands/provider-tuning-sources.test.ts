@@ -48,14 +48,14 @@ describe('provider-tuning-sources', () => {
 
   it('emits exactly 4 sources at Phase 5 end-state (1 anthropic + 3 codex)', () => {
     const { stdout, io } = makeIO(process.cwd());
-    providerTuningSourcesHandler(parsed, io);
+    void providerTuningSourcesHandler(parsed, io);
     const env = JSON.parse(stdout.output);
     expect(env.sources).toHaveLength(4);
   });
 
   it('orders sources deterministically: anthropic first, then openai', () => {
     const { stdout, io } = makeIO(process.cwd());
-    providerTuningSourcesHandler(parsed, io);
+    void providerTuningSourcesHandler(parsed, io);
     const env = JSON.parse(stdout.output);
     const packIds = env.sources.map((s: { packId: string }) => s.packId);
     // Anthropic block (1) then OpenAI block (3) — getAllPacks order is
@@ -65,7 +65,7 @@ describe('provider-tuning-sources', () => {
 
   it('enriches every source with packId, packDisplayName, method, url, description, contentHash', () => {
     const { stdout, io } = makeIO(process.cwd());
-    providerTuningSourcesHandler(parsed, io);
+    void providerTuningSourcesHandler(parsed, io);
     const env = JSON.parse(stdout.output);
     for (const src of env.sources) {
       expect(typeof src.packId).toBe('string');
@@ -84,7 +84,7 @@ describe('provider-tuning-sources', () => {
 
   it('Codex (openai) entries preserve the canonical-template → agents_md.rs → apply_patch.lark order', () => {
     const { stdout, io } = makeIO(process.cwd());
-    providerTuningSourcesHandler(parsed, io);
+    void providerTuningSourcesHandler(parsed, io);
     const env = JSON.parse(stdout.output);
     const codexUrls = env.sources
       .filter((s: { packId: string }) => s.packId === 'openai')
@@ -98,7 +98,7 @@ describe('provider-tuning-sources', () => {
 
   it('Anthropic source uses the npm: URL-prefix discriminator', () => {
     const { stdout, io } = makeIO(process.cwd());
-    providerTuningSourcesHandler(parsed, io);
+    void providerTuningSourcesHandler(parsed, io);
     const env = JSON.parse(stdout.output);
     const anthropic = env.sources.filter((s: { packId: string }) => s.packId === 'anthropic');
     expect(anthropic).toHaveLength(1);
