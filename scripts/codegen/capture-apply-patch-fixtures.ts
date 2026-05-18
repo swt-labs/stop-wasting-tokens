@@ -37,13 +37,9 @@ interface Fixture {
 const FIXTURES: ReadonlyArray<Fixture> = [
   {
     name: '1. add-file: single add hunk with "+"-prefixed lines',
-    input: [
-      '*** Begin Patch',
-      '*** Add File: hello.txt',
-      '+Hello',
-      '+world',
-      '*** End Patch',
-    ].join('\n'),
+    input: ['*** Begin Patch', '*** Add File: hello.txt', '+Hello', '+world', '*** End Patch'].join(
+      '\n',
+    ),
   },
   {
     name: '2. delete-file: single delete hunk',

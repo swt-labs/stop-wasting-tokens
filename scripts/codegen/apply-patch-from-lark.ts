@@ -623,9 +623,7 @@ function resolveOutputPath(argv: ReadonlyArray<string>): string {
     return DEFAULT_OUTPUT_PATH;
   }
   if (arg.startsWith('--')) {
-    throw new Error(
-      `Unknown flag: ${arg}. Use --in-place, no args, or a filesystem path argv[2].`,
-    );
+    throw new Error(`Unknown flag: ${arg}. Use --in-place, no args, or a filesystem path argv[2].`);
   }
   return resolve(process.cwd(), arg);
 }
