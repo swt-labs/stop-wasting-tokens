@@ -68,6 +68,41 @@ const cookAskUser: LogEntry = {
   status: 'pending',
 };
 
+// Phase 17 plan 04-01 Task 4 — Codex parity update_plan render fixture.
+// Three-item plan exercises all three status glyphs ([x] completed,
+// [~] in_progress, [ ] pending) in one assertion.
+const cookPlanUpdate: LogEntry = {
+  kind: 'cook-plan-update',
+  id: 'log-plan-1',
+  ts: TS,
+  session_id: 'cook-1',
+  sub_session_id: 'sub-abcd1234',
+  plan: [
+    { step: 'load context', status: 'completed' },
+    { step: 'edit code', status: 'in_progress' },
+    { step: 'run tests', status: 'pending' },
+  ],
+};
+
+const cookPlanUpdateWithExplanation: LogEntry = {
+  kind: 'cook-plan-update',
+  id: 'log-plan-2',
+  ts: TS,
+  session_id: 'cook-1',
+  sub_session_id: 'sub-abcd1234',
+  plan: [{ step: 'pick approach', status: 'in_progress' }],
+  explanation: 'evaluating option A vs option B',
+};
+
+const cookPlanUpdateEmpty: LogEntry = {
+  kind: 'cook-plan-update',
+  id: 'log-plan-3',
+  ts: TS,
+  session_id: 'cook-1',
+  sub_session_id: 'sub-abcd1234',
+  plan: [],
+};
+
 const chatUser: LogEntry = {
   kind: 'chat-user',
   id: 'chat-msg-1',
@@ -122,6 +157,12 @@ describe('classifyEntry', () => {
     expect(classifyEntry(cookAgentSpawn)).toBe('cook');
     expect(classifyEntry(cookToolCall)).toBe('cook');
     expect(classifyEntry(cookAskUser)).toBe('cook');
+  });
+
+  it('routes cook-plan-update to the cook lane (Phase 17 plan 04-01 — Codex parity)', () => {
+    expect(classifyEntry(cookPlanUpdate)).toBe('cook');
+    expect(classifyEntry(cookPlanUpdateWithExplanation)).toBe('cook');
+    expect(classifyEntry(cookPlanUpdateEmpty)).toBe('cook');
   });
 
   it('routes init entries to the init lane and system entries to the system lane', () => {
@@ -215,6 +256,31 @@ describe('entryToLine', () => {
     expect(entryToLine(assistantWithUsage)).toBe('14:23:45 [chat-assistant] message ↑12 ↓34');
   });
 
+  it('renders cook-plan-update with [x]/[~]/[ ] glyphs for mixed-status plan items', () => {
+    const line = entryToLine(cookPlanUpdate);
+    // All three glyphs are present.
+    expect(line).toContain('[x]');
+    expect(line).toContain('[~]');
+    expect(line).toContain('[ ]');
+    // [cook] lane prefix and `plan:` literal anchor.
+    expect(line).toContain('[cook] plan:');
+    // ` | ` is the inter-item separator.
+    expect(line).toContain(' | ');
+    // Full canonical line shape matches milestone-16 monospace
+    // discipline: `HH:MM:SS [cook] plan: [x] step1 | [~] step2 | [ ] step3`.
+    expect(line).toBe('14:23:45 [cook] plan: [x] load context | [~] edit code | [ ] run tests');
+  });
+
+  it('renders cook-plan-update with an empty plan as `plan: ` followed by no items', () => {
+    expect(entryToLine(cookPlanUpdateEmpty)).toBe('14:23:45 [cook] plan: ');
+  });
+
+  it('renders cook-plan-update with explanation appended as ` — <text>`', () => {
+    expect(entryToLine(cookPlanUpdateWithExplanation)).toBe(
+      '14:23:45 [cook] plan: [~] pick approach — evaluating option A vs option B',
+    );
+  });
+
   it('renders a chat-assistant entry with both tools_called and usage folded into the same line', () => {
     const assistantBoth: LogEntry = {
       kind: 'chat-assistant',
@@ -259,6 +325,10 @@ describe('filterChatEntries', () => {
   it('returns an empty array for an empty input array', () => {
     expect(filterChatEntries([])).toEqual([]);
   });
+
+  it('excludes cook-plan-update from chat-lane filtering (Phase 17 plan 04-01)', () => {
+    expect(filterChatEntries([cookPlanUpdate])).toEqual([]);
+  });
 });
 
 describe('shouldDisableClear', () => {
@@ -276,5 +346,9 @@ describe('shouldDisableClear', () => {
 
   it('disables the button when only non-chat entries exist (nothing chat-shaped to clear)', () => {
     expect(shouldDisableClear([initEntry, cookStatusStarted, systemInternal], false)).toBe(true);
+  });
+
+  it('disables the button when only cook-plan-update entries exist (cook lane is not chat)', () => {
+    expect(shouldDisableClear([cookPlanUpdate], false)).toBe(true);
   });
 });
