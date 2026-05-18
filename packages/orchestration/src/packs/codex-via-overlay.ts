@@ -26,7 +26,11 @@
  *     same `applyPatch` factory call, same return order.
  */
 
-import { buildApplyPatchExtension, extractOpenAI } from '@swt-labs/runtime';
+import {
+  buildApplyPatchExtension,
+  buildUpdatePlanExtension,
+  extractOpenAI,
+} from '@swt-labs/runtime';
 import type { AgentRole, TaskTokenUsage } from '@swt-labs/shared';
 
 import { loadAgentsMd } from '../context/agents-md-loader.js';
@@ -63,7 +67,25 @@ export class CodexViaOverlayPack implements ProviderTuningPack {
     // load-bearing logic.
     if (role === 'orchestrator') return [];
     if (!APPLY_PATCH_ELIGIBLE_ROLES.has(role)) return [];
-    return [{ name: 'applyPatch' as const, factory: buildApplyPatchExtension() }];
+    // Phase 17 plan 04-01 Task 3 — DEVN-PHASE-04-ROLE-GATING:
+    //   The brief §6 Phase 03 lists role-gating for update_plan as
+    //   {Dev, Architect, Debugger}, but Phase 1 already established
+    //   APPLY_PATCH_ELIGIBLE_ROLES = {lead, dev, qa, debugger, docs} as
+    //   the authoritative "code-editing roles" constant (architect is
+    //   EXCLUDED, lead/qa/docs INCLUDED). update_plan is a sibling
+    //   code-editing tool for Codex; gating both on the IDENTICAL set
+    //   keeps the role-eligibility surface consistent and prevents
+    //   duplication of role-set constants. This deviation is
+    //   pre-registered in the Phase 4 plan's `deviations:` array.
+    //
+    // Order matters: applyPatch BEFORE updatePlan. The spawn-snapshot
+    // records `extensions_names` in declared order; the diff narrative
+    // (Task 5) relies on this stable ordering to assert the OpenAI
+    // diff is confined to a single trailing-position addition.
+    return [
+      { name: 'applyPatch' as const, factory: buildApplyPatchExtension() },
+      { name: 'updatePlan' as const, factory: buildUpdatePlanExtension() },
+    ];
   }
 
   contextFiles(turnContext: ContextFilesTurnContext): readonly string[] {

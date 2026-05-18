@@ -229,7 +229,7 @@ export interface SpawnAgentSessionConfig extends SwtSessionOptions {
 
 export interface SpawnAgentExtension {
   /** Human-readable name for test assertions / debugging. */
-  readonly name: 'resultProtocol' | 'journal' | 'applyPatch';
+  readonly name: 'resultProtocol' | 'journal' | 'applyPatch' | 'updatePlan';
   /** Pi extension factory — invoked once at session start with `PiExtensionAPI`. */
   readonly factory: (pi: PiExtensionAPI) => void;
 }
