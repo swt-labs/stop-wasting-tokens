@@ -193,6 +193,14 @@ scripts/lib/*
 !scripts/audit-upstream-prompts.sh
 !scripts/test-audit-upstream-prompts.sh
 
+# Phase 06 plan 06-01: Lark→TS apply_patch parser generator + fixture-capture
+# helper. SWT-owned (not VBW-vendored); the generator re-runs in CI for
+# grammar drift detection so it MUST be tracked. Per-file carve-outs match
+# the per-file convention used above.
+!scripts/codegen/
+!scripts/codegen/apply-patch-from-lark.ts
+!scripts/codegen/capture-apply-patch-fixtures.ts
+
 # Phase 04 plan 04-01: upstream-prompt-drift baselines are tracked even though
 # the rest of .vbw-planning/ is local-only. Baselines are the audit's source of
 # truth and must survive across clones for the cron job to compare against.
