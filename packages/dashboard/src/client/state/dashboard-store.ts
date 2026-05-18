@@ -22,6 +22,7 @@ import type {
 import { createStore } from 'solid-js/store';
 
 import {
+  ApiError,
   fetchArtifactRendered,
   fetchCommands,
   fetchConfig,
@@ -1835,6 +1836,24 @@ export function createDashboardStore(
       const message = err instanceof Error ? err.message : String(err);
       setState('artifactError', message);
       pushError(`artifact fetch failed: ${message}`);
+      // Defensive: on 404, the file may have been deleted since the last snapshot.
+      // Trigger a snapshot reconcile so the tree reflects reality. After Phase 01
+      // Fix 1, genuine 404s from /api/artifact now mean the file truly is missing
+      // (not that the route is missing).
+      if (err instanceof ApiError && err.status === 404) {
+        setState('artifactCache', (prev) => {
+          const next = new Map(prev);
+          next.delete(key);
+          return next;
+        });
+        void fetchSnapshot()
+          .then((snap) => {
+            setState('snapshot', snap);
+          })
+          .catch(() => {
+            /* reconnect path will reconcile */
+          });
+      }
     } finally {
       setState('artifactLoading', false);
     }
