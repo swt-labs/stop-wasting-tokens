@@ -160,6 +160,19 @@ export {
   buildApplyPatchExtension,
   applyPatchExtension,
   APPLY_PATCH_TOOL_NAME,
+  // Phase 17 plan 04-01 T1 — update_plan customTool (Codex parity).
+  // Surfaced alongside apply_patch so CodexViaOverlayPack can wire both
+  // into the customExtensions return for apply_patch-eligible roles.
+  buildUpdatePlanExtension,
+  updatePlanExtension,
+  UPDATE_PLAN_TOOL_NAME,
+  UPDATE_PLAN_TOOL_DESCRIPTION,
+  UPDATE_PLAN_PARAMETERS_JSON_SCHEMA,
+  PlanItemArgSchema,
+  UpdatePlanArgsSchema,
+  type PlanItemArg,
+  type UpdatePlanArgs,
+  type BuildUpdatePlanExtensionOptions,
   parseApplyPatch,
   type ApplyPatchFs,
   type BuildApplyPatchExtensionOptions,

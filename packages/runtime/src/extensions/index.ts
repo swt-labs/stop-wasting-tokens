@@ -34,6 +34,18 @@ export {
 } from './apply-patch-tool.js';
 export { default as applyPatchExtension } from './apply-patch-tool.js';
 export {
+  UPDATE_PLAN_TOOL_NAME,
+  TOOL_DESCRIPTION as UPDATE_PLAN_TOOL_DESCRIPTION,
+  PARAMETERS_JSON_SCHEMA as UPDATE_PLAN_PARAMETERS_JSON_SCHEMA,
+  PlanItemArgSchema,
+  UpdatePlanArgsSchema,
+  buildUpdatePlanExtension,
+  type PlanItemArg,
+  type UpdatePlanArgs,
+  type BuildUpdatePlanExtensionOptions,
+} from './update-plan-tool.js';
+export { default as updatePlanExtension } from './update-plan-tool.js';
+export {
   parseApplyPatch,
   type ApplyPatchResult,
   type FileOp,
