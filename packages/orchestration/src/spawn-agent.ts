@@ -224,7 +224,7 @@ export interface SpawnAgentExtension {
  * The role check is layered on top of the provider check so an
  * accidental future addition of a read-only role can't open a write hole.
  */
-const APPLY_PATCH_ELIGIBLE_ROLES: ReadonlySet<AgentRole> = new Set<AgentRole>([
+export const APPLY_PATCH_ELIGIBLE_ROLES: ReadonlySet<AgentRole> = new Set<AgentRole>([
   'lead',
   'dev',
   'qa',
