@@ -77,7 +77,7 @@ import { createCodingTools } from '@swt-labs/runtime';
 import type { AuthMode, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
-import { readProviderOverlay } from './provider-overlay.js';
+import { getProviderTuningPack } from './packs/registry.js';
 import type { AgentToolList } from './role-router.js';
 
 /**
@@ -291,14 +291,19 @@ export function resolveOrchestratorSessionConfig(
 
   const taskId = opts.taskId ?? `orchestrator-${opts.sessionId.slice(0, 8)}`;
 
-  // Phase G / Phase 1 / G-R1 — symmetric overlay append for the
-  // orchestrator path. Role key is `'orchestrator'` (i.e., the resolver
-  // looks for `<installRoot>/provider_overlays/orchestrator-<provider>.md`).
-  // No-op when `opts.provider` is undefined OR the overlay file is absent
-  // (R4 vendor-neutrality). Phase 1 does NOT author an orchestrator
-  // overlay — the wiring is symmetric so future phases can drop one in
-  // without code change.
-  const overlay = readProviderOverlay(opts.installRoot, 'orchestrator', opts.provider);
+  // Phase 17 plan 01-01 T4 — provider-specific decisions for the
+  // orchestrator path also flow through the pack registry. The orchestrator
+  // queries `pack.resolveOverlay('orchestrator')` with a hardcoded role key
+  // (Scout's surprise #5 — no `agents/swt-orchestrator.md` file exists;
+  // the orchestrator's prompt is the body of `commands/cook.md`). The
+  // orchestrator path does NOT call `pack.customExtensions()` — the
+  // orchestrator's 4-entry extensions list ([swtAskUser,
+  // swtCompleteScopeSeed, resultProtocol, journal]) is fixed by design,
+  // and the orchestrator never receives apply_patch (it is not in
+  // APPLY_PATCH_ELIGIBLE_ROLES even if some future pack tried to return
+  // it).
+  const pack = getProviderTuningPack(opts.provider, opts.installRoot);
+  const overlay = pack.resolveOverlay('orchestrator');
   const finalSystemPrompt =
     overlay !== undefined ? `${opts.prompt}\n\n---\n\n${overlay}` : opts.prompt;
 

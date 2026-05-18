@@ -94,7 +94,6 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
-  buildApplyPatchExtension,
   buildJournalExtension,
   buildResultProtocolExtension,
   createHookDispatcher,
@@ -114,8 +113,8 @@ import {
 import type { AgentRole, AuthMode, TaskBrief, TaskResult } from '@swt-labs/shared';
 
 import { createDispatcher, type SessionFactory } from './dispatcher.js';
+import { getProviderTuningPack } from './packs/registry.js';
 import { readRolePromptWithMeta } from './prompt-builder.js';
-import { readProviderOverlay } from './provider-overlay.js';
 import { toolsForRole, type AgentToolList } from './role-router.js';
 
 /**
@@ -424,6 +423,17 @@ export function resolveSpawnAgentConfig(
   const systemPrompt = promptResult.body;
   const frontmatterMeta = promptResult.meta;
 
+  // Phase 17 plan 01-01 T4 — every provider-specific decision flows through a
+  // single `ProviderTuningPack` (D3). The registry returns a cached pack per
+  // `(provider, installRoot)` tuple. Overlay resolution and apply_patch
+  // extension wiring now both consult the pack rather than calling
+  // `readProviderOverlay` / `buildApplyPatchExtension` directly. Anthropic
+  // (and unknown providerId) resolves to `AnthropicViaPiPack` (all no-ops);
+  // OpenAI resolves to `CodexViaOverlayPack`. The pre-refactor wire shape is
+  // preserved byte-identically — see `.vbw-planning/phases/01-provider-
+  // tuning-pack-foundation/spawn-snapshot.diff.md` for the proof.
+  const pack = getProviderTuningPack(opts.provider, opts.installRoot);
+
   // Phase G / Phase 1 / G-R1 — append the per-provider overlay if one
   // exists at `<installRoot>/provider_overlays/<role>-<provider>.md`.
   // No-op when `opts.provider` is undefined OR the overlay file is
@@ -431,7 +441,7 @@ export function resolveSpawnAgentConfig(
   // OpenRouter runs see no behavioral change). Separator is EXACTLY
   // `\n\n---\n\n` per R1 decision; the visible boundary preserves the
   // cache prefix invariance described in `prompt-builder.ts:88-91`.
-  const overlay = readProviderOverlay(opts.installRoot, opts.role, opts.provider);
+  const overlay = pack.resolveOverlay(opts.role);
   const finalSystemPrompt =
     overlay !== undefined ? `${systemPrompt}\n\n---\n\n${overlay}` : systemPrompt;
 
@@ -462,27 +472,19 @@ export function resolveSpawnAgentConfig(
 
   const journalSink: JournalSink = injectedSink ?? new FileJournalSink(transcriptPath);
 
-  // Phase 03 plan 03-01 T4 — conditional Codex-shape tool injection. When
-  // the resolved provider is OpenAI AND the role is in the coding-tool
-  // eligible set, append the apply_patch extension. Mirrors the
-  // conditional-spread precedent from Phase 02's thinkingLevel wiring
-  // (this file head comment notes the pattern). Strict equality on
-  // `provider === 'openai'`: openrouter/openai/* routes via OpenRouter,
-  // not OpenAI direct, and is intentionally left untouched for now —
-  // the conservative default keeps vendor neutrality. Other providers
-  // (anthropic, undefined, google, …) follow the same no-op path.
-  const includeApplyPatch = opts.provider === 'openai' && APPLY_PATCH_ELIGIBLE_ROLES.has(opts.role);
+  // Phase 17 plan 01-01 T4 — provider-conditional extensions flow through
+  // the pack's `customExtensions(role)` method. `CodexViaOverlayPack` returns
+  // the apply_patch entry for roles in APPLY_PATCH_ELIGIBLE_ROLES (lead,
+  // dev, qa, debugger, docs) and [] otherwise; `AnthropicViaPiPack` returns
+  // [] for every role; unknown providers fall through to `AnthropicViaPiPack`
+  // (also []). The spread MUST land AFTER the fixed `[resultProtocol,
+  // journal]` entries — the byte-identical-extensions-array proof depends
+  // on apply_patch always being the third entry when present (matching the
+  // pre-refactor `...(includeApplyPatch ? [...] : [])` spread position).
   const extensions: ReadonlyArray<SpawnAgentExtension> = [
     { name: 'resultProtocol', factory: buildResultProtocolExtension() },
     { name: 'journal', factory: buildJournalExtension({ sink: journalSink }) },
-    ...(includeApplyPatch
-      ? [
-          {
-            name: 'applyPatch' as const,
-            factory: buildApplyPatchExtension(),
-          },
-        ]
-      : []),
+    ...pack.customExtensions(opts.role),
   ];
 
   // Phase 02 (plan 02-01 T2) — precedence: frontmatter > caller opts > role
