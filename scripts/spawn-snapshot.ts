@@ -29,20 +29,21 @@
  *     "maxTurns":                   <int>,
  *     "sandboxMode":                "<value>",
  *     "contextFiles_count":         <int — number of fragments returned by pack.contextFiles>,
- *     "contextFiles_contentSha256": "<sha256 of fragments.join('\\n\\n'), or "" when empty>",
+ *     "contextFiles_contentSha256": "<sha256 of fragments.join('\\n\\n')>",   // OMITTED when count == 0
  *     "contextFiles_paths":         []
  *   }
  *
- * Phase 17 plan 03-01 T3 — `contextFiles_count` + `contextFiles_contentSha256`
- * are populated deterministically from the resolved
- * `SpawnAgentSessionConfig.contextFiles` (was hardcoded `0` / `[]` in
- * Phase 1). Determinism choice = Option A: count + sha256 over the
- * joined-with-`'\n\n'` content. Documented in
+ * Phase 17 plan 03-01 T3 — `contextFiles_count` is populated
+ * deterministically from the resolved `SpawnAgentSessionConfig.contextFiles`
+ * (was hardcoded `0` in Phase 1). `contextFiles_contentSha256` is the
+ * sha256 of the joined-with-`'\n\n'` content; it is ONLY emitted when
+ * count > 0. For empty / absent contextFiles, the field is omitted
+ * entirely so the serialized JSON stays byte-identical to Phase 2's
+ * after-state baseline for every (provider, role) pair whose count
+ * was already 0 — the strict D2 reading. The `contextFiles_paths`
+ * field is retained as a stable empty array — pack returns content
+ * strings, not paths. Determinism choice + D2 strategy documented in
  * `.vbw-planning/phases/03-agents-md-hierarchical-loader/spawn-snapshot.diff.md`.
- * The `contextFiles_paths` field is retained as a stable empty array — the
- * pack returns content strings, not paths (per
- * `provider-tuning-pack.ts` ContextFilesTurnContext docstring), and the
- * count + sha256 pair carries all the determinism we need.
  *
  * Determinism guarantees:
  *   - Fixed `installRoot` resolved from the script's own location (not
@@ -139,7 +140,16 @@ interface SnapshotEntry {
   readonly maxTurns: number;
   readonly sandboxMode: string;
   readonly contextFiles_count: number;
-  readonly contextFiles_contentSha256: string;
+  /**
+   * Phase 17 plan 03-01 T3 — only emitted when `contextFiles_count > 0`.
+   * For empty / absent contextFiles, the field is omitted from the
+   * serialized JSON entirely (NOT serialized as `""`), preserving
+   * byte-identity vs Phase 2's pre-Phase-3 baseline for every entry
+   * whose count was already 0. This is the strict reading of D2: the
+   * Anthropic snapshot stays byte-identical, and OpenAI entries
+   * whose cwd has no AGENTS.md content also stay byte-identical.
+   */
+  readonly contextFiles_contentSha256?: string;
   readonly contextFiles_paths: readonly string[];
 }
 
@@ -157,13 +167,12 @@ function buildEntry(args: {
   const head = args.systemPrompt.slice(0, 256);
   const tail = args.systemPrompt.length <= 256 ? '' : args.systemPrompt.slice(-256);
   // Phase 17 plan 03-01 T3 — determinism option A: count + sha256 of the
-  // joined-with-`'\n\n'` content. Empty array (or absent field) → count 0
-  // + empty-string sha256, NOT a sha256 of '' (which would be a
-  // legitimate-looking 64-char hex that could mask "no content" vs "empty
-  // content joined"). The empty-string sentinel is unambiguous.
+  // joined-with-`'\n\n'` content, but ONLY when the count > 0. Empty
+  // arrays omit the sha256 field entirely, preserving byte-identity vs
+  // the Phase 2 baseline for empty entries (the strict D2 reading).
   const fragments = args.contextFiles ?? [];
   const joined = fragments.join('\n\n');
-  return {
+  const base = {
     role: args.role,
     provider: args.provider,
     systemPrompt_sha256: sha256Hex(args.systemPrompt),
@@ -179,19 +188,21 @@ function buildEntry(args: {
     thinkingLevel: args.thinkingLevel ?? null,
     maxTurns: args.maxTurns,
     sandboxMode: args.sandboxMode,
-    // Phase 17 plan 03-01 T3 — deterministic capture of the resolved
-    // `pack.contextFiles({cwd, role})` payload. For OpenAI sessions whose
-    // cwd contains an AGENTS.md walk, `count > 0` + a populated sha256;
-    // for Anthropic and for OpenAI sessions whose cwd has no AGENTS.md
-    // (including the snapshot tool's `/tmp/swt-spawn-snapshot`),
-    // `count == 0` + empty-string sha256.
+    // Phase 17 plan 03-01 T3 — count is always emitted (was already
+    // present in Phase 2's baseline as the hardcoded `0`); the sha256
+    // field is conditional below.
     contextFiles_count: fragments.length,
-    contextFiles_contentSha256: fragments.length === 0 ? '' : sha256Hex(joined),
     // Retained as a stable empty array — pack returns content, not paths.
     // Kept on the schema to minimize churn for the diff against Phase 2's
     // snapshot baseline.
     contextFiles_paths: [],
   };
+  // Conditional spread keeps the sha256 field OUT of the serialized JSON
+  // when fragments are empty — Anthropic and orchestrator entries stay
+  // byte-identical to Phase 2's after-state. OpenAI entries whose cwd
+  // has no AGENTS.md content (including `FIXED_CWD`) also stay
+  // byte-identical at the JSON-text level.
+  return fragments.length === 0 ? base : { ...base, contextFiles_contentSha256: sha256Hex(joined) };
 }
 
 function captureSdlcRoleEntry(role: AgentRole, provider: string): SnapshotEntry {
