@@ -53,7 +53,7 @@ describe('GET /api/artifact-history', () => {
   beforeEach(() => {
     setup();
     app = new Hono();
-    registerArtifactHistoryRoute(app, projectRoot);
+    registerArtifactHistoryRoute(app, () => projectRoot);
   });
 
   afterEach(() => {
@@ -112,7 +112,7 @@ describe('GET /api/artifact-diff', () => {
   beforeEach(() => {
     setup();
     app = new Hono();
-    registerArtifactDiffRoute(app, projectRoot);
+    registerArtifactDiffRoute(app, () => projectRoot);
   });
 
   it('returns the unified diff between HEAD~1 and working tree', async () => {

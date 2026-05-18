@@ -40,7 +40,7 @@ describe('e2e: UAT checkpoint round-trip (verify INLINE → POST /api/uat/:phase
     uatPath = path.join(phaseDir, '04-UAT.md');
     writeFileSync(uatPath, '# Phase 04 UAT\n\nUser-acceptance scenarios for the fixture phase.\n');
     app = new Hono();
-    registerUatCheckpointRoute(app, projectRoot);
+    registerUatCheckpointRoute(app, () => projectRoot);
   });
 
   afterEach(() => {
