@@ -91,18 +91,31 @@ export class CodexViaOverlayPack implements ProviderTuningPack {
   }
 
   upstreamSources(): readonly UpstreamSource[] {
-    // Phase 2 populated the canonical Codex template entry. Future phases
-    // extend this list (Phase 3: AGENTS.md spec; Phase 5: Lark apply_patch
-    // grammar). The contentHash matches the body sha256 recorded in
-    // `references/codex/gpt-5.2-codex_instructions_template.md` frontmatter
-    // and the audit-script baseline in
-    // `.vbw-planning/upstream-prompt-snapshots/<date>/codex-prompt.sha256`.
+    // Phase 2 populated the canonical Codex template entry. Phase 3 adds
+    // the AGENTS.md walk-up spec source (`agents_md.rs`). Phase 5's drift
+    // automation will iterate `pack.upstreamSources()` to detect when an
+    // upstream artifact has drifted vs the pinned `contentHash`. The two
+    // contentHashes recorded here match:
+    //   - canonical template — sha256 in
+    //     `references/codex/gpt-5.2-codex_instructions_template.md`
+    //     frontmatter + the audit-script baseline in
+    //     `.vbw-planning/upstream-prompt-snapshots/<date>/codex-prompt.sha256`.
+    //   - agents_md.rs — sha256 of the pinned upstream at SHA 22dd9ad
+    //     (Scout §E.2 live-validated; Phase 5 drift refactor will diff
+    //     against the live URL).
     return [
       {
         url: 'https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md',
         description:
           'Canonical Codex system prompt template (replaces legacy gpt_5_codex_prompt.md)',
         contentHash: '492a212d8a23be8b03c488177d8986f4db4ee54a34b2e8a60779e5e5c89a1b63',
+        lastReviewedSha: '22dd9ad3929253ed24d7ee4f10f238e95ab25f37',
+      },
+      {
+        url: 'https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/src/agents_md.rs',
+        description:
+          'Codex AgentsMdManager Rust source (walk-up + override semantics for AGENTS.md)',
+        contentHash: 'ce3201eaee6cd92fa2728e526090991a9b6c2e6312b382536270d2570a45c2f9',
         lastReviewedSha: '22dd9ad3929253ed24d7ee4f10f238e95ab25f37',
       },
     ];
