@@ -6,8 +6,8 @@
 # -------
 # SWT's provider overlays (provider_overlays/*-openai.md) and frontmatter
 # `source_paths` cite specific upstream coding-agent artifacts:
-#   1. Codex CLI base prompt:
-#        github.com/openai/codex codex-rs/core/gpt_5_codex_prompt.md
+#   1. Codex CLI canonical system prompt template:
+#        github.com/openai/codex codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md
 #   2. Claude Agent SDK type surface:
 #        npm package @anthropic-ai/claude-agent-sdk → package/sdk.d.ts
 #
@@ -63,7 +63,7 @@ set -euo pipefail
 
 # --- constants ---------------------------------------------------------------
 
-CODEX_URL="https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/gpt_5_codex_prompt.md"
+CODEX_URL="https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/templates/model_instructions/gpt-5.2-codex_instructions_template.md"
 CLAUDE_SDK_PKG="@anthropic-ai/claude-agent-sdk"
 CLAUDE_SDK_FILE="package/sdk.d.ts"
 
