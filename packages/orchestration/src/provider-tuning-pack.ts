@@ -57,6 +57,14 @@ export interface UpstreamSource {
   /** Short human-readable description (used by audit output / drift alerts). */
   readonly description: string;
   /**
+   * Optional content sha256 (hex) the pack was last reviewed against. When
+   * the upstream content's sha256 diverges from this value, Phase 5's
+   * drift automation surfaces a pending-review alert. Distinct from
+   * `lastReviewedSha` (which records a git commit SHA from the upstream
+   * repo): `contentHash` is a sha256 of the artifact body itself.
+   */
+  readonly contentHash?: string;
+  /**
    * Optional commit SHA the pack was last reviewed against. When the
    * upstream HEAD diverges from this SHA, drift automation surfaces a
    * pending-review alert.
