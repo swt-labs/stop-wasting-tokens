@@ -253,24 +253,29 @@ export const APPLY_PATCH_ELIGIBLE_ROLES: ReadonlySet<AgentRole> = new Set<AgentR
 export type SpawnAgentSessionFactory = (config: SpawnAgentSessionConfig) => Promise<SwtSession>;
 
 /**
- * Default factory — forwards to the runtime's `createSession` and drops the
- * spawn-specific fields. The runtime records them structurally (consistent
- * with the existing `enableResultProtocol` precedent at
- * `runtime/src/session.ts:78`) and activates them when the Pi session-wiring
- * follow-up lands.
+ * Default factory — forwards to the runtime's `createSession`. Runtime
+ * owns the Pi session lifecycle (L2), so the actual `createAgentSession`
+ * call and the `resourceLoader` construction live in
+ * `packages/runtime/src/session.ts` (the L3→L2 boundary keeps Pi-
+ * construction details out of orchestration).
  *
- * Phase 17 plan 03-01 T2 — `config.contextFiles` (the
- * pack-resolved AGENTS.md fragments) rides on the SAME first-turn
- * prepend channel as `config.systemPrompt`. Pi 0.74 has no
- * `systemPrompt` or `contextFiles` input on `createAgentSession`; both
- * fields are recorded on `SpawnAgentSessionConfig` for snapshot /
- * recording-factory tests AND for the future session-wiring follow-up
- * that will prepend `systemPrompt + '\n\n' + contextFiles.join('\n\n')`
- * to the first `session.prompt()` call. That follow-up is the single
- * site that consumes both fields together — the factory itself does not
- * (and must not) hand-roll a partial forwarding today, because Pi's
- * extension factory ordering + session-wiring contract is owned by the
- * runtime package, not this factory.
+ * Phase 03 remediation R01 — `config.systemPrompt` (the role-prompt +
+ * overlay concatenation resolved at line 477) and `config.contextFiles`
+ * (the pack-resolved AGENTS.md fragments resolved at line 486) are now
+ * BOTH forwarded into `SwtSessionOptions`. The runtime layer reshapes
+ * them into a Pi `DefaultResourceLoader` (constructor options
+ * `systemPrompt` + `agentsFilesOverride`, with `noContextFiles: true` so
+ * Pi does not re-discover AGENTS.md from `cwd`) and passes that loader
+ * as `resourceLoader` to `createAgentSession`. Pi's
+ * `AgentSession._rebuildSystemPrompt` then reads
+ * `loader.getSystemPrompt()` → `customPrompt` and
+ * `loader.getAgentsFiles().agentsFiles` → `contextFiles` and feeds both
+ * into `buildSystemPrompt` at session-start (model-visible from turn 1).
+ *
+ * No new Pi API surface invented — `resourceLoader` is Pi 0.74's
+ * documented seam (`CreateAgentSessionOptions.resourceLoader` in
+ * sdk.d.ts, "Resource loader. When omitted, DefaultResourceLoader is
+ * used."). Closes GATE-07 + GATE-15 from 03-VERIFICATION.md.
  */
 const defaultSpawnSessionFactory: SpawnAgentSessionFactory = async (config) => {
   // Strip spawn-specific fields before passing to the runtime — the
@@ -315,6 +320,20 @@ const defaultSpawnSessionFactory: SpawnAgentSessionFactory = async (config) => {
     ...(config.extensions !== undefined && config.extensions.length > 0
       ? { extensionFactories: config.extensions.map((e) => e.factory) }
       : {}),
+    // Phase 03 R01 — forward `config.systemPrompt` unconditionally:
+    // `SpawnAgentSessionConfig.systemPrompt` is REQUIRED (always assigned
+    // by `resolveSpawnAgentConfig` at line ~564 from `finalSystemPrompt`).
+    // Runtime's `buildPiResourceLoader` consumes it via Pi's
+    // `DefaultResourceLoaderOptions.systemPrompt`. Closes GATE-07.
+    systemPrompt: config.systemPrompt,
+    // Phase 03 R01 — `config.contextFiles` uses conditional-spread on
+    // `SpawnAgentSessionConfig` (line ~571 — only present when the pack
+    // returned a non-empty array). Forward with the same pattern so
+    // absent stays absent (preserves Anthropic byte-identity: Anthropic's
+    // pack returns `contextFiles: []`, so the field is never present here
+    // for Anthropic spawns — `resourceLoader` then bridges with
+    // systemPrompt-only, identical to the empty-contextFiles case).
+    ...(config.contextFiles !== undefined ? { contextFiles: config.contextFiles } : {}),
   };
   return createSession(sessionOpts);
 };

@@ -4,16 +4,88 @@ import type { OAuthCredentials } from '@earendil-works/pi-ai/oauth';
 import {
   AuthStorage,
   createAgentSession,
+  DefaultResourceLoader,
+  getAgentDir,
   InMemoryAuthStorageBackend,
   SessionManager,
   type AgentSession,
   type AgentSessionEvent,
+  type ResourceLoader,
   type ToolDefinition as PiSdkToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
 import { mapPiEvent } from './events.js';
 import type { PiExtensionAPI, PiToolDefinition } from './extensions/pi-types.js';
 import type { SwtSession, SwtSessionOptions, SwtEvent, TokenMeter } from './types.js';
+
+/**
+ * Phase 03 remediation R01 — Construct a Pi `DefaultResourceLoader` that
+ * carries SWT's pre-resolved `systemPrompt` and `contextFiles` into Pi's
+ * `AgentSession._rebuildSystemPrompt` → `buildSystemPrompt` path.
+ *
+ * The loader replaces Pi's default (which would otherwise discover AGENTS.md
+ * from `cwd`, duplicating SWT's pack-level walk-up in
+ * `CodexViaOverlayPack.contextFiles` → `loadAgentsMd`). Returns `undefined`
+ * when BOTH inputs are absent/empty — the caller then OMITS `resourceLoader`
+ * from `createAgentSession`, letting Pi construct its own
+ * `DefaultResourceLoader` (byte-identical to pre-R01 for the empty case;
+ * preserves Anthropic byte-identity since Anthropic's pack returns
+ * `contextFiles: []` and its `systemPrompt` is the base role prompt — the
+ * empty-case path matches exactly what Pi did before).
+ *
+ * Mechanism (Pi 0.74 seam):
+ *   - `DefaultResourceLoader({systemPrompt})`     → `loader.getSystemPrompt()`
+ *      → Pi's `_rebuildSystemPrompt` reads it as `customPrompt`.
+ *   - `DefaultResourceLoader({agentsFilesOverride})` →
+ *      `loader.getAgentsFiles().agentsFiles` → Pi's `_rebuildSystemPrompt`
+ *      reads it as `contextFiles`.
+ *   - `noContextFiles: true` disables Pi's own AGENTS.md walk-up so SWT's
+ *      pack-loaded fragments are the SOLE source (no double-load).
+ *   - `await loader.reload()` mirrors Pi's sdk.js (Pi defers reload to its
+ *      own constructor path when no loader is supplied, but takes the
+ *      loader as-is when supplied — SWT must reload before handing over).
+ *
+ * Closes GATE-07 + GATE-15 from 03-VERIFICATION.md.
+ */
+async function buildPiResourceLoader(opts: SwtSessionOptions): Promise<ResourceLoader | undefined> {
+  const hasSystemPrompt = opts.systemPrompt !== undefined && opts.systemPrompt.length > 0;
+  const hasContextFiles = opts.contextFiles !== undefined && opts.contextFiles.length > 0;
+  if (!hasSystemPrompt && !hasContextFiles) {
+    return undefined;
+  }
+
+  // Reshape SWT's content-only `contextFiles[]` into Pi's `[{path, content}]`
+  // shape. Synthetic stable path label `AGENTS.md#<idx>` gives Pi's
+  // `## ${filePath}` header in `buildSystemPrompt` a deterministic
+  // provenance hint without leaking absolute fs paths into the model
+  // context (the SWT-layer Phase 1 shape is content-only — the runtime
+  // owns this reshape).
+  const reshapedContextFiles: Array<{ path: string; content: string }> =
+    opts.contextFiles !== undefined
+      ? opts.contextFiles.map((content, idx) => ({ path: `AGENTS.md#${idx}`, content }))
+      : [];
+
+  const loader = new DefaultResourceLoader({
+    cwd: opts.cwd,
+    agentDir: getAgentDir(),
+    // `noContextFiles: true` disables Pi's AGENTS.md walk-up — SWT already
+    // loaded the files via `CodexViaOverlayPack.contextFiles → loadAgentsMd`.
+    // Without this flag Pi would re-discover them from `cwd` and the model
+    // would see duplicate content.
+    noContextFiles: true,
+    // When `systemPrompt` is absent, omit the field so Pi falls back to its
+    // built-in default system prompt. When present, Pi's
+    // `_rebuildSystemPrompt` feeds this directly as `customPrompt` to
+    // `buildSystemPrompt` (replacing Pi's default).
+    ...(hasSystemPrompt ? { systemPrompt: opts.systemPrompt } : {}),
+    // Override Pi's AGENTS.md walk-up with SWT's reshaped fragments. The
+    // override is ALWAYS supplied (even when empty) so Pi's loader cannot
+    // accidentally re-discover AGENTS.md via a path we did not expect.
+    agentsFilesOverride: () => ({ agentsFiles: reshapedContextFiles }),
+  });
+  await loader.reload();
+  return loader;
+}
 
 /**
  * Session factory — the runtime-layer wrapper over Pi's `AgentSession`.
@@ -78,6 +150,13 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
     ? SessionManager.inMemory(opts.cwd)
     : SessionManager.create(opts.cwd);
 
+  // Phase 03 R01 — construct a Pi `DefaultResourceLoader` carrying SWT's
+  // pre-resolved systemPrompt + contextFiles ONCE, share it across both
+  // createAgentSession call sites below. Returns `undefined` when BOTH
+  // inputs are absent/empty so the conditional spread below omits the
+  // `resourceLoader` option (preserves pre-R01 byte-identity).
+  const resourceLoader = await buildPiResourceLoader(opts);
+
   let agentSession: AgentSession;
   if (opts.resolvedCredential !== undefined && opts.provider !== undefined) {
     // Phase 2 — inject the keychain-resolved credential via an in-memory
@@ -139,6 +218,14 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       ...(customTools.length > 0
         ? { customTools: customTools as unknown as PiSdkToolDefinition[] }
         : {}),
+      // Phase 03 R01 — when SWT supplied systemPrompt/contextFiles, hand Pi
+      // a custom DefaultResourceLoader carrying them via `getSystemPrompt()` +
+      // `getAgentsFiles().agentsFiles`. Pi's `_rebuildSystemPrompt` then feeds
+      // both into `buildSystemPrompt` at session-start (model-visible turn 1).
+      // When BOTH absent, `resourceLoader` is undefined and the conditional
+      // spread omits the option so Pi falls back to its own DefaultResourceLoader
+      // (byte-identical to pre-R01 for the empty case).
+      ...(resourceLoader !== undefined ? { resourceLoader } : {}),
     });
     agentSession = session;
   } else {
@@ -161,6 +248,11 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       ...(customTools.length > 0
         ? { customTools: customTools as unknown as PiSdkToolDefinition[] }
         : {}),
+      // Phase 03 R01 — same resourceLoader bridge as the Phase-2 auth branch.
+      // Both call sites must include it so spawns without resolved credentials
+      // still receive SWT's systemPrompt + contextFiles via Pi's
+      // `_rebuildSystemPrompt` path (model-visible turn 1).
+      ...(resourceLoader !== undefined ? { resourceLoader } : {}),
     });
     agentSession = session;
   }
@@ -209,6 +301,12 @@ function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptio
   // `materializeExtensionsToCustomTools(opts.extensionFactories)`). Voided here for
   // symmetry with the precedent.
   void opts.extensionFactories;
+  // Phase 03 R01 — `systemPrompt` + `contextFiles` are consumed at the
+  // `createAgentSession` call site above via `buildPiResourceLoader(opts)`
+  // (the result is passed as `resourceLoader`). The builder itself never
+  // touches them — voided for consistency with the precedent.
+  void opts.systemPrompt;
+  void opts.contextFiles;
 
   let disposed = false;
 
@@ -265,6 +363,12 @@ function makeMockSwtSession(opts: SwtSessionOptions): SwtSession {
   // real Pi `customTools[]` materialization happens because no real Pi
   // session is constructed. The factories are silently dropped.
   void opts.extensionFactories;
+  // Phase 03 R01 — `systemPrompt` + `contextFiles` are inert on the mock
+  // path: no real Pi `resourceLoader` is constructed because no real Pi
+  // session is constructed. The fields are silently dropped (Phase-2 Risk-5
+  // mock-path-preservation rule).
+  void opts.systemPrompt;
+  void opts.contextFiles;
 
   let disposed = false;
 

@@ -128,6 +128,37 @@ export interface SwtSessionOptions {
    */
   readonly thinkingLevel?: ThinkingLevel;
   /**
+   * Phase 03 remediation R01 — SWT-layer system-prompt body (role prompt +
+   * provider overlay, already concatenated by `resolveSpawnAgentConfig` at
+   * the orchestration layer). When present, `runtime/src/session.ts` threads
+   * this into Pi's `DefaultResourceLoader({systemPrompt})` so Pi's
+   * `AgentSession._rebuildSystemPrompt` uses it as `customPrompt` in
+   * `buildSystemPrompt` — making the role prompt model-visible at
+   * session-start. Pi 0.74 has no top-level `systemPrompt` option on
+   * `createAgentSession`; the `resourceLoader` is the canonical seam.
+   *
+   * Closes GATE-07 / GATE-15 from 03-VERIFICATION.md — pre-R01 the field
+   * existed on `SpawnAgentSessionConfig` but the runtime adapter stripped
+   * it (the "recorded but not injected" hole).
+   */
+  readonly systemPrompt?: string;
+  /**
+   * Phase 03 remediation R01 — SWT-layer pack-resolved context-file
+   * fragments (e.g. AGENTS.md content from `CodexViaOverlayPack`'s
+   * `loadAgentsMd` walk-up). Whole-file content strings — NO paths
+   * (matches the Phase 1 `ContextFilesTurnContext.contextFiles` shape at
+   * provider-tuning-pack.ts:121). When present, `runtime/src/session.ts`
+   * reshapes each element into Pi's `{path: 'AGENTS.md#<idx>', content}`
+   * shape and threads it through
+   * `DefaultResourceLoader({agentsFilesOverride})` so Pi's
+   * `_rebuildSystemPrompt` picks them up as `contextFiles` in
+   * `buildSystemPrompt` — making the AGENTS.md content model-visible at
+   * session-start. Pi's own AGENTS.md walk-up is disabled via
+   * `noContextFiles: true` to avoid double-loading (SWT's pack already
+   * loaded them).
+   */
+  readonly contextFiles?: readonly string[];
+  /**
    * Phase 03 plan 03-01 T3 — Pi extension factories to register on the
    * agent session at construction. Each factory is invoked once with a
    * recording `PiExtensionAPI` shim; the captured `registerTool` calls
