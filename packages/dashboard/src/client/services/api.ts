@@ -97,7 +97,10 @@ export class ApiError extends Error {
 
 async function jsonRequest<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { accept: 'application/json' } });
-  if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
   return (await res.json()) as T;
 }
 
@@ -398,7 +401,10 @@ export async function postUatCheckpoint(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(validated),
   });
-  if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
   const raw: unknown = await res.json();
   return UatCheckpointResponseSchema.parse(raw);
 }
