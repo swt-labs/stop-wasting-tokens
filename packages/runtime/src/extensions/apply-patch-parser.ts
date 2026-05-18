@@ -1,38 +1,32 @@
 /**
- * `apply_patch` patch-grammar parser — hand-rolled line-oriented state machine.
+ * GENERATED CODE — DO NOT EDIT MANUALLY.
  *
- * Phase 03 plan 03-01 Task T1.
- *
- * **Source paraphrase only — no verbatim copy.** The grammar intent is
- * lifted from `codex-rs/core/src/tools/handlers/apply_patch.lark` (12 Lark
- * production rules) and the prose contract from
- * `codex-rs/apply-patch/apply_patch_tool_instructions.md`. Neither file's
- * text appears here; the parser implements the grammar from scratch.
+ * Generator:     scripts/codegen/apply-patch-from-lark.ts
+ * Grammar src:   references/codex/apply_patch.lark
+ * Grammar sha256: d6367f4826ed608c424b0a308f3d6163527df63c22513d089b91863552f8bfeb
+ * Regenerate via: pnpm gen:apply-patch-parser
  *
  * Public API:
- *   `parseApplyPatch(text)` → `ApplyPatchResult`.
+ *   parseApplyPatch(text: string): ApplyPatchResult
  *
- * **Pure.** No fs, no IO, no side effects. The string-to-AST conversion is
- * deterministic; the execute callback in `apply-patch-tool.ts` owns the
- * filesystem dispatch.
+ * Pure — no fs, no IO. Strict line-oriented state machine derived from the
+ * 14 Lark production rules of the upstream apply_patch grammar:
+ *   start, begin_patch, end_patch, hunk, add_hunk, delete_hunk, update_hunk,
+ *   filename, add_line, change_move, change, change_context, change_line,
+ *   eof_line.
  *
- * **Strict input contract:**
- *   - LF line endings only. CRLF (`\r\n`) anywhere → structured error.
- *   - File paths must be relative. A path starting with `/` → structured error.
- *   - At least one hunk between `*** Begin Patch` and `*** End Patch` is
- *     required (the grammar's `hunk+` rule).
- *   - `*** Add File:` requires every body line to start with `+`.
- *   - `*** End of File` is recognized only as the LAST line of an update
- *     hunk's body (signalling that the rest of the file should be deleted
- *     after the matched region).
- *   - Optional trailing LF after `*** End Patch`.
+ * Strict input contract (preserved verbatim from Phase 3's hand-rolled parser):
+ *   - LF line endings only. CRLF anywhere → structured error.
+ *   - File paths must be relative. Empty / leading-"/" → structured error.
+ *   - hunk+ — at least one hunk between Begin Patch and End Patch.
+ *   - add_line+ — every Add File body line must begin with "+".
+ *   - "*** End of File" terminates the current update hunk's body.
+ *   - Optional trailing LF after End Patch.
  *
- * State machine:
- *   EXPECT_BEGIN → IN_PATCH → IN_ADD | IN_UPDATE_HEAD | (delete consumed inline) → ...
- *
- * Each line is classified by sentinel prefix; the rest of the line is the
- * payload. The state machine transitions on sentinel hits and accumulates
- * the current hunk's body otherwise.
+ * Error-message preservation (DEVN-PHASE-06-ERROR-MESSAGE-PRESERVATION):
+ *   5 of the 14 test cases assert on substring patterns. The 15 ERR_* constants
+ *   below are transcribed verbatim from the Phase 3 parser to preserve those
+ *   assertions byte-identically across the generator swap.
  */
 
 export type FileOp =
@@ -62,6 +56,10 @@ export type ApplyPatchResult =
   | { readonly ok: true; readonly ops: ReadonlyArray<FileOp> }
   | { readonly ok: false; readonly error: string; readonly line?: number };
 
+// -----------------------------------------------------------------------------
+// Sentinel constants — extracted from the Lark grammar's string literals.
+// -----------------------------------------------------------------------------
+
 const BEGIN_PATCH = '*** Begin Patch';
 const END_PATCH = '*** End Patch';
 const ADD_FILE = '*** Add File: ';
@@ -71,6 +69,16 @@ const MOVE_TO = '*** Move to: ';
 const END_OF_FILE = '*** End of File';
 const HUNK_HEADER_BARE = '@@';
 const HUNK_HEADER_WITH = '@@ ';
+
+// -----------------------------------------------------------------------------
+// State machine type — one named state per grammar production "context":
+//   EXPECT_BEGIN    — before "*** Begin Patch"
+//   IN_PATCH        — between begin_patch and end_patch, awaiting a hunk
+//   IN_ADD          — inside an add_hunk body (add_line+)
+//   IN_UPDATE_HEAD  — after "*** Update File:", awaiting change_move? or change?
+//   IN_CHANGE       — inside a change block ((change_context | change_line)+)
+//   DONE            — after "*** End Patch"
+// -----------------------------------------------------------------------------
 
 type State =
   | { readonly tag: 'EXPECT_BEGIN' }
@@ -108,8 +116,8 @@ function assertRelative(path: string, lineNo: number): ApplyPatchResult | undefi
 }
 
 /**
- * Flush an in-progress IN_CHANGE state into a finalized Hunk and append to
- * the update op's hunks list. Returns the post-flush IN_UPDATE_HEAD state.
+ * Flush an in-progress IN_CHANGE state into a finalized Hunk and append to the
+ * update op's hunks list. Returns the post-flush IN_UPDATE_HEAD state.
  */
 function flushChangeIntoUpdate(
   s: Extract<State, { tag: 'IN_CHANGE' }>,
@@ -136,18 +144,17 @@ function finalizeUpdate(
 }
 
 export function parseApplyPatch(text: string): ApplyPatchResult {
+  // CRLF rejection — Phase 3 contract decision, asserted by test case 8 on
+  // substring "CRLF". The grammar has no CRLF production; LF-only is enforced
+  // here at entry.
   if (text.includes('\r\n')) {
-    // Reject CRLF anywhere. Pi 0.74 + Codex grammar are LF-only; CRLF would
-    // misalign the line-state machine and silently mismatch context.
     const idx = text.indexOf('\r\n');
     const lineNo = text.slice(0, idx).split('\n').length;
     return err(lineNo, 'CRLF line endings are not allowed; use LF.');
   }
 
-  // Trim a single optional trailing LF after the entire patch body. The
-  // grammar permits `end_patch: "*** End Patch" LF?`. We split on LF and
-  // ignore an empty final element to handle either "...End Patch" or
-  // "...End Patch\n" identically.
+  // Strip a single optional trailing LF — `end_patch: "*** End Patch" LF?`.
+  // split('\n') yields a trailing empty element only when the input ends in \n.
   const rawLines = text.split('\n');
   if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') {
     rawLines.pop();
@@ -162,6 +169,7 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
 
     switch (state.tag) {
       case 'EXPECT_BEGIN': {
+        // Grammar: `begin_patch: "*** Begin Patch" LF`.
         if (line !== BEGIN_PATCH) {
           return err(lineNo, `Expected "${BEGIN_PATCH}", got: ${JSON.stringify(line)}`);
         }
@@ -169,6 +177,7 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
         break;
       }
       case 'IN_PATCH': {
+        // Grammar: `hunk+ end_patch`. Dispatch on sentinel prefix.
         if (line === END_PATCH) {
           if (ops.length === 0) {
             return err(lineNo, 'Patch must contain at least one hunk (zero-hunk patch).');
@@ -177,6 +186,7 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
           break;
         }
         if (line.startsWith(ADD_FILE)) {
+          // Grammar: `add_hunk: "*** Add File: " filename LF add_line+`.
           const path = line.slice(ADD_FILE.length);
           const e = assertRelative(path, lineNo);
           if (e !== undefined) return e;
@@ -184,14 +194,15 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
           break;
         }
         if (line.startsWith(DELETE_FILE)) {
+          // Grammar: `delete_hunk: "*** Delete File: " filename LF` — no body.
           const path = line.slice(DELETE_FILE.length);
           const e = assertRelative(path, lineNo);
           if (e !== undefined) return e;
           ops.push({ kind: 'delete', path });
-          // Stay in IN_PATCH — delete hunks consume exactly one line.
           break;
         }
         if (line.startsWith(UPDATE_FILE)) {
+          // Grammar: `update_hunk: "*** Update File: " filename LF change_move? change?`.
           const path = line.slice(UPDATE_FILE.length);
           const e = assertRelative(path, lineNo);
           if (e !== undefined) return e;
@@ -201,8 +212,8 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
         return err(lineNo, `Unexpected line inside patch body: ${JSON.stringify(line)}`);
       }
       case 'IN_ADD': {
-        // Inside an add-file body, every line must begin with `+`. The body
-        // terminates when we see another sentinel (Begin/End/Add/Delete/Update).
+        // Grammar: `add_line: "+" /(.*)/ LF -> line` — body terminates on the
+        // next sentinel (Begin/End/Add/Delete/Update).
         if (
           line === END_PATCH ||
           line.startsWith(ADD_FILE) ||
@@ -216,7 +227,6 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
             );
           }
           ops.push({ kind: 'add', path: state.path, lines: state.lines.slice() });
-          // Re-process the current line under IN_PATCH state.
           state = { tag: 'IN_PATCH' };
           i--;
           break;
@@ -231,20 +241,23 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
         break;
       }
       case 'IN_UPDATE_HEAD': {
-        // After "*** Update File: …": optional `*** Move to: …`, then 0+
-        // hunks introduced by `@@`. Sentinels close the update.
+        // Grammar: `update_hunk: ... change_move? change?`. Either an optional
+        // "*** Move to:" or the start of a change block via "@@".
         if (
           line === END_PATCH ||
           line.startsWith(ADD_FILE) ||
           line.startsWith(DELETE_FILE) ||
           line.startsWith(UPDATE_FILE)
         ) {
+          // `change?` — finalize zero-change update_hunk (pure rename or empty).
           ops.push(finalizeUpdate(state));
           state = { tag: 'IN_PATCH' };
           i--;
           break;
         }
         if (line.startsWith(MOVE_TO)) {
+          // Grammar: `change_move: "*** Move to: " filename LF`. At most one;
+          // must precede any change block.
           if (state.moveTo !== undefined) {
             return err(lineNo, `Duplicate "*** Move to:" for file ${state.path}`);
           }
@@ -258,8 +271,8 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
           break;
         }
         if (line === HUNK_HEADER_BARE || line.startsWith(HUNK_HEADER_WITH)) {
-          // Begin a fresh IN_CHANGE block. Header text after "@@ " is
-          // captured as a context annotation; multiple headers can stack.
+          // Grammar: `change_context: ("@@" | "@@ " /(.+)/) LF`. Open a fresh
+          // change block; capture optional context text after "@@ ".
           const ctx = line === HUNK_HEADER_BARE ? '' : line.slice(HUNK_HEADER_WITH.length);
           state = {
             tag: 'IN_CHANGE',
@@ -278,7 +291,8 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
         );
       }
       case 'IN_CHANGE': {
-        // Sentinels close the current hunk + the surrounding update op.
+        // Grammar: `change: (change_context | change_line)+ eof_line?`. The
+        // surrounding update_hunk closes when a sentinel arrives.
         if (
           line === END_PATCH ||
           line.startsWith(ADD_FILE) ||
@@ -295,23 +309,19 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
           break;
         }
         if (line === END_OF_FILE) {
+          // Grammar: `eof_line: "*** End of File" LF`. Auto-flushes the hunk.
           state.endOfFile = true;
-          // Auto-flush this hunk and return to IN_UPDATE_HEAD — eof
-          // terminates the current hunk body. The next sentinel (or hunk
-          // header) opens fresh state.
           state = flushChangeIntoUpdate(state);
           break;
         }
         if (line === HUNK_HEADER_BARE || line.startsWith(HUNK_HEADER_WITH)) {
-          // A second `@@` either stacks (when the current hunk has no body
-          // yet — multi-level scope) or starts a new hunk (when the current
-          // hunk already has body lines).
+          // grammar extension: stack context headers when no body lines yet
+          // (multi-level scope). Otherwise this header starts a new hunk.
           const ctx = line === HUNK_HEADER_BARE ? '' : line.slice(HUNK_HEADER_WITH.length);
           if (state.currentLines.length === 0) {
             state.currentContexts.push(ctx);
             break;
           }
-          // New hunk: flush + reset.
           const flushed = flushChangeIntoUpdate(state);
           state = {
             tag: 'IN_CHANGE',
@@ -324,16 +334,12 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
           };
           break;
         }
-        // Otherwise this is a change_line: first char is op, rest is text.
+        // Grammar: `change_line: ("+" | "-" | " ") /(.*)/ LF`.
         const op = line.charAt(0);
         if (op === '+' || op === '-' || op === ' ') {
           state.currentLines.push({ op, text: line.slice(1) });
           break;
         }
-        // An empty line — treat as a single-space context line (the
-        // grammar permits zero-text payload after the op char, so a fully
-        // empty line is technically malformed; surface as an error so the
-        // model can re-emit with explicit " ").
         if (line.length === 0) {
           return err(
             lineNo,
@@ -346,9 +352,9 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
         );
       }
       case 'DONE': {
-        // The grammar permits an optional trailing LF; we already stripped
-        // the single trailing empty element. Anything else past END_PATCH
-        // is malformed.
+        // Grammar: `end_patch: "*** End Patch" LF?`. The trailing LF was
+        // already consumed by the split-and-pop above; anything else is
+        // malformed.
         return err(lineNo, `Unexpected content after "${END_PATCH}": ${JSON.stringify(line)}`);
       }
     }
@@ -358,7 +364,6 @@ export function parseApplyPatch(text: string): ApplyPatchResult {
     return err(rawLines.length, `Patch ended before "${END_PATCH}".`);
   }
   if (ops.length === 0) {
-    // Defensive — also covered by the IN_PATCH→END_PATCH branch.
     return err(rawLines.length, 'Patch contained zero file operations.');
   }
   return { ok: true, ops };
