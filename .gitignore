@@ -129,6 +129,10 @@ scripts/lib/*
 !scripts/bump-version.sh
 !scripts/check-bundle-size.mjs
 !scripts/check-offline.mjs
+# Phase 18 plan 02-01 (G-02): nested .npmignore — npm 11 ignores root .npmignore
+# when files[] lists a directory, so the carve-out for scripts/internal/ and
+# scripts/.port-rewrites.json MUST live inside scripts/ to take effect.
+!scripts/.npmignore
 !scripts/docs-gen.ts
 # Phase 17 plan 01-01 T1: spawn-snapshot determinism tool (gates Provider-isolation invariant D2).
 !scripts/spawn-snapshot.ts
