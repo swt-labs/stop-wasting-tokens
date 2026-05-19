@@ -194,11 +194,15 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
               SWT_PLANNING_ROOT: path.join(opts.projectRoot, PLANNING_DIR),
             },
             detached: true,
-            // stdout ignored; stderr piped so we can mirror the
-            // subprocess's error output to the events JSONL — without this
-            // mirror, fast-exit failures show up as opaque
-            // INIT_SPAWN_FAILED entries with no diagnostic context.
-            stdio: ['ignore', 'ignore', 'pipe'],
+            // Milestone 19 Phase 01 — BOTH stdout and stderr piped so we
+            // can mirror the subprocess's output to the events JSONL.
+            // - stderr feeds the existing alpha.20 ring buffer that
+            //   populates init.error envelopes on fast-exit failures.
+            // - stdout (new in milestone 19) surfaces the CLI handler's
+            //   contract lines AND the pre-spawn OAuth advisory to the
+            //   dashboard log panel, replacing the prior "tokens spent
+            //   but no visible activity" gap.
+            stdio: ['ignore', 'pipe', 'pipe'],
           },
         );
 
@@ -241,6 +245,47 @@ export function registerInitRoute(app: Hono, opts: InitRouteOptions): void {
                     type: 'log.append',
                     ts: new Date().toISOString(),
                     channel: 'stderr',
+                    line,
+                  }) + '\n',
+                );
+              } catch {
+                // best-effort
+              }
+            }
+          });
+        }
+
+        // Milestone 19 Phase 01 — pipe child stdout into the events JSONL
+        // as `log.append` rows with `channel: 'stdout'`. Mirrors the
+        // stderr-mirror block above byte-for-byte except:
+        //   - no ring buffer: the alpha.20 ring exists ONLY to feed
+        //     `init.error` envelopes on fast-exit failures; stdout does
+        //     not feed that path (it carries normal CLI handler output,
+        //     not error context).
+        //   - channel discriminator is `'stdout'` instead of `'stderr'`.
+        // Surfaces the CLI handler's contract lines AND the pre-spawn
+        // OAuth advisory (init.ts:278-284 in the cook subprocess — Phase
+        // 02 rewrites that advisory) to the dashboard log panel. Closes
+        // the visibility gap where users could spend tokens without ever
+        // seeing the CLI's progress text in the dashboard.
+        const childWithStdout = child as { stdout?: NodeJS.ReadableStream | null };
+        if (childWithStdout.stdout) {
+          let stdoutBuf = '';
+          childWithStdout.stdout.on('data', (chunk: Buffer | string) => {
+            stdoutBuf += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+            let nl: number;
+            while ((nl = stdoutBuf.indexOf('\n')) >= 0) {
+              const line = stdoutBuf.slice(0, nl);
+              stdoutBuf = stdoutBuf.slice(nl + 1);
+              if (line.length === 0) continue;
+              try {
+                mkdirSync(daemonEventsDir, { recursive: true });
+                appendFileSync(
+                  daemonEventsPath,
+                  JSON.stringify({
+                    type: 'log.append',
+                    ts: new Date().toISOString(),
+                    channel: 'stdout',
                     line,
                   }) + '\n',
                 );

@@ -39,10 +39,17 @@ interface FakeStderr {
   dataCallbacks: Array<(chunk: Buffer | string) => void>;
 }
 
+// Milestone 19 Phase 01 — stdout-mirror parity. FakeStdout has the same
+// shape as FakeStderr (the route consumes both via the same newline-
+// buffered `child.stdout.on('data', …)` pattern), but we keep the named
+// interface so tests can pump events through `child.stdout` explicitly.
+type FakeStdout = FakeStderr;
+
 interface FakeChild {
   pid: number;
   unref: ReturnType<typeof vi.fn>;
   stderr: FakeStderr;
+  stdout: FakeStdout;
   once: (ev: string, cb: (code: number | null) => void) => void;
   exitCallbacks: Array<(code: number | null) => void>;
 }
@@ -69,6 +76,13 @@ function makeFakeStderr(): FakeStderr {
   };
 }
 
+// Milestone 19 Phase 01 — identical shape to FakeStderr; named separately
+// so test sites read clearly (`child.stdout.dataCallbacks` vs
+// `child.stderr.dataCallbacks`).
+function makeFakeStdout(): FakeStdout {
+  return makeFakeStderr();
+}
+
 function makeFakeSpawn(recorded: RecordedSpawn[]): {
   spawnFn: (
     command: string,
@@ -93,6 +107,7 @@ function makeFakeSpawn(recorded: RecordedSpawn[]): {
         pid: 88000 + children.length,
         unref: vi.fn(),
         stderr: makeFakeStderr(),
+        stdout: makeFakeStdout(),
         once(ev, cb) {
           if (ev === 'exit') exitCallbacks.push(cb);
         },
@@ -193,7 +208,10 @@ describe('POST /api/init subprocess wiring', () => {
     expect(args).toContain('--skip-scaffold');
 
     expect(recorded[0]?.detached).toBe(true);
-    expect(recorded[0]?.stdio).toEqual(['ignore', 'ignore', 'pipe']);
+    // Milestone 19 Phase 01 — stdout now piped (was 'ignore') so the
+    // CLI handler's stdout reaches the dashboard log panel via
+    // `log.append` events with `channel: 'stdout'`.
+    expect(recorded[0]?.stdio).toEqual(['ignore', 'pipe', 'pipe']);
     expect(recorded[0]?.cwd).toBe(tmpProjectRoot);
     expect(recorded[0]?.env?.['SWT_PLANNING_ROOT']).toBe(
       path.join(tmpProjectRoot, '.swt-planning'),
@@ -623,6 +641,112 @@ describe('POST /api/init subprocess wiring', () => {
     expect(logRows[0]?.channel).toBe('stderr');
     expect(logRows[0]?.line).toBe('swt init: failed to load commands/init.md');
     expect(logRows[1]?.line).toBe('Error: ENOENT: no such file');
+  });
+
+  it('mirrors subprocess stdout to JSONL as log.append rows (milestone 19 Phase 01 — channel: stdout)', async () => {
+    const recorded: RecordedSpawn[] = [];
+    const { spawnFn, children } = makeFakeSpawn(recorded);
+    const { bus } = makeFakeBus();
+
+    const app = new Hono();
+    registerInitRoute(app, {
+      projectRoot: tmpProjectRoot,
+      onInitialized: vi.fn(),
+      getSnapshot: () => null,
+      bus,
+      spawnFn: spawnFn as unknown as InitSpawnFn,
+      initProject: makeFakeInitProject(),
+    });
+
+    await app.request('http://x/api/init', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'foo' }),
+    });
+
+    // Pump newline-buffered chunks through the fake child's stdout
+    // data callback — including a partial-line followed by a closing
+    // newline to exercise the buffering path.
+    const child = children[0];
+    expect(child).toBeDefined();
+    for (const cb of child!.stdout.dataCallbacks) {
+      cb('Loading commands/init.md…\n');
+      cb('Spawning Lead session abc-1234');
+      cb('\nLead session ready\n');
+    }
+
+    // Find the events JSONL written by the route.
+    const eventsDir = path.join(tmpProjectRoot, '.swt-planning', '.events');
+    const files = readdirSync(eventsDir).filter((f) => f.startsWith('init-'));
+    expect(files).toHaveLength(1);
+    const lines = readFileSync(path.join(eventsDir, files[0]!), 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    // Should contain init.start row PLUS three log.append stdout rows.
+    const logRows = lines.filter((l) => l.type === 'log.append');
+    expect(logRows).toHaveLength(3);
+    for (const row of logRows) {
+      expect(row.channel).toBe('stdout');
+    }
+    expect(logRows[0]?.line).toBe('Loading commands/init.md…');
+    expect(logRows[1]?.line).toBe('Spawning Lead session abc-1234');
+    expect(logRows[2]?.line).toBe('Lead session ready');
+  });
+
+  it('stdout and stderr channels do not cross-contaminate (interleaved stream discriminator)', async () => {
+    const recorded: RecordedSpawn[] = [];
+    const { spawnFn, children } = makeFakeSpawn(recorded);
+    const { bus } = makeFakeBus();
+
+    const app = new Hono();
+    registerInitRoute(app, {
+      projectRoot: tmpProjectRoot,
+      onInitialized: vi.fn(),
+      getSnapshot: () => null,
+      bus,
+      spawnFn: spawnFn as unknown as InitSpawnFn,
+      initProject: makeFakeInitProject(),
+    });
+
+    await app.request('http://x/api/init', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'foo' }),
+    });
+
+    const child = children[0];
+    expect(child).toBeDefined();
+    // Interleave one stdout line and one stderr line; assert each
+    // row carries its correct `channel` discriminator (no leak from
+    // the stderr ring buffer into stdout rows or vice versa).
+    for (const cb of child!.stdout.dataCallbacks) {
+      cb('CLI stdout line\n');
+    }
+    for (const cb of child!.stderr.dataCallbacks) {
+      cb('CLI stderr line\n');
+    }
+
+    const eventsDir = path.join(tmpProjectRoot, '.swt-planning', '.events');
+    const files = readdirSync(eventsDir).filter((f) => f.startsWith('init-'));
+    expect(files).toHaveLength(1);
+    const lines = readFileSync(path.join(eventsDir, files[0]!), 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    const logRows = lines.filter((l) => l.type === 'log.append');
+    expect(logRows).toHaveLength(2);
+    // The stdout row carries `channel: 'stdout'`, the stderr row
+    // carries `channel: 'stderr'`, and the line contents stay paired
+    // with their originating stream (no cross-contamination).
+    const stdoutRows = logRows.filter((r) => r.channel === 'stdout');
+    const stderrRows = logRows.filter((r) => r.channel === 'stderr');
+    expect(stdoutRows).toHaveLength(1);
+    expect(stderrRows).toHaveLength(1);
+    expect(stdoutRows[0]?.line).toBe('CLI stdout line');
+    expect(stderrRows[0]?.line).toBe('CLI stderr line');
   });
 });
 
