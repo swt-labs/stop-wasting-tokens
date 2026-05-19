@@ -20,15 +20,43 @@ const HookSubBlockSchema = z
   })
   .optional();
 
+// Phase 01 settings-v2: shape for entries in `custom_profiles`.
+// `values` is `z.unknown()` (loose-at-the-wire); Phase 02 validates each
+// custom profile's `values` against `ConfigSchema` at write-time before
+// persisting. This avoids forward-referencing `ConfigSchema` from within
+// its own object literal and mirrors the `ConfigSnapshot.config: z.unknown()`
+// pattern already used at the cross-package wire boundary.
+const CustomProfileSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().default(''),
+  values: z.record(z.string(), z.unknown()).default({}),
+});
+
 export const ConfigSchema = z.object({
   effort: z.enum(EFFORTS as unknown as [string, ...string[]]).default('balanced'),
   autonomy: z.enum(AUTONOMY_TIERS as unknown as [string, ...string[]]).default('standard'),
   verification_tier: z
     .enum(VERIFICATION_TIERS as unknown as [string, ...string[]])
     .default('standard'),
+  qa_skip_agents: z.array(z.string()).default(['docs']),
+  // `max_uat_remediation_rounds`: false = unlimited rounds; positive integer = hard cap.
+  // Consumers must handle both branches of the union.
+  max_uat_remediation_rounds: z
+    .union([z.number().int().positive(), z.literal(false)])
+    .default(false),
+  caveman_style: z.enum(['none', 'aggressive', 'extreme']).default('none'),
   model_profile: z.enum(['quality', 'balanced', 'cost']).default('quality'),
+  skill_suggestions: z.boolean().default(true),
+  auto_install_skills: z.boolean().default(false),
+  visual_format: z.enum(['unicode', 'ascii']).default('unicode'),
   backend: z.enum(['pi']).default('pi'),
   prefer_teams: z.enum(['auto', 'always', 'never']).default('auto'),
+  discovery_questions: z.boolean().default(true),
+  discussion_mode: z.enum(['questions', 'assumptions', 'auto']).default('questions'),
+  require_phase_discussion: z.boolean().default(false),
+  context_compiler: z.boolean().default(true),
+  rolling_summary: z.boolean().default(false),
   worktree_isolation: z.enum(['off', 'on', 'auto']).default('off'),
   agent_max_turns: AgentMaxTurnsSchema.default({
     scout: 15,
@@ -41,8 +69,11 @@ export const ConfigSchema = z.object({
   model_overrides: AgentModelOverridesSchema.default({}),
   mcp_overrides: AgentMcpOverridesSchema.default({}),
   auto_uat: z.boolean().default(false),
+  auto_commit: z.boolean().default(true),
   planning_tracking: z.enum(['manual', 'ignore', 'commit']).default('manual'),
   auto_push: z.enum(['never', 'after_phase', 'always']).default('never'),
+  branch_per_milestone: z.boolean().default(false),
+  max_tasks_per_plan: z.number().int().positive().default(5),
   telemetry: z
     .object({
       enabled: z.boolean().default(false),
@@ -74,7 +105,15 @@ export const ConfigSchema = z.object({
       post_qa: HookSubBlockSchema,
     })
     .optional(),
+  // `active_profile` is an open string (not `z.enum(...)`) so users can save
+  // a custom profile id from `custom_profiles` as the active one. Strict
+  // narrowing to the builtin set happens at the Phase 02 ProfileDropdown UI
+  // boundary via the `ProfileId` TS type derived from `BUILTIN_PROFILES`.
+  active_profile: z.string().default('default'),
+  custom_profiles: z.record(z.string(), CustomProfileSchema).default({}),
 });
+
+export { CustomProfileSchema };
 
 export type SwtConfig = z.infer<typeof ConfigSchema>;
 

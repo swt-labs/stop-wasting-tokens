@@ -9,11 +9,29 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 
 `config.json` lives at `.swt-planning/config.json` and is read on every `swt` invocation. All keys are optional — defaults from `@swt-labs/core/config/defaults.json` apply where missing.
 
+### `active_profile`
+
+- **Type:** `string`
+- **Default:** `"default"`
+- **When to override:** _(no override guidance documented)_
+
 ### `agent_max_turns`
 
 - **Type:** `Record<string, number>`
 - **Default:** `{"scout":15,"qa":25,"architect":30,"debugger":80,"lead":50,"dev":75}`
 - **When to override:** Bump `qa` if your QA agent regularly hits the cap on dense phases. The shipped defaults (15/25/30/80/50/75 for scout/qa/architect/debugger/lead/dev) reflect the v1.0 ship's empirical floor.
+
+### `auto_commit`
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** _(no override guidance documented)_
+
+### `auto_install_skills`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **When to override:** _(no override guidance documented)_
 
 ### `auto_push`
 
@@ -39,6 +57,42 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 - **Default:** `"pi"`
 - **When to override:** `"codex"` is the default and most-tested path. Switch to `"claude-code"` when running against the Claude Code CLI; `"ollama"` for local-only inference. Cross-backend model resolution requires `model_overrides[role]` to be set to a backend-appropriate value (see Phase 03 / Plan 03-05's cross-backend-model-gap notes).
 
+### `branch_per_milestone`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **When to override:** _(no override guidance documented)_
+
+### `caveman_style`
+
+- **Type:** `"none" | "aggressive" | "extreme"`
+- **Default:** `"none"`
+- **When to override:** _(no override guidance documented)_
+
+### `context_compiler`
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** _(no override guidance documented)_
+
+### `custom_profiles`
+
+- **Type:** `Record<string, object>`
+- **Default:** `{}`
+- **When to override:** _(no override guidance documented)_
+
+### `discovery_questions`
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** _(no override guidance documented)_
+
+### `discussion_mode`
+
+- **Type:** `"questions" | "assumptions" | "auto"`
+- **Default:** `"questions"`
+- **When to override:** _(no override guidance documented)_
+
 ### `effort`
 
 - **Type:** `"thorough" | "balanced" | "fast" | "turbo"`
@@ -54,6 +108,18 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 
 - **Type:** `object (optional)`
 - **When to override:** The Codex Plugin Marketplace API surface is reserved for when the marketplace publishes their endpoint. When set, `swt update` queries both npm and the marketplace, surfacing any version divergence. Default is undefined → marketplace lookup stays dormant.
+
+### `max_tasks_per_plan`
+
+- **Type:** `number`
+- **Default:** `5`
+- **When to override:** _(no override guidance documented)_
+
+### `max_uat_remediation_rounds`
+
+- **Type:** `number | "false"`
+- **Default:** `false`
+- **When to override:** _(no override guidance documented)_
 
 ### `mcp_overrides`
 
@@ -85,6 +151,30 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 - **Default:** `"auto"`
 - **When to override:** `"never"` if your environment cannot reliably create real team-scoped teammates (e.g., pure-CLI Codex without team support).
 
+### `qa_skip_agents`
+
+- **Type:** `string[]`
+- **Default:** `["docs"]`
+- **When to override:** _(no override guidance documented)_
+
+### `require_phase_discussion`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **When to override:** _(no override guidance documented)_
+
+### `rolling_summary`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **When to override:** _(no override guidance documented)_
+
+### `skill_suggestions`
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **When to override:** _(no override guidance documented)_
+
 ### `telemetry`
 
 - **Type:** `object`
@@ -96,6 +186,12 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 - **Type:** `"quick" | "standard" | "deep"`
 - **Default:** `"standard"`
 - **When to override:** `"thorough"` for security-sensitive code or before a customer-facing release.
+
+### `visual_format`
+
+- **Type:** `"unicode" | "ascii"`
+- **Default:** `"unicode"`
+- **When to override:** _(no override guidance documented)_
 
 ### `worktree_isolation`
 
