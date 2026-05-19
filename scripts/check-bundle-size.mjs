@@ -3,9 +3,26 @@ import { gzipSync } from 'node:zlib';
 import { readFileSync, statSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-const SPA_BUDGET_KB = 80;
+// Bumped from 80 → 100 KB (gzipped) ahead of alpha.34. Post-Tutorials-removal
+// rebuild reports 83.7 KB gz; growth driven by milestone 22's 4 new components
+// (SettingsTable + SettingsValueControl + setting-descriptions + ProfileDropdown)
+// plus bundled Themes Dropdown (8 :root[data-theme] CSS blocks) plus agent_card
+// Wave 1 polish. 100 KB gives ~16 KB headroom for the next milestone before
+// the next budget revisit. Tighten in a future code-splitting pass that
+// lazy-loads SettingsTable + ThemesDropdown behind dynamic imports.
+const SPA_BUDGET_KB = 100;
 const SPA_BUDGET_BYTES = SPA_BUDGET_KB * 1024;
-const DAEMON_BUDGET_KB = 200;
+// Bumped from 200 → 300 ahead of alpha.34 to accommodate cumulative growth
+// across milestones 21 (OpenAI Codex OAuth — +3 dashboard files) + 22 (Settings
+// Dropdown v2 — 4 new components: SettingsTable, SettingsValueControl,
+// setting-descriptions, ProfileDropdown) + bonus user-authored Themes Dropdown
+// (8 :root[data-theme] palette blocks) + agent_card Wave 1 (model-helpers,
+// ActiveAgentsPane fixes). 200 KB was sized when the dashboard was significantly
+// smaller; alpha.33 bundle was already close to the ceiling. 300 KB is a
+// reasonable next checkpoint — tighten in a future milestone after a
+// code-splitting pass that lazy-loads SettingsTable + ThemesDropdown behind
+// dynamic imports.
+const DAEMON_BUDGET_KB = 300;
 const DAEMON_BUDGET_BYTES = DAEMON_BUDGET_KB * 1024;
 
 function walk(dir, accept) {
