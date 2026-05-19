@@ -32,11 +32,12 @@
  * **OAuth radio — un-stubbed in Phase 4 (plan 04-03).** Phase 3 shipped the
  * OAuth radio disabled with a coming-later note. Plan 04-03 removes that
  * stub and makes the radio selectable for the three providers pi-ai ships
- * an OAuth subsystem for (`anthropic` / `openai-codex` / `github-copilot`)
- * — a provider not in pi-ai's OAuth registry has no OAuth option. The radio
- * stays disabled when the keychain is unavailable (an OAuth login also
- * culminates in a keychain write) OR the selected provider has no OAuth
- * support.
+ * an OAuth subsystem for (`anthropic` / `openai` / `github-copilot`, listed
+ * here as SWT user-facing canonical ids — see `OAUTH_PROVIDERS` below for
+ * the SWT-vs-pi-ai id-convention note) — a provider not in pi-ai's OAuth
+ * registry has no OAuth option. The radio stays disabled when the keychain
+ * is unavailable (an OAuth login also culminates in a keychain write) OR
+ * the selected provider has no OAuth support.
  *
  * **Risk 4 — auth URL shown ALWAYS + manual-code paste box.** When an OAuth
  * flow is active, the panel renders the auth URL from the `oauth.auth_url`
@@ -165,12 +166,18 @@ export function isSaveDisabled(
 }
 
 /**
- * The three providers pi-ai ships an OAuth subsystem for. Plan 04-03 (Phase
- * 4) enables the OAuth auth-mode radio ONLY for these — a provider not in
- * pi-ai's OAuth registry simply has no OAuth option (Phase 4 OVERVIEW Scope
- * Boundary). All three are members of `PROVIDER_VOCABULARY`.
+ * The providers SWT exposes an OAuth login path for. Lists SWT user-facing
+ * canonical provider ids (members of `PROVIDER_VOCABULARY`) — NOT pi-ai's
+ * internal registry ids (e.g. pi-ai 0.74.0 keys OpenAI Codex under
+ * `'openai-codex'`, but SWT speaks `'openai'` end-to-end; the dashboard
+ * OAuth-start route translates once via `mapToOAuthProviderId` from
+ * `@swt-labs/runtime` — milestone 21 Phase 01).
+ *
+ * `isOAuthRadioDisabled` (below) gates the OAuth auth-mode radio on
+ * membership in this array AND keychain availability (Phase 4 OVERVIEW
+ * Scope Boundary).
  */
-export const OAUTH_PROVIDERS: readonly string[] = ['anthropic', 'openai-codex', 'github-copilot'];
+export const OAUTH_PROVIDERS: readonly string[] = ['anthropic', 'openai', 'github-copilot'];
 
 /** Whether `provider` has a pi-ai OAuth subsystem (plan 04-03). Pure. */
 export function isOAuthProvider(provider: string): boolean {

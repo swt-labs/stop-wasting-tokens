@@ -131,7 +131,7 @@ describe('<ProviderAuthPanel> OAuth extension — smoke', () => {
 describe('OAuth radio un-stub (Phase 4)', () => {
   it('OAUTH_PROVIDERS is exactly the three pi-ai OAuth providers — all in PROVIDER_VOCABULARY', () => {
     expect([...OAUTH_PROVIDERS].sort()).toEqual(
-      ['anthropic', 'github-copilot', 'openai-codex'].sort(),
+      ['anthropic', 'github-copilot', 'openai'].sort(),
     );
     for (const p of OAUTH_PROVIDERS) {
       expect(PROVIDER_VOCABULARY).toContain(p);
@@ -140,9 +140,9 @@ describe('OAuth radio un-stub (Phase 4)', () => {
 
   it('isOAuthProvider is true for the three OAuth providers, false for the rest', () => {
     expect(isOAuthProvider('anthropic')).toBe(true);
-    expect(isOAuthProvider('openai-codex')).toBe(true);
+    expect(isOAuthProvider('openai')).toBe(true);
     expect(isOAuthProvider('github-copilot')).toBe(true);
-    expect(isOAuthProvider('openai')).toBe(false);
+    expect(isOAuthProvider('openai-codex')).toBe(false);
     expect(isOAuthProvider('google')).toBe(false);
     expect(isOAuthProvider('nonexistent')).toBe(false);
   });
@@ -150,7 +150,7 @@ describe('OAuth radio un-stub (Phase 4)', () => {
   it('the OAuth radio is NOT disabled for an OAuth provider when keychain_available !== false', () => {
     const data = makeSnapshot({ keychain_available: true });
     expect(isOAuthRadioDisabled(data, 'anthropic')).toBe(false);
-    expect(isOAuthRadioDisabled(data, 'openai-codex')).toBe(false);
+    expect(isOAuthRadioDisabled(data, 'openai')).toBe(false);
   });
 
   it('the OAuth radio IS disabled when keychain_available === false (an OAuth login also writes the keychain)', () => {
@@ -160,8 +160,25 @@ describe('OAuth radio un-stub (Phase 4)', () => {
 
   it('the OAuth radio IS disabled for a provider with no pi-ai OAuth subsystem', () => {
     const data = makeSnapshot({ keychain_available: true });
-    expect(isOAuthRadioDisabled(data, 'openai')).toBe(true);
+    expect(isOAuthRadioDisabled(data, 'openai-codex')).toBe(true);
     expect(isOAuthRadioDisabled(data, 'google')).toBe(true);
+  });
+});
+
+describe('OAUTH_PROVIDERS — SWT canonical ids (milestone 21 Phase 02 DRIFT-1 lock)', () => {
+  it("isOAuthProvider('openai') returns true (the OAuth radio is selectable for OpenAI users)", () => {
+    expect(isOAuthProvider('openai')).toBe(true);
+  });
+
+  it("OAUTH_PROVIDERS array contents lock — exactly ['anthropic', 'openai', 'github-copilot'] (no pi-ai internal 'openai-codex' id)", () => {
+    // Prevents drift recurrence: if a future maintainer copy-pastes pi-ai's
+    // internal id ('openai-codex') back into this array (the original Phase 4
+    // bug, fixed in milestone 21 Phase 02 T01), this test fails. The dashboard
+    // OAuth-start route does the SWT→pi-ai id translation via
+    // `mapToOAuthProviderId` (milestone 21 Phase 01 / provider-id-map.ts);
+    // the UI speaks SWT canonical ids only.
+    expect([...OAUTH_PROVIDERS]).toEqual(['anthropic', 'openai', 'github-copilot']);
+    expect(OAUTH_PROVIDERS).not.toContain('openai-codex');
   });
 });
 
