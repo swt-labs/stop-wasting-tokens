@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/telemetry",
-  "version": "3.0.0-alpha.35",
+  "version": "3.0.0-alpha.36",
   "description": "Opt-in, privacy-respecting metrics for SWT.",
   "license": "MIT",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/core",
-  "version": "3.0.0-alpha.35",
+  "version": "3.0.0-alpha.36",
   "description": "Type definitions, abstractions, and Zod schemas for SWT (HookHost, AgentSpawner, PermissionGate, MemoryStore).",
   "license": "MIT",
   "type": "module",

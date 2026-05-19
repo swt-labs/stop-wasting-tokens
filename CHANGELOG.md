@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — alpha.36 post-alpha.35 auth-persistence fixes
+
+_Two commits between v3.0.0-alpha.35 (published 2026-05-19) and this bundle. Both address the same user-reported regression — "I'm authorized with Anthropic and Openrouter, but when I start a new SWT the dashboard does not seem to remember and always asks me to authorize like it were the first time." Two-layer fix: server-side write+derivation so the Initialize button gates correctly, plus client-side UX so the user can SEE that their credentials ARE remembered. No VBW milestone scope — direct mechanical fixes per [feedback_pragmatic_over_protocol]._
+
+### Fixes
+
+- **`550b1c0` fix(dashboard): Initialize SWT project button stuck greyed after OAuth** — Two-half fix: (a) `writeAuthConfig` in `provider-auth-oauth.ts` now writes BOTH `config.auth.<provider>` AND `config.providers.strategy = { kind: 'pinned', provider }` — pre-fix the API-key path wrote both, the OAuth path only wrote the auth block, so successful OAuth flows left `selected_provider` null in the snapshot. (b) `buildSnapshot` in `provider-auth.ts` adds a backwards-compatible fallback: when `selected_provider === null` AND the keychain has at least one authed credential, derive `selected_provider` from the first authed status. Pinned `providers.strategy` selections still take priority. Covers both forward (fresh OAuth now persists the pin) and backward (users with broken alpha.34/alpha.35 configs auto-recover) paths.
+- **`24d45f0` fix(dashboard): ProviderAuthPanel surfaces already-configured state** — The panel rendered the auth-entry form identically whether credentials existed or not — same UI as first-time setup. Users opening the Provider menu after a successful auth saw `Auth mode: api_key` + empty inputs (because `selectedMode` defaulted to `'api_key'` regardless of stored mode) and concluded "SWT forgot my creds". The credentials were actually preserved in the keychain — the panel just never communicated their existence. Three changes: (1) `selectedMode` now initializes to the credential's actual mode when the selected provider is configured; switching the dropdown to a configured provider snaps the mode radio to the stored value. (2) Provider `<select>` options annotate configured providers with their stored mode: `anthropic ✓ oauth`, `openrouter ✓ api_key`. (3) New success-variant banner above the form: `✓ {provider} is configured ({mode} via Keychain). Submit a new credential below to replace it, or pick a different provider.` Reuses `.provider-auth-banner` + new `.provider-auth-banner-ok` for the green tint.
+
+**Combined effect:** `550b1c0` ensures the Initialize button correctly enables when credentials exist in keychain (regardless of how config.json got there); `24d45f0` ensures the user can SEE the keychain credentials in the UI so they don't think SWT forgot them. The two together close the "auth persistence" complaint chain end-to-end.
+
+**Test growth:** 2718 (alpha.35 baseline) → 2739 (+21 net). **Regression:** 0 failed. **D2 invariant preserved:** no provider-prompt edits in either commit. **Preflight (Gate A+B):** green at the v3.0.0-alpha.36 bump.
+
 ## Unreleased — alpha.35 post-alpha.34 fixes + Model dropdown
 
 _Six commits between v3.0.0-alpha.34 (published 2026-05-19) and this bundle. Five user-reported UX/correctness fixes that came in immediately after the alpha.34 NPM publish, plus one new feature (Model dropdown in the TopBar). All commits land on `main` directly; no VBW milestone scope — the user explicitly directed each via plain-English requests, with [feedback_pragmatic_over_protocol] applied throughout._
