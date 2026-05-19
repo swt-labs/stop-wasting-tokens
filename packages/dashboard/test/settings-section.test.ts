@@ -223,8 +223,18 @@ describe('shared enum vocabulary — single source', () => {
     expect(CONFIG_ENUM_OPTIONS.worktree_isolation).toEqual(['off', 'on', 'auto']);
   });
 
-  it('SETTINGS_BOOLEAN_FIELDS is exactly [auto_uat]', () => {
-    expect(SETTINGS_BOOLEAN_FIELDS).toEqual(['auto_uat']);
+  it('SETTINGS_BOOLEAN_FIELDS includes auto_uat + the 8 Phase 02 boolean field additions', () => {
+    expect(SETTINGS_BOOLEAN_FIELDS).toEqual([
+      'auto_uat',
+      'auto_commit',
+      'skill_suggestions',
+      'auto_install_skills',
+      'discovery_questions',
+      'context_compiler',
+      'branch_per_milestone',
+      'rolling_summary',
+      'require_phase_discussion',
+    ]);
   });
 });
 

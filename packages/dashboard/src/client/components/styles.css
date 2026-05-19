@@ -3554,3 +3554,141 @@ body {
   color: var(--ghost-white);
   border-color: var(--ghost-white);
 }
+
+/* ── Phase 02 plan 02-02: SettingsTable + SettingsValueControl ─────────────
+   The 24-row flat-table replacement for the milestone-14 SettingsSection
+   segmented-control surface. Selectors are append-only and use the existing
+   :root theme tokens defined in packages/dashboard/src/client/styles.css
+   (--terminal-green, --ghost-white, --slate-muted, --slate-muted-15,
+   --deep-void, --warm-amber). No hardcoded hex codes. ────────────────────── */
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.settings-table th,
+.settings-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--slate-muted-15);
+}
+
+.settings-table th {
+  color: var(--slate-muted);
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: lowercase;
+}
+
+.settings-key {
+  color: var(--ghost-white);
+}
+
+.settings-value {
+  color: var(--terminal-green);
+}
+
+.settings-description {
+  color: var(--slate-muted);
+  font-style: italic;
+}
+
+.settings-table-row.is-modified {
+  border-left: 2px solid var(--terminal-green);
+}
+
+.settings-modified-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--terminal-green);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.settings-value-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.settings-value-btn:hover {
+  text-decoration: underline;
+}
+
+.settings-control-row td {
+  background: var(--slate-muted-15);
+  padding: 8px 12px;
+}
+
+.settings-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--deep-void);
+  border-top: 1px solid var(--slate-muted-15);
+}
+
+/* ── Phase 02 plan 02-02: ProfileDropdown ──────────────────────────────────
+   Selectors referenced by Plan 02-03's ProfileDropdown.tsx component. Plan
+   02-02 owns ALL of Phase 02's CSS (Lead Option A) so the wave-2 plans stay
+   file-disjoint; Plan 02-03 imports nothing from this file but references
+   the class names defined here. ─────────────────────────────────────────── */
+
+.profile-dropdown-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-dropdown {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: transparent;
+  color: var(--terminal-green);
+  border: 1px solid var(--slate-muted-15);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.profile-dropdown__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  color: var(--warm-amber);
+}
+
+.profile-dropdown__confirm button {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  background: transparent;
+  border: 1px solid var(--slate-muted-15);
+  color: var(--ghost-white);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.profile-dropdown__confirm button:first-of-type {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}

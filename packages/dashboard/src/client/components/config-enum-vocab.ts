@@ -8,9 +8,16 @@
  * Source of truth: packages/core/src/types/effort.ts, autonomy.ts,
  * verification.ts, plus the inline enums in packages/core/src/config/Config.ts
  * (model_profile, backend, prefer_teams, worktree_isolation, planning_tracking,
- * auto_push). Hand-mirrored — same precedent as command-registry-mirror.ts /
- * allowed-verbs.ts (the dashboard ships standalone, no @swt-labs/core runtime
- * dep for these enum lists). Sync when those move.
+ * auto_push, discussion_mode, visual_format, caveman_style). Hand-mirrored —
+ * same precedent as command-registry-mirror.ts / allowed-verbs.ts (the
+ * dashboard ships standalone, no @swt-labs/core runtime dep for these enum
+ * lists). Sync when those move.
+ *
+ * Phase 02 plan 02-02 extends this mirror with the 3 new enum vocabularies
+ * (discussion_mode / visual_format / caveman_style), expands
+ * SETTINGS_BOOLEAN_FIELDS from 1 → 9 entries, and adds two new exports
+ * (SETTINGS_NUMBER_FIELDS / SETTINGS_ARRAY_FIELDS) that drive
+ * SettingsValueControl's type-dispatch.
  */
 export const CONFIG_ENUM_OPTIONS: Readonly<Record<string, ReadonlyArray<string>>> = {
   effort: ['thorough', 'balanced', 'fast', 'turbo'],
@@ -22,6 +29,9 @@ export const CONFIG_ENUM_OPTIONS: Readonly<Record<string, ReadonlyArray<string>>
   worktree_isolation: ['off', 'on', 'auto'],
   planning_tracking: ['manual', 'ignore', 'commit'],
   auto_push: ['never', 'after_phase', 'always'],
+  discussion_mode: ['questions', 'assumptions', 'auto'],
+  visual_format: ['unicode', 'ascii'],
+  caveman_style: ['none', 'aggressive', 'extreme'],
 };
 
 /**
@@ -31,6 +41,11 @@ export const CONFIG_ENUM_OPTIONS: Readonly<Record<string, ReadonlyArray<string>>
  * previously excluded as "display-only" while ConfigPanel still owned the
  * raw-tree editor; with ConfigPanel deleted in plan 01-03, backend belongs
  * in the curated knobs alongside `effort`/`autonomy`/etc.
+ *
+ * Phase 02 plan 02-02 leaves this array UNCHANGED — it still drives the
+ * milestone-14 SettingsSection until Phase 03 deletes that component. The
+ * new SettingsTable component (Phase 02) consumes SETTINGS_DISPLAY_ORDER
+ * from `setting-descriptions.ts` instead.
  */
 export const SETTINGS_FIELD_ORDER: ReadonlyArray<string> = [
   'effort',
@@ -44,5 +59,31 @@ export const SETTINGS_FIELD_ORDER: ReadonlyArray<string> = [
   'backend',
 ];
 
-/** Boolean config fields the SettingsSection renders as a toggle. */
-export const SETTINGS_BOOLEAN_FIELDS: ReadonlyArray<string> = ['auto_uat'];
+/**
+ * Boolean config fields the SettingsValueControl renders as an on/off
+ * toggle. Phase 02 plan 02-02 expanded this from `['auto_uat']` to the
+ * full 9-entry list mirroring every boolean field in Phase 01's settings-v2
+ * schema additions (Config.ts). Order matters only for cosmetic stability
+ * — `inferControlType` does a `.includes(key)` membership test.
+ */
+export const SETTINGS_BOOLEAN_FIELDS: ReadonlyArray<string> = [
+  'auto_uat',
+  'auto_commit',
+  'skill_suggestions',
+  'auto_install_skills',
+  'discovery_questions',
+  'context_compiler',
+  'branch_per_milestone',
+  'rolling_summary',
+  'require_phase_discussion',
+];
+
+/** Numeric config fields the SettingsValueControl renders as a number input. */
+export const SETTINGS_NUMBER_FIELDS: ReadonlyArray<string> = ['max_tasks_per_plan'];
+
+/**
+ * Array (`string[]`) config fields the SettingsValueControl renders as a
+ * comma-separated text input (Phase 02 v1; Phase 03 may upgrade to a chip
+ * picker).
+ */
+export const SETTINGS_ARRAY_FIELDS: ReadonlyArray<string> = ['qa_skip_agents'];
