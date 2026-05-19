@@ -245,7 +245,30 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
   const [selectedProvider, setSelectedProvider] = createSignal<string>(
     props.data?.selected_provider ?? PROVIDER_VOCABULARY[0],
   );
-  const [selectedMode, setSelectedMode] = createSignal<PanelAuthMode>('api_key');
+  // alpha.36 fix: default to the SELECTED provider's actual mode (when
+  // configured), not always 'api_key'. Pre-fix users who OAuth'd Anthropic
+  // saw the API-key input form on every menu open even though their
+  // credential was stored as oauth — same root cause as the "always asks
+  // to authorize" complaint. Falls back to 'api_key' when the provider
+  // isn't configured (initial empty state).
+  const initialStatus = (): ProviderAuthStatus | undefined =>
+    props.data?.statuses?.find((s) => s.provider === selectedProvider());
+  const initialMode: PanelAuthMode =
+    initialStatus()?.configured && initialStatus()?.mode === 'oauth' ? 'oauth' : 'api_key';
+  const [selectedMode, setSelectedMode] = createSignal<PanelAuthMode>(initialMode);
+
+  // alpha.36 fix: derive the per-provider configured-status indicator so the
+  // panel can surface "✓ Already configured (oauth via Keychain)" instead of
+  // rendering the auth-entry form as if it were the first time. Reactive on
+  // selectedProvider so switching the dropdown updates the indicator.
+  const currentProviderStatus = (): ProviderAuthStatus | null => {
+    const provider = selectedProvider();
+    return props.data?.statuses?.find((s) => s.provider === provider) ?? null;
+  };
+  const isCurrentProviderConfigured = (): boolean => {
+    const status = currentProviderStatus();
+    return status !== null && status.configured && status.mode !== null;
+  };
   // The ONLY place the entered API key lives. Bound to the password
   // <input>. Cleared on a successful save (write-only invariant).
   const [keyInput, setKeyInput] = createSignal<string>('');
@@ -329,13 +352,47 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
             if (selectedMode() === 'oauth' && !isOAuthProvider(next)) {
               setSelectedMode('api_key');
             }
+            // alpha.36 fix: when switching to a configured provider, snap
+            // the mode to the credential's stored mode so the form
+            // reflects the actual auth state (instead of always defaulting
+            // to api_key, which made it look like SWT "forgot" the OAuth
+            // setup).
+            const nextStatus = props.data?.statuses?.find((s) => s.provider === next);
+            if (nextStatus?.configured && nextStatus.mode !== null) {
+              setSelectedMode(nextStatus.mode);
+            }
           }}
         >
           <For each={PROVIDER_VOCABULARY}>
-            {(provider): JSX.Element => <option value={provider}>{provider}</option>}
+            {(provider): JSX.Element => {
+              const status = (): ProviderAuthStatus | undefined =>
+                props.data?.statuses?.find((s) => s.provider === provider);
+              const isConfigured = (): boolean =>
+                status()?.configured === true && status()?.mode !== null;
+              return (
+                <option value={provider}>
+                  {provider}
+                  {isConfigured() ? ` ✓ ${status()?.mode}` : ''}
+                </option>
+              );
+            }}
           </For>
         </select>
       </div>
+
+      {/* alpha.36 fix: surface the "already configured" state so users don't
+          think SWT 'forgot' their credentials on every dashboard open.
+          Pre-fix the panel rendered the auth-entry form identically whether
+          credentials existed or not — same UX as first-time setup. The
+          banner makes the existing keychain credential visible + reframes
+          the inputs below as a "replace" affordance. */}
+      <Show when={isCurrentProviderConfigured()}>
+        <p class="provider-auth-banner provider-auth-banner-ok tools-panel-banner">
+          ✓ {selectedProvider()} is configured ({currentProviderStatus()?.mode} via{' '}
+          {currentProviderStatus()?.label ?? currentProviderStatus()?.source ?? 'keychain'}). Submit
+          a new credential below to replace it, or pick a different provider.
+        </p>
+      </Show>
 
       <div class="provider-auth-field">
         <span class="provider-auth-field-label">Auth mode</span>

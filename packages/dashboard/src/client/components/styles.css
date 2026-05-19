@@ -2547,6 +2547,17 @@ body {
   white-space: normal;
 }
 
+/* alpha.36 fix: success-variant banner — used to surface the "this provider
+ * is already configured" state when the user opens the Provider menu after
+ * having OAuth'd or saved an api_key. Pre-fix the panel rendered the
+ * auth-entry form identically whether credentials existed or not, so users
+ * thought SWT 'forgot' their auth on every dashboard open. Green tint
+ * (deep-void on phosphor-green) reuses the established log-card palette. */
+.provider-auth-banner-ok {
+  border-color: rgba(0, 255, 65, 0.45);
+  color: var(--phosphor-green);
+}
+
 /* ── Phase 4: provider-auth OAuth login flow sub-section ──
  * Additive only — plan 04-03 un-stubs the OAuth radio + adds the
  * "Login with OAuth" button + the OAuth flow sub-section (auth-URL display,
