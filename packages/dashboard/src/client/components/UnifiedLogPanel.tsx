@@ -270,6 +270,8 @@ const UnifiedLogRow: Component<UnifiedLogRowProps> = (props) => {
             extraClass = ' unified-log__line--streaming';
           } else if (e.kind === 'chat-error') {
             extraClass = ' unified-log__line--error';
+          } else if (e.kind === 'chat-user') {
+            extraClass = ' unified-log__line--user';
           }
           // Split the render branch on system + non-internal: that path keeps
           // `innerHTML` so process ANSI escapes route through `ansiToHtml`.

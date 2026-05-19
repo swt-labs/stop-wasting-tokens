@@ -697,6 +697,9 @@ body {
  * and `.unified-log__cursor` (blinking `▌`) render only while a
  * chat-assistant entry has `completed === false`.
  * `.unified-log__line--error` paints chat-error lines in danger-red.
+ * `.unified-log__line--user` paints chat-user lines in terminal-green to
+ * distinguish the user's own messages from assistant / tool output at a
+ * glance in the scrollback.
  */
 
 .unified-log {
@@ -787,6 +790,10 @@ body {
 
 .unified-log__line--error {
   color: var(--danger-red);
+}
+
+.unified-log__line--user {
+  color: var(--terminal-green);
 }
 
 .unified-log__cursor {
