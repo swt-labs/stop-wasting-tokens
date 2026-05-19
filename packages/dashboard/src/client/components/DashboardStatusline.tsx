@@ -57,6 +57,11 @@ import type {
 import { For, type Component } from 'solid-js';
 
 import type { StatuslineKnobs } from './statusline-helpers.js';
+import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
+
+// Re-export for back-compat with existing test imports from this module
+// (`dashboard-statusline.test.ts` imports `shortModelLabel` from here).
+export { shortModelLabel } from '../lib/model-helpers.js';
 
 export interface DashboardStatuslineProps {
   providerAuth: ProviderAuthSnapshot | null;
@@ -118,14 +123,6 @@ export function formatStatuslineSessionCost(usd: number | null | undefined): str
   return `$${usd.toFixed(2)}`;
 }
 
-/** Compact a single token count: <1K exact, ≥1K → `NK`, ≥1M → `NM`. */
-function compactTokens(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  if (n >= 1_000_000) return `${Math.floor(n / 1_000_000)}M`;
-  if (n >= 1_000) return `${Math.floor(n / 1_000)}K`;
-  return `${Math.floor(n)}`;
-}
-
 /**
  * Format the in→out token cell as `(in↛out)`.
  *
@@ -167,25 +164,9 @@ export function formatStatuslineKnob(label: string, value: string | null): strin
   return `${label}:${value === null || value.length === 0 ? '—' : value}`;
 }
 
-/**
- * Trim a model id to a short display form. Vendor canonical ids are
- * verbose (`claude-sonnet-4-6` vs. the brief's `sonnet-4-6`); the
- * statusline crops to the family suffix to keep cells narrow.
- *
- *   - `claude-sonnet-4-6`        → `sonnet-4-6`
- *   - `claude-haiku-4-5-20251001` → `haiku-4-5-20251001`
- *   - `gpt-5-codex`              → `gpt-5-codex` (no `claude-` prefix to strip)
- *   - `null` / `''`              → `—`
- *
- * Defensive: only strips the `claude-` family prefix because the
- * Anthropic ids follow a consistent `claude-{family}-N-M` pattern.
- * Other vendors render as-is.
- */
-export function shortModelLabel(modelId: string | null | undefined): string {
-  if (modelId === null || modelId === undefined || modelId.length === 0) return '—';
-  if (modelId.startsWith('claude-')) return modelId.slice('claude-'.length);
-  return modelId;
-}
+// shortModelLabel + compactTokens moved to `../lib/model-helpers.ts` (used by
+// both <DashboardStatusline> and <ActiveAgentsPane>). Re-exported below so
+// existing test imports from this module keep resolving without churn.
 
 /**
  * The compact agents-cell payload. Returns:
