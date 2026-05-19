@@ -10,6 +10,38 @@ import type { ThinkingLevel } from './thinking-level.js';
 export type AuthMode = 'api_key' | 'oauth';
 
 /**
+ * Streaming-behavior hint passed to `SwtSession.prompt()` when an
+ * earlier prompt on the same session is still being processed by Pi.
+ * Mirrors Pi 0.74's `PromptOptions.streamingBehavior` union exactly
+ * (Pi: `core/agent-session.d.ts:121`). `'steer'` interrupts the in-
+ * flight prompt and replaces it; `'followUp'` queues the new prompt
+ * to run after the current one completes.
+ *
+ * Optional: when omitted AND no prompt is in flight, Pi accepts the
+ * call without an option. When omitted AND a prompt IS in flight, Pi
+ * throws `"Agent is already processing. Specify streamingBehavior..."`
+ * — which alpha.34's chat route was hitting because it called
+ * `session.prompt(text)` without an options arg. alpha.35 surfaces
+ * this knob through the SwtSession boundary so the dashboard chat
+ * route can pass `'followUp'` for normal conversational queuing
+ * (matching the brief user expectation: "I sent two messages back
+ * to back; queue them, don't reject the second").
+ */
+export type StreamingBehavior = 'steer' | 'followUp';
+
+/**
+ * Options for `SwtSession.prompt()`. Mirrors a SUBSET of Pi 0.74's
+ * `PromptOptions` — only `streamingBehavior` for now, since that's
+ * the one the dashboard chat path needs. Other Pi options
+ * (`expandPromptTemplates`, `images`, `source`, `preflightResult`)
+ * stay encapsulated behind the SwtSession boundary; expose them
+ * here as separate fields if a future feature needs them.
+ */
+export interface PromptOptions {
+  readonly streamingBehavior?: StreamingBehavior;
+}
+
+/**
  * SWT session — vendor-neutral wrapper over Pi's `AgentSession`.
  *
  * Migrated from `runtime/src/types.ts` in PR-04. The shape is locked in here
@@ -20,7 +52,7 @@ export type AuthMode = 'api_key' | 'oauth';
  * stub body for a real `createAgentSession()` call.
  */
 export interface SwtSession {
-  prompt(text: string): Promise<void>;
+  prompt(text: string, options?: PromptOptions): Promise<void>;
   subscribe(listener: (event: SwtEvent) => void): () => void;
   readonly sessionId: string;
   dispose(): void;

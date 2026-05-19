@@ -339,11 +339,25 @@ function buildSwtSessionFromPi(agentSession: AgentSession, opts: SwtSessionOptio
 
   return {
     sessionId,
-    async prompt(text: string): Promise<void> {
+    async prompt(
+      text: string,
+      options?: { streamingBehavior?: 'steer' | 'followUp' },
+    ): Promise<void> {
       if (disposed) {
         throw new Error('SwtSession: prompt() called after dispose()');
       }
-      await agentSession.prompt(text);
+      // alpha.35 fix: forward streamingBehavior to Pi when caller supplies it.
+      // Pi 0.74 throws `"Agent is already processing. Specify streamingBehavior..."`
+      // when a second prompt arrives while the first is still streaming and no
+      // option is given. The dashboard chat route passes `'followUp'` so
+      // back-to-back user messages queue instead of erroring. Internal
+      // orchestrator callsites (dispatcher, cook, init) leave options
+      // undefined — they don't have concurrent prompts.
+      if (options?.streamingBehavior !== undefined) {
+        await agentSession.prompt(text, { streamingBehavior: options.streamingBehavior });
+      } else {
+        await agentSession.prompt(text);
+      }
     },
     subscribe(listener: (event: SwtEvent) => void): () => void {
       const unsubscribe = agentSession.subscribe((piEvent: AgentSessionEvent) => {

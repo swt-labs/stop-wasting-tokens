@@ -258,7 +258,15 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
         });
 
         try {
-          await session.prompt(prompt);
+          // alpha.35 fix: pass streamingBehavior='followUp' so back-to-back
+          // user messages queue instead of throwing "Agent is already
+          // processing." Pi 0.74 requires this whenever a prior prompt is
+          // still streaming on the same session — without it, the second
+          // chat turn surfaces as CHAT_PROMPT_ERROR even though the user's
+          // intent ("send another message") was clear. `'followUp'` matches
+          // chat UX (queue, don't interrupt); `'steer'` would be wrong here
+          // since the user typed a follow-up question, not a course-correct.
+          await session.prompt(prompt, { streamingBehavior: 'followUp' });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           await emit({

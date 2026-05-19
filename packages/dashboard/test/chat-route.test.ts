@@ -407,7 +407,12 @@ describe('POST /api/chat', () => {
     });
     expect(createSessionFn).toHaveBeenCalledTimes(1); // STILL 1
     expect(fakeSession.prompt).toHaveBeenCalledTimes(2);
-    expect(fakeSession.prompt).toHaveBeenNthCalledWith(2, 'turn 2');
+    // alpha.35 fix: chat route passes streamingBehavior='followUp' so a
+    // second back-to-back prompt queues instead of throwing Pi's
+    // "Agent is already processing" error. Assertion updated to match.
+    expect(fakeSession.prompt).toHaveBeenNthCalledWith(2, 'turn 2', {
+      streamingBehavior: 'followUp',
+    });
     // Same id surfaces on the second chat.start
     const second_start = second.events.find((e) => e.event === 'chat.start');
     expect(second_start?.data['chat_session_id']).toBe(chatSessionId);

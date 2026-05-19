@@ -171,18 +171,47 @@ async function buildSnapshot(cwd: string): Promise<ProviderAuthSnapshot> {
 
   const statuses: ProviderAuthStatus[] = [];
   for (const provider of PROVIDER_VOCABULARY) {
-    const mode: ProviderAuthMode | null = authBlock[provider]?.mode ?? null;
+    const configMode: ProviderAuthMode | null = authBlock[provider]?.mode ?? null;
     let configured = false;
-    try {
-      // `store.get` resolves the secret value; we read only its presence +
-      // length, never the value itself.
-      const value = await resolved.store.get(provider, mode ?? 'api_key');
-      configured = value !== undefined && value.length > 0;
-    } catch {
-      // One provider's keychain read failing must not break the whole
-      // snapshot — treat it as "not configured" and move on. No console.*.
-      configured = false;
+    // alpha.35 fix: probe BOTH modes when config doesn't pin one. If the
+    // keychain has a credential under `swt:<provider>:api_key` OR
+    // `swt:<provider>:oauth`, surface that mode in the snapshot — even if
+    // the config's `auth.<provider>.mode` field is missing/null (which
+    // happens for orphaned credentials, pre-mode-persisting writes, or
+    // any future ingestion path that doesn't update config in lockstep).
+    //
+    // Pre-fix bug: the snapshot returned `configured=true, mode=null` for
+    // such credentials, which `computeProviderStatus` classified as 'red'
+    // → InitScreen button greyed + chat route picked the wrong cred slot.
+    // Worst symptom: user OAuth'd Anthropic, restarted SWT, the OAuth
+    // credential's mode field was lost from config, snapshot reported
+    // `mode=null` instead of `mode='oauth'`, every downstream check treated
+    // the provider as unauthed.
+    //
+    // Probe order: config's pinned mode FIRST (no extra keychain calls in
+    // the common case), then api_key, then oauth. Stop at the first hit.
+    let resolvedMode: ProviderAuthMode | null = null;
+    const probeOrder: ProviderAuthMode[] =
+      configMode !== null
+        ? [configMode] // config pinned a mode → trust it
+        : ['api_key', 'oauth']; // unknown — try both
+    for (const candidate of probeOrder) {
+      try {
+        const value = await resolved.store.get(provider, candidate);
+        if (value !== undefined && value.length > 0) {
+          configured = true;
+          resolvedMode = candidate;
+          break;
+        }
+      } catch {
+        // One mode probe failing must not break the whole snapshot — fall
+        // through to the next candidate (or end the loop). No console.*.
+      }
     }
+    // Final mode: prefer the probe-resolved one (it matches the keychain
+    // reality), fall back to configMode (which equals resolvedMode when
+    // config pinned a mode), null otherwise.
+    const mode: ProviderAuthMode | null = resolvedMode ?? configMode;
     const source: 'keychain' | 'env' | null = configured
       ? backendKind === 'keychain'
         ? 'keychain'
