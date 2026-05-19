@@ -130,9 +130,7 @@ describe('<ProviderAuthPanel> OAuth extension — smoke', () => {
  * `disabled` attr is driven by `isOAuthRadioDisabled`. */
 describe('OAuth radio un-stub (Phase 4)', () => {
   it('OAUTH_PROVIDERS is exactly the three pi-ai OAuth providers — all in PROVIDER_VOCABULARY', () => {
-    expect([...OAUTH_PROVIDERS].sort()).toEqual(
-      ['anthropic', 'github-copilot', 'openai'].sort(),
-    );
+    expect([...OAUTH_PROVIDERS].sort()).toEqual(['anthropic', 'github-copilot', 'openai'].sort());
     for (const p of OAUTH_PROVIDERS) {
       expect(PROVIDER_VOCABULARY).toContain(p);
     }
