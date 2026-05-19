@@ -13,9 +13,14 @@
  * exhaustively asserted without rendering the component.
  */
 
+import type { ProviderAuthStatus } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
-import { classifyInitLine } from '../src/client/components/InitScreen.js';
+import {
+  classifyInitLine,
+  computeProviderStatus,
+  selectInitialProvider,
+} from '../src/client/components/InitScreen.js';
 
 describe('classifyInitLine', () => {
   describe('[tool] prefix', () => {
@@ -106,5 +111,80 @@ describe('classifyInitLine', () => {
       // Doesn't match '[tool] ' (with trailing space) — falls through to raw.
       expect(classifyInitLine('[tool]Read')).toBe('[tool]Read');
     });
+  });
+});
+
+/**
+ * Plan 19-04-01 T01 — pure-function tests for the two provider-selector
+ * helpers exported from InitScreen.tsx. Each helper is a pure mapping from
+ * the actual `ProviderAuthStatus` Zod schema (configured + mode + source +
+ * label) to the dropdown's default selection / status-indicator color.
+ *
+ * Adapted from the brief's assumed `status: 'authed'|'missing'|'expired'`
+ * field per Phase 04 research P1 (no such field exists) — the actual rule
+ * is `(configured && mode !== null) → 'green'`, anything else → 'red',
+ * null credential → 'empty'.
+ */
+const mkStatus = (overrides: Partial<ProviderAuthStatus> = {}): ProviderAuthStatus => ({
+  provider: 'anthropic',
+  configured: true,
+  mode: 'oauth',
+  source: 'keychain',
+  label: 'Anthropic',
+  ...overrides,
+});
+
+describe('selectInitialProvider', () => {
+  it('returns null on empty list', () => {
+    expect(selectInitialProvider([], null)).toBe(null);
+    expect(selectInitialProvider([], 'anthropic')).toBe(null);
+  });
+
+  it('matches selected_provider id when present', () => {
+    const a = mkStatus({ provider: 'anthropic' });
+    const o = mkStatus({ provider: 'openai', configured: false, mode: null });
+    const result = selectInitialProvider([o, a], 'anthropic');
+    expect(result).toBe(a);
+  });
+
+  it('falls back to first authed credential when selected_provider unknown', () => {
+    const unauthed = mkStatus({ provider: 'openai', configured: false, mode: null });
+    const authed = mkStatus({ provider: 'anthropic', configured: true, mode: 'api_key' });
+    const result = selectInitialProvider([unauthed, authed], 'gemini');
+    expect(result).toBe(authed);
+  });
+
+  it('falls back to first authed credential when selected_provider is null', () => {
+    const unauthed = mkStatus({ provider: 'openai', configured: false, mode: null });
+    const authed = mkStatus({ provider: 'anthropic', configured: true, mode: 'oauth' });
+    const result = selectInitialProvider([unauthed, authed], null);
+    expect(result).toBe(authed);
+  });
+
+  it('falls back to first overall when nothing is authed', () => {
+    const a = mkStatus({ provider: 'openai', configured: false, mode: null });
+    const b = mkStatus({ provider: 'anthropic', configured: false, mode: null });
+    const result = selectInitialProvider([a, b], null);
+    expect(result).toBe(a);
+  });
+});
+
+describe('computeProviderStatus', () => {
+  it('returns empty for null credential', () => {
+    expect(computeProviderStatus(null)).toBe('empty');
+  });
+
+  it('returns green when configured AND mode set', () => {
+    expect(computeProviderStatus(mkStatus({ configured: true, mode: 'oauth' }))).toBe('green');
+    expect(computeProviderStatus(mkStatus({ configured: true, mode: 'api_key' }))).toBe('green');
+  });
+
+  it('returns red when configured is false', () => {
+    expect(computeProviderStatus(mkStatus({ configured: false, mode: 'api_key' }))).toBe('red');
+    expect(computeProviderStatus(mkStatus({ configured: false, mode: null }))).toBe('red');
+  });
+
+  it('returns red when mode is null even if configured is true (degraded state)', () => {
+    expect(computeProviderStatus(mkStatus({ configured: true, mode: null }))).toBe('red');
   });
 });

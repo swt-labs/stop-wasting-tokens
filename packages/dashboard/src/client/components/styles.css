@@ -629,6 +629,71 @@ body {
   word-break: break-word;
 }
 
+/* Plan 19-04-01 T01 — Provider selector + auth-status indicator above the
+   PROJECT NAME field. Matches the existing .init-* form aesthetic
+   (uppercase-monospace label via .init-field span; .init-input border). */
+
+.provider-selector-field {
+  /* Inherits .init-field display:flex column + gap:4px. No overrides. */
+}
+
+.provider-selector {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.provider-select {
+  /* Inherits .init-input. Stretch to fill the row beside the status button. */
+  flex: 1;
+}
+
+.provider-status {
+  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 14px;
+  border: 1px solid var(--slate-muted);
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.provider-status--ok {
+  color: var(--terminal-green);
+  border-color: var(--terminal-green);
+}
+
+.provider-status--missing {
+  color: var(--danger-red);
+  border-color: var(--danger-red);
+}
+
+.provider-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px dashed var(--slate-muted);
+  border-radius: 4px;
+  color: var(--slate-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.provider-empty-link {
+  background: transparent;
+  border: 0;
+  color: var(--terminal-green);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
 .init-actions {
   display: flex;
   justify-content: flex-end;

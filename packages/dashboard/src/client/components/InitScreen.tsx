@@ -1,7 +1,60 @@
-import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
+import type {
+  ProviderAuthMode,
+  ProviderAuthSnapshot,
+  ProviderAuthStatus,
+  ProviderAuthUpdateBody,
+} from '@swt-labs/shared';
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Component,
+  type JSX,
+} from 'solid-js';
 
 import type { InitBody } from '../services/api.js';
 import type { InitSessionState } from '../state/dashboard-store.js';
+
+/**
+ * Plan 19-04-01 T01 — pure helper for InitScreen's provider dropdown default
+ * selection. Chain: first match by provider-id from snapshot.selected_provider
+ * → first authed credential (configured && mode !== null) → first overall
+ * → null. The brief assumed a `provider:mode` composite for matching, but
+ * Phase 04 research P4 confirmed selected_provider is provider-id-only
+ * (a single string like "anthropic"). Match by provider id.
+ */
+export function selectInitialProvider(
+  statuses: readonly ProviderAuthStatus[],
+  selectedProviderFromSnapshot: string | null,
+): ProviderAuthStatus | null {
+  if (statuses.length === 0) return null;
+  if (selectedProviderFromSnapshot !== null) {
+    const match = statuses.find((s) => s.provider === selectedProviderFromSnapshot);
+    if (match) return match;
+  }
+  const authed = statuses.find((s) => s.configured && s.mode !== null);
+  return authed ?? statuses[0] ?? null;
+}
+
+/**
+ * Plan 19-04-01 T01 — pure helper computing the InitScreen status-indicator
+ * color from a ProviderAuthStatus row. 'green' iff the credential is
+ * configured AND has a known auth mode (api_key or oauth) — adapted from
+ * the brief's assumed `status === 'authed'` to the actual schema per
+ * Phase 04 research P1 (no 'authed'|'missing'|'expired' string field
+ * exists in ProviderAuthStatusSchema). 'red' otherwise. 'empty' for null
+ * — the empty-state placeholder branch (no credentials configured at all).
+ */
+export function computeProviderStatus(
+  credential: ProviderAuthStatus | null,
+): 'green' | 'red' | 'empty' {
+  if (credential === null) return 'empty';
+  return credential.configured && credential.mode !== null ? 'green' : 'red';
+}
 
 /**
  * Plan 19-03-01 T02 — friendly-label map for `[tool] X` lines coming out
@@ -83,6 +136,28 @@ export interface InitScreenProps {
    */
   initSession: () => InitSessionState | null;
   onInit: (body: InitBody) => Promise<void>;
+  /**
+   * Plan 19-04-01 T01 — accessor for the provider-auth snapshot driving
+   * the dropdown + status indicator. Returns null while the tools cell is
+   * still loading on first paint; the dropdown + status indicator
+   * suppress rendering in that case (treat as empty-state). Mirrors the
+   * `initSession` accessor pattern at L84 for Solid reactivity tracking.
+   */
+  providerAuth: () => ProviderAuthSnapshot | null;
+  /**
+   * Plan 19-04-01 T01 — invoked on <select> change. Wraps the same
+   * `actions.applyProviderAuthUpdate` the TopBar ProviderAuthPanel uses
+   * (zero duplicated auth UI). Re-selecting an already-configured
+   * api_key credential omits `apiKey` to preserve the existing keychain
+   * entry, per ProviderAuthUpdateBodySchema docstring (api.ts:391-397).
+   */
+  onSelectProvider: (body: ProviderAuthUpdateBody) => Promise<{ ok: true } | { error: string }>;
+  /**
+   * Plan 19-04-01 T01 — invoked on status-indicator click + empty-state
+   * button click. Same dispatcher TopBar Provider menu uses
+   * (Decision #19 / AC-21).
+   */
+  onOpenProviderMenu: () => void;
 }
 
 interface Step {
@@ -161,12 +236,60 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
     return classifyInitLine(props.initSession()?.lastMessage);
   });
 
+  // Plan 19-04-01 T01 — provider selector state. The "selected provider id"
+  // is a local signal that initializes from selectInitialProvider() over the
+  // current snapshot. We let the user override it via the <select>'s
+  // onChange, AND we re-sync it whenever the snapshot's selected_provider
+  // changes (SSE state.changed from another surface like TopBar Provider
+  // menu). The two surfaces stay in sync because both ultimately read from
+  // state.tools.providerAuth.snapshot.selected_provider — AC-23.
+  const statuses = (): readonly ProviderAuthStatus[] => props.providerAuth()?.statuses ?? [];
+
+  const initialSelection = createMemo<ProviderAuthStatus | null>(() =>
+    selectInitialProvider(statuses(), props.providerAuth()?.selected_provider ?? null),
+  );
+
+  const [selectedProviderId, setSelectedProviderId] = createSignal<string | null>(
+    initialSelection()?.provider ?? null,
+  );
+
+  // Re-sync the local signal whenever the snapshot's selected_provider
+  // changes from out-of-band (e.g. TopBar Provider menu save). createEffect
+  // fires when its tracked reads change; we only WRITE when the server-side
+  // selected_provider differs from the local id (avoids feedback loop on
+  // our own writes — applyProviderAuthUpdate optimistically updates the
+  // cell which would otherwise re-trigger).
+  createEffect(() => {
+    const fromSnapshot = props.providerAuth()?.selected_provider ?? null;
+    if (fromSnapshot !== null && fromSnapshot !== selectedProviderId()) {
+      setSelectedProviderId(fromSnapshot);
+    }
+  });
+
+  // Resolve the currently-selected ProviderAuthStatus row by id. May be null
+  // if the snapshot is empty or the id resolved to a now-removed credential.
+  const selectedCredential = createMemo<ProviderAuthStatus | null>(() => {
+    const id = selectedProviderId();
+    if (id === null) return null;
+    return statuses().find((s) => s.provider === id) ?? null;
+  });
+
+  const providerStatus = createMemo<'green' | 'red' | 'empty'>(() =>
+    computeProviderStatus(selectedCredential()),
+  );
+
+  // AC-22 / AC-24: Initialize disabled when not green OR no credentials at all
+  // OR the existing isBusy() condition.
+  const providerGateBlocked = (): boolean => providerStatus() !== 'green';
+
   const submit = async (e: Event): Promise<void> => {
     e.preventDefault();
     // Belt-and-suspenders against double-fire on rapid clicks. The button is
     // also disabled via isBusy(), but the form itself can still submit on
-    // Enter when focus is in the textarea, so guard here too.
-    if (isBusy()) return;
+    // Enter when focus is in the textarea, so guard here too. Phase 04 adds
+    // the provider-gate condition (defense-in-depth against keyboard submit
+    // when the button is visually disabled but the form still accepts Enter).
+    if (isBusy() || providerGateBlocked()) return;
     const trimmedName = name().trim();
     if (trimmedName.length === 0) {
       setError('Project name is required.');
@@ -237,6 +360,78 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
         <form class="init-form" onSubmit={(e) => void submit(e)}>
           <p class="init-lede">{lede()}</p>
 
+          {/*
+           * Plan 19-04-01 T01 — Provider selector + auth-status indicator above the
+           * PROJECT NAME field (brief §I + ACs 18-24). Two render branches:
+           *   1) statuses().length === 0  → empty-state placeholder (.provider-empty)
+           *   2) statuses().length >= 1   → dropdown + status button (.provider-selector)
+           * Both branches dispatch actions.openProviderMenu via props.onOpenProviderMenu
+           * for the auth-management click target — zero duplicated auth UI (Decision #19).
+           */}
+          <Show
+            when={statuses().length > 0}
+            fallback={
+              <div class="provider-empty">
+                <span>No providers configured —</span>
+                <button
+                  type="button"
+                  class="provider-empty-link"
+                  onClick={() => props.onOpenProviderMenu()}
+                >
+                  open the Provider menu →
+                </button>
+              </div>
+            }
+          >
+            <label class="init-field provider-selector-field">
+              <span>Provider</span>
+              <div class="provider-selector">
+                <select
+                  class="init-input provider-select"
+                  value={selectedProviderId() ?? ''}
+                  disabled={isBusy()}
+                  onChange={(e): void => {
+                    const nextProvider = e.currentTarget.value;
+                    setSelectedProviderId(nextProvider);
+                    const cred = statuses().find((s) => s.provider === nextProvider);
+                    // ProviderAuthUpdateBody requires authMode. Use the credential's
+                    // existing mode when known; default to 'api_key' (lowest-friction
+                    // mode) when the credential has mode === null. apiKey is OMITTED
+                    // — re-selecting preserves the existing keychain entry per
+                    // ProviderAuthUpdateBodySchema docstring (api.ts:391-397).
+                    const authMode: ProviderAuthMode = cred?.mode ?? 'api_key';
+                    void props.onSelectProvider({ provider: nextProvider, authMode });
+                  }}
+                >
+                  <For each={statuses()}>
+                    {(s): JSX.Element => (
+                      <option value={s.provider}>
+                        {s.label ?? s.provider} ({s.mode ?? 'no mode'})
+                      </option>
+                    )}
+                  </For>
+                </select>
+                <button
+                  type="button"
+                  class={`provider-status provider-status--${providerStatus() === 'green' ? 'ok' : 'missing'}`}
+                  title={
+                    providerStatus() === 'green'
+                      ? `${selectedCredential()?.label ?? selectedCredential()?.provider ?? 'Provider'} credentials are valid · click to manage`
+                      : `${selectedCredential()?.label ?? selectedCredential()?.provider ?? 'Provider'} needs credentials · click to add them`
+                  }
+                  aria-label={
+                    providerStatus() === 'green'
+                      ? 'Provider credentials valid; open Provider menu'
+                      : 'Provider credentials missing; open Provider menu'
+                  }
+                  onClick={() => props.onOpenProviderMenu()}
+                >
+                  {providerStatus() === 'green' ? '✓' : '✗'}
+                </button>
+              </div>
+            </label>
+          </Show>
+
           <label class="init-field">
             <span>Project name</span>
             <input
@@ -299,7 +494,16 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
           </Show>
 
           <div class="init-actions">
-            <button type="submit" class="init-submit" disabled={isBusy()}>
+            <button
+              type="submit"
+              class="init-submit"
+              disabled={isBusy() || providerGateBlocked()}
+              title={
+                providerGateBlocked() && !isBusy()
+                  ? 'Provider credentials needed — click the red indicator to add them.'
+                  : undefined
+              }
+            >
               {submitLabel()}
             </button>
           </div>

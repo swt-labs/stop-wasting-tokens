@@ -197,6 +197,9 @@ export const App: Component = () => {
               brownfield={isBrownfield()}
               initSession={() => state.initSession}
               onInit={actions.initProject}
+              providerAuth={() => state.tools.providerAuth.data}
+              onSelectProvider={(body) => actions.applyProviderAuthUpdate(body)}
+              onOpenProviderMenu={actions.openProviderMenu}
             />
           </main>
         }
