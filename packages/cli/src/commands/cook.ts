@@ -1091,6 +1091,31 @@ export function stripFrontmatter(md: string): string {
 }
 
 /**
+ * Phase 02 (milestone 19) — context the augmenter branches on. Callers
+ * pass `{ authMode, provider }` resolved from the credential the spawn
+ * actually used so the user-visible "out of extra usage" error reflects
+ * whether the failure was an api_key (Console quota) or oauth (Max-plan
+ * routing) problem. When `undefined`, the augmenter returns today's
+ * (pre-Phase-02) output byte-identical — see Decision #13 + AC-12.
+ */
+export interface AugmentSpawnErrorContext {
+  authMode?: 'oauth' | 'api_key';
+  provider?: string;
+}
+
+/**
+ * Phase 02 (milestone 19) — defensive extraction of the Anthropic-side
+ * `request_id` from a raw error body (Pi turn_end stopReason=error JSON).
+ * Used by the augmenter to echo the id on its own labelled line so the
+ * user can copy-paste it into a support thread. Returns `undefined` when
+ * the body doesn't carry a `request_id` field — never throws.
+ */
+function extractRequestId(rawSummary: string): string | undefined {
+  const match = /"request_id":"([^"]+)"/.exec(rawSummary);
+  return match?.[1];
+}
+
+/**
  * alpha.22 — pattern-match upstream LLM-API failures we have a known SWT-
  * specific story for, and prepend a short actionable note above the raw
  * error body. Currently handles the Anthropic Max-plan OAuth "out of
@@ -1104,9 +1129,20 @@ export function stripFrontmatter(md: string): string {
  * `cook` and `init`. Lookups are substring-based so the function is
  * resilient to Anthropic's error-string drift (e.g. wording changes).
  *
+ * Phase 02 (milestone 19) — the optional second `context` arg lets
+ * callers pass the resolved `authMode` so the augmenter branches between
+ * an api_key-only story (Console quota; no allowlist text) and an oauth-
+ * shaped story (Max-plan routing; allowlist as secondary cause). With no
+ * context (or unknown mode), today's output is returned byte-identical so
+ * pre-Phase-02 tests + third-party callers stay green (Decision #13 +
+ * AC-12).
+ *
  * Exported for `init.ts`. Tested via `cook-error-augmenter.test.ts`.
  */
-export function augmentSpawnError(rawSummary: string | undefined): string {
+export function augmentSpawnError(
+  rawSummary: string | undefined,
+  context?: AugmentSpawnErrorContext,
+): string {
   if (rawSummary === undefined || rawSummary.length === 0) return '';
   // Anthropic Max-plan OAuth → third-party OAuth `extra_usage` pool.
   // Pi (and therefore SWT) sends `claude-code-20250219` + `oauth-2025-04-20`
@@ -1118,22 +1154,71 @@ export function augmentSpawnError(rawSummary: string | undefined): string {
   // client_id is added to the Max-routing allowlist, OAuth requests bill
   // against the empty `extra_usage` pool → 400 "out of extra usage".
   if (/out of extra usage/i.test(rawSummary)) {
-    return (
-      `Anthropic returned "out of extra usage" — your OAuth token authenticated successfully,\n` +
-      `but the request was routed to Anthropic's third-party OAuth billing pool (empty by default)\n` +
-      `instead of your Max plan's interactive quota. SWT/Pi sends the correct Claude Code\n` +
-      `identification headers; the bottleneck is Anthropic's per-client_id allowlist.\n` +
-      `\n` +
-      `Workarounds:\n` +
-      `  • Add an Anthropic API key via the dashboard's Provider menu (works today,\n` +
-      `    bills your Console account separately from Max).\n` +
-      `  • Or set ANTHROPIC_API_KEY in your shell env.\n` +
-      `\n` +
-      `Long-term: Anthropic must allowlist Pi's OAuth client_id\n` +
-      `(\`9d1c250a-e61b-44d9-88ed-5944d1962f5e\`) for Max-plan routing.\n` +
-      `\n` +
-      `Raw Anthropic response: ${rawSummary}`
-    );
+    // Phase 02 — no context → pre-Phase-02 output byte-identical
+    // (Decision #13 + AC-12). Pre-existing third-party callers and the
+    // legacy test fixture both continue to see this exact string.
+    if (context === undefined) {
+      return (
+        `Anthropic returned "out of extra usage" — your OAuth token authenticated successfully,\n` +
+        `but the request was routed to Anthropic's third-party OAuth billing pool (empty by default)\n` +
+        `instead of your Max plan's interactive quota. SWT/Pi sends the correct Claude Code\n` +
+        `identification headers; the bottleneck is Anthropic's per-client_id allowlist.\n` +
+        `\n` +
+        `Workarounds:\n` +
+        `  • Add an Anthropic API key via the dashboard's Provider menu (works today,\n` +
+        `    bills your Console account separately from Max).\n` +
+        `  • Or set ANTHROPIC_API_KEY in your shell env.\n` +
+        `\n` +
+        `Long-term: Anthropic must allowlist Pi's OAuth client_id\n` +
+        `(\`9d1c250a-e61b-44d9-88ed-5944d1962f5e\`) for Max-plan routing.\n` +
+        `\n` +
+        `Raw Anthropic response: ${rawSummary}`
+      );
+    }
+
+    const requestId = extractRequestId(rawSummary);
+    const headline = `Anthropic says: Add more at claude.ai/settings/usage and keep going.`;
+
+    // Phase 02 — api_key context: only Case B is possible (no OAuth
+    // routing in play, so no allowlist / Provider menu / ANTHROPIC_API_KEY
+    // workarounds; the user already has a key, the key's account just
+    // needs credit). AC-10 enforces the negative assertions.
+    if (context.authMode === 'api_key') {
+      return [
+        headline,
+        `Your API key authenticated, but the Anthropic account billing this key is out of credit.`,
+        `Top up at: https://claude.ai/settings/usage`,
+        requestId ? `\nrequest_id: ${requestId}` : '',
+        `\nRaw Anthropic response: ${rawSummary}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    // Phase 02 — oauth context (or unknown authMode with context): could
+    // be Case A (Max-plan / Console quota spent — the common case) OR
+    // Case B (Anthropic's OAuth-client_id allowlist — the less common
+    // case). Lead with the top-up URL; demote the allowlist hypothesis
+    // to a "less common cause" block with the workarounds below. AC-11.
+    return [
+      headline,
+      `Your OAuth token authenticated, but the billing pool the request routed to is empty.`,
+      `Most common cause: your Max plan or Console quota is genuinely spent — top up at`,
+      `  https://claude.ai/settings/usage`,
+      ``,
+      `Less common cause: SWT/Pi sends Claude Code OAuth headers, but Anthropic has not yet`,
+      `allowlisted Pi's OAuth client_id (\`9d1c250a-e61b-44d9-88ed-5944d1962f5e\`) for Max-plan`,
+      `routing, so the request hit Anthropic's third-party "extra_usage" pool (empty by default).`,
+      `If your account at claude.ai/settings/usage shows healthy remaining quota, this is`,
+      `probably what's happening. Workarounds:`,
+      `  • Add an Anthropic API key via the dashboard's Provider menu (bills your Console`,
+      `    account separately from Max).`,
+      `  • Or set ANTHROPIC_API_KEY in your shell env.`,
+      requestId ? `\nrequest_id: ${requestId}` : '',
+      `\nRaw Anthropic response: ${rawSummary}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
   return rawSummary;
 }
