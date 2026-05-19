@@ -156,6 +156,26 @@ export const App: Component = () => {
     }
   };
 
+  // alpha.35: Model-selection handler — mirrors handleSelectTheme exactly.
+  // The TopBar Model dropdown writes `config.model` so spawn callsites
+  // (cook, init Lead, chat session) can read it and override the
+  // `model_profile` resolution chain when set.
+  const handleSelectModel = async (modelId: string): Promise<void> => {
+    const current = state.tools.config.data?.config as SwtConfig | undefined;
+    if (!current) return;
+    await actions.applyConfigUpdate({ config: { ...current, model: modelId } });
+  };
+
+  // Current values for the TopBar's Model dropdown — derived from the
+  // same `state.tools` cells the rest of the App uses, so SSE
+  // `state.changed` events keep the dropdown in sync with parallel writes.
+  const currentProviderId = (): string | null =>
+    state.tools.providerAuth.data?.selected_provider ?? null;
+  const currentModel = (): string | null => {
+    const config = state.tools.config.data?.config as SwtConfig | undefined;
+    return config?.model ?? null;
+  };
+
   const handleSelect = (phaseSlug: string, artifactName: string): void => {
     void actions.selectArtifact(phaseSlug, artifactName);
   };
@@ -235,6 +255,9 @@ export const App: Component = () => {
         onOptionsMenuSaveConfig={(merged) => actions.applyConfigUpdate({ config: merged })}
         currentTheme={currentTheme()}
         onSelectTheme={(theme) => void handleSelectTheme(theme)}
+        currentProviderId={currentProviderId()}
+        currentModel={currentModel()}
+        onSelectModel={(modelId) => void handleSelectModel(modelId)}
       />
       <Show
         when={isInitialized()}

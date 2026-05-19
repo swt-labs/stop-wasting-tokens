@@ -67,6 +67,17 @@ export const ConfigSchema = z.object({
     .default(false),
   caveman_style: z.enum(['none', 'aggressive', 'extreme']).default('none'),
   model_profile: z.enum(['quality', 'balanced', 'cost']).default('quality'),
+  /**
+   * User-selected model id (e.g., 'claude-opus-4-5', 'gpt-4o', 'deepseek-chat').
+   * When non-null, takes priority over `model_profile` resolution for
+   * spawn callsites — the dashboard's TopBar Model dropdown writes here
+   * on user selection. When null (default), the existing `model_profile`
+   * → per-role resolution applies. Open string by design (matches the
+   * `active_profile` pattern): Pi's ModelRegistry is the source of truth
+   * for valid ids; the schema accepts any string so the dashboard doesn't
+   * have to mirror Pi's full registry into a Zod enum.
+   */
+  model: z.union([z.string().min(1), z.null()]).default(null),
   skill_suggestions: z.boolean().default(true),
   auto_install_skills: z.boolean().default(false),
   visual_format: z.enum(['unicode', 'ascii']).default('unicode'),

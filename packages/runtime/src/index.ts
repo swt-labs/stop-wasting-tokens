@@ -7,6 +7,8 @@
  */
 
 export { createSession, createMockSession, routeUsageToMeter } from './session.js';
+export { listAllModels } from './models.js';
+export type { ModelInfo as RuntimeModelInfo } from './models.js';
 export { createCodingTools, createReadOnlyTools } from './tools.js';
 export { mapPiEvent } from './events.js';
 export { probePiAvailable, type ProbePiResult } from './probe.js';

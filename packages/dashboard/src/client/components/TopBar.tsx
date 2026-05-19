@@ -8,6 +8,7 @@ import type { ConnectionState } from '../state/dashboard-store.js';
 
 import { formatAskUserPlaceholder } from './askuser-card-helpers.js';
 import { GithubDropdown } from './GithubDropdown.js';
+import { ModelDropdown } from './ModelDropdown.js';
 import { ProviderMenu } from './ProviderMenu.js';
 import { SettingsMenu } from './SettingsMenu.js';
 import { ThemesDropdown } from './ThemesDropdown.js';
@@ -148,6 +149,25 @@ export interface TopBarProps {
    * pre-init dashboard.
    */
   onSelectTheme?: (theme: Theme) => void;
+  /**
+   * alpha.35: the currently-selected provider id (from the providerAuth
+   * snapshot). Drives the Model dropdown's filter. Optional: when null,
+   * the Model dropdown renders an empty-state hint ("Pick a provider
+   * first to see available models").
+   */
+  currentProviderId?: string | null;
+  /**
+   * alpha.35: the currently-selected model id from `config.model`. Null
+   * when unset (default). Drives the Model dropdown's checkmark state.
+   */
+  currentModel?: string | null;
+  /**
+   * alpha.35: invoked when the user picks a model from the dropdown.
+   * App.tsx threads this to `actions.applyConfigUpdate({ config: { ...current, model } })`.
+   * Optional: when omitted, the dropdown still renders + permits selection
+   * but no persistence happens (degraded state — same shape as `onSelectTheme`).
+   */
+  onSelectModel?: (modelId: string) => void;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -407,6 +427,18 @@ export const TopBar: Component<TopBarProps> = (props) => {
     providerTriggerRef?.focus(); // focus-return to the trigger
   };
 
+  // alpha.35: Model dropdown sibling — same local-signal pattern as Provider.
+  // Not store-backed (no need for cross-surface state sharing; the dropdown
+  // is single-use UI). When opened it fetches /api/models via createResource
+  // inside the component, so the registry data is lazy-loaded on first open.
+  let modelTriggerRef: HTMLButtonElement | undefined;
+  const [modelOpen, setModelOpen] = createSignal(false);
+  const toggleModelMenu = (): void => setModelOpen((v) => !v);
+  const closeModelMenu = (): void => {
+    setModelOpen(false);
+    modelTriggerRef?.focus();
+  };
+
   // The "Github ▾" dropdown — sits inline next to Settings ▾ in the topbar
   // controls cluster. Open/close lives as a local signal — no store action,
   // no schema field, no SSE event (the brief's Constraints for milestone 20
@@ -628,6 +660,29 @@ export const TopBar: Component<TopBarProps> = (props) => {
             </ProviderMenu>
           </div>
         </Show>
+        {/* alpha.35: Model dropdown — sits between Provider and Settings.
+            Renders Pi's per-provider model list filtered by the
+            currently-selected provider. Picks persist via props.onSelectModel
+            → App.tsx → applyConfigUpdate({ config: { ..., model: id } }). */}
+        <div class="model-menu-wrapper">
+          <button
+            type="button"
+            class="model-menu-trigger"
+            ref={modelTriggerRef}
+            aria-haspopup="menu"
+            aria-expanded={modelOpen()}
+            onClick={() => toggleModelMenu()}
+          >
+            Model ▾
+          </button>
+          <ModelDropdown
+            open={modelOpen()}
+            onClose={closeModelMenu}
+            currentProvider={props.currentProviderId ?? null}
+            currentModel={props.currentModel ?? null}
+            onSelect={(id) => props.onSelectModel?.(id)}
+          />
+        </div>
         <div class="options-menu-wrapper">
           <button
             type="button"

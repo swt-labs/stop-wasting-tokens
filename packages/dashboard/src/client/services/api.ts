@@ -10,6 +10,7 @@ import {
   HealthResponseSchema,
   InitBodySchema,
   InitResponseSchema,
+  ModelsSnapshotSchema,
   OAuthManualCodeBodySchema,
   OAuthManualCodeResponseSchema,
   OAuthStartBodySchema,
@@ -37,6 +38,7 @@ import {
   type HealthResponse,
   type InitBody,
   type InitResponse,
+  type ModelsSnapshot,
   type OAuthManualCodeResponse,
   type OAuthStartResponse,
   type ProviderAuthSnapshot,
@@ -158,6 +160,17 @@ export async function fetchCommands(): Promise<CommandRegistry> {
 export async function fetchProviderAuth(): Promise<ProviderAuthSnapshot> {
   const raw = await jsonRequest<unknown>('/api/provider-auth');
   return ProviderAuthSnapshotSchema.parse(raw);
+}
+
+/**
+ * alpha.35: GET /api/models — Pi's ModelRegistry projected for the
+ * TopBar Model dropdown. Flat list across every provider; the dropdown
+ * groups + filters by `selected_provider` client-side. No secrets;
+ * metadata only.
+ */
+export async function fetchModels(): Promise<ModelsSnapshot> {
+  const raw = await jsonRequest<unknown>('/api/models');
+  return ModelsSnapshotSchema.parse(raw);
 }
 
 /* ── v2.3 Phase 03: mutation wrappers ─────────────────────────────────

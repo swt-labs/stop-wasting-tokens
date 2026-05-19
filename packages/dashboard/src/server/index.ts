@@ -34,6 +34,7 @@ import { registerDoctorRoute } from './routes/doctor.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitRoute } from './routes/init.js';
+import { registerModelsRoute } from './routes/models.js';
 import { registerPromptsRoute } from './routes/prompts.js';
 import { registerProviderAuthOAuthRoute } from './routes/provider-auth-oauth.js';
 import { registerProviderAuthRoute } from './routes/provider-auth.js';
@@ -226,6 +227,8 @@ export function createApp(
   // Phase 3: vendor-select panel — GET (secret-free snapshot) + POST (keychain write, X-SWT-Credential-Write gated).
   registerProviderAuthRoute(app, cwd, bus);
   registerProviderAuthOAuthRoute(app, cwd, bus); // Phase 4: OAuth login flow — POST /oauth/start + /oauth/code, OAuthLoginCallbacks bridged to oauth.* SSE events.
+  // alpha.35: TopBar Model dropdown — projects Pi's ModelRegistry.getAll() into ModelInfo for the wire.
+  registerModelsRoute(app);
   registerDoctorRoute(app, cwd);
   registerDetectPhaseRoute(app, cwd);
   registerUpdateRoute(app);

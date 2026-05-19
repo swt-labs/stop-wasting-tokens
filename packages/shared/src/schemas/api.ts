@@ -408,6 +408,36 @@ export const ProviderAuthUpdateResponseSchema = z.object({
 });
 export type ProviderAuthUpdateResponse = z.infer<typeof ProviderAuthUpdateResponseSchema>;
 
+/* ── GET /api/models ─ Pi ModelRegistry → dashboard ────────────────────
+ * Lists every model Pi knows about (built-in + per-provider config), so
+ * the TopBar Model dropdown can render an authoritative per-provider
+ * list without the dashboard mirroring Pi's registry locally. Per-entry
+ * payload is intentionally minimal — id (the canonical key the dashboard
+ * persists into `config.model`), provider, contextWindow, reasoning,
+ * name (for display when richer than the id alone).
+ */
+
+export const ModelInfoSchema = z.object({
+  /** Canonical model id (matches what gets written to `config.model`). */
+  id: z.string().min(1),
+  /** Owning provider id ('anthropic', 'openai', etc. — matches PROVIDER_VOCABULARY). */
+  provider: z.string().min(1),
+  /** Optional human display name. Falls back to `id` when absent. */
+  name: z.union([z.string().min(1), z.null()]).default(null),
+  /** Pi `contextWindow` token budget (0 when unknown). */
+  contextWindow: z.number().int().nonnegative().default(0),
+  /** True for reasoning/extended-thinking models (Claude opus thinking, o1, etc.). */
+  reasoning: z.boolean().default(false),
+});
+export type ModelInfo = z.infer<typeof ModelInfoSchema>;
+
+export const ModelsSnapshotSchema = z.object({
+  /** Flat list across every provider; dashboard groups by provider client-side. */
+  models: z.array(ModelInfoSchema),
+  generated_at: z.string().datetime({ offset: true }),
+});
+export type ModelsSnapshot = z.infer<typeof ModelsSnapshotSchema>;
+
 /* ── Phase 4: provider-auth OAuth login routes ───────────────────────── */
 
 /**

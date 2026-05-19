@@ -3827,3 +3827,128 @@ body {
   color: var(--terminal-green);
   opacity: 0.7;
 }
+
+/* ── alpha.35 Model dropdown — trigger + popover body ────────────────────
+ * Sits to the right of the Provider dropdown in the TopBar. Mirrors the
+ * `.themes-*` geometry exactly (same chrome chip aesthetic). The popover
+ * body lists Pi's per-provider models. Selection persists to `config.model`
+ * via the standard applyConfigUpdate flow. */
+
+.model-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.model-menu-trigger {
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.model-menu-trigger:hover {
+  background: var(--terminal-green);
+  color: var(--deep-void);
+}
+
+.model-dropdown {
+  /* Same drop-DOWN geometry as .themes-dropdown / .github-dropdown — the
+     popover is absolutely positioned under the trigger's bottom-right
+     corner. Without these rules the popover would render as an inline
+     sibling block element (see the alpha.34→.35 themes-dropdown fix at
+     commit 985aeac for the same bug class). */
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
+  min-width: 240px;
+  max-width: 360px;
+  background: var(--deep-void);
+  border: 1px solid var(--slate-muted-15);
+  padding: 8px 0;
+}
+
+.model-dropdown-menu {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.model-dropdown-empty {
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--slate-muted);
+  font-style: italic;
+}
+
+.model-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--ghost-white);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-dropdown-item:hover {
+  background: var(--terminal-green-15);
+}
+
+.model-dropdown-item.is-current {
+  color: var(--terminal-green);
+}
+
+.model-dropdown-item-check {
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--terminal-green);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.model-dropdown-item-check-empty {
+  display: inline-block;
+  width: 14px;
+}
+
+.model-dropdown-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.model-dropdown-item-label {
+  font-weight: 500;
+}
+
+.model-dropdown-item-description {
+  font-size: 10px;
+  color: var(--slate-muted);
+  letter-spacing: 0.2px;
+}
+
+.model-dropdown-item.is-current .model-dropdown-item-description {
+  color: var(--terminal-green);
+  opacity: 0.7;
+}
