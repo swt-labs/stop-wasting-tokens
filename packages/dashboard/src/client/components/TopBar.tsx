@@ -17,6 +17,14 @@ import { ProviderMenu } from './ProviderMenu.js';
  */
 const MAX_PLACEHOLDER_LEN = 100;
 
+/**
+ * Tutorials chip destination — placeholder while the dedicated
+ * tutorials page is WIP. Replace with the real URL once the page
+ * exists; the chip itself is shipped now so the affordance is
+ * already visible in the chrome row.
+ */
+const TUTORIALS_URL = 'https://google.com';
+
 export interface TopBarProps {
   project: ProjectSummary | null;
   milestone: MilestoneSummary | null;
@@ -608,6 +616,9 @@ export const TopBar: Component<TopBarProps> = (props) => {
             hasGithubRemote={hasGithubRemote()}
           />
         </div>
+        <a class="tutorials-link" href={TUTORIALS_URL} target="_blank" rel="noopener noreferrer">
+          Tutorials
+        </a>
       </div>
     </header>
   );

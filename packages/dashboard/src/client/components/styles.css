@@ -3285,6 +3285,35 @@ body {
   outline-offset: 1px;
 }
 
+/* Tutorials — outbound link styled as a chrome chip to match the four
+ * dropdown triggers (Provider / Options / Github / Theme-when-it-lands).
+ * Uses <a target="_blank"> because the destination is a real navigation,
+ * not a dropdown — keyboard, middle-click, and right-click affordances
+ * work for free without JS. The destination URL is a placeholder while
+ * the real tutorials page is WIP. */
+.tutorials-link {
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 80ms ease;
+}
+
+.tutorials-link:hover {
+  background: rgba(0, 255, 65, 0.25);
+}
+
+.tutorials-link:focus-visible {
+  outline: 1px solid var(--terminal-green);
+  outline-offset: 1px;
+}
+
 /* Popover skin — appended to base `.popover` via class prop. */
 .github-dropdown {
   position: absolute;
