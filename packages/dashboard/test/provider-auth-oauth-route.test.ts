@@ -71,9 +71,7 @@ const getOAuthProviderMock = vi.fn((id: string) =>
 // truly-unsupported provider (`'google'`, also identity-mapped). Mocking the
 // helper with the same identity-fallback shape keeps every existing assertion
 // stable.
-const mapToOAuthProviderIdMock = vi.fn((id: string) =>
-  id === 'openai' ? 'openai-codex' : id,
-);
+const mapToOAuthProviderIdMock = vi.fn((id: string) => (id === 'openai' ? 'openai-codex' : id));
 
 vi.mock('@swt-labs/runtime', () => ({
   runOAuthLoginFlow: runOAuthLoginFlowMock,
