@@ -199,22 +199,6 @@ body {
   text-transform: uppercase;
 }
 
-/* ── Milestone 20: chrome row container (above existing TopBar) ─────────
- * Hosts the Github dropdown today; gains the Theme dropdown when themes.md
- * ships. Display flex right-aligned per brief §C. Sits naturally above
- * `<TopBar>` because `.app-shell` is `flex-direction: column`.
- */
-.chrome-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  min-height: 28px;
-  padding: 0 16px;
-  background: var(--deep-void);
-  border-bottom: 1px solid var(--slate-muted-15);
-}
-
 .topbar {
   display: flex;
   align-items: center;

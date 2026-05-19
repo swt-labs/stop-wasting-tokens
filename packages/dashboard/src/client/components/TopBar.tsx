@@ -1,10 +1,12 @@
 import type { ConfigSnapshot, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
+import { hasGithubRemote, type GithubMenuItem } from '../lib/github-dropdown-helpers.js';
 import type { WorkflowState } from '../lib/workflow-state.js';
 import type { ConnectionState } from '../state/dashboard-store.js';
 
 import { formatAskUserPlaceholder } from './askuser-card-helpers.js';
+import { GithubDropdown } from './GithubDropdown.js';
 import { OptionsMenu } from './OptionsMenu.js';
 import { ProviderMenu } from './ProviderMenu.js';
 
@@ -357,6 +359,28 @@ export const TopBar: Component<TopBarProps> = (props) => {
     providerTriggerRef?.focus(); // focus-return to the trigger
   };
 
+  // The "Github ▾" dropdown — sits inline next to Options ▾ in the topbar
+  // controls cluster. Open/close lives as a local signal — no store action,
+  // no schema field, no SSE event (the brief's Constraints for milestone 20
+  // mandated zero store/server surface for v1). Mirrors the OptionsMenu /
+  // ProviderMenu focus-return pattern: TopBar owns `githubTriggerRef` and
+  // restores focus on dismissal; GithubDropdown only calls `onClose`.
+  let githubTriggerRef: HTMLButtonElement | undefined;
+  const [githubMenuOpen, setGithubMenuOpen] = createSignal(false);
+  const toggleGithubMenu = (): void => setGithubMenuOpen((v) => !v);
+  const closeGithubMenu = (): void => {
+    setGithubMenuOpen(false);
+    githubTriggerRef?.focus();
+  };
+  const handleGithubItemClick = (item: GithubMenuItem): void => {
+    // v1: no wiring. Per-item wiring is per-item Future Work — each
+    // integration (URL building, issue templates, gh CLI, etc.) is its own
+    // design discussion. The popover also closes so users get a visible
+    // acknowledgement that the click was received.
+    console.debug('Github dropdown — not yet wired:', item.id, item.label);
+    closeGithubMenu();
+  };
+
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     // Phase 03 — answer-mode branch MUST short-circuit BEFORE the
@@ -564,6 +588,24 @@ export const TopBar: Component<TopBarProps> = (props) => {
             lastFetched={props.optionsMenuConfigLastFetched ?? null}
             onRefresh={props.onOptionsMenuRefreshConfig}
             onSave={props.onOptionsMenuSaveConfig}
+          />
+        </div>
+        <div class="github-menu-wrapper">
+          <button
+            type="button"
+            class="github-menu-trigger"
+            ref={githubTriggerRef}
+            aria-haspopup="menu"
+            aria-expanded={githubMenuOpen()}
+            onClick={() => toggleGithubMenu()}
+          >
+            Github ▾
+          </button>
+          <GithubDropdown
+            open={githubMenuOpen()}
+            onClose={closeGithubMenu}
+            onItemClick={handleGithubItemClick}
+            hasGithubRemote={hasGithubRemote()}
           />
         </div>
       </div>
