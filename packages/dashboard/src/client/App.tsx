@@ -8,6 +8,7 @@ import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
 import { FirstRunHint } from './components/FirstRunHint.js';
+import { GithubDropdown } from './components/GithubDropdown.js';
 import { InitScreen } from './components/InitScreen.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { PromptCard } from './components/PromptCard.js';
@@ -25,6 +26,7 @@ import { UatModal } from './components/UatModal.js';
 import { UnifiedLogPanel } from './components/UnifiedLogPanel.js';
 import { UserNotesPanel } from './components/UserNotesPanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
+import { hasGithubRemote, type GithubMenuItem } from './lib/github-dropdown-helpers.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
 // Phase 04 — pure workflow-state helpers live in lib/workflow-state.ts (not
 // inlined here) so the vitest node-environment can import them without
@@ -41,6 +43,30 @@ import { createDashboardStore } from './state/dashboard-store.js';
 export const App: Component = () => {
   const [state, actions] = createDashboardStore();
   const [paletteOpen, setPaletteOpen] = createSignal(false);
+
+  // Milestone 20 phase 01 — Github dropdown open/close lives as a local
+  // signal (no store action, no schema field, no SSE event per the brief's
+  // Constraints). Mirrors `paletteOpen` above. The trigger ref is captured
+  // so `closeGithubMenu` can restore focus to the button on dismissal,
+  // matching the OptionsMenu / ProviderMenu focus-return pattern owned by
+  // their parent (`TopBar`).
+  const [githubMenuOpen, setGithubMenuOpen] = createSignal(false);
+  let githubTriggerRef: HTMLButtonElement | undefined;
+
+  const handleGithubMenuItem = (item: GithubMenuItem): void => {
+    // v1: no wiring. Per-item wiring is per-item Future Work — each
+    // integration (URL building, issue templates, gh CLI, etc.) is its own
+    // design discussion. The popover also closes so users get a visible
+    // acknowledgement that the click was received.
+    console.debug('Github dropdown — not yet wired:', item.id, item.label);
+    setGithubMenuOpen(false);
+    githubTriggerRef?.focus();
+  };
+
+  const closeGithubMenu = (): void => {
+    setGithubMenuOpen(false);
+    githubTriggerRef?.focus();
+  };
 
   // v2.3 Phase 03: cmd-K (mac) / ctrl-K (linux/win) opens the command
   // palette. The browser may capture cmd-K in some keyboard layouts
@@ -125,6 +151,28 @@ export const App: Component = () => {
 
   return (
     <div class="app-shell">
+      <header class="chrome-row" role="toolbar" aria-label="Chrome controls">
+        <div class="github-menu-wrapper">
+          <button
+            type="button"
+            class="github-menu-trigger"
+            ref={(el): void => {
+              githubTriggerRef = el;
+            }}
+            aria-haspopup="menu"
+            aria-expanded={githubMenuOpen()}
+            onClick={(): void => setGithubMenuOpen((open) => !open)}
+          >
+            Github ▾
+          </button>
+          <GithubDropdown
+            open={githubMenuOpen()}
+            onClose={closeGithubMenu}
+            onItemClick={handleGithubMenuItem}
+            hasGithubRemote={hasGithubRemote()}
+          />
+        </div>
+      </header>
       <TopBar
         project={state.snapshot?.project ?? null}
         milestone={state.snapshot?.milestone ?? null}
