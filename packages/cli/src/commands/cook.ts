@@ -3387,7 +3387,25 @@ async function runMode(
       // Pre-alpha.22 cook.ts dropped the summary entirely; only init.ts
       // surfaced it. Now both paths render identical, actionable failures
       // to the dashboard via the existing milestone-08 stderr-leak pipe.
-      const augmented = augmentSpawnError(result.summary);
+      //
+      // Phase 02 (milestone 19) — surface the authMode context so the
+      // augmenter branches on api_key vs oauth instead of always emitting
+      // the OAuth-shaped template. `resolveSpawnCredential` is the same
+      // resolver `onResolveCredential` already calls inside
+      // `runSpawnWithFallback` (cook.ts:3111). Degrades to `undefined`
+      // when `config.auth` has no entry for the used provider — the
+      // augmenter's no-context branch then fires (byte-identical to
+      // pre-Phase-02 output, AC-12). Calling the resolver a second time
+      // at the error site is the smaller diff than threading state
+      // through the fallback callback API.
+      const resolvedForError = await resolveSpawnCredential(
+        fallbackResult.providerUsed,
+        config.auth,
+      );
+      const augmented = augmentSpawnError(result.summary, {
+        authMode: resolvedForError?.resolvedCredential.authMode,
+        provider: fallbackResult.providerUsed,
+      });
       const detail = augmented.length > 0 ? `\n\n${augmented}` : '';
       io.stderr.write(
         `swt cook: orchestrator session returned status="${result.status}".${detail}\n`,

@@ -284,9 +284,11 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
         // Provider menu's same advisory.
         if (discovered.provider === 'anthropic' && discovered.authMode === 'oauth') {
           io.stdout.write(
-            `  Note: Anthropic OAuth currently routes third-party requests to a separate billing pool.\n` +
-              `  If you hit "out of extra usage" against your Max plan, switch to an API key via the\n` +
-              `  Provider menu (pending Anthropic allowlist approval for SWT's OAuth client_id).\n`,
+            `  Note: If you hit "out of extra usage", first check your account at\n` +
+              `  https://claude.ai/settings/usage — most "out of extra usage" errors are genuine\n` +
+              `  quota exhaustion. If that page shows healthy remaining quota, the cause is\n` +
+              `  Anthropic's pending allowlist of SWT/Pi's OAuth client_id; switch to an API key\n` +
+              `  via the Provider menu as a workaround.\n`,
           );
         }
         // Build an in-memory auth config so `resolveSpawnCredential` sees the
@@ -343,7 +345,17 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
       // context for known upstream-failure patterns (today: Anthropic Max-
       // plan OAuth third-party billing pool). Symmetric with cook.ts's
       // error path so both surfaces render identical failures.
-      const augmented = augmentSpawnError(result.summary);
+      //
+      // Phase 02 (milestone 19) — pass the resolved auth context so the
+      // augmenter branches between api_key (Console quota only) and oauth
+      // (Max-plan routing + allowlist hypothesis). When `resolvedAuth` is
+      // `undefined` (no provider configured yet), both fields collapse to
+      // `undefined` and the augmenter's no-context branch fires —
+      // byte-identical to pre-Phase-02 output (AC-12).
+      const augmented = augmentSpawnError(result.summary, {
+        authMode: resolvedAuth?.resolvedCredential.authMode,
+        provider: resolvedAuth?.provider,
+      });
       const detail = augmented.length > 0 ? `\n\n${augmented}` : '';
       io.stderr.write(`swt init: Lead spawn returned status="${result.status}".${detail}\n`);
       return EXIT.RUNTIME_ERROR;
