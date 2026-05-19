@@ -63,10 +63,23 @@ const getOAuthProviderMock = vi.fn((id: string) =>
   SUPPORTED_PROVIDERS.has(id) ? { id, name: id } : undefined,
 );
 
+// Milestone 21 Phase 01 — the route now calls `mapToOAuthProviderId(provider)`
+// before its `getOAuthProvider(...)` check + before passing the id into
+// `runOAuthLoginFlow`. Real helper: `openai → openai-codex` + identity
+// fallback. Tests in this file post `provider: 'openai-codex' | 'anthropic' |
+// 'github-copilot'` (the pi-ai-side ids already; identity-mapped) plus one
+// truly-unsupported provider (`'google'`, also identity-mapped). Mocking the
+// helper with the same identity-fallback shape keeps every existing assertion
+// stable.
+const mapToOAuthProviderIdMock = vi.fn((id: string) =>
+  id === 'openai' ? 'openai-codex' : id,
+);
+
 vi.mock('@swt-labs/runtime', () => ({
   runOAuthLoginFlow: runOAuthLoginFlowMock,
   storeOAuthCredentials: storeOAuthCredentialsMock,
   getOAuthProvider: getOAuthProviderMock,
+  mapToOAuthProviderId: mapToOAuthProviderIdMock,
 }));
 
 // Imported AFTER `vi.mock` is registered (vitest hoists `vi.mock`).

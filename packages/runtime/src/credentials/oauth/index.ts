@@ -26,3 +26,4 @@ export { storeOAuthCredentials, readOAuthCredentials } from './oauth-credentials
 export { refreshOAuthCredentialsIfNeeded, OAuthRefreshError } from './oauth-refresh.js';
 export { getOAuthProvider } from '@earendil-works/pi-ai/oauth';
 export type { OAuthCredentials, OAuthProviderInterface } from '@earendil-works/pi-ai/oauth';
+export { mapToOAuthProviderId, SWT_TO_PI_OAUTH_PROVIDER_ID } from './provider-id-map.js';

@@ -6,6 +6,7 @@ import {
   runOAuthLoginFlow,
   storeOAuthCredentials,
   getOAuthProvider,
+  mapToOAuthProviderId,
   type OAuthLoginFlowHandle,
 } from '@swt-labs/runtime';
 import {
@@ -202,10 +203,22 @@ export function registerProviderAuthOAuthRoute(app: Hono, cwd: string, bus: Even
     }
     const { provider } = parsed.data;
 
+    // 2.5. Map SWT user-facing provider id to pi-ai's OAuth registry id.
+    //      Pi-ai keys its OAuth providers under per-vendor ids (e.g.
+    //      'openai-codex' for OpenAI's Codex CLI flow); SWT uses 'openai'
+    //      end-to-end. The mapped id is used ONLY for pi-ai's dispatch
+    //      (the supported-provider check at step 3 + the `runOAuthLoginFlow`
+    //      call at step 5). All other uses of `provider` — events, keychain
+    //      namespace, config block, response body — keep the SWT user-facing
+    //      id.
+    const mappedProvider = mapToOAuthProviderId(provider);
+
     // 3. Supported-provider check — `getOAuthProvider` (re-exported by
     //    `@swt-labs/runtime` from `pi-ai`) is `undefined` for a provider with
     //    no `pi-ai` OAuth implementation. Reject up front with a clean signal.
-    if (getOAuthProvider(provider) === undefined) {
+    //    The 400 `detail` reports the original (user-facing) `provider` id so
+    //    the error surface speaks SWT's language.
+    if (getOAuthProvider(mappedProvider) === undefined) {
       return c.json({ error: 'oauth_provider_unsupported', detail: provider }, 400);
     }
 
@@ -216,8 +229,16 @@ export function registerProviderAuthOAuthRoute(app: Hono, cwd: string, bus: Even
     // 5. Kick off the driver WITHOUT awaiting — the flow is long-running (the
     //    browser round-trip). The callbacks below are closures over
     //    `flowId` / `provider` / `bus` / `cfgPath` / `flows`.
+    //
+    //    The driver's `provider` field is the SECOND (and last) of the two
+    //    call sites that consume `mappedProvider` (the first is the
+    //    supported-provider check at step 3). `runOAuthLoginFlow` does its own
+    //    `getOAuthProvider(opts.provider)` lookup at oauth-flow.ts; passing
+    //    the mapped id is what makes pi-ai's dispatch resolve. Every other
+    //    use of `provider` in this route — events, keychain, config write,
+    //    response body — keeps the SWT user-facing id.
     const handle = runOAuthLoginFlow({
-      provider,
+      provider: mappedProvider,
       flowId,
       onAuthUrl: (url, instructions) => {
         publishOAuthEvent({

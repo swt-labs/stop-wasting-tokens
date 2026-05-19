@@ -338,6 +338,8 @@ export {
   getOAuthProvider,
   refreshOAuthCredentialsIfNeeded,
   OAuthRefreshError,
+  mapToOAuthProviderId,
+  SWT_TO_PI_OAUTH_PROVIDER_ID,
 } from './credentials/oauth/index.js';
 export type {
   OAuthLoginFlowOptions,
