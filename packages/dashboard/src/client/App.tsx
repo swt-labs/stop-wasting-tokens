@@ -276,6 +276,10 @@ export const App: Component = () => {
                   now expands inside each PhaseCard row. `main` array
                   drops from 5 to 4 entries (see lib/layout-storage.ts
                   v7 → v8). */}
+              {/* Panel header — always visible (empty state + populated
+                  state both show "Plans"). Lifted out of PhaseStepper so
+                  the empty fallback also has a title. */}
+              <h2 class="panel-header">Plans</h2>
               <Show when={phases().length > 0} fallback={<div class="preview-panel-empty" />}>
                 <PhaseStepper
                   phases={phases()}

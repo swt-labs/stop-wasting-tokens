@@ -43,7 +43,9 @@ export interface PhaseStepperProps {
 export const PhaseStepper: Component<PhaseStepperProps> = (props) => {
   return (
     <nav class="phase-stepper" aria-label="Phases">
-      <h2 class="panel-header">Phases</h2>
+      {/* Title moved to App.tsx panel chrome so the empty-state fallback
+          (rendered when phases.length === 0) also shows a card title.
+          PhaseStepper now renders only the list — App owns the header. */}
       <ol class="phase-stepper-list">
         <For each={props.phases}>
           {(phase) => (
