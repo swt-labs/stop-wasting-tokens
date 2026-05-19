@@ -108,21 +108,61 @@ describe('canSubmit', () => {
 });
 
 describe('ACTION_VERBS', () => {
-  it('lists exactly the 5 action verbs', () => {
-    expect(ACTION_VERBS.map((v) => v.value)).toEqual(['cook', 'research', 'qa', 'verify', 'map']);
+  it('lists all 18 dashboard-safe action verbs in the documented order', () => {
+    expect(ACTION_VERBS.map((v) => v.value)).toEqual([
+      // Orchestrator
+      'cook',
+      // Methodology phase actions
+      'plan',
+      'execute',
+      'qa',
+      'verify',
+      'audit',
+      // Knowledge gathering
+      'research',
+      'map',
+      // Quick actions
+      'fix',
+      'debug',
+      // Todo workflow
+      'todo',
+      'list-todos',
+      // Info / diagnostics
+      'status',
+      'doctor',
+      'detect-phase',
+      'help',
+      'version',
+      'update',
+    ]);
   });
 
   it('leads with cook (the default selection)', () => {
     expect(ACTION_VERBS[0]?.value).toBe('cook');
   });
 
-  it('marks cook and research as requiring input; qa/verify/map as not', () => {
+  it('marks prompt-style verbs as requiring input; phase-aware + info verbs as not', () => {
     const byValue = new Map(ACTION_VERBS.map((v) => [v.value, v.requiresInput]));
+    // requiresInput: true — verbs needing a prompt/topic/description before Run.
     expect(byValue.get('cook')).toBe(true);
     expect(byValue.get('research')).toBe(true);
+    expect(byValue.get('fix')).toBe(true);
+    expect(byValue.get('debug')).toBe(true);
+    expect(byValue.get('todo')).toBe(true);
+    // requiresInput: false — phase-aware (auto-detect) and info verbs.
+    expect(byValue.get('plan')).toBe(false);
+    expect(byValue.get('execute')).toBe(false);
     expect(byValue.get('qa')).toBe(false);
     expect(byValue.get('verify')).toBe(false);
+    expect(byValue.get('audit')).toBe(false);
     expect(byValue.get('map')).toBe(false);
+    expect(byValue.get('list-todos')).toBe(false);
+    expect(byValue.get('status')).toBe(false);
+    expect(byValue.get('doctor')).toBe(false);
+    expect(byValue.get('detect-phase')).toBe(false);
+    expect(byValue.get('help')).toBe(false);
+    expect(byValue.get('version')).toBe(false);
+    expect(byValue.get('update')).toBe(false);
   });
 });
 

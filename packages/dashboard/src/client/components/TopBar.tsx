@@ -150,19 +150,49 @@ const PILL_LABEL: Record<ConnectionState, string> = {
 // alpha.20 — BACKEND_LABEL removed alongside the `backend: pi` chip.
 // Restore here when a second backend ships.
 
-// The verb dropdown's curated action-verb set. cook is the orchestrator
+// The verb dropdown's full action-verb set. cook is the orchestrator
 // (routes via onVibe); the rest are dashboard-safe CLI verbs (route via
-// onCommand). `requiresInput` gates the submit button — cook/research need
-// a prompt/topic; qa/verify/map take optional-or-no args.
+// onCommand). `requiresInput` gates the submit button — verbs needing a
+// prompt/topic/description require input; phase-aware + info verbs don't.
 //
-// Hand-maintained, mirroring the (now removed) `ALLOWLIST` const pattern:
-// a curated 5-item list does not warrant threading from the store.
+// Hand-maintained, mirroring `ALLOWED_NON_INTERACTIVE_VERBS` from
+// `packages/dashboard/src/server/lib/allowed-verbs.ts` — the dashboard
+// command bar's full surface. Adding a verb to that allowlist on the
+// server must also add it here so users can pick it from the dropdown.
+//
+// The order is intentional: orchestrator → methodology phase actions →
+// knowledge gathering → quick actions → todo workflow → info / diagnostics.
+// Within groups, the most-used verbs come first.
 export const ACTION_VERBS = [
+  // Orchestrator (long-lived sessions; routes via onVibe).
   { value: 'cook', label: 'cook', requiresInput: true },
-  { value: 'research', label: 'research', requiresInput: true },
+
+  // Methodology phase actions (auto-detect phase from state).
+  { value: 'plan', label: 'plan', requiresInput: false },
+  { value: 'execute', label: 'execute', requiresInput: false },
   { value: 'qa', label: 'qa', requiresInput: false },
   { value: 'verify', label: 'verify', requiresInput: false },
+  { value: 'audit', label: 'audit', requiresInput: false },
+
+  // Knowledge gathering.
+  { value: 'research', label: 'research', requiresInput: true },
   { value: 'map', label: 'map', requiresInput: false },
+
+  // Quick actions (alpha.22 quick-verbs).
+  { value: 'fix', label: 'fix', requiresInput: true },
+  { value: 'debug', label: 'debug', requiresInput: true },
+
+  // Todo workflow (milestone 15).
+  { value: 'todo', label: 'todo', requiresInput: true },
+  { value: 'list-todos', label: 'list-todos', requiresInput: false },
+
+  // Info / diagnostics (read-only).
+  { value: 'status', label: 'status', requiresInput: false },
+  { value: 'doctor', label: 'doctor', requiresInput: false },
+  { value: 'detect-phase', label: 'detect-phase', requiresInput: false },
+  { value: 'help', label: 'help', requiresInput: false },
+  { value: 'version', label: 'version', requiresInput: false },
+  { value: 'update', label: 'update', requiresInput: false },
 ] as const;
 
 /** The result of composing a selected verb + the typed input into a route. */
