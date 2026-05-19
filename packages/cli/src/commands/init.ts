@@ -291,6 +291,21 @@ export function makeInitHandler(deps: InitHandlerDeps = {}): CommandHandler {
               `  via the Provider menu as a workaround.\n`,
           );
         }
+        // milestone 21 Phase 02 — OpenAI Codex OAuth quota advisory.
+        // Sibling to the Anthropic block above. The OpenAI failure model is
+        // different: there is no allowlist-style gate (OpenAI's published
+        // Codex CLI client id has no per-vendor allowlist), so the only
+        // workaround copy is "check your billing page; if quota is healthy
+        // but errors persist, switch to an API key via the Provider menu".
+        // Symmetric with the dashboard Provider menu's same advisory.
+        if (discovered.provider === 'openai' && discovered.authMode === 'oauth') {
+          io.stdout.write(
+            `  Note: If you hit OpenAI rate-limit or quota errors, check your account at\n` +
+              `  https://platform.openai.com/account/billing/overview — OpenAI Codex OAuth\n` +
+              `  bills against your ChatGPT subscription's per-tier quota. If quota is healthy\n` +
+              `  but errors persist, switch to an API key via the Provider menu as a workaround.\n`,
+          );
+        }
         // Build an in-memory auth config so `resolveSpawnCredential` sees the
         // inherited entry regardless of whether the persist write succeeded.
         // The shape is byte-identical to what `parseAuthConfig` would emit

@@ -1220,6 +1220,62 @@ export function augmentSpawnError(
       .filter(Boolean)
       .join('\n');
   }
+  // Pattern (milestone 21 Phase 02): OpenAI Codex OAuth + api_key quota
+  // errors. Pi-ai's openai-codex-responses provider surfaces:
+  //   - 429 rate_limit_exceeded (per-window message cap)
+  //   - 403 with "quota"/"billing" body (subscription tier exhausted)
+  //   - JSON `error.code: 'insufficient_quota'` for api_key paths
+  // The four-token regex catches all four documented shapes (Research §4).
+  // Gated on `context?.provider === 'openai'` AS WELL AS the pattern, so
+  // the Anthropic `/out of extra usage/` branch above and this branch are
+  // disjoint by both pattern AND provider — no cross-provider false matches.
+  if (
+    context?.provider === 'openai' &&
+    /rate_limit_exceeded|quota.*exceed|insufficient_quota|billing/i.test(rawSummary)
+  ) {
+    const requestId = extractRequestId(rawSummary);
+    const headline = `OpenAI says: Check your usage at platform.openai.com/account/billing/overview and keep going.`;
+
+    // api_key context: top-up the OPENAI_API_KEY-billed account. No
+    // Provider-menu workaround copy (the user already chose api_key; the
+    // failure is purely billing).
+    if (context.authMode === 'api_key') {
+      return [
+        headline,
+        `Your OPENAI_API_KEY authenticated, but the OpenAI account billing this key hit a rate limit or quota cap.`,
+        `Top up at: https://platform.openai.com/account/billing/overview`,
+        requestId ? `\nrequest_id: ${requestId}` : '',
+        `\nRaw OpenAI response: ${rawSummary}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    // oauth context: ChatGPT-subscription quota exhausted. Workaround
+    // copy points at the Provider menu's api_key path (consistent with
+    // the Anthropic OAuth branch's workaround shape).
+    if (context.authMode === 'oauth') {
+      return [
+        headline,
+        `Your ChatGPT subscription's Codex quota appears exhausted.`,
+        `Check your account at: https://platform.openai.com/account/billing/overview`,
+        `If quota is healthy, switch to an API key via the Provider menu as a workaround.`,
+        requestId ? `\nrequest_id: ${requestId}` : '',
+        `\nRaw OpenAI response: ${rawSummary}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    // no-context-backwards-compat: byte-identical to pre-Phase-02 behavior.
+    // Pre-existing third-party callers (and the legacy test fixture, if
+    // any) continue to see the raw OpenAI error verbatim. Mirrors the
+    // Anthropic branch's no-context arm semantics (Decision #13, AC-12).
+    // Note: `context === undefined` falls through the outer `context?.provider`
+    // optional-chain to false, so we only reach this point when context exists
+    // but authMode is neither 'oauth' nor 'api_key' (a defensive fall-through).
+    return rawSummary;
+  }
   return rawSummary;
 }
 

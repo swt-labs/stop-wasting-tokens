@@ -146,4 +146,86 @@ describe('@swt-labs/cli — augmentSpawnError (alpha.22)', () => {
       expect(augmentSpawnError(RAW_ERROR)).toBe(EXPECTED_LEGACY_OUTPUT);
     });
   });
+
+  describe('openai oauth context (milestone 21 Phase 02)', () => {
+    it('matches rate_limit_exceeded and emits the OpenAI billing URL + Provider-menu workaround', () => {
+      const raw =
+        '{"error":{"code":"rate_limit_exceeded","message":"Rate limit reached"},"request_id":"req_openai_abc123"}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain('OpenAI says: Check your usage at platform.openai.com');
+      expect(out).toContain('ChatGPT subscription');
+      expect(out).toContain('platform.openai.com/account/billing/overview');
+      expect(out).toContain('switch to an API key via the Provider menu');
+      expect(out).toContain('request_id: req_openai_abc123');
+      expect(out).toContain(`Raw OpenAI response: ${raw}`);
+    });
+
+    it("matches a 403 'quota exceeded' body", () => {
+      // Pattern `/quota.*exceed/i` requires "quota" before "exceed" in the
+      // body — pi-ai's openai-codex-responses provider surfaces 403s with
+      // bodies in the documented "quota_exceeded" or "quota ... exceeded"
+      // shape (Research §4).
+      const raw = '{"error":{"message":"Subscription quota has been exceeded for this period"}}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain('OpenAI says:');
+      expect(out).toContain('platform.openai.com/account/billing/overview');
+    });
+
+    it('does NOT match unrelated raw bodies — falls through to rawSummary', () => {
+      const raw = 'Pi turn_end stopReason=error: 503 Service Unavailable';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      // OpenAI pattern does not match → falls through to final `return rawSummary;`
+      expect(out).toBe(raw);
+    });
+  });
+
+  describe('openai api_key context (milestone 21 Phase 02)', () => {
+    it('matches insufficient_quota and emits top-up URL with NO Provider-menu workaround', () => {
+      const raw =
+        '{"error":{"code":"insufficient_quota","message":"You exceeded your quota"},"request_id":"req_xyz789"}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'api_key' });
+      expect(out).toContain('OpenAI says: Check your usage at platform.openai.com');
+      expect(out).toContain('OPENAI_API_KEY');
+      expect(out).toContain('platform.openai.com/account/billing/overview');
+      // api_key branch must NOT contain the OAuth workaround copy
+      expect(out).not.toContain('ChatGPT subscription');
+      expect(out).not.toContain('switch to an API key via the Provider menu');
+      expect(out).toContain('request_id: req_xyz789');
+    });
+
+    it('omits the request_id line when the raw body has no request_id', () => {
+      const raw = '{"error":{"code":"rate_limit_exceeded","message":"Rate limit reached"}}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'api_key' });
+      expect(out).toContain('OpenAI says:');
+      expect(out).not.toContain('request_id:');
+    });
+  });
+
+  describe('openai no-context-backwards-compat (milestone 21 Phase 02)', () => {
+    it('returns rawSummary byte-identical when context is undefined (AC-12 mirror)', () => {
+      const raw = '{"error":{"code":"rate_limit_exceeded","message":"Rate limit reached"}}';
+      const out = augmentSpawnError(raw); // no context
+      expect(out).toBe(raw);
+    });
+
+    it("returns rawSummary byte-identical when context.provider is not 'openai'", () => {
+      const raw = '{"error":{"code":"rate_limit_exceeded","message":"Rate limit reached"}}';
+      const out = augmentSpawnError(raw, { provider: 'github-copilot', authMode: 'oauth' });
+      expect(out).toBe(raw);
+    });
+
+    it('Anthropic branch wins when raw matches Anthropic pattern even with context.provider=openai (documents disjoint-by-pattern invariant)', () => {
+      // The Anthropic branch is gated on pattern only (no provider gate) — it
+      // matches /out of extra usage/i regardless of context.provider. The
+      // OpenAI branch is gated on BOTH context.provider === 'openai' AND the
+      // OpenAI pattern. So a body that matches the Anthropic pattern takes the
+      // Anthropic branch even if context.provider says 'openai'. The OpenAI
+      // pattern does NOT match 'out of extra usage' text, so the OpenAI branch
+      // is correctly skipped. This test locks the documented behavior so future
+      // maintainers don't accidentally "fix" the Anthropic gate.
+      const raw = RAW_ERROR; // contains "out of extra usage"
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain('Anthropic says:');
+    });
+  });
 });
