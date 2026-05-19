@@ -1,7 +1,69 @@
-import { Show, createSignal, type Component } from 'solid-js';
+import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 
 import type { InitBody } from '../services/api.js';
 import type { InitSessionState } from '../state/dashboard-store.js';
+
+/**
+ * Plan 19-03-01 T02 — friendly-label map for `[tool] X` lines coming out
+ * of the Phase 01 trace sink. The toolset is the small fixed set Pi
+ * exposes (Read, Grep, Glob, Write, Edit, Bash). Unknown tools fall
+ * through to a generic "using tool…" label so the renderer never blanks
+ * out. Inlined here (not extracted into a util file) because the map is
+ * tiny and the helper has exactly one call site: classifyInitLine below.
+ */
+function toolFriendlyLabel(tool: string): string {
+  switch (tool) {
+    case 'Read':
+      return 'reading project files…';
+    case 'Grep':
+      return 'searching project files…';
+    case 'Glob':
+      return 'listing project files…';
+    case 'Write':
+      return 'writing files…';
+    case 'Edit':
+      return 'editing files…';
+    case 'Bash':
+      return 'running shell command…';
+    default:
+      return 'using tool…';
+  }
+}
+
+/**
+ * Plan 19-03-01 T02 — classify a raw `log.append` line into a friendly
+ * progress label for the live status block above the Initialize button.
+ *
+ * Truth table (brief §G):
+ *   - `[tool] X`                  → `{friendly} (X)` via toolFriendlyLabel
+ *   - `[llm turn N] <text>`       → `thinking… "<first 80 chars[…]>"`
+ *   - `✓ Initialized .swt-planning/` → `wrote .swt-planning/`
+ *   - `→ Spawning Lead`           → `spawning Lead (commands/init.md)…`
+ *   - `✓ Lead bootstrap complete` → `bootstrap complete, finalizing…`
+ *   - undefined / empty string    → `detecting stack…`
+ *   - anything else               → render raw (defensive fallback)
+ *
+ * Pure function: no Solid primitives, no side effects. Exported for unit
+ * testing in init-screen-helpers.test.ts (Phase 04 will extend that file
+ * for provider helpers).
+ */
+export function classifyInitLine(line: string | undefined): string {
+  if (!line) return 'detecting stack…';
+  if (line.startsWith('[tool] ')) {
+    const tool = line.slice(7).trim();
+    return `${toolFriendlyLabel(tool)} (${tool})`;
+  }
+  if (line.startsWith('[llm turn ')) {
+    const close = line.indexOf(']');
+    const text = close > 0 ? line.slice(close + 2).trim() : line;
+    const snippet = text.length > 80 ? text.slice(0, 80) + '…' : text;
+    return `thinking… "${snippet}"`;
+  }
+  if (line.startsWith('✓ Initialized .swt-planning/')) return 'wrote .swt-planning/';
+  if (line.startsWith('→ Spawning Lead')) return 'spawning Lead (commands/init.md)…';
+  if (line.startsWith('✓ Lead bootstrap complete')) return 'bootstrap complete, finalizing…';
+  return line;
+}
 
 export interface InitScreenProps {
   submitting: boolean;
@@ -69,6 +131,35 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   // so the inputs + submit button stay locked from form-submit through
   // init.complete / init.error.
   const isBusy = (): boolean => props.submitting || props.initSession()?.status === 'detecting';
+
+  // Plan 19-03-01 T02 — elapsed-counter signal driving the "(Ns)" suffix
+  // on the live progress block. tick() is a millisecond timestamp the
+  // interval refreshes every 1s; elapsed() derives a seconds-since-start
+  // from initSession.started_at. The setInterval body guards on isBusy()
+  // so it short-circuits after init.complete (initSession=null) and
+  // init.error (status='error'); onCleanup tears the interval down on
+  // InitScreen unmount (AC-3, AC-4, AC-5).
+  const [tick, setTick] = createSignal<number>(Date.now());
+  onMount(() => {
+    const id = setInterval(() => {
+      if (isBusy()) setTick(Date.now());
+    }, 1000);
+    onCleanup(() => clearInterval(id));
+  });
+  const elapsed = createMemo<number>(() => {
+    const startedAt = props.initSession()?.started_at;
+    if (!startedAt) return 0;
+    return Math.floor((tick() - new Date(startedAt).getTime()) / 1000);
+  });
+
+  // Plan 19-03-01 T02 — displayLabel combines the classifier with the
+  // >120s long-running fallback (Decision #10). Solid's createMemo means
+  // this recomputes whenever either upstream signal changes (tick() for
+  // the elapsed crossing, props.initSession() for the lastMessage feed).
+  const displayLabel = createMemo<string>(() => {
+    if (elapsed() > 120) return 'still working — large repos can take 3-5 min on first run';
+    return classifyInitLine(props.initSession()?.lastMessage);
+  });
 
   const submit = async (e: Event): Promise<void> => {
     e.preventDefault();
@@ -186,6 +277,25 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
            */}
           <Show when={error() ?? props.initSession()?.errorMessage}>
             <p class="init-error">{error() ?? props.initSession()?.errorMessage}</p>
+          </Show>
+
+          {/*
+           * Plan 19-03-01 T02 — live progress block. Renders only while
+           * isBusy() is true, which means EITHER the scaffold POST is in
+           * flight (no started_at yet — elapsed=0, label='detecting
+           * stack…') OR the daemon-side Lead is running (status ===
+           * 'detecting' — log.append reducer keeps lastMessage fresh).
+           * Auto-hides on init.complete (InitScreen unmount via parent
+           * is_initialized=true) AND on init.error (isBusy() flips false
+           * because status === 'error'); never co-renders with
+           * .init-error above (mutual exclusion via the isBusy() gate).
+           * ARIA role='status' + aria-live='polite' announce updates to
+           * screen readers without interrupting (AC-8).
+           */}
+          <Show when={isBusy()}>
+            <div class="init-progress" role="status" aria-live="polite">
+              ◆ {displayLabel()} ({elapsed()}s)
+            </div>
           </Show>
 
           <div class="init-actions">

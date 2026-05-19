@@ -635,6 +635,19 @@ body {
   margin-top: 4px;
 }
 
+/* Plan 19-03-01 T02 — live init progress block above .init-actions.
+   Matches the file's terminal aesthetic — single-line monospace, no
+   animations. The ◆ glyph + ticking elapsed counter IS the animation
+   (Decision #5 + "What NOT to do" line 572 in init_msg3.md brief). */
+.init-progress {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--slate-muted);
+  padding: 8px 0;
+  min-height: 24px;
+  line-height: 1;
+}
+
 .init-submit {
   background: var(--terminal-green);
   color: var(--deep-void);
