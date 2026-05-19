@@ -1,6 +1,15 @@
 import Resizable from '@corvu/resizable';
+import type { SwtConfig, Theme } from '@swt-labs/core';
 import { getContextWindow } from '@swt-labs/shared';
-import { Show, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
+import {
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Component,
+} from 'solid-js';
 
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
@@ -25,6 +34,7 @@ import { UnifiedLogPanel } from './components/UnifiedLogPanel.js';
 import { UserNotesPanel } from './components/UserNotesPanel.js';
 import { WorktreesPanel } from './components/WorktreesPanel.js';
 import { loadLayout, saveLayout, type DashboardLayout } from './lib/layout-storage.js';
+import { applyTheme, isTheme } from './lib/themes-dropdown-helpers.js';
 // Phase 04 — pure workflow-state helpers live in lib/workflow-state.ts (not
 // inlined here) so the vitest node-environment can import them without
 // dragging in App.tsx's JSX + @corvu/resizable client-only deps. Re-exported
@@ -109,6 +119,43 @@ export const App: Component = () => {
     return (tokens?.in ?? 0) + (tokens?.cache_read ?? 0) + (tokens?.cache_creation ?? 0);
   });
 
+  // Theme — drive the dashboard's `data-theme` attribute on `<html>` from
+  // the persisted config. The memo reads `state.tools.config.data?.config
+  // ?.theme` (the canonical source) and falls back to `'default'` when
+  // either (a) the dashboard is pre-init and no config.json exists, or
+  // (b) the persisted config predates this milestone and has no `theme`
+  // field. The createEffect ensures any change to the persisted theme —
+  // whether from this dashboard's picker, a parallel tab, or a CLI
+  // `swt config set theme dracula` — is reflected on `<html>` within one
+  // SSE round-trip.
+  const currentTheme = createMemo<Theme>(() => {
+    // ConfigSnapshot.config is typed `unknown` in shared/schemas to keep
+    // the cross-package wire boundary loose; the documented concrete
+    // shape is `SwtConfig` from @swt-labs/core. Cast through that shape
+    // so the read is typed-safe end-to-end.
+    const config = state.tools.config.data?.config as SwtConfig | undefined;
+    const t = config?.theme;
+    return isTheme(t) ? t : 'default';
+  });
+  createEffect(() => {
+    applyTheme(currentTheme());
+  });
+
+  // Theme-selection handler — merges the new theme into the existing
+  // config and dispatches the canonical save action. Pre-init dashboards
+  // (no `state.tools.config.data`) skip persistence; the optimistic
+  // apply inside `<ThemesDropdown>` still gave the user visual feedback.
+  // On save failure (rare — file-write errors), the effect re-applies
+  // the canonical theme so the picker can't drift away from the truth.
+  const handleSelectTheme = async (theme: Theme): Promise<void> => {
+    const current = state.tools.config.data?.config as SwtConfig | undefined;
+    if (!current) return;
+    const result = await actions.applyConfigUpdate({ config: { ...current, theme } });
+    if ('error' in result) {
+      applyTheme(currentTheme());
+    }
+  };
+
   const handleSelect = (phaseSlug: string, artifactName: string): void => {
     void actions.selectArtifact(phaseSlug, artifactName);
   };
@@ -186,6 +233,8 @@ export const App: Component = () => {
         optionsMenuConfigLastFetched={state.tools.config.lastFetched}
         onOptionsMenuRefreshConfig={() => void actions.refreshToolsCell('config')}
         onOptionsMenuSaveConfig={(merged) => actions.applyConfigUpdate({ config: merged })}
+        currentTheme={currentTheme()}
+        onSelectTheme={(theme) => void handleSelectTheme(theme)}
       />
       <Show
         when={isInitialized()}

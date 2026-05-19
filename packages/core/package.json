@@ -4,12 +4,17 @@
   "description": "Type definitions, abstractions, and Zod schemas for SWT (HookHost, AgentSpawner, PermissionGate, MemoryStore).",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./scaffold/init-project.js": {
+      "types": "./src/scaffold/init-project.ts",
+      "import": "./src/scaffold/init-project.ts"
     }
   },
   "scripts": {

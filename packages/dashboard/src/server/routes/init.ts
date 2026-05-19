@@ -37,7 +37,7 @@ import {
   initProject as defaultInitProject,
   type InitProjectOptions,
   type InitProjectResult,
-} from '@swt-labs/core';
+} from '@swt-labs/core/scaffold/init-project.js';
 import {
   InitBodySchema,
   type InitResponse,

@@ -3692,3 +3692,110 @@ body {
   border-color: var(--terminal-green);
   color: var(--terminal-green);
 }
+
+/* ── Themes dropdown — trigger + popover body (milestone: themes.md v1) ── */
+/*
+ * Mirrors the `.github-menu-trigger` aesthetic so the three TopBar
+ * dropdowns (Provider / Options / Themes / Github) sit visually flush in
+ * the controls cluster. The popover body lives in `.themes-dropdown-menu`;
+ * items render as flex-row buttons with a checkmark slot on the left so
+ * the "current" theme is always at a fixed visual column.
+ */
+
+.themes-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.themes-menu-trigger {
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.themes-menu-trigger:hover {
+  background: var(--terminal-green);
+  color: var(--deep-void);
+}
+
+.themes-dropdown {
+  /* Anchored under the trigger; matches OptionsMenu/GithubDropdown shape. */
+  min-width: 240px;
+}
+
+.themes-dropdown-menu {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.themes-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--ghost-white);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.themes-dropdown-item:hover {
+  background: var(--slate-muted-15);
+}
+
+.themes-dropdown-item.is-current {
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+}
+
+.themes-dropdown-item-check {
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--terminal-green);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.themes-dropdown-item-check-empty {
+  display: inline-block;
+  width: 12px;
+}
+
+.themes-dropdown-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.themes-dropdown-item-label {
+  font-weight: 500;
+}
+
+.themes-dropdown-item-description {
+  font-size: 10px;
+  color: var(--slate-muted);
+  letter-spacing: 0.2px;
+}
+
+.themes-dropdown-item.is-current .themes-dropdown-item-description {
+  color: var(--terminal-green);
+  opacity: 0.7;
+}

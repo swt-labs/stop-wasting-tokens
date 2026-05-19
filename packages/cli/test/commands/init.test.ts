@@ -12,7 +12,7 @@
  *   - Lead spawn failure surfaces as RUNTIME_ERROR
  */
 
-import { AlreadyInitializedError } from '@swt-labs/core';
+import { AlreadyInitializedError } from '@swt-labs/core/scaffold/init-project.js';
 import type * as SwtRuntime from '@swt-labs/runtime';
 import type { TaskResult } from '@swt-labs/shared';
 import { beforeAll, describe, expect, it, vi } from 'vitest';

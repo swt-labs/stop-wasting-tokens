@@ -181,6 +181,12 @@ description: Every key in `.swt-planning/config.json` — type, default, when to
 - **Default:** `{"enabled":false}`
 - **When to override:** Telemetry is opt-in, anonymous (UUIDv4 per machine), and sanitized at the client. Set `enabled: true` + `endpoint: "https://your-collector.example.com/ingest"` to wire the production HttpSender. The privacy contract is preserved: no PII, no machine identifiers, no auth headers.
 
+### `theme`
+
+- **Type:** `"default" | "dark" | "light" | "solarized" | "dracula" | "nord" | "monokai" | "gruvbox"`
+- **Default:** `"default"`
+- **When to override:** _(no override guidance documented)_
+
 ### `verification_tier`
 
 - **Type:** `"quick" | "standard" | "deep"`

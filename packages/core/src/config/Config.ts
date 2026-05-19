@@ -33,6 +33,26 @@ const CustomProfileSchema = z.object({
   values: z.record(z.string(), z.unknown()).default({}),
 });
 
+/**
+ * Dashboard / CLI theme ids. The `default` aesthetic is the original SWT
+ * terminal palette (green-on-black); the other seven are widely-recognized
+ * developer themes. The list is canonical here in core (rather than in the
+ * dashboard package) so the CLI, TUI, and any future surface speak the
+ * same theme identifiers — `swt config set theme dracula` works from any
+ * entry point and writes a value the dashboard recognises.
+ */
+export const THEMES = [
+  'default',
+  'dark',
+  'light',
+  'solarized',
+  'dracula',
+  'nord',
+  'monokai',
+  'gruvbox',
+] as const;
+export type Theme = (typeof THEMES)[number];
+
 export const ConfigSchema = z.object({
   effort: z.enum(EFFORTS as unknown as [string, ...string[]]).default('balanced'),
   autonomy: z.enum(AUTONOMY_TIERS as unknown as [string, ...string[]]).default('standard'),
@@ -111,6 +131,13 @@ export const ConfigSchema = z.object({
   // boundary via the `ProfileId` TS type derived from `BUILTIN_PROFILES`.
   active_profile: z.string().default('default'),
   custom_profiles: z.record(z.string(), CustomProfileSchema).default({}),
+  /**
+   * Dashboard / CLI theme. Defaults to `'default'` (the original SWT
+   * terminal green-on-black palette). Existing `.swt-planning/config.json`
+   * files without this field parse cleanly thanks to `.default(...)`;
+   * `parseConfig({})` produces `theme: 'default'`.
+   */
+  theme: z.enum(THEMES).default('default'),
 });
 
 export { CustomProfileSchema };

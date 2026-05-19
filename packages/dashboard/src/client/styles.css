@@ -1,4 +1,12 @@
 :root {
+  /*
+   * Default theme — the original SWT terminal palette (green-on-black).
+   * The bare :root block is the FALLBACK: when no `data-theme` attribute
+   * is present on <html>, these values apply. Each non-default theme
+   * below is gated on `:root[data-theme="X"]` and overrides the same
+   * nine variables; component CSS uses `var(--name)` throughout and
+   * needs no changes to re-skin per-theme.
+   */
   --terminal-green: #00ff41;
   --deep-void: #0a0e14;
   --ghost-white: #e8eaed;
@@ -9,6 +17,115 @@
 
   --terminal-green-15: rgba(0, 255, 65, 0.15);
   --slate-muted-15: rgba(90, 101, 128, 0.15);
+}
+
+/*
+ * `:root[data-theme="default"]` is intentionally NOT defined — the bare
+ * `:root` block above IS the default, so an absent or `"default"`
+ * `data-theme` attribute both resolve to the same palette. The seven
+ * blocks below override the nine variables for each named theme; semantic
+ * naming is intentionally preserved (e.g. `--deep-void` stays the
+ * "page-background" slot even when the theme's background is light) so
+ * component CSS using `background: var(--deep-void)` re-skins for free.
+ */
+
+/* Dark — clean modern dark, lower-contrast neutrals than the SWT default. */
+:root[data-theme='dark'] {
+  --terminal-green: #4ade80;
+  --deep-void: #1a1a1a;
+  --ghost-white: #e5e5e5;
+  --neon-cyan: #60a5fa;
+  --warm-amber: #fbbf24;
+  --danger-red: #ef4444;
+  --slate-muted: #6b7280;
+
+  --terminal-green-15: rgba(74, 222, 128, 0.15);
+  --slate-muted-15: rgba(107, 114, 128, 0.15);
+}
+
+/* Light — inverted background/foreground; `--deep-void` becomes white,
+   `--ghost-white` becomes a dark slate. The slot names stay semantic. */
+:root[data-theme='light'] {
+  --terminal-green: #16a34a;
+  --deep-void: #ffffff;
+  --ghost-white: #1f2937;
+  --neon-cyan: #2563eb;
+  --warm-amber: #d97706;
+  --danger-red: #dc2626;
+  --slate-muted: #6b7280;
+
+  --terminal-green-15: rgba(22, 163, 74, 0.15);
+  --slate-muted-15: rgba(107, 114, 128, 0.15);
+}
+
+/* Solarized Dark — Ethan Schoonover's classic, anchored on base03/base0. */
+:root[data-theme='solarized'] {
+  --terminal-green: #859900;
+  --deep-void: #002b36;
+  --ghost-white: #839496;
+  --neon-cyan: #2aa198;
+  --warm-amber: #b58900;
+  --danger-red: #dc322f;
+  --slate-muted: #586e75;
+
+  --terminal-green-15: rgba(133, 153, 0, 0.15);
+  --slate-muted-15: rgba(88, 110, 117, 0.15);
+}
+
+/* Dracula — the dracula.io reference palette. */
+:root[data-theme='dracula'] {
+  --terminal-green: #50fa7b;
+  --deep-void: #282a36;
+  --ghost-white: #f8f8f2;
+  --neon-cyan: #8be9fd;
+  --warm-amber: #ffb86c;
+  --danger-red: #ff5555;
+  --slate-muted: #6272a4;
+
+  --terminal-green-15: rgba(80, 250, 123, 0.15);
+  --slate-muted-15: rgba(98, 114, 164, 0.15);
+}
+
+/* Nord — arctic palette by Arctic Ice Studio. */
+:root[data-theme='nord'] {
+  --terminal-green: #a3be8c;
+  --deep-void: #2e3440;
+  --ghost-white: #d8dee9;
+  --neon-cyan: #88c0d0;
+  --warm-amber: #ebcb8b;
+  --danger-red: #bf616a;
+  --slate-muted: #4c566a;
+
+  --terminal-green-15: rgba(163, 190, 140, 0.15);
+  --slate-muted-15: rgba(76, 86, 106, 0.15);
+}
+
+/* Monokai — the Sublime Text classic. */
+:root[data-theme='monokai'] {
+  --terminal-green: #a6e22e;
+  --deep-void: #272822;
+  --ghost-white: #f8f8f2;
+  --neon-cyan: #66d9ef;
+  --warm-amber: #fd971f;
+  --danger-red: #f92672;
+  --slate-muted: #75715e;
+
+  --terminal-green-15: rgba(166, 226, 46, 0.15);
+  --slate-muted-15: rgba(117, 113, 94, 0.15);
+}
+
+/* Gruvbox — Pavel Pertsev's retro-groove dark-medium variant. */
+:root[data-theme='gruvbox'] {
+  --terminal-green: #b8bb26;
+  --deep-void: #282828;
+  --ghost-white: #ebdbb2;
+  --neon-cyan: #83a598;
+  --warm-amber: #fabd2f;
+  --danger-red: #fb4934;
+  --slate-muted: #928374;
+
+  --terminal-green-15: rgba(184, 187, 38, 0.15);
+  --slate-muted-15: rgba(146, 131, 116, 0.15);
 }
 
 * {

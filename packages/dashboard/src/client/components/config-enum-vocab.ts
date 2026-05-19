@@ -35,31 +35,6 @@ export const CONFIG_ENUM_OPTIONS: Readonly<Record<string, ReadonlyArray<string>>
 };
 
 /**
- * The exact enum fields the Options dropdown's SettingsSection renders as
- * segmented controls, in display order. `backend` joins the curated row as
- * of the Options Menu Consolidation milestone (plan 01-01) — it was
- * previously excluded as "display-only" while ConfigPanel still owned the
- * raw-tree editor; with ConfigPanel deleted in plan 01-03, backend belongs
- * in the curated knobs alongside `effort`/`autonomy`/etc.
- *
- * Phase 02 plan 02-02 leaves this array UNCHANGED — it still drives the
- * milestone-14 SettingsSection until Phase 03 deletes that component. The
- * new SettingsTable component (Phase 02) consumes SETTINGS_DISPLAY_ORDER
- * from `setting-descriptions.ts` instead.
- */
-export const SETTINGS_FIELD_ORDER: ReadonlyArray<string> = [
-  'effort',
-  'autonomy',
-  'verification_tier',
-  'model_profile',
-  'prefer_teams',
-  'worktree_isolation',
-  'planning_tracking',
-  'auto_push',
-  'backend',
-];
-
-/**
  * Boolean config fields the SettingsValueControl renders as an on/off
  * toggle. Phase 02 plan 02-02 expanded this from `['auto_uat']` to the
  * full 9-entry list mirroring every boolean field in Phase 01's settings-v2

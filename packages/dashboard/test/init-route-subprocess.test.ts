@@ -23,7 +23,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { AlreadyInitializedError } from '@swt-labs/core';
+import { AlreadyInitializedError } from '@swt-labs/core/scaffold/init-project.js';
 import { SnapshotEventSchema } from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

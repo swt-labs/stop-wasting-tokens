@@ -1,3 +1,4 @@
+import type { Theme } from '@swt-labs/core';
 import type { ConfigSnapshot, MilestoneSummary, ProjectSummary } from '@swt-labs/shared';
 import { Show, createMemo, createSignal, For, type Component, type JSX } from 'solid-js';
 
@@ -7,8 +8,9 @@ import type { ConnectionState } from '../state/dashboard-store.js';
 
 import { formatAskUserPlaceholder } from './askuser-card-helpers.js';
 import { GithubDropdown } from './GithubDropdown.js';
-import { OptionsMenu } from './OptionsMenu.js';
 import { ProviderMenu } from './ProviderMenu.js';
+import { SettingsMenu } from './SettingsMenu.js';
+import { ThemesDropdown } from './ThemesDropdown.js';
 
 /**
  * Phase 03 — placeholder cap for answer-mode. Matches
@@ -138,6 +140,22 @@ export interface TopBarProps {
    * Optional: when omitted the "Provider ▾" trigger is not rendered at all.
    */
   providerSection?: JSX.Element;
+  /**
+   * The currently-applied theme id (sourced from
+   * `state.tools.config.data?.config.theme` in App.tsx). Optional: defaults
+   * to `'default'` so a pre-init dashboard renders the picker correctly
+   * even when no config.json exists yet.
+   */
+  currentTheme?: Theme;
+  /**
+   * Theme-selection handler. App.tsx threads this to
+   * `actions.applyConfigUpdate({ config: { ...current, theme } })`.
+   * Optional: when omitted, the optimistic local re-skin in
+   * `<ThemesDropdown>` still fires (the user sees the theme apply) but
+   * no config persistence happens — sensible degraded state for the
+   * pre-init dashboard.
+   */
+  onSelectTheme?: (theme: Theme) => void;
 }
 
 const PILL_LABEL: Record<ConnectionState, string> = {
@@ -362,11 +380,11 @@ export const TopBar: Component<TopBarProps> = (props) => {
     return placeholderForVerb(verb(), props.workflowState);
   });
 
-  // Phase 1 — the "Options ▾" dropdown. The three menu props are OPTIONAL so
+  // Phase 1 — the "Settings ▾" dropdown. The three menu props are OPTIONAL so
   // `App.tsx` (out of this plan's files_modified) needs no edit; when they
   // are absent TopBar drives the dropdown off a local signal. `triggerRef`
   // is held so `closeMenu` can return focus to the trigger button (R5) —
-  // TopBar owns the focus-return, OptionsMenu only calls `onClose`.
+  // TopBar owns the focus-return, SettingsMenu only calls `onClose`.
   let triggerRef: HTMLButtonElement | undefined;
   const [localOpen, setLocalOpen] = createSignal(false);
   const menuOpen = (): boolean => props.optionsMenuOpen ?? localOpen();
@@ -397,10 +415,10 @@ export const TopBar: Component<TopBarProps> = (props) => {
     providerTriggerRef?.focus(); // focus-return to the trigger
   };
 
-  // The "Github ▾" dropdown — sits inline next to Options ▾ in the topbar
+  // The "Github ▾" dropdown — sits inline next to Settings ▾ in the topbar
   // controls cluster. Open/close lives as a local signal — no store action,
   // no schema field, no SSE event (the brief's Constraints for milestone 20
-  // mandated zero store/server surface for v1). Mirrors the OptionsMenu /
+  // mandated zero store/server surface for v1). Mirrors the SettingsMenu /
   // ProviderMenu focus-return pattern: TopBar owns `githubTriggerRef` and
   // restores focus on dismissal; GithubDropdown only calls `onClose`.
   let githubTriggerRef: HTMLButtonElement | undefined;
@@ -417,6 +435,20 @@ export const TopBar: Component<TopBarProps> = (props) => {
     // acknowledgement that the click was received.
     console.debug('Github dropdown — not yet wired:', item.id, item.label);
     closeGithubMenu();
+  };
+
+  // The "Themes ▾" dropdown — sits between Settings ▾ and Github ▾ in the
+  // controls cluster (mirrors the SettingsMenu / GithubDropdown focus-return
+  // pattern). Open/close is a local signal; the data + dispatch flow in via
+  // `currentTheme` + `onSelectTheme` props so the picker can be exercised
+  // both from a configured project (state-driven) and from the pre-init
+  // dashboard (degraded but visible).
+  let themesTriggerRef: HTMLButtonElement | undefined;
+  const [themesMenuOpen, setThemesMenuOpen] = createSignal(false);
+  const toggleThemesMenu = (): void => setThemesMenuOpen((v) => !v);
+  const closeThemesMenu = (): void => {
+    setThemesMenuOpen(false);
+    themesTriggerRef?.focus();
   };
 
   const onSubmit = async (e: Event): Promise<void> => {
@@ -613,9 +645,9 @@ export const TopBar: Component<TopBarProps> = (props) => {
             aria-expanded={menuOpen()}
             onClick={() => toggleMenu()}
           >
-            Options ▾
+            Settings ▾
           </button>
-          <OptionsMenu
+          <SettingsMenu
             open={menuOpen()}
             onClose={closeMenu}
             commandsSection={props.commandsSection}
@@ -626,6 +658,26 @@ export const TopBar: Component<TopBarProps> = (props) => {
             lastFetched={props.optionsMenuConfigLastFetched ?? null}
             onRefresh={props.onOptionsMenuRefreshConfig}
             onSave={props.onOptionsMenuSaveConfig}
+          />
+        </div>
+        <div class="themes-menu-wrapper">
+          <button
+            type="button"
+            class="themes-menu-trigger"
+            ref={themesTriggerRef}
+            aria-haspopup="menu"
+            aria-expanded={themesMenuOpen()}
+            onClick={() => toggleThemesMenu()}
+          >
+            Themes ▾
+          </button>
+          <ThemesDropdown
+            open={themesMenuOpen()}
+            onClose={closeThemesMenu}
+            currentTheme={props.currentTheme ?? 'default'}
+            onSelect={(theme): void => {
+              props.onSelectTheme?.(theme);
+            }}
           />
         </div>
         <div class="github-menu-wrapper">

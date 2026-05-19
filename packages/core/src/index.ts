@@ -6,4 +6,3 @@ export * from './errors/index.js';
 export * from './handoff/index.js';
 export * from './abstractions/index.js';
 export * from './config/index.js';
-export * from './scaffold/init-project.js';

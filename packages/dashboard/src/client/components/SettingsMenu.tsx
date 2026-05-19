@@ -1,9 +1,10 @@
 /**
- * Plan 01-02 (Options Menu Consolidation) — the Options dropdown now hosts
- * Commands + Settings (curated) + Advanced (full tree) + a sticky action
- * bar inline, with no per-section collapse. The popover's `Options ▾`
- * trigger remains the only collapse layer; once open, every section body
- * is visible at once.
+ * Phase 03 plan 03-01 (Settings Dropdown v2) — the Settings dropdown now hosts
+ * Commands + a SINGLE Settings section (24 rows via SettingsTable, with a
+ * profile selector in the header) + a sticky action bar inline. The popover's
+ * `Settings ▾` trigger remains the only collapse layer; once open, every
+ * section body is visible at once. This replaces the previous milestone-14
+ * curated SettingsSection + Advanced tree pair with one composed surface.
  *
  * Architectural notes:
  *
@@ -18,33 +19,40 @@
  *     accidentally. The local Solid signal already survives popover
  *     open/close because Solid keeps mounted children's state across
  *     hidden/visible cycles. On page reload pending edits are dropped —
- *     they were never saved.
+ *     they were never saved. (Milestone-14 batched-staged-edit model
+ *     PRESERVED through the Phase 03 rewrite.)
  *
- *   - **Settings + Advanced render inline.** Plan 01-02 collapses the
- *     previous JSX-prop slot model (where `App.tsx` constructed a
- *     `<SettingsSection ...>` element and handed it in) — both Settings
- *     and Advanced live inside the popover body so they can read the
- *     local `pendingEdits` signal directly. `App.tsx` now passes the
- *     config snapshot + the Save handler instead of a JSX slot.
+ *   - **Single Settings section.** Phase 03 retired the curated/Advanced
+ *     split — `SettingsTable` renders the full 24-key surface (one row
+ *     per `SETTINGS_DISPLAY_ORDER` entry) and the ProfileDropdown stages
+ *     all values from a builtin profile in one click. App.tsx still
+ *     passes the config snapshot + the Save handler.
  *
  *   - **`commandsSection` stays a JSX slot.** Commands has no edit-state
- *     contract with the Options menu; the existing slot keeps `App.tsx`'s
+ *     contract with the Settings menu; the existing slot keeps `App.tsx`'s
  *     CommandsSection wiring intact.
  *
+ *   - **Store-key vocabulary preserved.** TopBar prop names
+ *     (`optionsMenuOpen`, `onToggleOptionsMenu`, `onCloseOptionsMenu`)
+ *     and the dashboard-store keys keep their `optionsMenu*` names —
+ *     they describe an internal popover slot, not a user-facing label.
+ *     Phase 03 changes the user-visible trigger text only.
+ *
  * The load-bearing pure helpers (`nextMenuStateOnTriggerClick`,
- * `shouldCloseOnKey`, `shouldCloseOnOutsideClick`) moved to `Popover.tsx`;
- * they are RE-EXPORTED here unchanged so existing `options-menu.test.ts`
+ * `shouldCloseOnKey`, `shouldCloseOnOutsideClick`) live in `Popover.tsx`;
+ * they are RE-EXPORTED here unchanged so existing `settings-menu.test.ts`
  * imports keep resolving.
  */
 
+import { BUILTIN_PROFILES, PROFILE_IDS, type ProfileId } from '@swt-labs/core';
 import type { ConfigSnapshot } from '@swt-labs/shared';
 import { Show, createSignal, type Component, type JSX } from 'solid-js';
 
-import { AdvancedConfigSection } from './AdvancedConfigSection.js';
 import { Popover } from './Popover.js';
-import { SettingsSection, mergeStagedConfig } from './SettingsSection.js';
+import { ProfileDropdown, stageProfileValues } from './ProfileDropdown.js';
+import { SettingsTable } from './SettingsTable.jsx';
 
-// Re-exported for back-compat: `options-menu.test.ts` imports these helpers
+// Re-exported for back-compat: `settings-menu.test.ts` imports these helpers
 // from this module. Their implementation lives in `Popover.tsx`.
 export {
   nextMenuStateOnTriggerClick,
@@ -55,43 +63,53 @@ export {
 /* ── pure helpers (load-bearing logic, unit-tested directly) ────────────── */
 
 /**
- * Stage an Advanced-tree `path` → `value` into the parent `pendingEdits`
- * tree. Top-level paths (length 1) are a flat merge; nested paths build the
- * nested structure under the path's first segment so deep edits coexist
- * with curated edits on the same top-level key.
+ * Deep-merge `pending` into `current` and return a fresh object. Used by
+ * `SettingsMenu`'s Save handler to build the merged payload posted to
+ * `applyConfigUpdate({ config: merged })`.
  *
- * Pure, exported for direct unit-testing (the dashboard workspace has no
- * Solid testing-library; load-bearing logic is always factored out for
- * node-env vitest).
+ * THE merge MUST preserve every non-target field in `current` — a single-key
+ * partial would be a data-loss bug. `parseConfig` (ConfigSchema.safeParse,
+ * every key `.default()`/`.optional()`) ACCEPTS `{ effort: 'fast' }` and
+ * returns a full config with every OTHER field reset to its default +
+ * `marketplace`/`hooks` dropped, and the /api/config route writes the
+ * validated object directly with no merge. So the caller passes the live
+ * config cell as `current` and this helper produces a fresh merged object —
+ * `current` is never mutated. This is the single tested merge point.
+ *
+ * Plain objects merge recursively; arrays + primitives are replaced
+ * wholesale (matches the staged-edit semantics — a user editing an array
+ * field replaces it). Non-object `current` is treated as `{}` so the
+ * greenfield / no-data case still returns the pending payload.
+ *
+ * Phase 03 plan 03-01 re-homed this helper from SettingsSection.tsx into
+ * SettingsMenu.tsx so SettingsSection.tsx can be deleted without breaking
+ * handleSave at typecheck.
  */
-export function stagePathEdit(
-  pendingEdits: Record<string, unknown>,
-  path: readonly string[],
-  value: unknown,
+export function mergeStagedConfig(
+  current: unknown,
+  pending: Record<string, unknown>,
 ): Record<string, unknown> {
-  const top = path[0];
-  if (top === undefined) {
-    // Defensive: an empty path would mean "stage the whole config"; nothing
-    // in the current renderer triggers this, so treat as a no-op.
-    return pendingEdits;
+  const base: Record<string, unknown> =
+    typeof current === 'object' && current !== null && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  const out: Record<string, unknown> = { ...base };
+  for (const [key, pendingValue] of Object.entries(pending)) {
+    const baseValue = out[key];
+    if (
+      typeof pendingValue === 'object' &&
+      pendingValue !== null &&
+      !Array.isArray(pendingValue) &&
+      typeof baseValue === 'object' &&
+      baseValue !== null &&
+      !Array.isArray(baseValue)
+    ) {
+      out[key] = mergeStagedConfig(baseValue, pendingValue as Record<string, unknown>);
+    } else {
+      out[key] = pendingValue;
+    }
   }
-  if (path.length === 1) {
-    return { ...pendingEdits, [top]: value };
-  }
-  // Nested: build the {key1: {key2: ...value}} tree, then deep-merge into
-  // any existing branch under `top`.
-  let nested: unknown = value;
-  for (let i = path.length - 1; i >= 1; i -= 1) {
-    const segment = path[i];
-    if (segment === undefined) continue;
-    nested = { [segment]: nested };
-  }
-  const existing = pendingEdits[top];
-  const merged =
-    typeof existing === 'object' && existing !== null && !Array.isArray(existing)
-      ? mergeStagedConfig(existing, nested as Record<string, unknown>)
-      : nested;
-  return { ...pendingEdits, [top]: merged };
+  return out;
 }
 
 /** Count staged keys — drives the Save button label. */
@@ -101,8 +119,8 @@ export function stageCountOf(pendingEdits: Record<string, unknown>): number {
 
 /* ── prop contract ──────────────────────────────────────────────────────── */
 
-export interface OptionsMenuProps {
-  /** Open/close-controlled by the parent — OptionsMenu does NOT read the store. */
+export interface SettingsMenuProps {
+  /** Open/close-controlled by the parent — SettingsMenu does NOT read the store. */
   open: boolean;
   /**
    * Called when the popover requests dismissal (Esc, click-outside). The
@@ -126,9 +144,10 @@ export interface OptionsMenuProps {
   settingsSection?: JSX.Element;
   /**
    * The shared `config` tools-cell from the store — the SAME cell ConfigPanel
-   * reads. Drives both the curated Settings rows and the Advanced tree.
-   * Optional so plan 01-01's `OptionsMenuProps`-shaped smoke test (which
-   * only passes `open` + `onClose`) still type-checks.
+   * used to read. Drives the SettingsTable rows + the profile selector.
+   * Optional so plan 01-01's `OptionsMenuProps`-shaped smoke test (now
+   * `SettingsMenuProps`-shaped) that only passes `open` + `onClose` still
+   * type-checks.
    */
   data?: ConfigSnapshot | null;
   /** Mirrors `state.tools.config.loading`. Disables Save while in flight. */
@@ -137,10 +156,10 @@ export interface OptionsMenuProps {
   error?: string | null;
   /** ISO-8601 timestamp of the last successful config fetch, or null. */
   lastFetched?: string | null;
-  /** Refresh the config cell — the same callback ConfigPanel uses. */
+  /** Refresh the config cell — the same callback ConfigPanel used. */
   onRefresh?: () => void;
   /**
-   * Save handler. The Options menu builds the merged config (snapshot
+   * Save handler. The Settings menu builds the merged config (snapshot
    * deep-merged with `pendingEdits`) and hands it to this callback; the
    * parent calls `actions.applyConfigUpdate({ config: merged })`. Returns
    * `{ok: true}` on success — pending edits clear + "Saved ✓" flashes —
@@ -152,15 +171,40 @@ export interface OptionsMenuProps {
 
 /* ── component ──────────────────────────────────────────────────────────── */
 
-export const OptionsMenu: Component<OptionsMenuProps> = (props) => {
+export const SettingsMenu: Component<SettingsMenuProps> = (props) => {
   const [pendingEdits, setPendingEdits] = createSignal<Record<string, unknown>>({});
   const [savedFlash, setSavedFlash] = createSignal(false);
   const [saveError, setSaveError] = createSignal<string | null>(null);
 
   const stageCount = (): number => stageCountOf(pendingEdits());
 
-  const handleStage = (key: string, value: string | boolean): void => {
+  // Widened from `(key, value: string | boolean)` → `(key, value: unknown)`
+  // per Phase 03 plan 03-01 drift-lock 7: SettingsTable.onStage's prop type
+  // is `(key, value: unknown)` because the new surface handles numbers,
+  // arrays, and the `false` sentinel for `max_uat_remediation_rounds`.
+  // setPendingEdits is type-agnostic — zero runtime impact.
+  const handleStage = (key: string, value: unknown): void => {
     setPendingEdits((p) => ({ ...p, [key]: value }));
+  };
+
+  const handleProfileSelect = (id: ProfileId): void => {
+    setPendingEdits((p) => stageProfileValues(id, BUILTIN_PROFILES[id].values, p));
+  };
+
+  /**
+   * Resolve the active profile id for the ProfileDropdown header — pending
+   * edits win for immediate visual feedback (Scout §4 Option B). Fallback
+   * chain: staged.active_profile → config.active_profile → 'default'. The
+   * PROFILE_IDS guard handles any legacy config where active_profile is not
+   * a recognised builtin id.
+   */
+  const activeProfileId = (): ProfileId => {
+    const staged = pendingEdits().active_profile;
+    const fromConfig = (props.data?.config as Record<string, unknown> | undefined)?.active_profile;
+    const value = staged ?? fromConfig ?? 'default';
+    return (PROFILE_IDS as readonly string[]).includes(value as string)
+      ? (value as ProfileId)
+      : 'default';
   };
 
   const handleDiscardKey = (key: string): void => {
@@ -172,10 +216,6 @@ export const OptionsMenu: Component<OptionsMenuProps> = (props) => {
       }
       return next;
     });
-  };
-
-  const handleAdvancedChange = (path: readonly string[], value: unknown): void => {
-    setPendingEdits((p) => stagePathEdit(p, path, value));
   };
 
   const handleDiscardAll = (): void => {
@@ -206,7 +246,7 @@ export const OptionsMenu: Component<OptionsMenuProps> = (props) => {
       open={props.open}
       onClose={props.onClose}
       role="menu"
-      ariaLabel="Options"
+      ariaLabel="Settings"
       class="options-menu"
     >
       <section class="options-menu-section" data-section="commands">
@@ -219,24 +259,19 @@ export const OptionsMenu: Component<OptionsMenuProps> = (props) => {
         </Show>
       </section>
       <section class="options-menu-section" data-section="settings">
-        <h3 class="options-menu-section-heading">Settings</h3>
-        <SettingsSection
-          data={props.data ?? null}
-          loading={props.loading ?? false}
-          error={props.error ?? null}
-          lastFetched={props.lastFetched ?? null}
-          onRefresh={props.onRefresh ?? ((): void => {})}
+        <div class="settings-menu-header">
+          <h3 class="options-menu-section-heading">SETTINGS</h3>
+          <ProfileDropdown
+            current={activeProfileId()}
+            hasPendingEdits={stageCount() > 0}
+            onSelect={handleProfileSelect}
+          />
+        </div>
+        <SettingsTable
+          config={(props.data?.config as Record<string, unknown>) ?? {}}
           pendingEdits={pendingEdits()}
           onStage={handleStage}
           onDiscardKey={handleDiscardKey}
-        />
-      </section>
-      <section class="options-menu-section" data-section="advanced">
-        <h3 class="options-menu-section-heading">Advanced</h3>
-        <AdvancedConfigSection
-          config={props.data?.config}
-          pendingEdits={pendingEdits()}
-          onChange={handleAdvancedChange}
         />
       </section>
       <section class="options-menu-actions" data-section="actions">

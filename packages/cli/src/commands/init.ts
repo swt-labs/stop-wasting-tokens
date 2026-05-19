@@ -21,7 +21,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { AlreadyInitializedError, initProject } from '@swt-labs/core';
+import { AlreadyInitializedError, initProject } from '@swt-labs/core/scaffold/init-project.js';
 import { spawnAgent } from '@swt-labs/orchestration';
 import {
   resolveCredentialStore,
