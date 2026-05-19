@@ -1,5 +1,62 @@
 # Changelog
 
+## Unreleased — milestone 20 (SWT Github Dropdown — UI Scaffolding, placeholder, not wired)
+
+_Single-phase milestone adding a `Github ▼` dropdown to the dashboard chrome row LEFT of where `Theme ▼` will land. Strict placeholder UI: 8 menu items in 3 sections, every click is `console.debug` no-op. Per-item wiring is explicit Future Work across 4 priority tiers. Brief: `a_non_production_files/git_dropdown.md` (569 lines, fully baked, 12 locked decisions, 14 ACs). Archived 2026-05-19 as `20-github-dropdown-ui-scaffolding-placeholder`; local tag `milestone/20-github-dropdown-ui-scaffolding-placeholder` (no npm publish — awaiting `v3.0.0-alpha.33` bundled release with milestones 18 + 19)._
+
+**Cumulative impact:** 1 phase / 1 plan / 3 product commits (`338f61c` → `b174a15`) plus 1 archive-docs commit (`fd2c855`). **Tests: 2659 passed / 67 skipped / 0 failed** (+20 from milestone-19's 2639 baseline: 10 component-data integrity + 10 pure-helper unit tests). **Test files:** 291 → 293 (+2 new `.ts` test files following dashboard's pure-helper + smoke pattern). **Regression suite:** 115 / 27 / 0 (matches milestone-17/18/19 baseline exactly — zero new failures). **D2 invariant preserved throughout:** trivially preserved — milestone 20's work is dashboard L7 only (component + helpers + CSS + App.tsx mount), no provider-prompt edits.
+
+### Phase 01 — Github dropdown UI scaffolding — `338f61c` → `b174a15`, 3 commits
+
+**Commit 1 — `338f61c`, 5 files / +522 LOC.** Files touched:
+
+- `packages/dashboard/src/client/components/GithubDropdown.tsx` (NEW, 113 LOC) wraps the shared `<Popover>` primitive — open/close-CONTROLLED component where the parent owns the open-signal + trigger ref + focus-return, mirroring `OptionsMenu` and `ProviderMenu` byte-for-byte. Component renders 3 sections (BUG REPORTS, PROJECT ON GITHUB, SWT RESOURCES) with section labels in uppercase 10px using the `var(--slate-muted)` token, 8 items total. Disabled items get reduced opacity, `cursor: not-allowed`, and a native `<title>` tooltip carrying the exact verbatim Decision #2 text (no GitHub remote configured for this project — `git remote add origin git@github.com:owner/repo.git`).
+- `packages/dashboard/src/client/lib/github-dropdown-helpers.ts` (NEW, 111 LOC) exports the `GITHUB_MENU_ITEMS` constant (8 items shaped as `{id, label, section, needsRemote}`), the `hasGithubRemote()` stub (default `false`, with `?fake_remote=true` URL-param flip via `URLSearchParams`), `getDisabledTooltip()` returning the verbatim Decision #2 string, the `groupItemsBySection()` pure helper for the JSX render loop, and the `GithubMenuItem` plus `GithubMenuSection` types.
+- `packages/dashboard/src/client/components/styles.css` (+91 LOC) adds component-scoped selectors `.github-dropdown-trigger`, `.github-dropdown-menu`, `.github-dropdown-section`, `.github-dropdown-section-label`, `.github-dropdown-item`, and `.github-dropdown-item--disabled` alongside existing dropdown rules — NOT in root `client/styles.css` (which only carries `:root` design tokens at lines 1-12).
+- `packages/dashboard/test/github-dropdown.test.ts` (NEW, 107 LOC) — `.ts` extension, NOT `.tsx`. Tests menu-data integrity (item count = 8, section grouping = 3, disabled flags match `needsRemote` against `hasGithubRemote`, tooltip text exact match, click handler invocation with correct args).
+- `packages/dashboard/test/github-dropdown-helpers.test.ts` (NEW, 100 LOC) — `.ts` extension. Tests `hasGithubRemote()` default `false` plus `?fake_remote=true` toggle via URLSearchParams mock, `getDisabledTooltip()` exact text, and `groupItemsBySection()` topology.
+
+**Commit 2 (`1a232e4`, 2 files / +64):** `packages/dashboard/src/client/App.tsx` (+48 LOC) adds `<header class="chrome-row">` ABOVE `<TopBar>` (NOT inside TopBar — as a sibling inside `app-shell`), mounts `<GithubDropdown>` inside the chrome-row, manages open state via local `const [githubMenuOpen, setGithubMenuOpen] = createSignal(false)` mirroring the existing `paletteOpen` pattern at App.tsx:43, defines `handleGithubMenuItem(item)` stub which `console.debug('Github dropdown — not yet wired:', item.id, item.label)` + closes the popover. `packages/dashboard/src/client/components/styles.css` (+16 LOC) adds `.chrome-row` container styles: flex row, right-aligned cluster, height/padding matching existing chrome aesthetic. `.chrome-row` is created from scratch since `themes.md` (sibling milestone for `Theme ▼` dropdown) has not yet shipped; when it does, ThemesDropdown will sit to the RIGHT of GithubDropdown per Decision #1.
+
+**Commit 3 (`b174a15`, 2 files / ±3):** `style(workspace):` separate atomic prettier fix-in-milestone for pre-existing CHANGELOG.md (4 chars) + CLAUDE.md (1 char) drift. Plan T05 explicitly authorized this remediation path per CLAUDE.md Release Discipline Gate B (workspace format drift is never eligible for `accepted-process-exception` — auto-fixable via one `pnpm format` command). Precedent: alpha.28 `a0a4dfd`. Kept in its own atomic `style(workspace):` commit so the product commits 1 + 2 remain auditable.
+
+### 7 brief drift corrections applied (recurring pattern across 3 milestones: 17 / 19 / 20)
+
+Scout's research surfaced 3 critical drifts. Lead's pre-planning grep surfaced 4 more during plan composition:
+
+- **DRIFT-1 (CRITICAL, Scout):** Brief specified `<details>`/`<summary>` shell pattern and AC-10 said "Dropdown closes on click-outside (native `<details>` behavior)". Codebase actually uses the shared `<Popover>` primitive (`packages/dashboard/src/client/components/Popover.tsx`) — a `<Show when={props.open}>` controlled component where the parent owns the open signal + trigger ref + focus-return, with JS document listeners for click-outside/Escape installed by the popover itself. Both `OptionsMenu.tsx` and `ProviderMenu.tsx` consume `<Popover>` this way. Plan mirrored the existing pattern exactly. AC-10 revised to: "Dropdown closes on click-outside, Escape, and trigger-click via the shared `<Popover>` primitive." This was the most consequential drift — would have wasted significant Dev effort had it landed as written.
+- **DRIFT-2 (minor, Scout):** Brief's stub handler showed `// eslint-disable-next-line no-console` before `console.debug(...)`. No `no-console` ESLint rule exists in the workspace config. Comment omitted.
+- **DRIFT-3 (minor, Scout):** Brief specified `.tsx` for component test using a hypothetical testing library. Codebase has no `@solidjs/testing-library`; vitest runs in node environment which can't execute Solid JSX. Tests use `.ts` extension + pure-helper + smoke pattern matching existing `options-menu.test.ts` / `provider-menu.test.ts`.
+- **DRIFT-4 (Lead grep):** Brief said new CSS selectors go in `client/styles.css` (root file). Existing dropdown selectors (`.options-menu-*`, `.provider-menu-*`) live in `client/components/styles.css`. New `.github-dropdown-*` selectors landed there for cohesion.
+- **DRIFT-5 (Lead grep):** Brief §D prose mentioned `state/dashboard-store.ts` as a possible helper home. `lib/` is the correct location for pure helpers (consistent with existing `lib/` contents). Helpers landed at `client/lib/github-dropdown-helpers.ts`.
+- **DRIFT-6 (Lead grep):** Verified all 8 menu item IDs/labels match brief lines 100-130 exactly (no hidden renames).
+- **DRIFT-7 (Lead grep):** App.tsx mount site is above `<TopBar>` as a chrome-row sibling inside `app-shell`, NOT inside TopBar. Brief was ambiguous on the exact JSX location.
+
+### Capabilities delivered
+
+- **Visible affordance for 8 GitHub actions.** Users see the `Github ▼` dropdown in the chrome row, can open it, see the 3-section layout, and identify which actions are available. Items 1, 7, 8 (Report SWT bug, SWT docs, SWT changelog) are always enabled since they point at `swt-labs/stop-wasting-tokens` and don't need a project remote. Items 2-6 are disabled by default (no GitHub remote configured) with the verbatim tooltip per Decision #2.
+- **Dev-testable disabled→enabled transition.** Appending `?fake_remote=true` to the dashboard URL flips `hasGithubRemote()` to `true`, enabling all 8 items. This lets future per-item wiring development happen without first shipping the real `git remote -v` discovery helper (which is intentionally deferred to Tier-2's first wiring).
+- **Chrome-row container infrastructure.** `.chrome-row` CSS container is ready for `Theme ▼` (per `themes.md`) to mount alongside `Github ▼` — either order works; whichever ships second is a no-op on container creation.
+
+### Process improvements memorialized
+
+- **Spot-check + banner closeout pattern continued across milestone 20's single phase** — now stable across 3 milestones (18 + 19 + 20). Orchestrator verified 8 gates: claimed commits exist + per-commit scope matches plan + working tree clean + test delta matches Dev's claim + test-files delta matches plan + preflight passed workspace-wide. No formal `*-VERIFICATION.md` written; archive's 7-point audit treats check #5 (Verification) as WARN, allows proceed.
+- **Brief drift adaptation pattern (3rd milestone in a row).** Scout's research + Lead's pre-planning grep surface drifts; Lead embeds corrections in plan `must_haves.truths`; Dev follows the plan, not the brief. Composes well with `[feedback_pragmatic_over_protocol]` while honoring `[feedback_optimal_elegant_no_debt]`. Worth tracking as a stable methodology pattern.
+- **Single-phase milestone precedent confirmed.** Milestone 16 (Monospace Chat Log Consistency) originally established the 1-phase / 2-commit pattern for small focused UI work. Milestone 20 followed it cleanly: 1-phase / 2 atomic product commits + 1 Gate B style commit. Small UI milestones don't need artificial decomposition.
+
+### Carry-overs out of milestone 20
+
+- **DEVN-05** — `packages/dashboard/src/client/components/Popover.tsx:138` TS2322 ARIA-role-union error. Now an 8-milestone accepted-process-exception across milestones 13/14/15/16/17/18/19/20. Milestone 20 USED Popover.tsx (without edits) so the carry-over is unchanged. Needs a dedicated phase to revisit ARIA-role typing without scope creep.
+- **DEVN-PHASE-06-DRIFT-CI-DEFERRED** (from milestone 17) — CI workflow step to run `pnpm gen:apply-patch-parser` + `git diff --exit-code` on the parser file would close the Lark drift loop end-to-end.
+- **`.vbw-planning/` migration fallback** (from milestone 18) — `phase-detect.ts:189` retains migration fallback as lone Locked Decision #6 exception. Deferred to Milestone H-02.
+- **Phase 04 Solid component test for provider selector** (from milestone 19) — deferred during execution.
+- **`derive-milestone-slug.sh` plugin fix** — bug now recurring across 4 consecutive milestones (17 / 18 / 19 / 20). Script outputs garbled slug (e.g., `19-featdashboard-github-dropdown-component-menu-items-stub` instead of `20-github-dropdown-ui-scaffolding-placeholder`). Workaround: parse `**Milestone slug:**` value from ROADMAP.md frontmatter directly per `[feedback_pragmatic_over_protocol]`. Should be tracked as a plugin fix.
+- **Per-item Github dropdown wiring (4 priority tiers)** — explicit Future Work from this milestone:
+  - **Tier 1 (user-explicit asks):** Report SWT bug, Report project bug — both need pre-filled issue templates which are privacy/UX design discussions (what session context to include, redaction defaults, etc.).
+  - **Tier 2 (navigation):** View project on GitHub (ships real `git remote -v` parser too — first wiring earns the discovery helper for items 3-6), View open PRs / issues / CI.
+  - **Tier 3 (static):** SWT docs, SWT changelog — trivial hard-coded URLs to `swt-labs/stop-wasting-tokens`.
+  - **Tier 4 (not in current scope):** CI status badge inline in chrome, "Open in editor" deep links, per-item analytics, notification badges on dropdown trigger.
+
 ## Unreleased — milestone 19 (SWT Init UX — Live Progress, Failure UX, and Provider Selector)
 
 _Four-phase milestone closing three compounding UX gaps on the `swt init` first-run path on v3.0.0-alpha.31. Archived 2026-05-19 as `19-init-ux-live-progress-failure-and-provider-selector`; local tag `milestone/19-init-ux-live-progress-failure-and-provider-selector` (no npm publish — awaiting `v3.0.0-alpha.33` bundled release with milestone 18)._
