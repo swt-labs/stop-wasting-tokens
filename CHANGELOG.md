@@ -50,7 +50,7 @@ _Four-phase milestone enforcing Locked Decision #6 ("no silent fallbacks") unifo
 
 ### Phase 01 — Greenfield artifact route registration — G-01, 7 commits
 
-Triggered by 2026-05-18 user report `http.md`: `packages/dashboard/src/server/index.ts:238` gated 4 artifact routes behind `if (projectRoot)` at startup, so greenfield-mode dashboards launched before `swt init` never registered the routes even after chokidar late-assigned `projectRoot`. Dropped the gate; the 4 routes (`/api/artifact`, `/api/artifact-history`, `/api/artifact-diff`, `/api/uat-checkpoint`) now register unconditionally with `() => projectRoot` getter — mirrors the snapshot-route pattern already at L219 that worked late-init. Routes return `c.json({error: 'dashboard not yet initialized — run \`swt init\` then retry'}, 503)` when null instead of Hono's default 404. `jsonRequest`/`postUatCheckpoint` use a new `readErrorMessage` helper to surface server error bodies. `selectArtifact` 404 reconcile via `fetchSnapshot` at `dashboard-store.ts:1815`. Test scaffold updated. Includes 1 release-discipline Prettier fix-in-milestone (`a0a4dfd`) + 1 follow-up commit (`0344d59`) porting 2 missed pre-existing test files to the getter pattern.
+Triggered by 2026-05-18 user report `http.md`: `packages/dashboard/src/server/index.ts:238` gated 4 artifact routes behind `if (projectRoot)` at startup, so greenfield-mode dashboards launched before `swt init` never registered the routes even after chokidar late-assigned `projectRoot`. Dropped the gate; the 4 routes (`/api/artifact`, `/api/artifact-history`, `/api/artifact-diff`, `/api/uat-checkpoint`) now register unconditionally with `() => projectRoot` getter — mirrors the snapshot-route pattern already at L219 that worked late-init. Routes return `c.json({error: 'dashboard not yet initialized — run \`swt init\` then retry'}, 503)`when null instead of Hono's default 404.`jsonRequest`/`postUatCheckpoint`use a new`readErrorMessage`helper to surface server error bodies.`selectArtifact`404 reconcile via`fetchSnapshot`at`dashboard-store.ts:1815`. Test scaffold updated. Includes 1 release-discipline Prettier fix-in-milestone (`a0a4dfd`) + 1 follow-up commit (`0344d59`) porting 2 missed pre-existing test files to the getter pattern.
 
 ### Phase 02 — Tarball-shape `files` array expansion + regression test — G-02, 6 commits
 
@@ -68,7 +68,7 @@ Triggered by 2026-05-18 user report `weird-vibes.md`: published `stop-wasting-to
 
 - **Greenfield-mode dashboard routes** — 4 artifact routes register unconditionally via Hono getter pattern. Tree shows planning artifacts correctly + clicking any artifact returns either the artifact (after `swt init`) or `503 dashboard not yet initialized` (before).
 - **Tarball-shape regression test** — `npm pack --dry-run --json` + 10-sentinel hard-error assertions gate `pnpm release:preflight`, so published tarballs ship all runtime assets.
-- **Hard-error precondition checks** — 27 fallback patterns converted across commands/*.md + cli/verify.ts. Errors that previously degraded silently now exit non-zero with actionable message at first occurrence.
+- **Hard-error precondition checks** — 27 fallback patterns converted across commands/\*.md + cli/verify.ts. Errors that previously degraded silently now exit non-zero with actionable message at first occurrence.
 - **Pi-extension materialization assertion** — `createAgentSession` boot throws on incomplete-install state at the materializer return-value boundary. Error message directs users to `swt doctor`.
 
 ### Process improvements memorialized
