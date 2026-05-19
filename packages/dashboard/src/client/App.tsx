@@ -246,8 +246,6 @@ export const App: Component = () => {
               initSession={() => state.initSession}
               onInit={actions.initProject}
               providerAuth={() => state.tools.providerAuth.data}
-              onSelectProvider={(body) => actions.applyProviderAuthUpdate(body)}
-              onOpenProviderMenu={actions.openProviderMenu}
             />
           </main>
         }

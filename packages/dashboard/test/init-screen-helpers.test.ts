@@ -16,11 +16,7 @@
 import type { ProviderAuthStatus } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
-import {
-  classifyInitLine,
-  computeProviderStatus,
-  selectInitialProvider,
-} from '../src/client/components/InitScreen.js';
+import { classifyInitLine, computeProviderStatus } from '../src/client/components/InitScreen.js';
 
 describe('classifyInitLine', () => {
   describe('[tool] prefix', () => {
@@ -134,40 +130,11 @@ const mkStatus = (overrides: Partial<ProviderAuthStatus> = {}): ProviderAuthStat
   ...overrides,
 });
 
-describe('selectInitialProvider', () => {
-  it('returns null on empty list', () => {
-    expect(selectInitialProvider([], null)).toBe(null);
-    expect(selectInitialProvider([], 'anthropic')).toBe(null);
-  });
-
-  it('matches selected_provider id when present', () => {
-    const a = mkStatus({ provider: 'anthropic' });
-    const o = mkStatus({ provider: 'openai', configured: false, mode: null });
-    const result = selectInitialProvider([o, a], 'anthropic');
-    expect(result).toBe(a);
-  });
-
-  it('falls back to first authed credential when selected_provider unknown', () => {
-    const unauthed = mkStatus({ provider: 'openai', configured: false, mode: null });
-    const authed = mkStatus({ provider: 'anthropic', configured: true, mode: 'api_key' });
-    const result = selectInitialProvider([unauthed, authed], 'gemini');
-    expect(result).toBe(authed);
-  });
-
-  it('falls back to first authed credential when selected_provider is null', () => {
-    const unauthed = mkStatus({ provider: 'openai', configured: false, mode: null });
-    const authed = mkStatus({ provider: 'anthropic', configured: true, mode: 'oauth' });
-    const result = selectInitialProvider([unauthed, authed], null);
-    expect(result).toBe(authed);
-  });
-
-  it('falls back to first overall when nothing is authed', () => {
-    const a = mkStatus({ provider: 'openai', configured: false, mode: null });
-    const b = mkStatus({ provider: 'anthropic', configured: false, mode: null });
-    const result = selectInitialProvider([a, b], null);
-    expect(result).toBe(a);
-  });
-});
+// selectInitialProvider describe block retired post-alpha.34. The InitScreen
+// no longer renders a local provider selector; selection is exclusively the
+// TopBar Provider menu's responsibility. The helper itself was removed from
+// InitScreen.tsx — only computeProviderStatus survives (Initialize-button
+// gating still uses it to read the globally-selected provider's auth state).
 
 describe('computeProviderStatus', () => {
   it('returns empty for null credential', () => {
