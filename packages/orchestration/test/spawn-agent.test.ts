@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import type { SwtSession } from '@swt-labs/runtime';
+import type { SwtEvent, SwtSession } from '@swt-labs/runtime';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -482,6 +482,300 @@ describe('@swt-labs/orchestration — swt:spawnAgent (Plan 01-01 T04)', () => {
         provider: 'openai',
       });
       expect(config.systemPrompt).toBe(ROLE_PROMPT);
+    });
+  });
+
+  describe('alpha.23 — LLM visibility trace (traceWriter)', () => {
+    /**
+     * Event-emitting session factory: lets tests fire arbitrary SwtEvents
+     * at the wrapper's subscriber from inside `prompt()`, exercising the
+     * trace branches without spinning up a real Pi session. Mirrors the
+     * sibling pattern in `spawn-orchestrator-session.test.ts:443-475`.
+     *
+     * The factory is wrapped to ALSO emit events inside `prompt()` so the
+     * trace subscriber (attached by spawnAgent's session-factory wrapper)
+     * is guaranteed to be present before any event is fired.
+     */
+    function makeEventEmittingFactory(events: ReadonlyArray<SwtEvent>): SpawnAgentSessionFactory {
+      let sessionCounter = 0;
+      return async (_config) => {
+        sessionCounter += 1;
+        const sessionId = `mock-trace-${sessionCounter}`;
+        const listeners: Array<(event: SwtEvent) => void> = [];
+        const session: SwtSession = {
+          sessionId,
+          async prompt() {
+            // Fire all configured events synchronously inside prompt()
+            // so the wrapper's subscriber has already attached.
+            for (const ev of events) {
+              for (const listener of listeners) listener(ev);
+            }
+          },
+          subscribe(listener) {
+            listeners.push(listener);
+            return () => {
+              const idx = listeners.indexOf(listener);
+              if (idx >= 0) listeners.splice(idx, 1);
+            };
+          },
+          dispose() {
+            // no-op
+          },
+        };
+        return session;
+      };
+    }
+
+    it('writes `[llm turn N] <text>` on TASK_TOKEN_USAGE after MESSAGE_DELTA buffering', async () => {
+      const lines: string[] = [];
+      const factory = makeEventEmittingFactory([
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'Hello ' },
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'from the spawned agent.' },
+        {
+          type: 'TASK_TOKEN_USAGE',
+          sessionId: 'mock-trace-1',
+          usage: {
+            input: 10,
+            output: 5,
+            cacheRead: 0,
+            cacheWrite: 0,
+            turn: 1,
+            provider: 'anthropic',
+            model: 'claude-opus-4-7',
+          },
+        },
+      ]);
+      await spawnAgent({
+        ...baseOpts('dev'),
+        sessionFactory: factory,
+        hookRegistrations: [],
+        traceWriter: (line) => {
+          lines.push(line);
+        },
+      });
+      const llmLines = lines.filter((l) => l.startsWith('[llm turn'));
+      expect(llmLines.length).toBe(1);
+      expect(llmLines[0]).toContain('[llm turn 1]');
+      expect(llmLines[0]).toContain('Hello from the spawned agent.');
+    });
+
+    it('writes `[tool] <name>` inline for TOOL_CALL, flushing pending message first', async () => {
+      const lines: string[] = [];
+      const factory = makeEventEmittingFactory([
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'I will read the file. ' },
+        { type: 'TOOL_CALL', sessionId: 'mock-trace-1', name: 'read_file' },
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'Done.' },
+        {
+          type: 'TASK_TOKEN_USAGE',
+          sessionId: 'mock-trace-1',
+          usage: {
+            input: 5,
+            output: 2,
+            cacheRead: 0,
+            cacheWrite: 0,
+            turn: 1,
+            provider: 'anthropic',
+            model: 'claude-opus-4-7',
+          },
+        },
+      ]);
+      await spawnAgent({
+        ...baseOpts('dev'),
+        sessionFactory: factory,
+        hookRegistrations: [],
+        traceWriter: (line) => {
+          lines.push(line);
+        },
+      });
+      // Chronological order: message-flush BEFORE the tool line, then a
+      // second message flushes on turn-end. The buffered "I will read the
+      // file. " text gets emitted as `[llm turn 1]` BEFORE `[tool] read_file`.
+      const trace = lines.join('');
+      expect(trace).toMatch(/I will read the file\.[\s\S]*\[tool\] read_file/);
+      expect(trace).toContain('[tool] read_file');
+      expect(trace).toContain('Done.');
+    });
+
+    it('flushes message buffer on TASK_ERROR (failure path still surfaces partial assistant text)', async () => {
+      const lines: string[] = [];
+      const factory = makeEventEmittingFactory([
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'Started speaking when' },
+        { type: 'TASK_ERROR', sessionId: 'mock-trace-1', errorMessage: '400 invalid_request' },
+      ]);
+      await spawnAgent({
+        ...baseOpts('dev'),
+        sessionFactory: factory,
+        hookRegistrations: [],
+        traceWriter: (line) => {
+          lines.push(line);
+        },
+      });
+      const llmLines = lines.filter((l) => l.startsWith('[llm turn'));
+      expect(llmLines.length).toBe(1);
+      expect(llmLines[0]).toContain('Started speaking when');
+    });
+
+    it('traceWriter: null disables tracing entirely (no writes for any event)', async () => {
+      const lines: string[] = [];
+      const factory = makeEventEmittingFactory([
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'should not appear' },
+        { type: 'TOOL_CALL', sessionId: 'mock-trace-1', name: 'should_not_log' },
+        {
+          type: 'TASK_TOKEN_USAGE',
+          sessionId: 'mock-trace-1',
+          usage: {
+            input: 1,
+            output: 1,
+            cacheRead: 0,
+            cacheWrite: 0,
+            turn: 1,
+            provider: 'anthropic',
+            model: 'claude-opus-4-7',
+          },
+        },
+      ]);
+      // Also spy on stderr to prove neither path wrote anything.
+      const writes: string[] = [];
+      const originalWrite = process.stderr.write.bind(process.stderr);
+      (process.stderr as unknown as { write: (chunk: unknown) => boolean }).write = (
+        chunk: unknown,
+      ): boolean => {
+        writes.push(
+          typeof chunk === 'string' ? chunk : Buffer.from(chunk as Uint8Array).toString('utf8'),
+        );
+        return true;
+      };
+      try {
+        await spawnAgent({
+          ...baseOpts('dev'),
+          sessionFactory: factory,
+          hookRegistrations: [],
+          traceWriter: null, // disabled
+        });
+      } finally {
+        process.stderr.write = originalWrite;
+      }
+      expect(lines.length).toBe(0);
+      const llmWrites = writes.filter((w) => w.startsWith('[llm turn') || w.startsWith('[tool]'));
+      expect(llmWrites.length).toBe(0);
+    });
+
+    it('SWT_NO_LLM_TRACE=1 env var suppresses the default writer (test-mode hygiene)', async () => {
+      // vitest.config.ts sets SWT_NO_LLM_TRACE=1 for every test process.
+      // With no traceWriter injected, the default sink runs but no-ops.
+      // We assert by capturing process.stderr.write and confirming the
+      // default writer produced ZERO `[llm turn …` / `[tool] …` lines.
+      const writes: string[] = [];
+      const originalWrite = process.stderr.write.bind(process.stderr);
+      (process.stderr as unknown as { write: (chunk: unknown) => boolean }).write = (
+        chunk: unknown,
+      ): boolean => {
+        writes.push(
+          typeof chunk === 'string' ? chunk : Buffer.from(chunk as Uint8Array).toString('utf8'),
+        );
+        return true;
+      };
+      try {
+        const factory = makeEventEmittingFactory([
+          { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'silenced' },
+          {
+            type: 'TASK_TOKEN_USAGE',
+            sessionId: 'mock-trace-1',
+            usage: {
+              input: 1,
+              output: 1,
+              cacheRead: 0,
+              cacheWrite: 0,
+              turn: 1,
+              provider: 'anthropic',
+              model: 'claude-opus-4-7',
+            },
+          },
+        ]);
+        await spawnAgent({
+          ...baseOpts('dev'),
+          sessionFactory: factory,
+          hookRegistrations: [],
+          // traceWriter NOT injected — exercises the default-sink path.
+        });
+      } finally {
+        process.stderr.write = originalWrite;
+      }
+      const llmWrites = writes.filter((w) => w.startsWith('[llm turn'));
+      expect(llmWrites.length).toBe(0);
+    });
+
+    it('defensive try/catch — a subscriber-time writer throw is swallowed per-event (cross-event resilience)', async () => {
+      // The subscriber's defensive try/catch swallows per-event writer
+      // errors so a misbehaving sink during ONE event doesn't crash the
+      // entire session subscription — the next event is still handled.
+      // Without the catch, the first throw inside the subscriber callback
+      // would propagate out of session.subscribe's synchronous notifier
+      // and break the in-prompt event fan-out, aborting subsequent
+      // events and (depending on the dispatcher) failing the spawn.
+      //
+      // We assert: the writer is invoked on the FIRST throwing event
+      // (proving the catch wraps the call) AND on a LATER non-throwing
+      // event (proving the subscriber survived the throw and kept
+      // listening). The non-throwing event arrives via a separate
+      // MESSAGE_DELTA → TASK_TOKEN_USAGE pair after the throwing one.
+      const writerCalls: string[] = [];
+      let throwCount = 0;
+      const flakyWriter = (line: string): void => {
+        writerCalls.push(line);
+        // Throw only on the first invocation; subsequent invocations
+        // (both subscriber-time and dispose-time) succeed.
+        throwCount += 1;
+        if (throwCount === 1) throw new Error('writer threw on first event');
+      };
+      const factory = makeEventEmittingFactory([
+        // Turn 1: throws on the first [llm turn] flush attempt.
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'first chunk' },
+        {
+          type: 'TASK_TOKEN_USAGE',
+          sessionId: 'mock-trace-1',
+          usage: {
+            input: 1,
+            output: 1,
+            cacheRead: 0,
+            cacheWrite: 0,
+            turn: 1,
+            provider: 'anthropic',
+            model: 'claude-opus-4-7',
+          },
+        },
+        // Turn 2: should still be handled — subscriber survived the throw.
+        { type: 'MESSAGE_DELTA', sessionId: 'mock-trace-1', text: 'second chunk' },
+        {
+          type: 'TASK_TOKEN_USAGE',
+          sessionId: 'mock-trace-1',
+          usage: {
+            input: 2,
+            output: 2,
+            cacheRead: 0,
+            cacheWrite: 0,
+            turn: 2,
+            provider: 'anthropic',
+            model: 'claude-opus-4-7',
+          },
+        },
+      ]);
+      await expect(
+        spawnAgent({
+          ...baseOpts('dev'),
+          sessionFactory: factory,
+          hookRegistrations: [],
+          traceWriter: flakyWriter,
+        }),
+      ).resolves.toBeDefined();
+      // Writer was invoked at least twice (once threw, then a later
+      // event still triggered a successful flush). Note: because
+      // `messageBuffer` is not cleared when the writer throws inside
+      // flushMessage(), turn 2's flush sees the accumulated buffer
+      // from BOTH turns — we just verify ≥2 writes and presence of
+      // text from the second turn (the resilience claim).
+      expect(writerCalls.length).toBeGreaterThanOrEqual(2);
+      expect(writerCalls.some((l) => l.includes('second chunk'))).toBe(true);
     });
   });
 });

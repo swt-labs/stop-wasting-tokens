@@ -437,6 +437,21 @@ export interface SpawnAgentOptions {
    * `log.append` entries).
    */
   readonly hookEventBus?: HookEventBus;
+  /**
+   * alpha.23 — pluggable trace sink for LLM assistant text + tool calls.
+   * Defaults to `process.stderr.write` so the cook subprocess's stderr
+   * carries the LLM's actual responses + tool-call activity onto
+   * `cook-start.ts`'s `log.append` event channel → dashboard Log panel.
+   * Tests inject a recorder; setting `null` disables tracing entirely.
+   *
+   * Brings spawnAgent to behavioral parity with `spawnOrchestratorSession`
+   * (alpha.23) for Pi-event visibility — the original alpha.23 fix only
+   * covered the orchestrator session path. Every spawnAgent callsite
+   * (init, Plan-mode, cook, …) now emits `[llm turn N] …` / `[tool] X`
+   * lines via the same channel by default; `undefined` ⇒ default stderr
+   * sink (respects `SWT_NO_LLM_TRACE=1`); `null` ⇒ disabled.
+   */
+  readonly traceWriter?: ((line: string) => void) | null;
 }
 
 /**
@@ -625,6 +640,22 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
     role: opts.role,
   });
 
+  // alpha.23 — default trace sink: write to the cook subprocess's stderr,
+  // which cook-start.ts captures and forwards onto `log.append` events for
+  // the dashboard Log panel. Setting `traceWriter: null` disables tracing
+  // (used by tests to avoid stderr noise). Default is suppressed when
+  // SWT_NO_LLM_TRACE=1 (vitest env can opt out without per-test wiring).
+  // Mirrors `spawnOrchestratorSession`'s alpha.23 sink byte-for-byte —
+  // the original alpha.23 fix only covered the orchestrator path; this
+  // brings every `spawnAgent` callsite (init, Plan-mode, cook, …) to
+  // behavioral parity for Pi-event visibility.
+  const defaultTrace = (line: string): void => {
+    if (process.env['SWT_NO_LLM_TRACE'] === '1') return;
+    process.stderr.write(line);
+  };
+  const traceWriter: ((line: string) => void) | null =
+    opts.traceWriter === undefined ? defaultTrace : opts.traceWriter;
+
   // The dispatcher's SessionFactory accepts SwtSessionOptions. spawnAgent's
   // SpawnAgentSessionConfig extends SwtSessionOptions, so the closure below
   // is a structural specialisation: it ignores the per-task opts the
@@ -648,6 +679,58 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
         : {}),
     });
     const unsubscribe = hookDispatcher.subscribeToSession(session);
+
+    // alpha.23 — LLM visibility trace. Accumulate MESSAGE_DELTA text per
+    // turn; flush a single readable `[llm turn N] …` line on turn-end
+    // (which mapPiEvent surfaces as TASK_TOKEN_USAGE or TASK_ERROR).
+    // TOOL_CALL events fire inline as `[tool] toolName` so the user can
+    // watch the spawned agent's Read/Glob/Bash activity in real time.
+    // Truncation cap (2000 chars) keeps a chatty turn from flooding the
+    // Log panel — full text stays in Pi's session history regardless.
+    //
+    // Closes the visibility gap surfaced in user testing: dashboard shows
+    // tokens spent + agent_spawn/agent_result but ZERO assistant prose
+    // from spawned agents, making it impossible to follow what they are
+    // actually saying or doing during a phase. Pattern lifted from
+    // `spawn-orchestrator-session.ts` (alpha.23) byte-for-byte.
+    let messageBuffer = '';
+    let turnIndex = 0;
+    const TRUNCATE_AT = 2000;
+    const flushMessage = (): void => {
+      if (traceWriter === null || messageBuffer.length === 0) return;
+      turnIndex += 1;
+      const truncated =
+        messageBuffer.length > TRUNCATE_AT
+          ? `${messageBuffer.slice(0, TRUNCATE_AT)}…[truncated, ${messageBuffer.length - TRUNCATE_AT} more chars]`
+          : messageBuffer;
+      traceWriter(`[llm turn ${turnIndex}] ${truncated}\n`);
+      messageBuffer = '';
+    };
+    const unsubscribeTrace =
+      traceWriter !== null
+        ? session.subscribe((event) => {
+            try {
+              if (event.type === 'MESSAGE_DELTA') {
+                messageBuffer += event.text;
+              } else if (event.type === 'TASK_TOKEN_USAGE' || event.type === 'TASK_ERROR') {
+                flushMessage();
+              } else if (event.type === 'TOOL_CALL') {
+                // Flush any pending message text BEFORE the tool-call
+                // line so the chronological order reads correctly: LLM
+                // said X, then called tool Y.
+                flushMessage();
+                traceWriter(`[tool] ${event.name}\n`);
+              }
+            } catch {
+              // Trace must never crash the session — best-effort. A
+              // misbehaving writer (e.g., stderr pipe closed) silently
+              // degrades to "no trace" rather than killing the spawn.
+            }
+          })
+        : (): void => {
+            /* no-op when tracing disabled */
+          };
+
     const originalDispose = session.dispose.bind(session);
     return {
       sessionId: session.sessionId,
@@ -655,9 +738,16 @@ export async function spawnAgent(opts: SpawnAgentOptions): Promise<TaskResult> {
       subscribe: session.subscribe.bind(session),
       dispose: () => {
         try {
-          unsubscribe();
+          // alpha.23 — flush any tail message text that didn't get a
+          // terminating turn_end (rare; e.g., session disposed mid-turn).
+          flushMessage();
         } finally {
-          originalDispose();
+          try {
+            unsubscribe();
+            unsubscribeTrace();
+          } finally {
+            originalDispose();
+          }
         }
       },
     };
