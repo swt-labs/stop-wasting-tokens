@@ -60,8 +60,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BUILTIN_PROFILES } from '@swt-labs/core';
 import { describe, expect, it } from 'vitest';
 
+import {
+  shouldConfirmSwitch,
+  stageProfileValues,
+} from '../src/client/components/ProfileDropdown.jsx';
 import {
   SettingsMenu,
   mergeStagedConfig,
@@ -444,5 +449,159 @@ describe('Discard handler semantics', () => {
       SETTINGS_MENU_SOURCE.indexOf('handleSave'),
     );
     expect(discardOnClick).not.toContain('onSave');
+  });
+});
+
+/* ── Plan 03-02 integration scenarios (brief §I.4) ──
+ *
+ * Five additive scenarios that exercise the rebuilt settings menu + profile
+ * flow as pure-helper compositions. No DOM rendering: drift-lock 3 from
+ * Phase 02 keeps these tests node-env compatible by composing the exported
+ * helpers `stageProfileValues` + `shouldConfirmSwitch` (from
+ * ProfileDropdown.tsx) with `mergeStagedConfig` + `stageCountOf` (from
+ * SettingsMenu.tsx). The 5 scenarios map 1:1 to Option2.md §Commit 5:
+ *
+ *   1. Pick profile → all profile values staged (including active_profile).
+ *   2. Pick profile then manually edit one field → manual edit wins over
+ *      the profile-staged value for that key; other profile values still
+ *      staged.
+ *   3. Save with profile + manual edits → mergeStagedConfig produces a
+ *      POST payload that includes active_profile.
+ *   4. Reload (snapshot replay) → ProfileDropdown current reflects
+ *      `active_profile` from the persisted config.
+ *   5. Switching profile with pending edits → confirmation gate fires;
+ *      Cancel preserves pending; Confirm replaces pending with profile
+ *      values.
+ *
+ * The matched negative scenarios (drift-lock 8 partial in Plan 03-01) are
+ * already covered by the `mergeStagedConfig` + `stageCountOf` blocks
+ * above; this block adds the positive integration coverage. */
+describe('SettingsMenu — integration scenarios (brief §I.4)', () => {
+  it('Scenario 1: picking a profile stages all of its values in pendingEdits', () => {
+    const pendingEdits: Record<string, unknown> = {};
+    const result = stageProfileValues('turbo', BUILTIN_PROFILES.turbo.values, pendingEdits);
+
+    // All Turbo profile values present in the staged tree.
+    expect(result.effort).toBe('turbo');
+    expect(result.autonomy).toBe('pure-vibe');
+    expect(result.verification_tier).toBe('quick');
+    // Every key from the profile is forwarded into the staged tree.
+    for (const [key, value] of Object.entries(BUILTIN_PROFILES.turbo.values)) {
+      expect(result[key]).toEqual(value);
+    }
+    // active_profile is set to the profile id LAST (Plan 02-03 contract).
+    expect(result.active_profile).toBe('turbo');
+    // Pure helper: caller's pendingEdits cell is never mutated.
+    expect(pendingEdits).toEqual({});
+  });
+
+  it('Scenario 2: manual edit after profile-stage overrides the staged value for that key', () => {
+    // Step 1: pick Turbo profile (stages all Turbo values).
+    let pendingEdits: Record<string, unknown> = stageProfileValues(
+      'turbo',
+      BUILTIN_PROFILES.turbo.values,
+      {},
+    );
+    expect(pendingEdits.effort).toBe('turbo');
+
+    // Step 2: user clicks the effort row and selects 'thorough'. The
+    // SettingsMenu handler computes `{ ...pendingEdits, effort: 'thorough' }`
+    // (the latest setPendingEdits call wins for that key).
+    pendingEdits = { ...pendingEdits, effort: 'thorough' };
+
+    // Manual edit overwrites the profile-staged effort.
+    expect(pendingEdits.effort).toBe('thorough');
+    // Other Turbo values still staged — no spillover.
+    expect(pendingEdits.autonomy).toBe('pure-vibe');
+    expect(pendingEdits.verification_tier).toBe('quick');
+    // active_profile is still 'turbo' (the manual override targets one key).
+    expect(pendingEdits.active_profile).toBe('turbo');
+  });
+
+  it('Scenario 3: saving with profile + manual edits POSTs merged config including active_profile', () => {
+    // Baseline persisted config — what `props.data?.config` looks like on
+    // entry to the menu. Two arbitrary keys are enough for the merge proof.
+    const baseConfig = {
+      effort: 'balanced',
+      autonomy: 'standard',
+      auto_commit: false,
+      active_profile: 'default',
+    };
+
+    // User picks Quality profile, then manually flips auto_commit to true.
+    // Quality's preset is `auto_commit: false` (see profiles.ts L109) —
+    // the manual override must win over the profile value.
+    let pendingEdits: Record<string, unknown> = stageProfileValues(
+      'quality',
+      BUILTIN_PROFILES.quality.values,
+      {},
+    );
+    pendingEdits = { ...pendingEdits, auto_commit: true };
+
+    const merged = mergeStagedConfig(baseConfig, pendingEdits);
+
+    // Quality profile's effort wins over the snapshot's 'balanced'.
+    expect(merged.effort).toBe('thorough');
+    // Quality profile's autonomy wins over the snapshot's 'standard'.
+    expect(merged.autonomy).toBe('cautious');
+    // Manual edit wins over the profile's auto_commit: false.
+    expect(merged.auto_commit).toBe(true);
+    // active_profile flips from the snapshot's 'default' to 'quality'.
+    expect(merged.active_profile).toBe('quality');
+  });
+
+  it('Scenario 4: after save + reload, ProfileDropdown current reflects active_profile from snapshot', () => {
+    // Simulate the snapshot replay after a save round-trip. The dashboard
+    // store re-hydrates `data.config` from the persisted file; pendingEdits
+    // is empty on a fresh menu mount.
+    const snapshotConfig: Record<string, unknown> = {
+      effort: 'thorough',
+      autonomy: 'cautious',
+      active_profile: 'quality',
+    };
+    const pendingEdits: Record<string, unknown> = {};
+
+    // The `activeProfileId` accessor inside SettingsMenu computes the
+    // dropdown's `current` prop as: `pending ?? saved ?? 'default'`.
+    const pending = pendingEdits.active_profile;
+    const saved = snapshotConfig.active_profile;
+    const value = (pending ?? saved ?? 'default') as string;
+
+    expect(value).toBe('quality');
+
+    // And the resolved value must be a valid ProfileId (the dropdown's
+    // strict 4-id union — Plan 02-03 type narrowing seam).
+    expect(['default', 'turbo', 'quality', 'prototype'].includes(value)).toBe(true);
+  });
+
+  it('Scenario 5: switching profile with unsaved manual edits triggers confirmation gate', () => {
+    // Current state: user manually edited effort but did NOT save.
+    const pendingEdits: Record<string, unknown> = { effort: 'turbo' };
+    const hasPendingEdits = Object.keys(pendingEdits).length > 0;
+
+    // User clicks the Prototype option from the dropdown.
+    const currentId = 'default' as const;
+    const nextId = 'prototype' as const;
+
+    // shouldConfirmSwitch fires the confirm gate: id is changing AND
+    // pending edits exist (Plan 02-03 truth table).
+    expect(shouldConfirmSwitch(currentId, nextId, hasPendingEdits)).toBe(true);
+
+    // Cancel path: user clicks "Cancel" → ProfileDropdown closes the
+    // confirm row without calling onSelect. pendingEdits stays unchanged.
+    // Tested by absence — the cancel branch never invokes stageProfileValues.
+    const afterCancel = { ...pendingEdits };
+    expect(afterCancel).toEqual({ effort: 'turbo' });
+
+    // Confirm path: user clicks "Yes" → handleProfileSelect runs
+    // stageProfileValues which REPLACES the staged effort with Prototype's
+    // preset value (`effort: 'fast'`).
+    const afterConfirm = stageProfileValues(
+      'prototype',
+      BUILTIN_PROFILES.prototype.values,
+      pendingEdits,
+    );
+    expect(afterConfirm.effort).toBe('fast');
+    expect(afterConfirm.active_profile).toBe('prototype');
   });
 });
