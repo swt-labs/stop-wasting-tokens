@@ -177,6 +177,127 @@ describe('initProject', () => {
   });
 });
 
+describe('log.append → initSession.lastMessage', () => {
+  // Plan 19-03-01 T01 — log.append reducer attributes evt.line to
+  // state.initSession.lastMessage iff initSession !== null && status === 'detecting'.
+  // The renderer (InitScreen.tsx T02) reads this field and classifies it via
+  // classifyInitLine to surface a live progress block above the submit button.
+  // Temporal-correlation invariant: log.append carries no session_id; init + cook
+  // do not overlap, so attributing every detecting-state log.append is sound.
+  async function seedDetectingInitSession(): Promise<{
+    state: ReturnType<typeof createDashboardStore>[0];
+    actions: ReturnType<typeof createDashboardStore>[1];
+    dispose: () => void;
+  }> {
+    let captured: {
+      state: ReturnType<typeof createDashboardStore>[0];
+      actions: ReturnType<typeof createDashboardStore>[1];
+      dispose: () => void;
+    } = null as never;
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      captured = { state, actions, dispose };
+    });
+    const initResponse: InitResponse = {
+      initialized: true,
+      root: '/tmp/proj',
+      files: ['.swt-planning/PROJECT.md'],
+    };
+    postInitMock.mockResolvedValue(initResponse);
+    await captured.actions.initProject({ name: 'proj' });
+    return captured;
+  }
+
+  it('sets initSession.lastMessage to evt.line when status === detecting (TC-A)', async () => {
+    const { state, actions, dispose } = await seedDetectingInitSession();
+    expect(state.initSession?.status).toBe('detecting');
+    expect(state.initSession?.lastMessage).toBeUndefined();
+
+    actions.applyEvent({
+      type: 'log.append',
+      ts: '2026-05-19T00:00:01Z',
+      channel: 'stderr',
+      line: '[tool] Read',
+    });
+    expect(state.initSession?.lastMessage).toBe('[tool] Read');
+
+    // Multiple lines: most recent wins (AC-2 — block updates ≥4× on each log.append).
+    actions.applyEvent({
+      type: 'log.append',
+      ts: '2026-05-19T00:00:02Z',
+      channel: 'stderr',
+      line: '[llm turn 1] scanning project files',
+    });
+    expect(state.initSession?.lastMessage).toBe('[llm turn 1] scanning project files');
+    dispose();
+  });
+
+  it('is a no-op when initSession === null (TC-B)', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      expect(state.initSession).toBeNull();
+      actions.applyEvent({
+        type: 'log.append',
+        ts: '2026-05-19T00:00:00Z',
+        channel: 'stderr',
+        line: '[tool] Read',
+      });
+      // Reducer guard is `state.initSession !== null && status === 'detecting'`;
+      // when initSession is null the setter never fires, no implicit mutation.
+      expect(state.initSession).toBeNull();
+      dispose();
+    });
+  });
+
+  it('is a no-op after init.complete clears initSession (TC-C)', async () => {
+    const { state, actions, dispose } = await seedDetectingInitSession();
+    expect(state.initSession?.status).toBe('detecting');
+
+    actions.applyEvent({
+      type: 'init.complete',
+      session_id: state.initSession?.session_id ?? '',
+      ts: '2026-05-19T00:00:05Z',
+    });
+    // init.complete sets initSession to null (dashboard-store.ts:1179).
+    expect(state.initSession).toBeNull();
+
+    actions.applyEvent({
+      type: 'log.append',
+      ts: '2026-05-19T00:00:06Z',
+      channel: 'stderr',
+      line: '[tool] Write',
+    });
+    expect(state.initSession).toBeNull();
+    dispose();
+  });
+
+  it('is a no-op while initSession.status === "error" (TC-D)', async () => {
+    const { state, actions, dispose } = await seedDetectingInitSession();
+    expect(state.initSession?.status).toBe('detecting');
+
+    actions.applyEvent({
+      type: 'init.error',
+      session_id: state.initSession?.session_id ?? '',
+      ts: '2026-05-19T00:00:03Z',
+      message: 'init Lead crashed',
+    });
+    // init.error transitions status to 'error' but keeps initSession set so
+    // the InitScreen error paragraph can surface (dashboard-store.ts:1194-1196).
+    expect(state.initSession?.status).toBe('error');
+    const lastMessageBefore = state.initSession?.lastMessage;
+
+    actions.applyEvent({
+      type: 'log.append',
+      ts: '2026-05-19T00:00:04Z',
+      channel: 'stderr',
+      line: '[tool] Read',
+    });
+    // Gate is strict-equal to 'detecting' — status === 'error' must not write.
+    expect(state.initSession?.lastMessage).toBe(lastMessageBefore);
+    dispose();
+  });
+});
+
 describe('runCommand verb-aware refresh', () => {
   function makeCommandResponse(): CommandResponse {
     return {

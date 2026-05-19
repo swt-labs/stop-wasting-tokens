@@ -87,6 +87,12 @@ export interface InitSessionState {
   name: string;
   description?: string;
   errorMessage?: string;
+  /** Latest log.append line attributed to this init session.
+   *  Populated by the log.append reducer when status === 'detecting'.
+   *  Rendered by InitScreen above the submit button after being passed
+   *  through `classifyInitLine` (InitScreen.tsx). `undefined` until the
+   *  first line arrives. Plan 19-03-01 T01. */
+  lastMessage?: string;
   /** ISO-8601 datetime captured when `initProject` set the slot. */
   started_at: string;
 }
@@ -1492,6 +1498,14 @@ export function createDashboardStore(
         channel: evt.channel,
         line: evt.line,
       });
+      // Temporal-correlation invariant: log.append carries no session_id (events.ts:44-49);
+      // init and cook do not overlap (init runs once at setup, cook requires .swt-planning/
+      // to exist), so attributing every detecting-state log.append to initSession.lastMessage
+      // is sound. If a future cook-during-init flow emerges, extend LogAppendEventSchema with
+      // an optional session_id discriminator and key this attribution off it. Plan 19-03-01 T01.
+      if (state.initSession !== null && state.initSession.status === 'detecting') {
+        setState('initSession', 'lastMessage', evt.line);
+      }
       return;
     }
     if (evt.type === 'error') {
@@ -1972,6 +1986,11 @@ export function createDashboardStore(
         name: trimmedName,
         description: trimmedDesc.length > 0 ? trimmedDesc : undefined,
         errorMessage: undefined,
+        // Plan 19-03-01 T01 — lastMessage is part of the shape from
+        // inception so the reducer's path-based setter at the log.append
+        // case writes to a pre-existing key (not a missing one). The
+        // first log.append during 'detecting' replaces this undefined.
+        lastMessage: undefined,
         started_at: new Date().toISOString(),
       });
       appendLogLine(`[ok] Initialized .swt-planning/ — type 'help' for available subcommands.`);
