@@ -3250,6 +3250,97 @@ body {
   background: transparent;
 }
 
+/* ── Milestone 20: Github Dropdown component skin ──────────────────────
+ * Mirrors `.options-menu-*` / `.provider-menu-*` exactly: the trigger lives
+ * in `.github-menu-wrapper` (position: relative), the popover skin attaches
+ * to the shared Popover via its `class` prop. No shared base class — each
+ * dropdown owns its own selectors (Scout DRIFT-4). The host container rule
+ * lands in phase 01 commit 2 alongside the App.tsx mount.
+ */
+
+.github-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.github-menu-trigger {
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.github-menu-trigger:hover {
+  background: rgba(0, 255, 65, 0.25);
+}
+
+.github-menu-trigger:focus-visible {
+  outline: 1px solid var(--terminal-green);
+  outline-offset: 1px;
+}
+
+/* Popover skin — appended to base `.popover` via class prop. */
+.github-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
+  min-width: 260px;
+  max-width: 320px;
+  background: var(--deep-void);
+  border: 1px solid var(--slate-muted-15);
+  padding: 8px 0;
+}
+
+.github-dropdown-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.github-dropdown-section-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--slate-muted);
+  padding: 4px 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.github-dropdown-divider {
+  border-top: 1px solid var(--slate-muted-15);
+  margin: 4px 0;
+  height: 0;
+  list-style: none;
+}
+
+.github-dropdown-item {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--ghost-white);
+  padding: 6px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.github-dropdown-item:hover:not(.is-disabled) {
+  background: var(--terminal-green-15);
+  color: var(--terminal-green);
+}
+
+.github-dropdown-item.is-disabled {
+  color: var(--slate-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* ---------------------------------------------------------------------- *
  * Plan 03-02 (milestone 12, Phase 03) — Free-talk Mode `<ChatPanel>`     *
  *                                                                        *
