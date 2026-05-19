@@ -7,7 +7,6 @@ import { ArtifactPreview } from './components/ArtifactPreview.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
-import { FirstRunHint } from './components/FirstRunHint.js';
 import { InitScreen } from './components/InitScreen.js';
 import { PhaseStepper } from './components/PhaseStepper.js';
 import { PromptCard } from './components/PromptCard.js';
@@ -205,7 +204,6 @@ export const App: Component = () => {
         }
       >
         <main class="app-body">
-          <FirstRunHint state={state} projectRoot={state.snapshot?.project?.root ?? ''} />
           <Resizable
             orientation="horizontal"
             initialSizes={initialLayout.main}
