@@ -117,6 +117,22 @@ async function writeAuthConfig(cfgPath: string, provider: string): Promise<void>
     [provider]: { mode: 'oauth', credentialRef: `swt:${provider}:oauth` },
   };
 
+  // alpha.36 fix: ALSO pin `providers.strategy` to this provider on OAuth
+  // completion — mirrors the API-key write path in `provider-auth.ts` POST.
+  // Without this, `buildSnapshot.selected_provider` stays null after OAuth,
+  // every gate that reads `selected_provider` (InitScreen Initialize button,
+  // chat route credential resolver, TopBar Provider menu's auto-selection)
+  // treats the OAuth'd provider as not-selected. Pre-fix users saw the
+  // Initialize button stuck greyed even after a successful OAuth flow.
+  const prevProviders =
+    typeof config['providers'] === 'object' && config['providers'] !== null
+      ? (config['providers'] as Record<string, unknown>)
+      : {};
+  config['providers'] = {
+    ...prevProviders,
+    strategy: { kind: 'pinned', provider },
+  };
+
   await mkdir(dirname(cfgPath), { recursive: true });
   await writeFile(cfgPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }

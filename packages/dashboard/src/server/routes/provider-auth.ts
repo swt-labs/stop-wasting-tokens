@@ -159,7 +159,11 @@ async function buildSnapshot(cwd: string): Promise<ProviderAuthSnapshot> {
     }
   }
 
-  const { selected_provider, strategy_kind } = extractSelection(parsed);
+  // `selected_provider` is `let` (not `const`) because the alpha.36 fallback
+  // below may override it when `providers.strategy` doesn't pin a provider
+  // but the keychain has an authed credential. `strategy_kind` stays const.
+  // eslint-disable-next-line prefer-const
+  let { selected_provider, strategy_kind } = extractSelection(parsed);
   const authBlock = extractAuthBlock(parsed);
 
   // Resolve the credential store ONCE — both for the probe result and to
@@ -223,6 +227,26 @@ async function buildSnapshot(cwd: string): Promise<ProviderAuthSnapshot> {
         : `${provider.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`
       : null;
     statuses.push({ provider, configured, mode, source, label });
+  }
+
+  // alpha.36 fallback: when `providers.strategy` doesn't pin a provider
+  // but the keychain HAS at least one authed credential, derive
+  // `selected_provider` from the first authed status. This fixes the
+  // "Initialize button always greyed" symptom for users whose config.json
+  // was written by an earlier OAuth flow that forgot to set
+  // `providers.strategy.provider` (the alpha.34/alpha.35 bug). The OAuth
+  // write path is also fixed at provider-auth-oauth.ts:writeAuthConfig
+  // for fresh flows; this fallback is the backwards-compat half.
+  //
+  // Picks deterministically: PROVIDER_VOCABULARY iteration order, first
+  // entry with `configured && mode !== null`. The user can still change
+  // the selection via the TopBar Provider menu — this is just the
+  // empty-state default, not an override.
+  if (selected_provider === null) {
+    const firstAuthed = statuses.find((s) => s.configured && s.mode !== null);
+    if (firstAuthed !== undefined) {
+      selected_provider = firstAuthed.provider;
+    }
   }
 
   return {
