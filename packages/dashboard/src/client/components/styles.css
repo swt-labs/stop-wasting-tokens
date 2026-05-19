@@ -3741,8 +3741,21 @@ body {
 }
 
 .themes-dropdown {
-  /* Anchored under the trigger; matches OptionsMenu/GithubDropdown shape. */
+  /* Anchored under the trigger; matches OptionsMenu/GithubDropdown shape.
+     Positioning rules mirror .github-dropdown (line ~3333) so the popover
+     drops DOWN from the trigger instead of opening as an inline sibling
+     to the right. The `.themes-menu-wrapper` parent is position:relative
+     so `top: 100%; right: 0` anchors to the trigger's bottom-right corner. */
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
   min-width: 240px;
+  max-width: 320px;
+  background: var(--deep-void);
+  border: 1px solid var(--slate-muted-15);
+  padding: 8px 0;
 }
 
 .themes-dropdown-menu {
