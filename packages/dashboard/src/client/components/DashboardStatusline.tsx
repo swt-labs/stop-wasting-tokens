@@ -56,8 +56,9 @@ import type {
 } from '@swt-labs/shared';
 import { For, type Component } from 'solid-js';
 
-import type { StatuslineKnobs } from './statusline-helpers.js';
 import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
+
+import type { StatuslineKnobs } from './statusline-helpers.js';
 
 // Re-export for back-compat with existing test imports from this module
 // (`dashboard-statusline.test.ts` imports `shortModelLabel` from here).

@@ -21,7 +21,15 @@
  */
 
 import type { AgentLiveState, SnapshotEvent } from '@swt-labs/shared';
-import { For, Show, createMemo, createSignal, onCleanup, type Accessor, type Component } from 'solid-js';
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  onCleanup,
+  type Accessor,
+  type Component,
+} from 'solid-js';
 
 import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
 
@@ -437,9 +445,7 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
                   <div class="agent-timeline-artifact">
                     <Show
                       when={props.selectArtifact}
-                      fallback={
-                        <span class="agent-timeline-artifact-label">→ {row.artifact}</span>
-                      }
+                      fallback={<span class="agent-timeline-artifact-label">→ {row.artifact}</span>}
                     >
                       <button
                         type="button"
