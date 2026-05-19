@@ -2213,6 +2213,66 @@ body {
   color: rgba(255, 255, 255, 0.35);
 }
 
+/* ── Agents-card v2 Wave 1 — surfaced fields ───────────────────────── */
+
+/* Model column — slate-muted so it reads as metadata, not the row's "headline". */
+.active-agents-model {
+  color: var(--slate-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+
+/* Cache column — same monospace + muted styling as Model. The pair
+   (read / created) reads as supplementary info next to the primary
+   Tokens column. */
+.active-agents-cache {
+  color: var(--slate-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Inline tool-call excerpt next to the tool name. Dimmed so the tool
+   name stays primary; the full excerpt remains in the cell's `title`
+   attribute for hover. */
+.active-agents-tool-excerpt {
+  color: var(--slate-muted);
+  font-style: italic;
+  font-size: 11px;
+}
+
+/* Sub-session column — 8-char id + copy button.
+   The id reads as a code token; the button is a small unobtrusive
+   affordance that doesn't compete with the row's data. */
+.active-agents-subsession {
+  white-space: nowrap;
+}
+.active-agents-subsession code {
+  background: var(--slate-muted-15);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 11px;
+  color: var(--ghost-white);
+}
+.active-agents-copy-btn {
+  background: transparent;
+  border: none;
+  padding: 0 4px;
+  margin-left: 4px;
+  cursor: pointer;
+  color: var(--slate-muted);
+  font-size: 11px;
+  line-height: 1;
+}
+.active-agents-copy-btn:hover {
+  color: var(--terminal-green);
+}
+.active-agents-copy-btn:focus-visible {
+  outline: 1px solid var(--terminal-green);
+  outline-offset: 1px;
+}
+
 /* Plan 04-03 — Pane 4 CostPanel extensions */
 .cost-panel-cache {
   display: flex;

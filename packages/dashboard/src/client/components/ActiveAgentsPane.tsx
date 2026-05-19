@@ -23,6 +23,8 @@
 import type { AgentLiveState, SnapshotEvent } from '@swt-labs/shared';
 import { For, Show, createMemo, createSignal, type Accessor, type Component } from 'solid-js';
 
+import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
+
 export type CookControlAction = 'pause' | 'resume' | 'cancel';
 
 const ROLE_ICON: Record<string, string> = {
@@ -101,6 +103,48 @@ export function formatElapsed(ms: number): string {
   const minutes = Math.floor(seconds / 60);
   const remSec = seconds - minutes * 60;
   return `${minutes}m${remSec.toString().padStart(2, '0')}s`;
+}
+
+/**
+ * Truncate a string to `maxLen` characters, appending an ellipsis when
+ * trimmed. Used for the inline `current_tool_input_excerpt` rendering
+ * next to the tool name — the full text remains on the row's title
+ * attribute for hover so no information is lost.
+ *
+ *   - input under `maxLen`     → returned unchanged
+ *   - input at exactly `maxLen` → returned unchanged
+ *   - input over `maxLen`      → first (maxLen − 1) chars + `…`
+ */
+export function truncateExcerpt(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, maxLen - 1)}…`;
+}
+
+/**
+ * Trim a Pi sub-session id to its leading 8 characters for narrow display
+ * cells. The full id remains accessible via the row's copy-to-clipboard
+ * button. `nano-id` style ids are typically 21 chars; 8 is enough to be
+ * grep-unique within a session yet narrow enough to fit a small cell.
+ */
+export function formatSubSessionShort(id: string): string {
+  return id.slice(0, 8);
+}
+
+/**
+ * Copy a sub-session id to the clipboard. Returns `true` on success,
+ * `false` when clipboard access fails or is unavailable (some
+ * older browsers, insecure contexts, or test environments without
+ * `navigator.clipboard`). Exported so a future commit can wire it to a
+ * UI toast for explicit success / failure feedback.
+ */
+export async function copySubSessionId(id: string): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard) return false;
+  try {
+    await navigator.clipboard.writeText(id);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function formatDuration(ms: number | undefined): string {
@@ -224,24 +268,31 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
         <table class="active-agents-table">
           <thead>
             <tr>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Tool</th>
-              <th>Tokens (in / out)</th>
-              <th>Cost</th>
-              <th>Elapsed</th>
+              <th scope="col">Role</th>
+              <th scope="col">Model</th>
+              <th scope="col">Status</th>
+              <th scope="col">Tool</th>
+              <th scope="col">Tokens (in / out)</th>
+              <th scope="col">Cache (read / created)</th>
+              <th scope="col">Cost</th>
+              <th scope="col">Elapsed</th>
+              <th scope="col">Sub-session</th>
             </tr>
           </thead>
           <tbody>
             <For each={liveRows()}>
               {(row) => (
-                <tr class={`status-${row.status}`}>
+                <tr
+                  class={`status-${row.status}`}
+                  title={row.pid !== undefined ? `pid: ${row.pid}` : undefined}
+                >
                   <td>
                     <span class="active-agents-role-icon" aria-hidden="true">
                       {roleIcon(row.role)}
                     </span>
                     {row.role}
                   </td>
+                  <td class="active-agents-model">{shortModelLabel(row.model)}</td>
                   <td>{row.status}</td>
                   <td>
                     <Show
@@ -251,13 +302,34 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
                       <code title={row.current_tool_input_excerpt ?? undefined}>
                         {row.current_tool}
                       </code>
+                      <Show when={row.current_tool_input_excerpt}>
+                        <span class="active-agents-tool-excerpt">
+                          {' '}
+                          ({truncateExcerpt(row.current_tool_input_excerpt!, 40)})
+                        </span>
+                      </Show>
                     </Show>
                   </td>
                   <td>
                     {row.tokens_in.toLocaleString()} / {row.tokens_out.toLocaleString()}
                   </td>
+                  <td class="active-agents-cache">
+                    {compactTokens(row.cache_read)} / {compactTokens(row.cache_creation)}
+                  </td>
                   <td>{formatCost(row.cost_usd)}</td>
                   <td>{formatElapsed(row.elapsed_ms)}</td>
+                  <td class="active-agents-subsession">
+                    <code>{formatSubSessionShort(row.sub_session_id)}</code>
+                    <button
+                      type="button"
+                      class="active-agents-copy-btn"
+                      title="Copy full sub-session id"
+                      aria-label={`Copy sub-session id ${row.sub_session_id}`}
+                      onClick={() => void copySubSessionId(row.sub_session_id)}
+                    >
+                      📋
+                    </button>
+                  </td>
                 </tr>
               )}
             </For>

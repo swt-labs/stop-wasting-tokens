@@ -14,9 +14,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   ActiveAgentsPane,
+  copySubSessionId,
   formatCost,
   formatElapsed,
+  formatSubSessionShort,
   roleIcon,
+  truncateExcerpt,
   type CookControlAction,
 } from '../src/client/components/ActiveAgentsPane.jsx';
 
@@ -66,6 +69,80 @@ describe('formatElapsed', () => {
     expect(formatElapsed(60_000)).toBe('1m00s');
     expect(formatElapsed(75_000)).toBe('1m15s');
     expect(formatElapsed(630_000)).toBe('10m30s');
+  });
+});
+
+describe('truncateExcerpt', () => {
+  it('returns the text unchanged when shorter than maxLen', () => {
+    expect(truncateExcerpt('hello', 10)).toBe('hello');
+  });
+
+  it('returns the text unchanged when exactly maxLen', () => {
+    expect(truncateExcerpt('1234567890', 10)).toBe('1234567890');
+  });
+
+  it('appends ellipsis when over maxLen', () => {
+    expect(truncateExcerpt('1234567890abc', 10)).toBe('123456789…');
+  });
+
+  it('produces strings of at most maxLen chars when truncated', () => {
+    const out = truncateExcerpt('a'.repeat(100), 40);
+    // Ellipsis counts as one char; result is exactly maxLen.
+    expect(out.length).toBe(40);
+    expect(out.endsWith('…')).toBe(true);
+  });
+
+  it('handles maxLen 1 (degenerate case)', () => {
+    // maxLen-1 = 0 chars of source + ellipsis
+    expect(truncateExcerpt('foo', 1)).toBe('…');
+  });
+});
+
+describe('formatSubSessionShort', () => {
+  it('takes the first 8 characters of a longer id', () => {
+    expect(formatSubSessionShort('abc12345xyz9876')).toBe('abc12345');
+    expect(formatSubSessionShort('a1b2c3d4e5f6')).toBe('a1b2c3d4');
+  });
+
+  it('returns shorter ids unchanged', () => {
+    expect(formatSubSessionShort('short')).toBe('short');
+    expect(formatSubSessionShort('')).toBe('');
+  });
+
+  it('returns exactly the first 8 chars of an 8-char input', () => {
+    expect(formatSubSessionShort('abcdefgh')).toBe('abcdefgh');
+  });
+});
+
+describe('copySubSessionId', () => {
+  it('calls navigator.clipboard.writeText with the id and returns true on success', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    try {
+      await expect(copySubSessionId('sub-session-abc')).resolves.toBe(true);
+      expect(writeText).toHaveBeenCalledWith('sub-session-abc');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('returns false when the clipboard write rejects', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard denied'));
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    try {
+      await expect(copySubSessionId('any-id')).resolves.toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('returns false when navigator exists but has no clipboard', async () => {
+    vi.stubGlobal('navigator', {});
+    try {
+      await expect(copySubSessionId('any-id')).resolves.toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
