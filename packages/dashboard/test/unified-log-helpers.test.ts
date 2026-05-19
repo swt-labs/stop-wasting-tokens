@@ -14,6 +14,7 @@ import {
   entryToLine,
   filterChatEntries,
   formatTimestamp,
+  friendlyModelLabel,
   shouldDisableClear,
 } from '../src/client/components/unified-log-helpers.js';
 
@@ -221,7 +222,11 @@ describe('entryToLine', () => {
     );
   });
 
-  it('renders a chat-assistant entry with tools_called as an inline [tool: …] suffix', () => {
+  it('renders a chat-user entry with the [User] label', () => {
+    expect(entryToLine(chatUser)).toBe('14:23:45 [User] hi');
+  });
+
+  it('renders a chat-assistant entry with tools_called as an inline [tool: …] suffix (no usage → [Assistant] fallback)', () => {
     const assistantWithTools: LogEntry = {
       kind: 'chat-assistant',
       id: 'chat-msg-tools',
@@ -232,11 +237,11 @@ describe('entryToLine', () => {
       tools_called: ['Read', 'Write'],
     };
     expect(entryToLine(assistantWithTools)).toBe(
-      '14:23:45 [chat-assistant] message [tool: Read, tool: Write]',
+      '14:23:45 [Assistant] message [tool: Read, tool: Write]',
     );
   });
 
-  it('renders a chat-assistant entry with usage as a `↑in ↓out` suffix', () => {
+  it('renders a chat-assistant entry with usage labelling the speaker by friendly model name', () => {
     const assistantWithUsage: LogEntry = {
       kind: 'chat-assistant',
       id: 'chat-msg-usage',
@@ -250,10 +255,10 @@ describe('entryToLine', () => {
         cacheRead: 0,
         cacheWrite: 0,
         provider: 'anthropic',
-        model: 'claude',
+        model: 'claude-opus-4-7',
       },
     };
-    expect(entryToLine(assistantWithUsage)).toBe('14:23:45 [chat-assistant] message ↑12 ↓34');
+    expect(entryToLine(assistantWithUsage)).toBe('14:23:45 [Opus 4.7] message ↑12 ↓34');
   });
 
   it('renders cook-plan-update with [x]/[~]/[ ] glyphs for mixed-status plan items', () => {
@@ -296,12 +301,93 @@ describe('entryToLine', () => {
         cacheRead: 0,
         cacheWrite: 0,
         provider: 'anthropic',
-        model: 'claude',
+        model: 'claude-sonnet-4-6',
       },
     };
     expect(entryToLine(assistantBoth)).toBe(
-      '14:23:45 [chat-assistant] message [tool: Read] ↑12 ↓34',
+      '14:23:45 [Sonnet 4.6] message [tool: Read] ↑12 ↓34',
     );
+  });
+});
+
+describe('friendlyModelLabel', () => {
+  it('returns "Assistant" for undefined / empty model ids', () => {
+    expect(friendlyModelLabel(undefined)).toBe('Assistant');
+    expect(friendlyModelLabel(null)).toBe('Assistant');
+    expect(friendlyModelLabel('')).toBe('Assistant');
+  });
+
+  it('formats Anthropic claude-{family}-{N}-{M} ids', () => {
+    expect(friendlyModelLabel('claude-opus-4-7')).toBe('Opus 4.7');
+    expect(friendlyModelLabel('claude-sonnet-4-6')).toBe('Sonnet 4.6');
+    expect(friendlyModelLabel('claude-haiku-4-5')).toBe('Haiku 4.5');
+  });
+
+  it('strips date suffix from Anthropic ids', () => {
+    expect(friendlyModelLabel('claude-haiku-4-5-20251001')).toBe('Haiku 4.5');
+    expect(friendlyModelLabel('claude-opus-4-7-20250929')).toBe('Opus 4.7');
+  });
+
+  it('formats OpenAI gpt-{ver}[-variant] ids', () => {
+    expect(friendlyModelLabel('gpt-5')).toBe('GPT-5');
+    expect(friendlyModelLabel('gpt-5-codex')).toBe('GPT-5 Codex');
+    expect(friendlyModelLabel('gpt-5.2-codex')).toBe('GPT-5.2 Codex');
+  });
+
+  it('formats Moonshot kimi-k{N} ids', () => {
+    expect(friendlyModelLabel('kimi-k2')).toBe('Kimi K2');
+    expect(friendlyModelLabel('kimi-k2-instruct')).toBe('Kimi K2');
+  });
+
+  it('strips ollama: prefix and tag', () => {
+    expect(friendlyModelLabel('ollama:llama3:7b')).toBe('llama3');
+    expect(friendlyModelLabel('ollama:mistral')).toBe('mistral');
+  });
+
+  it('strips OpenRouter-style vendor prefix and recurses on the model part', () => {
+    expect(friendlyModelLabel('anthropic/claude-opus-4-7')).toBe('Opus 4.7');
+    expect(friendlyModelLabel('openai/gpt-5-codex')).toBe('GPT-5 Codex');
+    expect(friendlyModelLabel('deepseek/deepseek-v3')).toBe('DeepSeek V3');
+    expect(friendlyModelLabel('google/gemini-2.5-flash')).toBe('Gemini 2.5 Flash');
+    // OpenRouter free/paid `:variant` suffix is dropped before recursion.
+    expect(friendlyModelLabel('meta-llama/llama-3.3-70b-instruct:free')).toBe(
+      'llama-3.3-70b-instruct',
+    );
+  });
+
+  it('formats Google Gemini ids', () => {
+    expect(friendlyModelLabel('gemini-2.5-flash')).toBe('Gemini 2.5 Flash');
+    expect(friendlyModelLabel('gemini-1.5-pro')).toBe('Gemini 1.5 Pro');
+    expect(friendlyModelLabel('gemini-2.0')).toBe('Gemini 2.0');
+  });
+
+  it('formats DeepSeek ids', () => {
+    expect(friendlyModelLabel('deepseek-v3')).toBe('DeepSeek V3');
+    expect(friendlyModelLabel('deepseek-chat')).toBe('DeepSeek Chat');
+    expect(friendlyModelLabel('deepseek-coder')).toBe('DeepSeek Coder');
+    expect(friendlyModelLabel('deepseek-r1-distill')).toBe('DeepSeek R1 Distill');
+  });
+
+  it('formats Mistral / Mixtral ids', () => {
+    expect(friendlyModelLabel('mistral-large-2')).toBe('Mistral Large 2');
+    expect(friendlyModelLabel('mistral-small')).toBe('Mistral Small');
+    expect(friendlyModelLabel('mixtral-8x22b')).toBe('Mixtral 8x22b');
+  });
+
+  it('formats xAI Grok ids', () => {
+    expect(friendlyModelLabel('grok-3')).toBe('Grok 3');
+    expect(friendlyModelLabel('grok-2-vision')).toBe('Grok 2 Vision');
+  });
+
+  it('formats OpenAI o-series reasoning models', () => {
+    expect(friendlyModelLabel('o3')).toBe('o3');
+    expect(friendlyModelLabel('o3-mini')).toBe('o3 Mini');
+    expect(friendlyModelLabel('o4-mini')).toBe('o4 Mini');
+  });
+
+  it('passes unknown model ids through verbatim (the raw id IS the truth)', () => {
+    expect(friendlyModelLabel('mystery-model-9000')).toBe('mystery-model-9000');
+    expect(friendlyModelLabel('claude')).toBe('claude');
   });
 });
 

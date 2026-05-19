@@ -84,10 +84,13 @@ export function formatTimestamp(ts: string): string {
  *   - cook-tool      → `'14:23:45 [cook] tool: Read packages/shared/...'`
  *   - cook-agent     → `'14:23:45 [cook] agent dev spawn (sub-abcd1234)'`
  *   - system         → `'14:23:45 [system] [internal] [chat] conversation cleared'`
- *   - chat-user      → `'14:23:45 [chat-user] hi'`
- *   - chat-assistant → `'14:23:45 [chat-assistant] hello back [tool: Read] ↑12 ↓34'`
- *                      (tools_called + usage suffixes are inlined when present;
- *                      omitted when absent)
+ *   - chat-user      → `'14:23:45 [User] hi'`
+ *   - chat-assistant → `'14:23:45 [Opus 4.7] hello back [tool: Read] ↑12 ↓34'`
+ *                      (label is the friendly model name from `usage.model` —
+ *                      see friendlyModelLabel below. Falls back to `[Assistant]`
+ *                      during the streaming window before `usage` lands.
+ *                      tools_called + usage suffixes are inlined when present;
+ *                      omitted when absent.)
  *   - chat-error     → `'14:23:45 [chat-error] CHAT_AUTH_FAILED: <message>'`
  */
 export function entryToLine(entry: LogEntry): string {
@@ -145,18 +148,180 @@ export function entryToLine(entry: LogEntry): string {
       return `${prefix}[system] ${channelTag}${entry.line}`;
     }
     case 'chat-user':
-      return `${prefix}[chat-user] ${entry.text}`;
+      return `${prefix}[User] ${entry.text}`;
     case 'chat-assistant': {
       const tools =
         (entry.tools_called?.length ?? 0) > 0
           ? ` [tool: ${(entry.tools_called ?? []).join(', tool: ')}]`
           : '';
       const usage = entry.usage ? ` ↑${entry.usage.input} ↓${entry.usage.output}` : '';
-      return `${prefix}[chat-assistant] ${entry.text}${tools}${usage}`;
+      const speaker = friendlyModelLabel(entry.usage?.model);
+      return `${prefix}[${speaker}] ${entry.text}${tools}${usage}`;
     }
     case 'chat-error':
       return `${prefix}[chat-error] ${entry.code}: ${entry.message}`;
   }
+}
+
+/**
+ * Convert a raw provider model id into a friendly display name suitable
+ * for the chat-assistant label in the unified log. The model id IS
+ * dynamic — it comes from `entry.usage.model` populated by each turn's
+ * `chat.token_usage` SSE event from Pi. This helper only handles
+ * presentation; it does not pin or fix any provider.
+ *
+ * Pattern-matched against common vendor families:
+ *
+ *   - **OpenRouter** (`vendor/model[:variant]`) — strips the vendor
+ *     prefix and recurses on the model part:
+ *     e.g. `anthropic/claude-opus-4-7`      → `Opus 4.7`
+ *          `deepseek/deepseek-v3`           → `DeepSeek V3`
+ *          `openai/gpt-4o`                  → `GPT-4o`
+ *
+ *   - **Anthropic** (`claude-{family}-{N}-{M}[-date]`):
+ *     e.g. `claude-opus-4-7`                → `Opus 4.7`
+ *          `claude-sonnet-4-6`              → `Sonnet 4.6`
+ *          `claude-haiku-4-5-20251001`      → `Haiku 4.5`
+ *
+ *   - **OpenAI** (`gpt-{ver}[-variant]` / `o{N}` reasoning models):
+ *     e.g. `gpt-5`                         → `GPT-5`
+ *          `gpt-5-codex`                    → `GPT-5 Codex`
+ *          `gpt-5.2-codex`                  → `GPT-5.2 Codex`
+ *          `o3-mini`                        → `o3 Mini`
+ *
+ *   - **Google Gemini** (`gemini-{ver}[-variant]`):
+ *     e.g. `gemini-2.5-flash`               → `Gemini 2.5 Flash`
+ *          `gemini-1.5-pro`                 → `Gemini 1.5 Pro`
+ *
+ *   - **DeepSeek** (`deepseek-{ver/family}`):
+ *     e.g. `deepseek-v3`                   → `DeepSeek V3`
+ *          `deepseek-chat`                  → `DeepSeek Chat`
+ *          `deepseek-coder`                 → `DeepSeek Coder`
+ *
+ *   - **Moonshot Kimi** (`kimi-k{N}[-...]`):
+ *     e.g. `kimi-k2-instruct`               → `Kimi K2`
+ *
+ *   - **Mistral** (`mistral-{family}[-{ver}]` / `mixtral-{spec}`):
+ *     e.g. `mistral-large-2`                → `Mistral Large 2`
+ *          `mixtral-8x22b`                  → `Mixtral 8x22b`
+ *
+ *   - **xAI Grok** (`grok-{N}[-variant]`):
+ *     e.g. `grok-3`                        → `Grok 3`
+ *          `grok-2-vision`                  → `Grok 2 Vision`
+ *
+ *   - **Ollama** (`ollama:{name}[:tag]`):
+ *     e.g. `ollama:llama3:7b`               → `llama3`
+ *
+ *   - Anything else → returned verbatim (the raw model id is the truth;
+ *     it just doesn't have a known pretty form), or `Assistant` when
+ *     `modelId` is undefined/empty (the streaming window before
+ *     `chat.token_usage` lands).
+ *
+ * The label appears between brackets in the unified log row:
+ * `14:23:45 [Opus 4.7] hello back [tool: Read] ↑12 ↓34`.
+ */
+export function friendlyModelLabel(modelId: string | undefined | null): string {
+  if (!modelId) return 'Assistant';
+
+  // OpenRouter (and similar) prefix the vendor — `anthropic/claude-opus-4-7`,
+  // `deepseek/deepseek-v3`, `meta-llama/llama-3.3-70b-instruct`. Strip the
+  // first segment and recurse so the underlying family gets recognized.
+  const slashIdx = modelId.indexOf('/');
+  if (slashIdx > 0 && slashIdx < modelId.length - 1) {
+    // Strip any trailing `:variant` (OpenRouter free/paid suffix).
+    const after = modelId.slice(slashIdx + 1).split(':')[0]!;
+    return friendlyModelLabel(after);
+  }
+
+  // Anthropic: claude-{family}-{N}-{M}[-date]
+  const anthropic = /^claude-(opus|sonnet|haiku)-(\d+)-(\d+)/.exec(modelId);
+  if (anthropic) {
+    const family = anthropic[1]!.charAt(0).toUpperCase() + anthropic[1]!.slice(1);
+    return `${family} ${anthropic[2]}.${anthropic[3]}`;
+  }
+
+  // OpenAI gpt-{ver}[-variant]; gpt-4o stays as `GPT-4o`.
+  const openai = /^gpt-(\d+(?:\.\d+)?[a-z]?)(?:-([A-Za-z][A-Za-z0-9]*))?/.exec(modelId);
+  if (openai) {
+    const base = `GPT-${openai[1]}`;
+    if (openai[2]) {
+      const variant = openai[2].charAt(0).toUpperCase() + openai[2].slice(1).toLowerCase();
+      return `${base} ${variant}`;
+    }
+    return base;
+  }
+
+  // OpenAI reasoning models: o3, o4, o3-mini, o4-mini, etc.
+  const oReason = /^(o\d+)(?:-([A-Za-z][A-Za-z0-9]*))?/.exec(modelId);
+  if (oReason) {
+    const base = oReason[1]!;
+    if (oReason[2]) {
+      const variant = oReason[2].charAt(0).toUpperCase() + oReason[2].slice(1).toLowerCase();
+      return `${base} ${variant}`;
+    }
+    return base;
+  }
+
+  // Google: gemini-{ver}[-variant]
+  const gemini = /^gemini-(\d+(?:\.\d+)?)(?:-([A-Za-z][A-Za-z0-9]*))?/.exec(modelId);
+  if (gemini) {
+    const base = `Gemini ${gemini[1]}`;
+    if (gemini[2]) {
+      const variant = gemini[2].charAt(0).toUpperCase() + gemini[2].slice(1).toLowerCase();
+      return `${base} ${variant}`;
+    }
+    return base;
+  }
+
+  // DeepSeek: deepseek-{family-or-version}
+  const deepseek = /^deepseek-([A-Za-z0-9]+)(?:-([A-Za-z0-9]+))?/i.exec(modelId);
+  if (deepseek) {
+    const titleCase = (s: string): string =>
+      /^v\d+$/i.test(s) ? s.toUpperCase() : s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    const part1 = titleCase(deepseek[1]!);
+    if (deepseek[2]) {
+      return `DeepSeek ${part1} ${titleCase(deepseek[2])}`;
+    }
+    return `DeepSeek ${part1}`;
+  }
+
+  // Moonshot Kimi: kimi-k{N}[-...]
+  const kimi = /^kimi-(k\d+)/i.exec(modelId);
+  if (kimi) {
+    return `Kimi ${kimi[1]!.toUpperCase()}`;
+  }
+
+  // Mistral / Mixtral
+  const mistral = /^(mistral|mixtral)-([A-Za-z0-9]+)(?:-([A-Za-z0-9]+))?/i.exec(modelId);
+  if (mistral) {
+    const vendor = mistral[1]!.charAt(0).toUpperCase() + mistral[1]!.slice(1).toLowerCase();
+    const titleCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    if (mistral[3]) {
+      return `${vendor} ${titleCase(mistral[2]!)} ${titleCase(mistral[3]!)}`;
+    }
+    return `${vendor} ${titleCase(mistral[2]!)}`;
+  }
+
+  // xAI Grok: grok-{N}[-variant]
+  const grok = /^grok-(\d+)(?:-([A-Za-z][A-Za-z0-9]*))?/i.exec(modelId);
+  if (grok) {
+    const base = `Grok ${grok[1]}`;
+    if (grok[2]) {
+      const variant = grok[2].charAt(0).toUpperCase() + grok[2].slice(1).toLowerCase();
+      return `${base} ${variant}`;
+    }
+    return base;
+  }
+
+  // Ollama local: ollama:{name}[:tag]
+  const ollama = /^ollama:([^:]+)/.exec(modelId);
+  if (ollama) {
+    return ollama[1]!;
+  }
+
+  // Unknown — pass the raw id through. The truth is the raw id; users
+  // will recognize it.
+  return modelId;
 }
 
 /**
