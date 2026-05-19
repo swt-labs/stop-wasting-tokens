@@ -824,6 +824,12 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* Override the shared `.panel` rgba(0, 255, 65, 0.04) green tint with the
+     page-background token so the Log card reads as solid black (matching the
+     terminal aesthetic + the chat-user line background that already uses
+     --deep-void). Theme-aware: dark themes resolve to near-black; light
+     themes remap --deep-void to a light page bg automatically. */
+  background: var(--deep-void);
 }
 
 .unified-log__header {
