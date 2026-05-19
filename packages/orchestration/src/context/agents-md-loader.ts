@@ -61,7 +61,7 @@ function findProjectRoot(cwd: string): string | null {
   // Iterate at most until the filesystem root. `dirname('/')` returns '/'
   // on POSIX and the drive root on Windows, so a fixed-point detector
   // (`previous === current`) is the correct termination condition.
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     const candidate = join(current, '.git');
     if (existsSync(candidate)) {
@@ -104,7 +104,7 @@ function buildSearchDirs(cwd: string, projectRoot: string): string[] {
   // Walk up until we hit (and include) projectRoot. The fixed-point
   // detector also protects against an unexpected mismatched-path case
   // where `projectRoot` is not actually an ancestor.
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     dirs.push(current);
     if (current === projectRoot) break;
