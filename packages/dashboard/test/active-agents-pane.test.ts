@@ -17,6 +17,7 @@ import {
   copySubSessionId,
   formatCost,
   formatElapsed,
+  formatRelativeTime,
   formatSubSessionShort,
   roleIcon,
   truncateExcerpt,
@@ -143,6 +144,55 @@ describe('copySubSessionId', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('formatRelativeTime', () => {
+  // Pin a fixed "now" to keep these tests time-independent.
+  const NOW = Date.parse('2026-05-19T12:00:00Z');
+  const isoAgo = (ms: number): string => new Date(NOW - ms).toISOString();
+
+  it("returns 'just now' for < 60 seconds", () => {
+    expect(formatRelativeTime(isoAgo(0), NOW)).toBe('just now');
+    expect(formatRelativeTime(isoAgo(30_000), NOW)).toBe('just now');
+    expect(formatRelativeTime(isoAgo(59_999), NOW)).toBe('just now');
+  });
+
+  it("returns 'N min ago' for 1-59 minutes", () => {
+    expect(formatRelativeTime(isoAgo(60_000), NOW)).toBe('1 min ago');
+    expect(formatRelativeTime(isoAgo(5 * 60_000), NOW)).toBe('5 min ago');
+    expect(formatRelativeTime(isoAgo(59 * 60_000), NOW)).toBe('59 min ago');
+  });
+
+  it("returns 'N hr ago' for 1-23 hours", () => {
+    expect(formatRelativeTime(isoAgo(60 * 60_000), NOW)).toBe('1 hr ago');
+    expect(formatRelativeTime(isoAgo(5 * 60 * 60_000), NOW)).toBe('5 hr ago');
+    expect(formatRelativeTime(isoAgo(23 * 60 * 60_000), NOW)).toBe('23 hr ago');
+  });
+
+  it("returns 'N day ago' for 1-29 days", () => {
+    const oneDay = 24 * 60 * 60_000;
+    expect(formatRelativeTime(isoAgo(oneDay), NOW)).toBe('1 day ago');
+    expect(formatRelativeTime(isoAgo(5 * oneDay), NOW)).toBe('5 day ago');
+    expect(formatRelativeTime(isoAgo(29 * oneDay), NOW)).toBe('29 day ago');
+  });
+
+  it('falls back to absolute ISO-ish date for >= 30 days', () => {
+    const oneDay = 24 * 60 * 60_000;
+    const out = formatRelativeTime(isoAgo(30 * oneDay), NOW);
+    // YYYY-MM-DD HH:MM shape, 16 chars.
+    expect(out).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  });
+
+  it('returns absolute for future timestamps (clock skew defense)', () => {
+    const future = new Date(NOW + 5 * 60_000).toISOString();
+    const out = formatRelativeTime(future, NOW);
+    expect(out).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  });
+
+  it('returns em-dash for invalid input', () => {
+    expect(formatRelativeTime('', NOW)).toBe('—');
+    expect(formatRelativeTime('not-a-date', NOW)).toBe('—');
   });
 });
 

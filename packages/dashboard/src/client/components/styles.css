@@ -2273,6 +2273,49 @@ body {
   outline-offset: 1px;
 }
 
+/* ── Agents-card v2 Wave 1 commit 2 — history affordances ──────────── */
+
+/* Relative-time chip in the history-row stats — muted so it doesn't
+   compete with the cost/tokens numbers; full ISO ts on hover. */
+.agent-timeline-relative {
+  color: var(--slate-muted);
+  font-size: 10px;
+  font-style: italic;
+}
+
+/* Artifact link wrapper sits below the stats line as a separate row so
+   it doesn't fight the stats for horizontal space. */
+.agent-timeline-artifact {
+  margin-top: 2px;
+}
+
+/* Clickable artifact link — looks like a link, button semantics for a11y. */
+.agent-timeline-artifact-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--neon-cyan);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.agent-timeline-artifact-link:hover {
+  text-decoration: underline;
+}
+.agent-timeline-artifact-link:focus-visible {
+  outline: 1px solid var(--neon-cyan);
+  outline-offset: 1px;
+}
+
+/* Fallback label when no selectArtifact handler is wired — same visual
+   weight as the link, no underline-on-hover, no cursor change. */
+.agent-timeline-artifact-label {
+  color: var(--slate-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+
 /* Plan 04-03 — Pane 4 CostPanel extensions */
 .cost-panel-cache {
   display: flex;

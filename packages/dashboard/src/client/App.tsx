@@ -383,6 +383,9 @@ export const App: Component = () => {
                     agents={() => state.activeAgents}
                     sessionId={() => state.activeSessionId}
                     events={state.snapshot?.recent_events ?? []}
+                    selectArtifact={(phase, artifact) =>
+                      void actions.selectArtifact(phase, artifact)
+                    }
                   />
                 </Resizable.Panel>
                 <Resizable.Handle

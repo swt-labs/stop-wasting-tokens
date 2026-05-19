@@ -21,7 +21,7 @@
  */
 
 import type { AgentLiveState, SnapshotEvent } from '@swt-labs/shared';
-import { For, Show, createMemo, createSignal, type Accessor, type Component } from 'solid-js';
+import { For, Show, createMemo, createSignal, onCleanup, type Accessor, type Component } from 'solid-js';
 
 import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
 
@@ -60,6 +60,16 @@ export interface ActiveAgentsPaneProps {
    * Injected for unit testing. Production callers fall back to `fetch`.
    */
   postControl?: (sessionId: string, action: CookControlAction) => Promise<unknown>;
+  /**
+   * Optional artifact-selection handler. When provided, a history row's
+   * `artifact` field renders as a clickable element that invokes this
+   * handler with `(phase, artifact)` — wired in App.tsx to
+   * `actions.selectArtifact`, the same path the Artifacts tree uses to
+   * surface a file in the Preview pane. When omitted, the artifact name
+   * still renders but as a non-interactive label (graceful degradation
+   * for callers that don't wire the handler — e.g. unit tests).
+   */
+  selectArtifact?: (phase: string, artifact: string) => void;
 }
 
 interface AgentHistoryRow {
@@ -147,6 +157,51 @@ export async function copySubSessionId(id: string): Promise<boolean> {
   }
 }
 
+/**
+ * Format a timestamp as a human-relative phrase for compact display
+ * cells. Past timestamps only — future ones (clock skew) fall back to
+ * the absolute date.
+ *
+ *   - < 60s  → `just now`
+ *   - < 60m  → `N min ago`
+ *   - < 24h  → `N hr ago`
+ *   - < 30d  → `N day ago`
+ *   - older  → `YYYY-MM-DD HH:MM` (absolute, ISO-ish)
+ *
+ * `nowMs` is injected (not `Date.now()` called inline) so tests can pin
+ * the clock and so a parent's `setInterval`-driven re-render can refresh
+ * relative phrases consistently across rows.
+ *
+ * Returns `'—'` for invalid input (empty string, unparseable date) so
+ * the cell renders neutrally rather than showing `NaN min ago`.
+ */
+export function formatRelativeTime(ts: string, nowMs: number): string {
+  if (!ts) return '—';
+  const past = Date.parse(ts);
+  if (Number.isNaN(past)) return '—';
+  const deltaMs = nowMs - past;
+  if (deltaMs < 0) {
+    // Future timestamp (clock skew). Fall back to absolute.
+    return formatAbsoluteIso(past);
+  }
+  const deltaSec = Math.floor(deltaMs / 1000);
+  if (deltaSec < 60) return 'just now';
+  const deltaMin = Math.floor(deltaSec / 60);
+  if (deltaMin < 60) return `${deltaMin} min ago`;
+  const deltaHr = Math.floor(deltaMin / 60);
+  if (deltaHr < 24) return `${deltaHr} hr ago`;
+  const deltaDay = Math.floor(deltaHr / 24);
+  if (deltaDay < 30) return `${deltaDay} day ago`;
+  return formatAbsoluteIso(past);
+}
+
+/** Internal helper for formatRelativeTime's "absolute" fallback. */
+function formatAbsoluteIso(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number): string => n.toString().padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 function formatDuration(ms: number | undefined): string {
   if (ms === undefined) return '—';
   if (ms < 1000) return `${ms}ms`;
@@ -186,6 +241,13 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
   const post = props.postControl ?? DEFAULT_POST_CONTROL;
   const [confirmingCancel, setConfirmingCancel] = createSignal(false);
   const [pending, setPending] = createSignal<CookControlAction | null>(null);
+
+  // Refresh-driver for `formatRelativeTime` on history rows. A 30-second
+  // tick keeps `5 min ago` from going stale during a long-lived dashboard
+  // session without paying per-second wakes. Cleared on component teardown.
+  const [nowMs, setNowMs] = createSignal(Date.now());
+  const tickHandle = setInterval(() => setNowMs(Date.now()), 30_000);
+  onCleanup(() => clearInterval(tickHandle));
 
   const liveRows = (): AgentLiveState[] =>
     Array.from(props.agents().values()).sort((a, b) => b.started_at.localeCompare(a.started_at));
@@ -362,10 +424,34 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
                   </Show>
                 </div>
                 <div class="agent-timeline-stats">
-                  <span>tokens: {(row.tokens_in + row.tokens_out).toLocaleString()}</span>
+                  <span>
+                    tokens: {compactTokens(row.tokens_in)} → {compactTokens(row.tokens_out)}
+                  </span>
                   <span>cost: {formatCost(row.cost_usd)}</span>
                   <span>took: {formatDuration(row.duration_ms)}</span>
+                  <span class="agent-timeline-relative" title={row.ts}>
+                    {formatRelativeTime(row.ts, nowMs())}
+                  </span>
                 </div>
+                <Show when={row.artifact}>
+                  <div class="agent-timeline-artifact">
+                    <Show
+                      when={props.selectArtifact}
+                      fallback={
+                        <span class="agent-timeline-artifact-label">→ {row.artifact}</span>
+                      }
+                    >
+                      <button
+                        type="button"
+                        class="agent-timeline-artifact-link"
+                        onClick={() => props.selectArtifact?.(row.phase, row.artifact!)}
+                        title={`Open ${row.artifact!} in the Preview pane`}
+                      >
+                        → {row.artifact}
+                      </button>
+                    </Show>
+                  </div>
+                </Show>
               </li>
             )}
           </For>
