@@ -304,9 +304,7 @@ describe('entryToLine', () => {
         model: 'claude-sonnet-4-6',
       },
     };
-    expect(entryToLine(assistantBoth)).toBe(
-      '14:23:45 [Sonnet 4.6] message [tool: Read] ↑12 ↓34',
-    );
+    expect(entryToLine(assistantBoth)).toBe('14:23:45 [Sonnet 4.6] message [tool: Read] ↑12 ↓34');
   });
 });
 

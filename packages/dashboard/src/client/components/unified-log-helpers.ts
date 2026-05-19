@@ -297,7 +297,7 @@ export function friendlyModelLabel(modelId: string | undefined | null): string {
     const vendor = mistral[1]!.charAt(0).toUpperCase() + mistral[1]!.slice(1).toLowerCase();
     const titleCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
     if (mistral[3]) {
-      return `${vendor} ${titleCase(mistral[2]!)} ${titleCase(mistral[3]!)}`;
+      return `${vendor} ${titleCase(mistral[2]!)} ${titleCase(mistral[3])}`;
     }
     return `${vendor} ${titleCase(mistral[2]!)}`;
   }
