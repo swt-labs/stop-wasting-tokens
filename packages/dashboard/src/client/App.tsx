@@ -504,7 +504,7 @@ export const App: Component = () => {
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
         knobs={statuslineKnobs()}
-        orchestratorModel={state.orchestratorModel}
+        orchestratorModel={state.orchestratorModel ?? currentModel()}
         activeAgents={state.activeAgents}
         contextWindow={statuslineContextWindow()}
         cumulativeInputTokens={statuslineCumulativeTokens()}

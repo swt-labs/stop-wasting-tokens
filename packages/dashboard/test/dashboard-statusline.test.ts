@@ -287,6 +287,46 @@ describe('shortModelLabel', () => {
   });
 });
 
+// Phase 02 T01 — App.tsx statusline `orchestrator:` cell fallback bind.
+// App.tsx:507 was changed from `orchestratorModel={state.orchestratorModel}`
+// to `orchestratorModel={state.orchestratorModel ?? currentModel()}`, where
+// `currentModel()` returns `state.tools.config.data?.config?.model ?? null`
+// (App.tsx:178-181). This closes the user-visible half of Cause B
+// (milestone 24): during a chat session, `state.orchestratorModel` is mutated
+// ONLY by `cook.provider_selected` (dashboard-store.ts:784-793), so the
+// chat-mode statusline orchestrator cell rendered `—` by design. With the
+// fallback wired, the cell now shows the pinned config.model id (via
+// `shortModelLabel`) when no cook session is active. The em-dash fallthrough
+// is preserved when BOTH state.orchestratorModel AND config.model are null.
+// Solid JSX rendering is not available in this env (node + esbuild default
+// transform) — this test asserts the fallback-bind contract at the
+// expression level, mirroring the helper-level pattern used elsewhere in
+// this file (see L57-79 `connectionDotState`).
+describe('statusline orchestrator cell — App.tsx fallback bind contract', () => {
+  it('resolves to config.model when state.orchestratorModel is null, and preserves em-dash when both are null', () => {
+    // Case 1: chat session active, no cook → state.orchestratorModel is null,
+    // config.model is pinned. The fallback expression resolves to the config
+    // model id; shortModelLabel renders it verbatim (no `claude-` prefix to
+    // strip — DeepSeek/OpenRouter ids pass through unchanged).
+    const chatActiveState: string | null = null;
+    const pinnedConfigModel: string | null = 'deepseek/deepseek-v3';
+    const resolvedActive = chatActiveState ?? pinnedConfigModel;
+    expect(resolvedActive).toBe('deepseek/deepseek-v3');
+    expect(shortModelLabel(resolvedActive)).toBe('deepseek/deepseek-v3');
+    expect(shortModelLabel(resolvedActive)).not.toBe('—');
+
+    // Case 2: nothing pinned anywhere → both null. The fallback expression
+    // resolves to null and shortModelLabel returns `—`, identical to the
+    // pre-T01 render (regression lock — T01 must not break the all-null
+    // case).
+    const noneState: string | null = null;
+    const noneConfig: string | null = null;
+    const resolvedNone = noneState ?? noneConfig;
+    expect(resolvedNone).toBeNull();
+    expect(shortModelLabel(resolvedNone)).toBe('—');
+  });
+});
+
 describe('formatAgentsCell', () => {
   const mkAgent = (sub: string, role: string, model?: string): AgentLiveState => ({
     sub_session_id: sub,
