@@ -167,17 +167,39 @@ export function isSaveDisabled(
 
 /**
  * The providers SWT exposes an OAuth login path for. Lists SWT user-facing
- * canonical provider ids (members of `PROVIDER_VOCABULARY`) — NOT pi-ai's
- * internal registry ids (e.g. pi-ai 0.74.0 keys OpenAI Codex under
- * `'openai-codex'`, but SWT speaks `'openai'` end-to-end; the dashboard
- * OAuth-start route translates once via `mapToOAuthProviderId` from
- * `@swt-labs/runtime` — milestone 21 Phase 01).
+ * canonical provider ids (members of `PROVIDER_VOCABULARY`).
+ *
+ * **OpenAI OAuth lives on `'openai-codex'`, NOT `'openai'`.** Pi-ai 0.74
+ * exposes TWO distinct OpenAI providers with different dispatch APIs and
+ * endpoints: `'openai'` (api `openai-responses` → `api.openai.com/v1`,
+ * requires an `sk-...` API key) and `'openai-codex'` (api
+ * `openai-codex-responses` → `chatgpt.com/backend-api`, accepts a ChatGPT
+ * OAuth JWT). The ChatGPT-subscription OAuth flow's tokens are only valid
+ * against the Codex backend, so OAuth must be exposed on the SWT-facing
+ * provider whose dispatch lands at that backend — `'openai-codex'`.
+ *
+ * Milestone 21 originally listed `'openai'` here on the assumption that
+ * SWT could speak `'openai'` end-to-end and translate to pi-ai's
+ * `'openai-codex'` only at the OAuth-flow boundary via `mapToOAuthProviderId`.
+ * That assumption broke at chat dispatch time: Pi looks up the OAuth provider
+ * by the SAME id used for AuthStorage (`getOAuthProvider('openai')` ⇒
+ * `undefined`), so the chat session could never extract an API key from the
+ * stored OAuth blob and chat turns failed with `CHAT_PROMPT_ERROR`. The fix
+ * is to expose OAuth on `'openai-codex'` directly — no id translation, OAuth
+ * refresh works, and dispatch lands at the right endpoint for the JWT.
+ * Users wanting plain OpenAI API-key auth keep the `'openai'` provider with
+ * the `api_key` mode (the OAuth radio is correctly disabled for it).
+ *
+ * The dashboard's OAuth-start route still calls `mapToOAuthProviderId` for
+ * backward-compat with any external caller POSTing the legacy
+ * `{provider:'openai'}` shape — that branch is no longer reachable from the
+ * UI but the identity-fallback keeps the route safe.
  *
  * `isOAuthRadioDisabled` (below) gates the OAuth auth-mode radio on
  * membership in this array AND keychain availability (Phase 4 OVERVIEW
  * Scope Boundary).
  */
-export const OAUTH_PROVIDERS: readonly string[] = ['anthropic', 'openai', 'github-copilot'];
+export const OAUTH_PROVIDERS: readonly string[] = ['anthropic', 'openai-codex', 'github-copilot'];
 
 /** Whether `provider` has a pi-ai OAuth subsystem (plan 04-03). Pure. */
 export function isOAuthProvider(provider: string): boolean {
@@ -560,8 +582,10 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
               silently-failed advisories: users see confusing post-auth scope errors
               if they don't meet either prerequisite. The advisory is shown
               proactively, before they click "Login with OAuth", so they discover
-              the constraint at the right moment. */}
-          <Show when={selectedProvider() === 'openai' && selectedMode() === 'oauth'}>
+              the constraint at the right moment. Gated on the SWT-facing
+              `'openai-codex'` provider — see the OAUTH_PROVIDERS docblock above
+              for why OpenAI OAuth lives there rather than on `'openai'`. */}
+          <Show when={selectedProvider() === 'openai-codex' && selectedMode() === 'oauth'}>
             <p class="provider-auth-oauth-advisory">
               <strong>Note:</strong> OpenAI Codex OAuth requires{' '}
               <strong>ChatGPT Plus, Pro, Business, Edu, or Enterprise</strong> — free-tier accounts

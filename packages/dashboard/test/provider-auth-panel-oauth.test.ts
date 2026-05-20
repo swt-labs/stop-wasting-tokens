@@ -130,7 +130,9 @@ describe('<ProviderAuthPanel> OAuth extension — smoke', () => {
  * `disabled` attr is driven by `isOAuthRadioDisabled`. */
 describe('OAuth radio un-stub (Phase 4)', () => {
   it('OAUTH_PROVIDERS is exactly the three pi-ai OAuth providers — all in PROVIDER_VOCABULARY', () => {
-    expect([...OAUTH_PROVIDERS].sort()).toEqual(['anthropic', 'github-copilot', 'openai'].sort());
+    expect([...OAUTH_PROVIDERS].sort()).toEqual(
+      ['anthropic', 'github-copilot', 'openai-codex'].sort(),
+    );
     for (const p of OAUTH_PROVIDERS) {
       expect(PROVIDER_VOCABULARY).toContain(p);
     }
@@ -138,9 +140,13 @@ describe('OAuth radio un-stub (Phase 4)', () => {
 
   it('isOAuthProvider is true for the three OAuth providers, false for the rest', () => {
     expect(isOAuthProvider('anthropic')).toBe(true);
-    expect(isOAuthProvider('openai')).toBe(true);
+    expect(isOAuthProvider('openai-codex')).toBe(true);
     expect(isOAuthProvider('github-copilot')).toBe(true);
-    expect(isOAuthProvider('openai-codex')).toBe(false);
+    // 'openai' (plain OpenAI api-key provider) intentionally NOT OAuth-capable:
+    // pi-ai's `'openai'` provider dispatches to api.openai.com/v1 which only
+    // accepts `sk-...` API keys, not ChatGPT OAuth JWTs. See the
+    // OAUTH_PROVIDERS docblock in ProviderAuthPanel.tsx for the full trace.
+    expect(isOAuthProvider('openai')).toBe(false);
     expect(isOAuthProvider('google')).toBe(false);
     expect(isOAuthProvider('nonexistent')).toBe(false);
   });
@@ -148,7 +154,7 @@ describe('OAuth radio un-stub (Phase 4)', () => {
   it('the OAuth radio is NOT disabled for an OAuth provider when keychain_available !== false', () => {
     const data = makeSnapshot({ keychain_available: true });
     expect(isOAuthRadioDisabled(data, 'anthropic')).toBe(false);
-    expect(isOAuthRadioDisabled(data, 'openai')).toBe(false);
+    expect(isOAuthRadioDisabled(data, 'openai-codex')).toBe(false);
   });
 
   it('the OAuth radio IS disabled when keychain_available === false (an OAuth login also writes the keychain)', () => {
@@ -158,25 +164,40 @@ describe('OAuth radio un-stub (Phase 4)', () => {
 
   it('the OAuth radio IS disabled for a provider with no pi-ai OAuth subsystem', () => {
     const data = makeSnapshot({ keychain_available: true });
-    expect(isOAuthRadioDisabled(data, 'openai-codex')).toBe(true);
+    // 'openai' (plain API-key OpenAI) is NOT OAuth-capable in pi-ai's
+    // dispatch — only `'openai-codex'` is. See OAUTH_PROVIDERS docblock.
+    expect(isOAuthRadioDisabled(data, 'openai')).toBe(true);
     expect(isOAuthRadioDisabled(data, 'google')).toBe(true);
   });
 });
 
-describe('OAUTH_PROVIDERS — SWT canonical ids (milestone 21 Phase 02 DRIFT-1 lock)', () => {
-  it("isOAuthProvider('openai') returns true (the OAuth radio is selectable for OpenAI users)", () => {
-    expect(isOAuthProvider('openai')).toBe(true);
+describe('OAUTH_PROVIDERS — SWT canonical ids (OpenAI OAuth lives on openai-codex)', () => {
+  it("isOAuthProvider('openai-codex') returns true (ChatGPT-subscription OAuth lands on the Codex backend)", () => {
+    expect(isOAuthProvider('openai-codex')).toBe(true);
   });
 
-  it("OAUTH_PROVIDERS array contents lock — exactly ['anthropic', 'openai', 'github-copilot'] (no pi-ai internal 'openai-codex' id)", () => {
-    // Prevents drift recurrence: if a future maintainer copy-pastes pi-ai's
-    // internal id ('openai-codex') back into this array (the original Phase 4
-    // bug, fixed in milestone 21 Phase 02 T01), this test fails. The dashboard
-    // OAuth-start route does the SWT→pi-ai id translation via
-    // `mapToOAuthProviderId` (milestone 21 Phase 01 / provider-id-map.ts);
-    // the UI speaks SWT canonical ids only.
-    expect([...OAUTH_PROVIDERS]).toEqual(['anthropic', 'openai', 'github-copilot']);
-    expect(OAUTH_PROVIDERS).not.toContain('openai-codex');
+  it("isOAuthProvider('openai') returns FALSE (plain OpenAI API-key path; no OAuth path)", () => {
+    // Lock the corrected design. Pi-ai's `'openai'` provider dispatches to
+    // api.openai.com/v1 which requires `sk-...` API keys, not OAuth tokens.
+    // The milestone-21 attempt to surface OAuth on `'openai'` and translate
+    // at the OAuth-flow boundary via `mapToOAuthProviderId` failed at chat
+    // dispatch time because Pi's `AuthStorage.getApiKey('openai')` then calls
+    // `getOAuthProvider('openai')` which returns undefined — chat turns
+    // surfaced `CHAT_PROMPT_ERROR`. OAuth must be exposed on the SWT-facing
+    // provider whose dispatch goes through pi-ai's `'openai-codex'`
+    // implementation — and `PROVIDER_VOCABULARY` exposes that id directly.
+    expect(isOAuthProvider('openai')).toBe(false);
+  });
+
+  it("OAUTH_PROVIDERS array contents lock — exactly ['anthropic', 'openai-codex', 'github-copilot']", () => {
+    // Prevents drift recurrence: if a future maintainer reverts to
+    // `'openai'`-as-OAuth-alias (the milestone-21 design that broke chat
+    // dispatch), this test fails. The dashboard OAuth-start route still
+    // calls `mapToOAuthProviderId` for backward-compat with any external
+    // caller POSTing the legacy `{provider:'openai'}` shape, but the UI
+    // never reaches that branch.
+    expect([...OAUTH_PROVIDERS]).toEqual(['anthropic', 'openai-codex', 'github-copilot']);
+    expect(OAUTH_PROVIDERS).not.toContain('openai');
   });
 });
 
