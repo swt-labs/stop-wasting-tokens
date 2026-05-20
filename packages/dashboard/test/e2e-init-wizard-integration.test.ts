@@ -122,8 +122,8 @@ vi.mock('../src/client/services/sse.js', () => ({
   openSseConnection: (...args: unknown[]) => openSseConnectionMock(...args),
 }));
 
-import { ApiError } from '../src/client/services/api.js';
 import { shouldShowMapPrompt } from '../src/client/components/CodebaseMapPrompt.js';
+import { ApiError } from '../src/client/services/api.js';
 import { createDashboardStore } from '../src/client/state/dashboard-store.js';
 
 beforeEach(() => {
