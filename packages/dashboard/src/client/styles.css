@@ -820,16 +820,23 @@ body {
  * output at a glance.
  */
 
-.unified-log {
+/* Compound `.panel.unified-log` (specificity 0,2,0) is required to beat the
+   shared `.panel` rule that lives in `components/styles.css` and loads AFTER
+   this file per `main.tsx`. A bare `.unified-log` selector ties `.panel` on
+   specificity (both 0,1,0) and loses to the later-declared source order,
+   which is why the prior bare-selector rule never visibly applied and the
+   Log card painted with the green tint. The compound selector neutralizes
+   both the green-tint background and the green border so the Log card reads
+   as the page-bg token (terminal aesthetic + matches the chat-user line
+   background that already uses --deep-void). Theme-aware: dark themes
+   resolve to near-black; light themes remap --deep-void to a light page bg
+   automatically. */
+.panel.unified-log {
   display: flex;
   flex-direction: column;
   height: 100%;
-  /* Override the shared `.panel` rgba(0, 255, 65, 0.04) green tint with the
-     page-background token so the Log card reads as solid black (matching the
-     terminal aesthetic + the chat-user line background that already uses
-     --deep-void). Theme-aware: dark themes resolve to near-black; light
-     themes remap --deep-void to a light page bg automatically. */
   background: var(--deep-void);
+  border-color: var(--slate-muted-15, rgba(90, 101, 128, 0.15));
 }
 
 .unified-log__header {
