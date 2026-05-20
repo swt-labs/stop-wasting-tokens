@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased — alpha.41 ProviderAuthPanel UX: hide auth inputs when configured
+
+_User testing alpha.40 on a fresh greenfield project verified the alpha.39 chat-routing fix works (started with Anthropic → Opus replied; switched to OpenRouter + DeepSeek → DeepSeek replied) AND the alpha.40 preservation invariant holds. But when they opened the Provider Auth panel to switch BACK to a previously-authed provider, the prominent "Login with OAuth" button + empty API key input made them think SWT was asking them to re-authenticate. The "✓ configured" banner from alpha.36 was visually subordinate to the auth-entry CTAs below it._
+
+### Fixes
+
+- **`628d41a` fix(dashboard): hide ProviderAuthPanel inputs behind "Replace credentials" disclosure when configured** — When the selected provider IS configured, the auth-entry block (mode radios, API key field, Save button, Login-with-OAuth button) is now collapsed behind a "Replace credentials…" disclosure. Default state shows only the green "✓ configured" banner + a quiet button. The auth-entry form expands only when the user explicitly clicks the button. A "Cancel (keep current credential)" button collapses it back without saving. First-time setup (provider NOT configured) keeps the existing always-visible form — no change for the empty-state case.
+
+  **Auto-collapse triggers:**
+  - Successful save (`handleSave` clears `replacingCredentials`) → user immediately sees updated "✓ configured" banner without manually cancelling.
+  - Provider dropdown change → switching providers returns the panel to the collapsed-configured state for the new provider, so a user who opened replace-mode on provider A and then switched the dropdown to provider B doesn't land on B's replace form already open.
+
+  **Why this happened:** the alpha.36 banner ("✓ configured") was added as a TEXT signal but the underlying form layout was unchanged. The Save / Login-with-OAuth buttons are visually dominant — users follow the CTA, not the banner. The structural fix is to hide the auth-entry block entirely behind explicit opt-in.
+
+  **Files modified:** `packages/dashboard/src/client/components/ProviderAuthPanel.tsx` (+disclosure signal, +Show wraps, +Cancel button) · `packages/dashboard/src/client/components/styles.css` (+replace/cancel button styles).
+
+  **Test impact:** no test changes needed. The 28 existing `provider-auth-panel.test.ts` tests are pure-helper tests (no DOM); the disclosure is a UI-layer concern and the helpers (`keyInputPlaceholder`, `isSaveDisabled`, `isOAuthLoginDisabled`, etc.) are unchanged. Preflight (Gate A+B): green at 2771 / 67 skipped / 0 failed.
+
+  **Confirmed working in alpha.40 per user testing (no fix required):**
+  - Chat dynamic routing (alpha.39 binding invalidation) — switching providers mid-session routes the next turn to the new vendor end-to-end
+  - Config persistence (alpha.38 + alpha.40 invariant) — auth + providers blocks survive across theme/model/settings saves and across daemon restarts
+
 ## Unreleased — alpha.40 keychain_improvements.md structural protections
 
 _After shipping alpha.35–.39 chasing the auth/persistence/chat-routing bug chain from layer to layer (5 alphas in one session), the user reported alpha.39 regressed alpha.38's persistence fix AND the alpha.39 chat dynamic-routing fix didn't actually work. Each individual fix was correct at its boundary, but nothing structural enforced the preservation invariant that bound them together. Per `a_non_production_files/keychain_improvements.md` (the post-mortem written after alpha.38), this release ships the three top-priority structural protections — §1.1, §1.2, and §2.1 — designed to prevent the bug class from recurring AND give future credential-related bug reports a one-shot diagnostic._
