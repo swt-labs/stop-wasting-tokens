@@ -818,12 +818,27 @@ describe('tools sub-state', () => {
     });
   });
 
-  it('bootstrap on greenfield snapshot does NOT fetch tools', async () => {
+  it('alpha.43 — bootstrap on greenfield snapshot fetches ONLY providerAuth (others stay null)', async () => {
+    // Pre-alpha.43 the bootstrap entirely short-circuited on greenfield,
+    // leaving the ProviderAuthPanel mounted by the InitScreen with
+    // `data: null` → "No provider auth loaded yet" + no ✓ markers on
+    // already-configured providers. Users had to manually re-enter
+    // credentials to enable the Initialize SWT button even though the
+    // keychain had them. Post-fix: providerAuth IS fetched on bootstrap
+    // (the InitScreen needs it); the other cells (config / doctor /
+    // detect-phase / update / commands) are still meaningless pre-init
+    // and stay null.
     await createRoot(async (dispose) => {
       const [state, actions] = createDashboardStore();
       fetchSnapshotMock.mockResolvedValue(makeSnapshot({ is_initialized: false }));
+      fetchProviderAuthMock.mockResolvedValue(makeProviderAuthSnapshot());
       await actions.bootstrap();
       await Promise.resolve();
+      await Promise.resolve();
+      // providerAuth IS fetched in greenfield.
+      expect(fetchProviderAuthMock).toHaveBeenCalledTimes(1);
+      expect(state.tools.providerAuth.data).not.toBeNull();
+      // Other cells stay untouched until init lands.
       expect(fetchConfigMock).not.toHaveBeenCalled();
       expect(fetchDoctorMock).not.toHaveBeenCalled();
       expect(fetchDetectPhaseMock).not.toHaveBeenCalled();

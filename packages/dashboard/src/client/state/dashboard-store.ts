@@ -1699,16 +1699,37 @@ export function createDashboardStore(
     }
   };
 
+  // alpha.43 fix — `providerAuth` is the ONE cell that must fetch even in
+  // greenfield mode. The InitScreen mounts the ProviderAuthPanel BEFORE
+  // `.swt-planning/` exists so the user can configure / pin a provider
+  // before clicking "Initialize SWT project" (the button is gated on a
+  // resolved selected_provider). Without the snapshot, the panel stays
+  // `data: null` → renders "No provider auth loaded yet" + no ✓ markers
+  // on configured providers, even though the keychain HAS them. User
+  // perception: "SWT doesn't remember my auth — I have to re-enter creds
+  // to enable the Initialize button". The other cells (config,
+  // detect-phase, doctor, update, commands) ARE meaningless pre-init
+  // and the short-circuit still applies to them.
+  const PROVIDERAUTH_KEY: ToolsCellKey = 'providerAuth';
+  const filterKeysForGreenfield = (keys: readonly ToolsCellKey[]): readonly ToolsCellKey[] => {
+    if (state.snapshot?.is_initialized === true) return keys;
+    return keys.filter((k) => k === PROVIDERAUTH_KEY);
+  };
+
   const refreshTools = async (): Promise<void> => {
-    if (state.snapshot?.is_initialized !== true) return;
-    await Promise.all(TOOLS_KEYS.map((k) => refreshToolsCell(k)));
+    const allowed = filterKeysForGreenfield(TOOLS_KEYS);
+    if (allowed.length === 0) return;
+    await Promise.all(allowed.map((k) => refreshToolsCell(k)));
   };
 
   // Refresh one poll tier (a subset of TOOLS_KEYS). Shares refreshTools's
-  // greenfield short-circuit so a tier timer never fetches before init.
+  // greenfield filter so a tier timer fetches ONLY providerAuth before
+  // init (and skips everything pre-init when providerAuth isn't in the
+  // tier — but FAST_TOOLS_KEYS does include providerAuth).
   const refreshToolsGroup = async (keys: readonly ToolsCellKey[]): Promise<void> => {
-    if (state.snapshot?.is_initialized !== true) return;
-    await Promise.all(keys.map((k) => refreshToolsCell(k)));
+    const allowed = filterKeysForGreenfield(keys);
+    if (allowed.length === 0) return;
+    await Promise.all(allowed.map((k) => refreshToolsCell(k)));
   };
 
   const startToolsPolling = (): void => {
@@ -1810,10 +1831,15 @@ export function createDashboardStore(
       },
     );
 
-    // v2.3 tools polling — only meaningful once the daemon reports
-    // is_initialized. refreshTools() itself short-circuits on greenfield,
-    // but skipping the timer setup entirely keeps the dashboard quiet
-    // until init lands.
+    // v2.3 tools polling — most cells are only meaningful once the daemon
+    // reports `is_initialized`. The `providerAuth` cell is the one
+    // exception (alpha.43): the InitScreen mounts the ProviderAuthPanel
+    // BEFORE init so the user can configure credentials, and the
+    // "Initialize SWT project" button is gated on `selected_provider`
+    // being resolved. So the bootstrap fires the providerAuth fetch even
+    // in greenfield, and starts the polling tier (filterKeysForGreenfield
+    // will keep it fetching only providerAuth pre-init). Once init lands,
+    // the full TOOLS_KEYS set unblocks naturally on the next tick.
     if (state.snapshot?.is_initialized === true) {
       void refreshTools();
       startToolsPolling();
@@ -1824,6 +1850,18 @@ export function createDashboardStore(
       // load. The panel's ↻ button triggers `refreshToolsCell('userNotes')`
       // for an explicit manual re-fetch thereafter.
       void refreshToolsCell('userNotes');
+    } else {
+      // Greenfield bootstrap: fetch the providerAuth snapshot once + start
+      // the polling tier (filtered to just providerAuth via
+      // filterKeysForGreenfield). This is what makes the InitScreen's
+      // ProviderAuthPanel correctly show "✓ <provider> is configured (via
+      // Keychain)" when the keychain already has credentials, instead of
+      // forcing the user to re-enter creds to enable the Initialize
+      // button. SSE `state.changed` after init triggers the regular
+      // refreshTools flow which picks up everything else.
+      void refreshToolsCell('providerAuth');
+      startToolsPolling();
+      installToolsVisibilityHandler();
     }
   };
 
