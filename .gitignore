@@ -166,8 +166,12 @@ scripts/lib/*
 # rewrites of VBW originals — Pi-substrate-aware).
 !scripts/planning-git.sh
 !scripts/detect-stack.sh
+!scripts/resolve-claude-dir.sh
+!scripts/pre-push-hook.sh
+!scripts/phase-detect.sh
 !scripts/bootstrap/
 !scripts/bootstrap/*.sh
+!scripts/lib/claude-md-swt-sections.sh
 !scripts/tmux-watchdog.sh
 !scripts/lease-lock.sh
 !scripts/hook-wrapper.sh

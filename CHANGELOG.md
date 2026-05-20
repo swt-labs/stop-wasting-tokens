@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — alpha.46 hotfix (track phase-detect.sh + transitive deps; alpha.45 detonated at CI Test step too)
+
+_v3.0.0-alpha.45 was the first hotfix for the alpha.44 failure but **also failed CI publish** — same workflow step (`pnpm test`), new root causes: (1) `bootstrap-claude.sh` sources `scripts/lib/claude-md-swt-sections.sh` which was still gitignored, (2) `detect-stack.sh` sources `scripts/resolve-claude-dir.sh` which was still gitignored, and (3) `check-tarball-shape.mjs` sentinel-checks `scripts/phase-detect.sh` which was still gitignored. The alpha.45 carve-out captured top-level scripts but missed transitive bash deps AND the tarball-shape sentinel list. The `v3.0.0-alpha.45` git tag remains on GitHub as documentation of the failure; npm `next` dist-tag jumps from alpha.43 to alpha.46._
+
+### Fix
+
+- **`{TBD}` fix(release): track phase-detect.sh + transitive bash deps + clean-worktree sandbox preflight** —
+
+  **Root cause:** my alpha.45 carve-out captured only the direct scripts that `initProject()` shells out to (`planning-git.sh`, `detect-stack.sh`, `bootstrap-claude.sh`). I didn't trace the transitive shell dependencies: `detect-stack.sh` line 30 sources `resolve-claude-dir.sh`; `bootstrap-claude.sh` sources `lib/claude-md-swt-sections.sh` via `$LIB`. I also missed that `scripts/phase-detect.sh` is in the tarball-shape sentinel list at `scripts/check-tarball-shape.mjs:6` — so even if no product code shells out to it, the tarball-shape gate requires its presence.
+
+  **Fix:** carve out 3 more scripts in `.gitignore` (alpha.45's carve-out block already had 7 entries; this adds the missing 3): `scripts/phase-detect.sh` (tarball sentinel), `scripts/resolve-claude-dir.sh` (transitive dep of detect-stack), `scripts/pre-push-hook.sh` (called by tracked install-hooks.sh — was always gap, just never surfaced). Plus `scripts/lib/claude-md-swt-sections.sh` (transitive dep of bootstrap-claude). Total carve-out additions across alpha.45 + alpha.46: 11 scripts.
+
+  **Process hardening — clean-worktree sandbox preflight:** the recurring failure mode was that `pnpm release:preflight` runs against the user's local working tree, where VBW porter has populated `scripts/` with all VBW-vendored files. CI uses a `git clone` checkout that omits everything gitignored. The two states diverged in milestone-23's expanded shell-out surface area. **alpha.46 was validated in a clean `git worktree add /tmp/swt-alpha-45-sandbox HEAD` then `pnpm install --frozen-lockfile && pnpm release:preflight`** — that surfaced both the transitive-dep gap AND the tarball-shape sentinel gap before tag-push. Local preflight reported `tarball-shape OK 301 entries`; sandbox preflight reported `tarball-shape FAIL — MISSING scripts/phase-detect.sh` at 172 entries. The 301 vs 172 entry gap is exactly the unintended local-environment leakage CI was complaining about.
+
+  **Why this is the right fix:** the existing `.gitignore` model is "ignore `scripts/*`, allowlist what ships." Milestone 23 added new shell-out surface area but the allowlist wasn't updated to reflect the new transitive closure. Per `[feedback_optimal_elegant_no_debt]`, the future-proof solution is the bigger one: **invert the rule** — track everything in `scripts/`, ignore only non-shippable files (local porter state, log files). 130 untracked-but-present scripts indicate the current allowlist is fundamentally incomplete. That inversion is deferred to a separate phase (carry-over backlog) because it's a larger structural change with broader review surface.
+
+  **Verification:** sandbox `pnpm release:preflight` GREEN — all 5 gates exit 0; `check-tarball-shape: OK — all 10 sentinel files present in tarball (172 total entries)`. Test count unchanged (2842 passed in sandbox / 70 skipped vs 2845 / 67 in main worktree — 3-test delta is environment-dependent skips, not regressions).
+
+  **Files added (4 new scripts):** `scripts/phase-detect.sh` · `scripts/resolve-claude-dir.sh` · `scripts/pre-push-hook.sh` · `scripts/lib/claude-md-swt-sections.sh`. **Files modified:** `.gitignore` (+3 carve-out lines + 1 lib subdir carve-out).
+
+  **No code changes to `packages/**`** beyond the alpha.45 changes. Scaffold helpers, `initProject()`, all milestone-23 product code is byte-identical to alpha.44/alpha.45.
+
+### Release history note (alpha.27/.28/.30/.44/.45 precedent)
+
+Five alpha releases in v3 have now failed at the tag-push CI step. The first three (alpha.27 lint, alpha.28 format, alpha.30 lint) led to CLAUDE.md's "Release Discipline" section (Gate A + Gate B). The latest two (alpha.44 test, alpha.45 test) are a NEW class — local preflight that depends on local-environment state not in git. The clean-worktree sandbox preflight introduced for alpha.46 is the structural fix for this class: future releases should be validated in a sandbox before tag-push. **TODO:** automate this — add a `pnpm release:preflight:sandbox` script that creates a temporary worktree, installs, runs preflight, and reports diff vs local preflight. Track in milestone-24 carry-over.
+
+### Carry-over backlog (added by alpha.45 + alpha.46 hotfix work)
+
+- **Invert `.gitignore` scripts/ rule:** 130 untracked-but-present scripts in local `scripts/` dir indicate the existing allowlist model is fundamentally fragile. Switch to "track everything, ignore only logs/port-state/etc." to eliminate this class of failure.
+- **Automate sandbox preflight:** add `pnpm release:preflight:sandbox` that runs preflight in a clean `git worktree` so local-environment leakage fires locally before tag-push.
+- **Burned tag cleanup:** `v3.0.0-alpha.44` and `v3.0.0-alpha.45` both remain on GitHub as orphan tags (no NPM artifacts). Optional cleanup: `git push origin :v3.0.0-alpha.44 :v3.0.0-alpha.45` if desired.
+
+---
+
 ## Unreleased — alpha.45 hotfix (track VBW-vendored scripts; alpha.44 detonated at CI Test step)
 
 _v3.0.0-alpha.44 was tagged on GitHub and pushed but **never published to npm** — the release workflow failed at the `pnpm test` step because `packages/core/src/scaffold/init-project.ts` shells out to `scripts/planning-git.sh`, `scripts/detect-stack.sh`, and `scripts/bootstrap/bootstrap-claude.sh` via `execFileSync`, but those 3 scripts were gitignored (VBW-vendored, "porter regenerates them" per CLAUDE.md). The local preflight passed because the user's VBW porter had populated `scripts/` locally; the CI runner had no such priming. 5 tests in `packages/core/test/scaffold/init-project.test.ts` failed at lines 227, 252, 307, 330, 350 — all `syncGitignore: planning-git.sh sync-ignore failed`. The `v3.0.0-alpha.44` git tag remains as documentation of the failure (same pattern as alpha.27/.28/.30 in v3 release history); npm `next` dist-tag jumps from alpha.43 to alpha.45._
