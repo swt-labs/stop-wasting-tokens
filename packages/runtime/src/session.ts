@@ -7,6 +7,7 @@ import {
   DefaultResourceLoader,
   getAgentDir,
   InMemoryAuthStorageBackend,
+  ModelRegistry,
   SessionManager,
   type AgentSession,
   type AgentSessionEvent,
@@ -219,15 +220,26 @@ export async function createSession(opts: SwtSessionOptions): Promise<SwtSession
       }
       authStorage.set(opts.provider, { type: 'oauth', ...oauthCredentials });
     }
-    // `model` is intentionally NOT forwarded: Pi's `createAgentSession`
-    // wants a resolved `Model<any>`, while `opts.model` is a model-id
-    // string. Phase 2 never sets `opts.model` (Risk 8); omitting it lets
-    // Pi's `ModelRegistry` resolve the chosen provider's default model. The
-    // model-picker fast-follow owns the id -> `Model` resolution.
+    // alpha.37 fix — forward `opts.model` to Pi via `ModelRegistry.find()`.
+    // Pre-fix, `opts.model` was a string-typed UI knob silently dropped on
+    // the floor (the alpha.35 model-picker fast-follow comment promised this
+    // wiring would come later — it never did). Without it, Pi's
+    // `createAgentSession` falls through to "first available" model
+    // resolution, which on OpenRouter yields a malformed request and
+    // OpenRouter responds `401 User not found`. `ModelRegistry.find` is
+    // typed `(provider, modelId) => Model<Api> | undefined` (Pi
+    // model-registry.d.ts:61) — when the id isn't in the registry we omit
+    // the model option entirely so Pi's default-model path runs
+    // (byte-identical to pre-alpha.37 for the unselected case).
+    const resolvedModel =
+      typeof opts.model === 'string' && opts.model.length > 0
+        ? ModelRegistry.inMemory(authStorage).find(opts.provider, opts.model)
+        : undefined;
     const { session } = await createAgentSession({
       cwd: opts.cwd,
       sessionManager,
       authStorage,
+      ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
       // Phase 02 (plan 02-01 T1) — forward `thinkingLevel` to Pi's native
       // `createAgentSession({thinkingLevel})` option (sdk.d.ts:23). Closes the
       // silent-drop bug where `SpawnAgentSessionConfig.thinkingLevel` was

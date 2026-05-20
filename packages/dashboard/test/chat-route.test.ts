@@ -18,7 +18,13 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import type { AuthConfig, SwtEvent, SwtSession, SwtSessionOptions } from '@swt-labs/runtime';
+import type {
+  ActiveProviderSelection,
+  AuthConfig,
+  SwtEvent,
+  SwtSession,
+  SwtSessionOptions,
+} from '@swt-labs/runtime';
 import { SNAPSHOT_EVENT_TYPES } from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -157,7 +163,7 @@ function buildApp(args: BuildAppArgs = {}): {
   registry: ChatSessionRegistry;
   createSessionFn: ReturnType<typeof vi.fn>;
   resolveCredentialFn: ReturnType<typeof vi.fn>;
-  readAuthConfigFn: ReturnType<typeof vi.fn>;
+  resolveActiveProviderFn: ReturnType<typeof vi.fn>;
 } {
   const { bus, published } = makeRecordingBus();
   const setIntervalFn = ((_h: () => void, _ms: number) => ({
@@ -172,6 +178,20 @@ function buildApp(args: BuildAppArgs = {}): {
       now: args.now ?? (() => 0),
     });
   const authConfig: AuthConfig = args.authConfig ?? { anthropic: { mode: 'api_key' } };
+  // alpha.37 — the chat route now uses `resolveActiveProvider` (which
+  // returns BOTH the auth block AND the pinned-or-first-authed provider
+  // id + the model from `config.model`) instead of `readProjectAuthConfig`
+  // + `Object.keys(authConfig)[0]`. Synthesize a selection from the test's
+  // `authConfig` arg so existing assertions continue to work; the
+  // first-authed fallback path matches the pre-alpha.37 behaviour the
+  // tests originally exercised.
+  const authKeys = Object.keys(authConfig);
+  const activeProviderSelection: ActiveProviderSelection = {
+    provider: authKeys[0] ?? null,
+    authConfig,
+    model: null,
+    source: authKeys.length > 0 ? 'first-authed' : 'none',
+  };
   // `null` sentinel → resolveCredential returns undefined (explicit miss).
   // Omitted → default api_key happy-path stub.
   const resolveCredentialResult =
@@ -182,7 +202,7 @@ function buildApp(args: BuildAppArgs = {}): {
           resolvedCredential: { authMode: 'api_key' as const, secret: 'sk-test' },
         });
 
-  const readAuthConfigFn = vi.fn(() => authConfig);
+  const resolveActiveProviderFn = vi.fn(() => activeProviderSelection);
   const resolveCredentialFn = vi.fn(async () => resolveCredentialResult);
   const createSessionFn = vi.fn(args.createSessionFn ?? (async () => makeFakeSession()));
 
@@ -192,7 +212,7 @@ function buildApp(args: BuildAppArgs = {}): {
     registry,
     createSessionFn,
     resolveCredentialFn,
-    readAuthConfigFn,
+    resolveActiveProviderFn,
   };
 
   const app = new Hono();
@@ -205,7 +225,7 @@ function buildApp(args: BuildAppArgs = {}): {
     registry,
     createSessionFn,
     resolveCredentialFn,
-    readAuthConfigFn,
+    resolveActiveProviderFn,
   };
 }
 
@@ -229,7 +249,7 @@ describe('POST /api/chat', () => {
   });
 
   it('1. rejects empty prompt with synchronous 400 (no SSE stream opened)', async () => {
-    const { app, createSessionFn, readAuthConfigFn } = buildApp();
+    const { app, createSessionFn, resolveActiveProviderFn } = buildApp();
     const res = await app.request('http://x/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -239,7 +259,7 @@ describe('POST /api/chat', () => {
     const json = (await res.json()) as { error: string };
     expect(json.error).toBe('CHAT_INVALID_REQUEST');
     expect(createSessionFn).not.toHaveBeenCalled();
-    expect(readAuthConfigFn).not.toHaveBeenCalled();
+    expect(resolveActiveProviderFn).not.toHaveBeenCalled();
 
     // Whitespace-only also rejected
     const res2 = await app.request('http://x/api/chat', {

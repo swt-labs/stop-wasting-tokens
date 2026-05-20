@@ -52,7 +52,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   createSession as defaultCreateSession,
-  readProjectAuthConfig as defaultReadProjectAuthConfig,
+  resolveActiveProvider as defaultResolveActiveProvider,
   resolveSpawnCredential as defaultResolveSpawnCredential,
   type SwtEvent,
   type SwtSession,
@@ -93,8 +93,14 @@ export interface ChatRouteOptions {
   createSessionFn?: typeof defaultCreateSession;
   /** Test seam — defaults to `@swt-labs/runtime`'s `resolveSpawnCredential`. */
   resolveCredentialFn?: typeof defaultResolveSpawnCredential;
-  /** Test seam — defaults to `@swt-labs/runtime`'s `readProjectAuthConfig`. */
-  readAuthConfigFn?: typeof defaultReadProjectAuthConfig;
+  /**
+   * Test seam — defaults to `@swt-labs/runtime`'s `resolveActiveProvider`.
+   * alpha.37 replacement for the previous `readAuthConfigFn` seam: the chat
+   * route now needs BOTH the auth block AND the pinned provider id (from
+   * `providers.strategy.provider`), and `resolveActiveProvider` returns
+   * both with one config.json read.
+   */
+  resolveActiveProviderFn?: typeof defaultResolveActiveProvider;
 }
 
 interface ChatPostBody {
@@ -111,7 +117,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
   const app = new Hono();
   const createSession = opts.createSessionFn ?? defaultCreateSession;
   const resolveCredential = opts.resolveCredentialFn ?? defaultResolveSpawnCredential;
-  const readAuthConfig = opts.readAuthConfigFn ?? defaultReadProjectAuthConfig;
+  const resolveActiveProvider = opts.resolveActiveProviderFn ?? defaultResolveActiveProvider;
 
   app.post('/', async (c) => {
     const raw = (await c.req.json<ChatPostBody>().catch(() => ({}))) as ChatPostBody;
@@ -166,15 +172,21 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
       try {
         if (session === undefined) {
           // ─── First turn for this chat_session_id ─────────────────────
-          // Resolve credential. We read the auth-config and pick the FIRST
-          // configured provider (matches `init.ts:250` + the cook callsite
-          // pattern). When the auth block is empty OR the credential
-          // resolver returns undefined, surface chat.error CHAT_AUTH_FAILED
-          // immediately rather than falling through to Pi's env-var
-          // resolution silently (Scout RESEARCH §Q4 + must_have).
-          const authConfig = readAuthConfig(opts.projectRoot);
-          const providers = Object.keys(authConfig);
-          if (providers.length === 0) {
+          // alpha.37 fix — resolve via `resolveActiveProvider` so the chat
+          // route HONORS the TopBar Provider dropdown's pinned strategy
+          // (`config.providers.strategy.provider`). Pre-fix the route used
+          // `Object.keys(authConfig)[0]` which silently ignored the pin
+          // and picked the first-inserted auth-block entry — so a user who
+          // OAuth'd Anthropic THEN added an OpenRouter API key saw the
+          // dropdown say openrouter, the statusline say openrouter, and
+          // yet every chat turn ran against Anthropic. `resolveActiveProvider`
+          // returns the pinned provider first, falls back to the first
+          // authed entry when no pin (preserving pre-alpha.37 behaviour for
+          // the unpinned case), AND returns `model` from `config.model`
+          // (alpha.35 Model dropdown) so it can flow through to Pi's
+          // `createAgentSession({model})` via `createSession({model})`.
+          const selection = resolveActiveProvider(opts.projectRoot);
+          if (selection.provider === null) {
             await emit({
               type: 'chat.error',
               ts: ts(),
@@ -186,15 +198,14 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
             await emit({ type: 'chat.complete', ts: ts(), chat_session_id: chatSessionId });
             return;
           }
-          const provider = providers[0]!;
-          const resolved = await resolveCredential(provider, authConfig);
+          const resolved = await resolveCredential(selection.provider, selection.authConfig);
           if (resolved === undefined) {
             await emit({
               type: 'chat.error',
               ts: ts(),
               chat_session_id: chatSessionId,
               code: 'CHAT_AUTH_FAILED',
-              message: `Could not resolve credential for provider '${provider}'. Check the OS keychain or environment fallback.`,
+              message: `Could not resolve credential for provider '${selection.provider}'. Check the OS keychain or environment fallback.`,
             });
             await emit({ type: 'chat.complete', ts: ts(), chat_session_id: chatSessionId });
             return;
@@ -205,6 +216,12 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
             ephemeral: true,
             provider: resolved.provider,
             resolvedCredential: resolved.resolvedCredential,
+            // alpha.37 — forward `config.model` to Pi. session.ts resolves
+            // it to a `Model<any>` via `ModelRegistry.find(provider, id)`;
+            // when the id isn't in the registry Pi falls back to its
+            // default-model path (byte-identical to pre-alpha.37 for the
+            // null case).
+            ...(selection.model !== null ? { model: selection.model } : {}),
           });
           opts.registry.set(chatSessionId, session);
         }

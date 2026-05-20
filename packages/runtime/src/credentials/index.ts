@@ -32,6 +32,13 @@ export { resolveSpawnCredential } from './resolve-spawn-credential.js';
 // auth block, not providers/budget/qa_gate_overrides — those stay in
 // @swt-labs/cli's `loadCookConfig`.
 export { readProjectAuthConfig } from './read-project-auth-config.js';
+// alpha.37 fix — chat route used `Object.keys(authConfig)[0]` as the
+// active provider, silently ignoring the TopBar Provider dropdown's pin
+// (`config.providers.strategy.provider`). `resolveActiveProvider` reads
+// the same config.json ONCE and returns BOTH the auth block AND the
+// pinned-or-first-authed provider id + the model from `config.model`.
+export { resolveActiveProvider } from './resolve-active-provider.js';
+export type { ActiveProviderSelection, ActiveProviderSource } from './resolve-active-provider.js';
 
 export type {
   AuthMode,

@@ -304,6 +304,7 @@ export {
   DEFAULT_AUTH_CONFIG,
   resolveSpawnCredential,
   readProjectAuthConfig,
+  resolveActiveProvider,
 } from './credentials/index.js';
 export type {
   AuthMode,
@@ -316,6 +317,8 @@ export type {
   KeychainProbeResult,
   ResolveCredentialStoreOptions,
   ResolvedCredentialStore,
+  ActiveProviderSelection,
+  ActiveProviderSource,
 } from './credentials/index.js';
 
 // Plan 04-02 (Phase 4): OAuth login flow — the pi-ai OAuth subsystem driver
