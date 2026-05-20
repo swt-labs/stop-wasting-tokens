@@ -194,6 +194,62 @@ export const ConfigSchema = z.object({
    * dashboard restarts.
    */
   statusline_density: z.enum(['comfortable', 'compact']).default('comfortable'),
+  /**
+   * Statusline v2 (statusline_v2.md) Wave 6 commit 16 — customizable
+   * cell order. The bar's `<DashboardStatusline>` iterates this
+   * array and renders cells in the listed order. Cells absent from
+   * the array don't render at all. Default order matches the v2
+   * mockup.
+   *
+   * Group `│` separators are computed dynamically: a separator
+   * renders before any cell whose `section` differs from the
+   * previous rendered cell's section, where the section is one of
+   * `project | identity | config | runtime | money`. Removing a
+   * cell from the array can collapse a section — the bar still
+   * draws cleanly because separators are derived, not statically
+   * marked.
+   */
+  statusline_cells: z
+    .array(
+      z.enum([
+        'repo',
+        'branch',
+        'provider',
+        'dot',
+        'effort',
+        'autonomy',
+        'model',
+        'verify',
+        'cook',
+        'orchestrator',
+        'agents',
+        'ctx',
+        'rate',
+        'session-cost',
+        'tokens',
+        'rollup-7d',
+        'rollup-30d',
+      ]),
+    )
+    .default([
+      'repo',
+      'branch',
+      'provider',
+      'dot',
+      'effort',
+      'autonomy',
+      'model',
+      'verify',
+      'cook',
+      'orchestrator',
+      'agents',
+      'ctx',
+      'rate',
+      'session-cost',
+      'tokens',
+      'rollup-7d',
+      'rollup-30d',
+    ]),
 });
 
 export { CustomProfileSchema };

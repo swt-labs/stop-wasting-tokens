@@ -18,8 +18,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  STATUSLINE_CELL_IDS,
   STATUSLINE_KNOB_KEYS,
+  computeIsGroupStart,
   selectStatuslineKnobs,
+  statuslineCellSection,
 } from '../src/client/components/statusline-helpers.js';
 
 describe('STATUSLINE_KNOB_KEYS', () => {
@@ -159,5 +162,98 @@ describe('selectStatuslineKnobs', () => {
         expect(out[key as keyof typeof out]).toBe(v);
       }
     }
+  });
+});
+
+// v2 Wave 6 commit 16 — canonical cell-id vocabulary + section helpers
+// that the upcoming render-by-order refactor will iterate. Pure
+// helpers; tested directly.
+describe('STATUSLINE_CELL_IDS', () => {
+  it('lists every default cell in canonical left-to-right order', () => {
+    expect([...STATUSLINE_CELL_IDS]).toEqual([
+      'repo',
+      'branch',
+      'provider',
+      'dot',
+      'effort',
+      'autonomy',
+      'model',
+      'verify',
+      'cook',
+      'orchestrator',
+      'agents',
+      'ctx',
+      'rate',
+      'session-cost',
+      'tokens',
+      'rollup-7d',
+      'rollup-30d',
+    ]);
+  });
+});
+
+describe('statuslineCellSection', () => {
+  it('assigns each cell to its section', () => {
+    expect(statuslineCellSection('repo')).toBe('project');
+    expect(statuslineCellSection('branch')).toBe('project');
+    expect(statuslineCellSection('provider')).toBe('identity');
+    expect(statuslineCellSection('dot')).toBe('identity');
+    expect(statuslineCellSection('effort')).toBe('config');
+    expect(statuslineCellSection('verify')).toBe('config');
+    expect(statuslineCellSection('cook')).toBe('runtime');
+    expect(statuslineCellSection('ctx')).toBe('runtime');
+    expect(statuslineCellSection('rate')).toBe('money');
+    expect(statuslineCellSection('rollup-30d')).toBe('money');
+  });
+});
+
+describe('computeIsGroupStart', () => {
+  it('first cell is never a group start (handled by :first-of-type CSS)', () => {
+    expect(computeIsGroupStart([...STATUSLINE_CELL_IDS], 0)).toBe(false);
+  });
+
+  it('flags the first cell of each new section when the previous cell was in a different section', () => {
+    const order = [...STATUSLINE_CELL_IDS];
+    // 'provider' follows 'branch' — project → identity transition.
+    const providerIdx = order.indexOf('provider');
+    expect(computeIsGroupStart(order, providerIdx)).toBe(true);
+    // 'effort' follows 'dot' — identity → config transition.
+    const effortIdx = order.indexOf('effort');
+    expect(computeIsGroupStart(order, effortIdx)).toBe(true);
+    // 'cook' follows 'verify' — config → runtime transition.
+    const cookIdx = order.indexOf('cook');
+    expect(computeIsGroupStart(order, cookIdx)).toBe(true);
+    // 'rate' follows 'ctx' — runtime → money transition.
+    const rateIdx = order.indexOf('rate');
+    expect(computeIsGroupStart(order, rateIdx)).toBe(true);
+  });
+
+  it('does NOT flag cells whose section matches the previous cell', () => {
+    const order = [...STATUSLINE_CELL_IDS];
+    // 'branch' follows 'repo' — both 'project'.
+    expect(computeIsGroupStart(order, order.indexOf('branch'))).toBe(false);
+    // 'autonomy' follows 'effort' — both 'config'.
+    expect(computeIsGroupStart(order, order.indexOf('autonomy'))).toBe(false);
+    // 'tokens' follows 'session-cost' — both 'money'.
+    expect(computeIsGroupStart(order, order.indexOf('tokens'))).toBe(false);
+  });
+
+  it('handles reordered arrays correctly (custom user order)', () => {
+    // User puts money cells first, then identity.
+    const order = ['rate', 'session-cost', 'provider', 'dot'] as const;
+    expect(computeIsGroupStart(order, 0)).toBe(false);
+    // 'session-cost' follows 'rate' — both money → no separator.
+    expect(computeIsGroupStart(order, 1)).toBe(false);
+    // 'provider' follows 'session-cost' — money → identity transition.
+    expect(computeIsGroupStart(order, 2)).toBe(true);
+    // 'dot' follows 'provider' — both identity → no separator.
+    expect(computeIsGroupStart(order, 3)).toBe(false);
+  });
+
+  it('returns false for out-of-bounds indices (defensive)', () => {
+    const order = [...STATUSLINE_CELL_IDS];
+    expect(computeIsGroupStart(order, -1)).toBe(false);
+    expect(computeIsGroupStart(order, order.length)).toBe(false);
+    expect(computeIsGroupStart(order, order.length + 5)).toBe(false);
   });
 });

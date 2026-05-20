@@ -60,6 +60,97 @@ export function formatStatuslineBranch(
 }
 
 /**
+ * Statusline v2 Wave 6 commit 16 — canonical cell-id vocabulary.
+ *
+ * The list IS the default `config.statusline_cells` order. Each id maps
+ * to one rendered cell on the bar; the `cellSection` map below assigns
+ * each id to one of the five logical sections so the `│` group
+ * separators can be computed dynamically (separator drawn iff the
+ * current cell's section differs from the previous rendered cell's
+ * section).
+ *
+ * Adding a new cell type to the bar means: (a) extend this array,
+ * (b) extend `CELL_SECTION` below, (c) extend `ConfigSchema
+ * .statusline_cells` z.enum in `@swt-labs/core`. A workspace
+ * regression test guards step (c) — see `setting-descriptions.ts`
+ * test.
+ */
+export const STATUSLINE_CELL_IDS = [
+  'repo',
+  'branch',
+  'provider',
+  'dot',
+  'effort',
+  'autonomy',
+  'model',
+  'verify',
+  'cook',
+  'orchestrator',
+  'agents',
+  'ctx',
+  'rate',
+  'session-cost',
+  'tokens',
+  'rollup-7d',
+  'rollup-30d',
+] as const;
+
+export type StatuslineCellId = (typeof STATUSLINE_CELL_IDS)[number];
+
+/**
+ * Section assignment per cell id. The five sections render in the
+ * canonical left-to-right order: project → identity → config →
+ * runtime → money. The group separator (`│`) is drawn before the
+ * first rendered cell of any section that follows a different
+ * section (see `computeIsGroupStart` below).
+ */
+export type StatuslineSection = 'project' | 'identity' | 'config' | 'runtime' | 'money';
+
+const CELL_SECTION: Readonly<Record<StatuslineCellId, StatuslineSection>> = {
+  repo: 'project',
+  branch: 'project',
+  provider: 'identity',
+  dot: 'identity',
+  effort: 'config',
+  autonomy: 'config',
+  model: 'config',
+  verify: 'config',
+  cook: 'runtime',
+  orchestrator: 'runtime',
+  agents: 'runtime',
+  ctx: 'runtime',
+  rate: 'money',
+  'session-cost': 'money',
+  tokens: 'money',
+  'rollup-7d': 'money',
+  'rollup-30d': 'money',
+};
+
+export function statuslineCellSection(id: StatuslineCellId): StatuslineSection {
+  return CELL_SECTION[id];
+}
+
+/**
+ * Compute whether a cell at `index` in `cellOrder` should render the
+ * leading `│` group separator. The first cell never gets one (handled
+ * by CSS `:first-of-type`). Every later cell gets the marker iff its
+ * section differs from the previous rendered cell's section.
+ *
+ * Pure + index-based so the component can call it inside its `<For>`
+ * loop without rebuilding the section assignments on every render.
+ */
+export function computeIsGroupStart(
+  cellOrder: readonly StatuslineCellId[],
+  index: number,
+): boolean {
+  if (index <= 0 || index >= cellOrder.length) return false;
+  const prev = cellOrder[index - 1];
+  const current = cellOrder[index];
+  if (prev === undefined || current === undefined) return false;
+  return statuslineCellSection(prev) !== statuslineCellSection(current);
+}
+
+/**
  * Defensive extraction. Returns `null` for any key when:
  *   - `config` is null / undefined / non-object
  *   - the key is missing
