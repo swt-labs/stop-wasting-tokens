@@ -1,21 +1,28 @@
 /**
- * Plan 02-01 T4 — coverage for `<DashboardStatusline>` formatter helpers.
+ * Coverage for `<DashboardStatusline>` formatter helpers + the v2 wire
+ * contract (statusline_v2.md Waves 1-4).
  *
- * The dashboard workspace has no Solid testing-library installed and the
- * vitest config uses esbuild (which can't emit Solid-compatible JSX runtime
- * calls). Per the Phase 02 Scout Q7 finding + the established
- * `active-agents-pane.test.ts` pattern, we cover the 5 exported pure
- * formatter helpers directly — full DOM rendering is exercised
- * end-to-end via the dashboard smoke flow.
+ * The dashboard workspace runs `environment: 'node'` with esbuild's
+ * default JSX transform (no Solid runtime, no DOM). Per the Phase 02
+ * Scout Q7 finding + the `active-agents-pane.test.ts` precedent, we
+ * cover the exported pure formatter helpers directly. v2 Wave 4 commit 8
+ * adds a "composed bar text" describe block that exercises every
+ * formatter with realistic full-data + empty-data inputs and asserts
+ * the composed bar text — a real regression sentinel against drift in
+ * the `<label>: <value>` shape and the `→` token separator. Promoting
+ * this to a `vite-plugin-solid` + JSDOM `.test.tsx` render is a
+ * future config-plumbing pass; the structural test pins the contract
+ * either way.
  *
  * Each helper has its own describe block. Cases cover:
- *   - The happy path (real data → expected string)
+ *   - Happy path (real data → expected string)
  *   - Null/undefined fallback to U+2014 em-dash (`—`)
  *   - Edge values (0, NaN, large numbers, negative shouldn't crash)
- *   - The connection-dot's connected/disconnected branch
+ *   - The connection-dot's connected / pending / error branches (v2 Wave 1)
  *
- * The integer separator between in→out tokens is U+219B (`↛`,
- * RIGHTWARDS ARROW WITH STROKE) — re-verified verbatim in the assertions.
+ * The token cell separator is U+2192 (`→`, plain RIGHTWARDS ARROW) per
+ * v2 Wave 3 commit 6 — the v1 U+219B `↛` arrow-with-stroke was retired
+ * because it rendered as a missing-glyph box in some monospace fonts.
  */
 
 import type { CostSummary, UsageRollup, UsageWindow } from '@swt-labs/shared';
@@ -393,5 +400,120 @@ describe('formatContextEstimate', () => {
     // helper still maps them to `—` rather than printing `0k`.
     expect(formatContextEstimate(42_000, 0)).toBe('ctx ~42k/—');
     expect(formatContextEstimate(42_000, -1)).toBe('ctx ~42k/—');
+  });
+});
+
+// ── v2 Wave 4 commit 8 — composed-bar text contract ────────────────────
+//
+// This is the v2 smoke "render" without an actual JSX render: every
+// formatter is called with realistic data, the outputs are composed in
+// the same left-to-right order the component renders them, and the
+// composed string is asserted verbatim. It catches:
+//
+//   - drift in the `<label>: <value>` shape (space after colon)
+//   - regressions to the v1 `↛` token separator
+//   - regressions to the v1 `agents:0` zero-state
+//   - regressions to the v1 `eff:` / `auto:` / `prof:` / `ver:` short labels
+//   - the orchestrator-cell label collision (must be `orchestrator: …`)
+//
+// One full-data composition + one empty/idle composition cover the two
+// canonical end-states. Per-cell granular assertions live above.
+describe('v2 composed bar text contract', () => {
+  it('composes the full v2 bar with realistic data', () => {
+    const provider = formatStatuslineProvider('anthropic');
+    const knobLabels = ['effort', 'autonomy', 'model', 'verify'];
+    const knobValues = ['balanced', 'standard', 'quality', 'standard'];
+    const knobs = knobLabels.map((l, i) => formatStatuslineKnob(l, knobValues[i])).join(' · ');
+    const cook = 'cook: running';
+    const orchestrator = formatStatuslineLabeled('orchestrator', shortModelLabel('claude-sonnet-4-6'));
+    const agents = formatAgentsCell(
+      new Map<string, AgentLiveState>([
+        [
+          's1',
+          {
+            sub_session_id: 's1',
+            role: 'dev',
+            status: 'running',
+            tokens_in: 0,
+            tokens_out: 0,
+            cache_read: 0,
+            cache_creation: 0,
+            cost_usd: 0,
+            elapsed_ms: 0,
+            started_at: '2026-05-20T19:00:00Z',
+            model: 'claude-sonnet-4-6',
+          },
+        ],
+      ]),
+    ).display;
+    const ctx = formatContextEstimate(42_000, 200_000);
+    const sessionCost = formatStatuslineSessionCost(0.32);
+    const tokens = formatStatuslineTokens(12_345, 8_000);
+    const week = formatStatuslineRollup(
+      { cost_usd: 2.1, tokens_in: 0, tokens_out: 0, sessions: 0 } as unknown as UsageWindow,
+      '7d',
+    );
+    const month = formatStatuslineRollup(
+      { cost_usd: 8.42, tokens_in: 0, tokens_out: 0, sessions: 0 } as unknown as UsageWindow,
+      '30d',
+    );
+    // Use `│` between group heads, `·` within groups — matches the
+    // component's CSS group-start markers.
+    const composed = `${provider} ● │ ${knobs} │ ${cook} · ${orchestrator} · ${agents} · ${ctx} │ ${sessionCost} · ${tokens} · ${week} · ${month}`;
+    expect(composed).toBe(
+      'anthropic ● │ effort: balanced · autonomy: standard · model: quality · verify: standard │ ' +
+        'cook: running · orchestrator: sonnet-4-6 · agents: 1 [dev:sonnet-4-6] · ctx ~42k/200k │ ' +
+        '$0.3200 · in: 12K → out: 8K · 7d: $2.10 · 30d: $8.42',
+    );
+  });
+
+  it('composes the empty/idle v2 bar with em-dash fallbacks across the bar', () => {
+    const provider = formatStatuslineProvider(null);
+    const knobLabels = ['effort', 'autonomy', 'model', 'verify'];
+    const knobs = knobLabels.map((l) => formatStatuslineKnob(l, null)).join(' · ');
+    const cook = 'cook: idle';
+    const orchestrator = formatStatuslineLabeled('orchestrator', shortModelLabel(null));
+    const agents = formatAgentsCell(new Map()).display;
+    const ctx = formatContextEstimate(null, null);
+    const sessionCost = formatStatuslineSessionCost(null);
+    const tokens = formatStatuslineTokens(null, null);
+    const week = formatStatuslineRollup(null, '7d');
+    const month = formatStatuslineRollup(null, '30d');
+    const composed = `${provider} ● │ ${knobs} │ ${cook} · ${orchestrator} · ${agents} · ${ctx} │ ${sessionCost} · ${tokens} · ${week} · ${month}`;
+    expect(composed).toBe(
+      '— ● │ effort: — · autonomy: — · model: — · verify: — │ ' +
+        'cook: idle · orchestrator: — · agents: — · ctx —/— │ ' +
+        '$— · in: — → out: — · 7d: — · 30d: —',
+    );
+  });
+
+  it('asserts every v2 cell has the post-Wave-3-commit-6 separator convention', () => {
+    // Single regression sentinel: NO cell may use the v1 no-space form
+    // (`eff:`, `7d:$`, `agents:0`, `(in↛out)`).
+    const sample = [
+      formatStatuslineKnob('effort', 'balanced'),
+      formatStatuslineRollup(
+        { cost_usd: 2.1, tokens_in: 0, tokens_out: 0, sessions: 0 } as unknown as UsageWindow,
+        '7d',
+      ),
+      formatAgentsCell(new Map()).display,
+      formatStatuslineTokens(1, 2),
+      formatStatuslineLabeled('orchestrator', shortModelLabel('claude-sonnet-4-6')),
+    ].join(' | ');
+    // Positive: every label-value pair has `: ` after the label.
+    expect(sample).toMatch(/effort: /);
+    expect(sample).toMatch(/7d: /);
+    expect(sample).toMatch(/orchestrator: /);
+    expect(sample).toMatch(/agents: /);
+    // Negative: none of the v1 no-space forms.
+    expect(sample).not.toMatch(/effort:[^ ]/);
+    expect(sample).not.toMatch(/7d:[^ ]/);
+    expect(sample).not.toMatch(/agents:[0-9]/);
+    // Negative: no v1 token-cell wrappers / U+219B.
+    expect(sample).not.toContain('(');
+    expect(sample).not.toContain(')');
+    expect(sample).not.toContain('↛');
+    // Positive: U+2192 plain arrow.
+    expect(sample).toContain(' → ');
   });
 });
