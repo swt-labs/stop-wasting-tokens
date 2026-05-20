@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — alpha.42 dropdown auto-pins to configured provider
+
+_User on alpha.41 testing a fresh greenfield project: re-OAuth'd Anthropic (chat replied), then switched the Provider dropdown to OpenRouter. Panel correctly showed "✓ openrouter is configured" — but the chat session was still pinned to anthropic. Quote: "I have no 'apply' button, so it stuck with anthropic." The dropdown was display-only; nothing pinned the strategy._
+
+### Fixes
+
+- **`7ce1db0` fix(dashboard): dropdown auto-pins to configured provider + server allows pin-only oauth** —
+
+  **Client (ProviderAuthPanel.tsx):** new `handlePinExisting(provider, storedMode)` helper alongside `handleSave`. On dropdown change to a configured provider that isn't the current pin, fires a pin-only POST to `/api/provider-auth` (no apiKey). Keychain stays untouched; only `config.auth.<provider>` + `config.providers.strategy` update. The chat route's `getMatching` (alpha.39) invalidates the cached session on the next turn and routes to the newly-pinned vendor. Switching to a NOT-configured provider remains a display-only change (the auth-entry form expands so the user can enter credentials). The dropdown is now the switcher — picking a configured provider in the dropdown IS the apply action.
+
+  **Server (provider-auth.ts):** refined the 501 OAuth gate. Pre-fix it rejected ALL `authMode:'oauth'` POSTs, which blocked pin-only switching to an OAuth-authed provider. Post-fix: only reject when the body ALSO carries `apiKey` (a new-OAuth-setup attempt — OAuth setup belongs at `/api/provider-auth/oauth/start`, not here). A POST without `apiKey` + `authMode:'oauth'` is "pin to this already-OAuth'd provider" and writes config without manufacturing a credential blob. The error code changed from `oauth_not_yet_supported` to `oauth_setup_not_supported` to reflect the refined semantics.
+
+  **Server (config write):** the config-write block now uses `authMode` from the request body instead of hardcoding `'api_key'`. Pre-fix the hardcode would overwrite `auth.<provider>.mode` to `api_key` on every POST — so a pin-only oauth POST would silently degrade the provider's stored mode and break the next chat-route credential resolve. Post-fix: pin-only oauth correctly produces `mode:'oauth'` + `credentialRef:'swt:<provider>:oauth'`.
+
+  **Tests:**
+  - 2 new tests in `provider-auth-route.test.ts`: pin-only oauth + pin-only api_key (assert keychain NOT touched + correct config shape with the right mode and credentialRef).
+  - 1 existing test updated to reflect the refined 501 gate (now requires apiKey present to trigger).
+  - Total: 2773 / 67 skipped / 0 failed (+2 from alpha.41 baseline).
+
+  **Files modified:** `packages/dashboard/src/client/components/ProviderAuthPanel.tsx` · `packages/dashboard/src/server/routes/provider-auth.ts` · `packages/dashboard/test/provider-auth-route.test.ts`.
+
+  **D2 invariant preserved.** No provider-prompt edits. Preflight (Gate A+B): green.
+
 ## Unreleased — alpha.41 ProviderAuthPanel UX: hide auth inputs when configured
 
 _User testing alpha.40 on a fresh greenfield project verified the alpha.39 chat-routing fix works (started with Anthropic → Opus replied; switched to OpenRouter + DeepSeek → DeepSeek replied) AND the alpha.40 preservation invariant holds. But when they opened the Provider Auth panel to switch BACK to a previously-authed provider, the prominent "Login with OAuth" button + empty API key input made them think SWT was asking them to re-authenticate. The "✓ configured" banner from alpha.36 was visually subordinate to the auth-entry CTAs below it._
