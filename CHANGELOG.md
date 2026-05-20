@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased — alpha.40 keychain_improvements.md structural protections
+
+_After shipping alpha.35–.39 chasing the auth/persistence/chat-routing bug chain from layer to layer (5 alphas in one session), the user reported alpha.39 regressed alpha.38's persistence fix AND the alpha.39 chat dynamic-routing fix didn't actually work. Each individual fix was correct at its boundary, but nothing structural enforced the preservation invariant that bound them together. Per `a_non_production_files/keychain_improvements.md` (the post-mortem written after alpha.38), this release ships the three top-priority structural protections — §1.1, §1.2, and §2.1 — designed to prevent the bug class from recurring AND give future credential-related bug reports a one-shot diagnostic._
+
+### Structural
+
+- **`fe48303` fix(dashboard,cli): structural protections from keychain_improvements.md (§1.1 + §1.2 + §2.1)** —
+
+  **§1.2 — Shared `updateConfigFile(cfgPath, mutator)` helper.** Single mutator-callback API at `packages/dashboard/src/server/lib/update-config-file.ts`. All three config-writing dashboard routes (`POST /api/config`, `POST /api/provider-auth`, `POST /api/provider-auth-oauth`) now go through it. The helper reads the on-disk JSON, hands the parsed object to the mutator for in-place mutation, and writes back atomically (`mkdir -p` + `writeFile`). Any top-level key the mutator doesn't touch is preserved verbatim by construction. The alpha.38 bug (Zod strip in POST /api/config silently dropping `auth` + `providers` blocks) becomes structurally impossible — the helper's contract makes preservation compositional rather than something each route has to remember.
+
+  **§1.1 — Workspace-level invariant test.** `packages/dashboard/test/update-config-file.test.ts` (+9 cases). Locks in the contract: (1) a mutator touching only one key preserves every other top-level key byte-identical, (2) the post-alpha.38 config.ts pattern (`Object.assign(current, validated)`) preserves auth+providers when validated has neither, (3) the provider-auth.ts pattern (mutate auth+providers) preserves preferences, (4) ENOENT writes fresh without inventing auth/providers, (5) malformed JSON degrades cleanly, (6) array-on-disk degrades cleanly, (7) output format matches the pre-helper 2-space-indent convention, (8) mutator throws don't corrupt the file, (9) `mkdir -p` handles missing `.swt-planning/`. This is the test that, had it existed when milestone-22 shipped the Themes dropdown, would have caught the alpha.38 bug the moment the new `POST /api/config` write path landed.
+
+  **§2.1 — `swt doctor --auth` credential-triage diagnostic.** One-shot CLI that surfaces the three layers credential persistence depends on: (1) **keychain** entries (provider:authMode, NEVER the secret), (2) **config.json** `auth` + `providers.strategy` blocks, (3) **round-trip** output from `resolveActiveProvider` (the same helper the chat route + spawn path call). Auto-detects MISMATCH states (keychain has creds but config doesn't, or vice versa) and emits a clear remediation hint. Future "credentials forgotten" bug reports get triaged in seconds instead of hours — the user runs one command and sees exactly which layer is broken. 3 new tests in `doctor.test.ts`.
+
+  **Files modified:**
+  - NEW `packages/dashboard/src/server/lib/update-config-file.ts` (+92 LOC) — the helper
+  - NEW `packages/dashboard/test/update-config-file.test.ts` (+9 invariant tests)
+  - `packages/dashboard/src/server/routes/config.ts` — alpha.38 fix re-homed into the helper; the entire write block is now `Object.assign(current, validated)` inside the mutator
+  - `packages/dashboard/src/server/routes/provider-auth.ts` — API-key save migrated
+  - `packages/dashboard/src/server/routes/provider-auth-oauth.ts` — OAuth save migrated (preserves the alpha.36 `providers.strategy` write invariant)
+  - `packages/cli/src/argv.ts` — registers `--auth` flag for the doctor command
+  - `packages/cli/src/commands/doctor.ts` — adds `renderAuthDoctor(cwd)` + `--auth` flag routing
+  - `packages/cli/test/doctor.test.ts` — 3 new tests covering greenfield-no-mismatch, healthy-pinned, and first-authed-fallback states
+
+  **What this fixes vs leaves open:**
+  - **Fixes structurally:** any future POST /api/config write path now inherits the preservation guarantee. The bug class that motivated alpha.38 cannot recur — the invariant test will fail loudly if a new route forgets the discipline. Migrating the existing 3 routes through the helper consolidates the established read-modify-write pattern into one tested seam.
+  - **Diagnostic:** `swt doctor --auth` lets users (and future debug sessions) instantly inspect the keychain + config + resolver round-trip without manual `security find-generic-password` + `jq` plumbing.
+  - **Does NOT re-investigate alpha.39's reported regressions:** the user reported alpha.39 chat dynamic-routing didn't work AND alpha.38's persistence regressed. This release doesn't claim to have fixed either — but the new diagnostic + invariant test make those regressions (if they're real) much easier to surface and prevent.
+
+**Test growth:** 2759 (alpha.39 baseline) → 2771 (+12 net: 9 invariant + 3 doctor auth). **Preflight (Gate A+B):** typecheck + lint + format:check + test + build all green. **D2 invariant preserved:** no provider-prompt edits.
+
 ## Unreleased — alpha.39 mid-session chat provider/model switch
 
 _One-commit bundle. User reported: started a chat with Anthropic, switched the TopBar Provider dropdown to OpenRouter + Model to DeepSeek V4 (statusline correctly updated to `openrouter ●`), sent another message — got an Opus 4.7 reply (Anthropic). Mid-session vendor/model switches via the dropdowns were silently ignored by the chat route. A `/vbw:debug` Path-B investigation identified the cache-then-skip-resolve guard in `chat.ts` and fixed it via a registry-level binding stamp + binding-aware staleness check._
