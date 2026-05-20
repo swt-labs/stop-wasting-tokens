@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — alpha.38 the actual auth-persistence bug fix
+
+_One-commit bundle. After publishing alpha.35/.36/.37 chasing this bug chain from the read side, a `/vbw:debug` Path-B investigation found the actual root cause was on the WRITE side — in a completely different route the prior fixes never touched. This commit explains why credentials were "forgotten" even though the keychain was working correctly all along._
+
+### Fixes
+
+- **`5f27690` fix(dashboard): preserve auth + providers blocks across POST /api/config** — The real root cause of the "SWT forgets my auth on restart" complaint that motivated alpha.35/.36/.37. Every Theme dropdown click, Model dropdown click, and Settings menu save flows through `POST /api/config`, which runs `parseConfig(parsed.data.config)` and writes the validated `SwtConfig` back. `parseConfig` validates against `ConfigSchema` in `packages/core/src/config/Config.ts`, which has NO `auth` or `providers` fields and NO `.passthrough()` modifier. Zod's default `z.object` strip-unknown behavior silently dropped both blocks on every write. Result: the macOS keychain was persisting credentials correctly all along (verified via `security find-generic-password -s swt -a anthropic:oauth`), but every theme/model/settings interaction was factory-resetting the config block that NAMED the keychain entry — so `buildSnapshot.selected_provider` couldn't derive a pin on restart, and the panel re-prompted for auth.
+
+  **Fix:** Inside the existing `try` block at `packages/dashboard/src/server/routes/config.ts:107-160`, read the on-disk config FIRST, lift out `auth` and `providers`, then write `{ ...validated, ...preserved }`. Greenfield (ENOENT) and malformed-JSON paths preserve nothing — same behavior as pre-fix for those edge cases. The pattern mirrors the read-modify-write discipline already established at `provider-auth.ts:390-436` and `provider-auth-oauth.ts:93-137` (which is why the API-key + OAuth save paths never had this bug — they did read-modify-write correctly from day one).
+
+  **Why this kept slipping past:** the snapshot-side fixes (alpha.35 probe-both-modes, alpha.36 fallback-to-first-authed, alpha.36 ProviderAuthPanel banner, alpha.37 chat-route pinned-provider + model forwarding) were all correct, but they read from a config the dashboard kept silently erasing. Every theme switch (or model switch, or settings save) re-triggered the symptom for users on alpha.34+ — including alpha.37 — because none of those releases touched the `POST /api/config` route. The Themes dropdown shipped in milestone-22 (commit `5885ac4`); from that release onward, picking ANY non-default theme would silently wipe credentials on the next save.
+
+  **Verification:** `/vbw:debug` Path-B with a thorough Opus debugger. The debugger ran `security find-generic-password` on the user's actual keychain entries (confirmed `anthropic:oauth` + `openrouter:api_key` both intact since 2026-05-14 and 2026-05-19), inspected `/Users/.../SWT-test/.swt-planning/config.json` and `.../SWT-website/.swt-planning/config.json` (both had `auth` + `providers` missing despite the keychain entries predating the config mtimes), reproduced Zod's strip behavior live (`z.object({effort:z.string().default('balanced')}).parse({effort:'balanced', auth:{...}, providers:{...}})` → `{effort:'balanced'}`), and identified the 3 trigger paths in `App.tsx` (theme dropdown line 153, model dropdown line 166, settings menu save line 255). Fix applied + 2 new regression tests in `config-route.test.ts` (round-trip preservation + greenfield no-invention). vbw-qa verified PASS 16/16 on the standard tier.
+
+  **Files modified:** `packages/dashboard/src/server/routes/config.ts` (+48/-1) · `packages/dashboard/test/config-route.test.ts` (+64/-0).
+
+**Test growth:** 2748 (alpha.37 baseline) → 2750 (+2 net — the 2 new regression tests). Dashboard suite: 974 passed / 1 skipped / 0 failed across 86 files. **Preflight (Gate A+B):** green. **D2 invariant preserved:** no provider-prompt edits.
+
 ## Unreleased — alpha.37 chat-route pinned-provider + model forwarding
 
 _One-commit bundle following the alpha.36 auth-persistence ship. User reported: "Anthropic works fine, but when I switch the Provider dropdown to OpenRouter it doesn't reply / 401 User not found from OpenRouter on restart." Two complementary bugs in the chat route + session factory, both auth-mode-agnostic (benefit OAuth + API-key equally). No VBW milestone scope — direct mechanical fix per [feedback_pragmatic_over_protocol]._
