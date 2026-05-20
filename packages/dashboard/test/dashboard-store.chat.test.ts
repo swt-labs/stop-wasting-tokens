@@ -198,6 +198,30 @@ describe('chat event reducer', () => {
     });
   });
 
+  it('chat.start with model sets state.orchestratorModel (D12 — locks Locked Decision D12)', async () => {
+    // Milestone 24 Phase 02 T02 — runtime assertion of Locked Decision D12
+    // (`Chat-side model id flows through ChatStartEvent.model`). The
+    // chat-side analogue of cook.provider_selected.model, mirroring the
+    // cook-events test template at dashboard-store-cook-events.test.ts:587-663.
+    postChatStartMock.mockResolvedValueOnce(undefined);
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      expect(state.orchestratorModel).toBeNull();
+      await actions.startChat('hi');
+      expect(state.chat_session_id).toBe('');
+      actions.applyEvent({
+        type: 'chat.start',
+        ts: '2026-05-20T10:00:00Z',
+        chat_session_id: 'sess-D12',
+        prompt: 'hi',
+        model: 'deepseek/deepseek-v3',
+      });
+      expect(state.chat_session_id).toBe('sess-D12');
+      expect(state.orchestratorModel).toBe('deepseek/deepseek-v3');
+      dispose();
+    });
+  });
+
   it('chat.message_delta accumulates text across multiple deltas (in-place update)', async () => {
     postChatStartMock.mockResolvedValueOnce(undefined);
     await createRoot(async (dispose) => {
@@ -460,6 +484,37 @@ describe('chat event reducer', () => {
       expect(state.chatStreaming).toBe(false);
       // chatStatus preserved as 'error', NOT overwritten to 'done'.
       expect(state.chatStatus).toBe('error');
+      dispose();
+    });
+  });
+
+  it('chat.complete immediately resets state.orchestratorModel to null (synchronous, no setTimeout)', async () => {
+    // Milestone 24 Phase 02 T02 — immediate reset on chat session end.
+    // NO setTimeout (the cook-side 10-second timer at dashboard-store.ts:1016
+    // is cook-only; chat has no agent grid to preserve post-completion).
+    // This test asserts the synchronous semantic — no vi.useFakeTimers /
+    // vi.advanceTimersByTime needed.
+    postChatStartMock.mockResolvedValueOnce(undefined);
+    await createRoot(async (dispose) => {
+      const [state, actions] = createDashboardStore();
+      await actions.startChat('finish');
+      actions.applyEvent({
+        type: 'chat.start',
+        ts: '2026-05-20T10:00:00Z',
+        chat_session_id: 'sess-D12-reset',
+        prompt: 'finish',
+        model: 'deepseek/deepseek-v3',
+      });
+      expect(state.orchestratorModel).toBe('deepseek/deepseek-v3');
+      actions.applyEvent({
+        type: 'chat.complete',
+        ts: '2026-05-20T10:00:01Z',
+        chat_session_id: 'sess-D12-reset',
+      });
+      // Immediate (synchronous) reset.
+      expect(state.orchestratorModel).toBeNull();
+      expect(state.chatStreaming).toBe(false);
+      expect(state.chatStatus).toBe('done');
       dispose();
     });
   });

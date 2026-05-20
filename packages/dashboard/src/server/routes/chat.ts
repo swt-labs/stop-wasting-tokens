@@ -340,6 +340,12 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
           ts: ts(),
           chat_session_id: chatSessionId,
           prompt,
+          // milestone 24 Phase 02 T02 (Locked Decision D12) — surface the
+          // model Pi actually resolved at chat-session construction time
+          // (alpha.37 wiring resolves `selection.model` from config.model
+          // via `resolveActiveProvider` at L268). `null` when no model is
+          // pinned; the reducer guard short-circuits on null/empty.
+          model: selection.model,
         });
 
         // Subscribe BEFORE prompt() so MESSAGE_DELTA / TOOL_CALL events

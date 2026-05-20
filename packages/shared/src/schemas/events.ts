@@ -583,6 +583,12 @@ const ChatStartEvent = z.object({
   ts: TimestampSchema,
   chat_session_id: z.string().min(1),
   prompt: z.string(),
+  // milestone 24 Phase 02 T02 (Locked Decision D12) — optional model id
+  // Pi resolved at chat-session construction time. Chat analogue of
+  // `cook.provider_selected.model`. Additive .optional() per the
+  // canonical pattern at events.ts:549 (`brownfield`); older daemons
+  // omit the field and the reducer guard short-circuits.
+  model: z.string().nullable().optional(),
 });
 
 const ChatMessageDelta = z.object({

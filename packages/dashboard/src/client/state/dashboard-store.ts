@@ -1435,10 +1435,21 @@ export function createDashboardStore(
               : e,
           ),
         );
+        // milestone 24 Phase 02 T02 (Locked Decision D12) — surface the
+        // chat-session model id Pi actually resolved at chat-session
+        // construction time. Guard mirrors cook.provider_selected at
+        // L832-840 byte-identically (modulo evt-field source name).
+        if (evt.model != null && evt.model.length > 0) {
+          setState('orchestratorModel', evt.model);
+        }
         return;
       }
       if (currentId === evt.chat_session_id) {
-        // Re-broadcast — no-op.
+        // Re-broadcast — re-apply the model in case the value changed
+        // between emits (idempotent for the same value).
+        if (evt.model != null && evt.model.length > 0) {
+          setState('orchestratorModel', evt.model);
+        }
         return;
       }
       // Stale — drop.
@@ -1531,6 +1542,12 @@ export function createDashboardStore(
         return;
       }
       case 'chat.complete': {
+        // milestone 24 Phase 02 T02 — immediate reset on chat session end.
+        // NO setTimeout (the cook-side 10-second timer at L1016 is
+        // cook-only; chat has no agent grid to preserve post-completion).
+        // Reset happens even when chat.error fired earlier in the same
+        // turn — the model id is independent of the error/done outcome.
+        setState('orchestratorModel', null);
         setState('chatStreaming', false);
         setState('chatStatus', (prev) => (prev === 'error' ? 'error' : 'done'));
         return;
