@@ -269,6 +269,25 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
     const status = currentProviderStatus();
     return status !== null && status.configured && status.mode !== null;
   };
+
+  // alpha.41 fix: when the selected provider IS configured, hide the
+  // auth-entry inputs (mode radios, API key field, OAuth login button)
+  // behind a "Replace credentials" disclosure. Pre-fix the panel rendered
+  // all those inputs prominently even when the user was already
+  // authenticated — users opened the Provider menu expecting to switch
+  // providers, saw a big "Login with OAuth" button + empty API key field,
+  // and interpreted it as "SWT wants me to re-authenticate". The fix:
+  // default to a collapsed state showing only the "✓ configured" banner +
+  // a quiet "[Replace credentials]" link; the auth-entry form expands
+  // only when the user explicitly opts in. First-time setup (provider
+  // NOT configured) keeps the existing always-visible form.
+  const [replacingCredentials, setReplacingCredentials] = createSignal<boolean>(false);
+  // Whether the auth-entry inputs should be visible right now. The
+  // ONE place that combines the two signals; everything below reads this.
+  const showAuthEntryForm = (): boolean => {
+    return !isCurrentProviderConfigured() || replacingCredentials();
+  };
+
   // The ONLY place the entered API key lives. Bound to the password
   // <input>. Cleared on a successful save (write-only invariant).
   const [keyInput, setKeyInput] = createSignal<string>('');
@@ -294,6 +313,11 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
     // SUCCESS — clear the key input so the entered secret is not retained
     // in component state and is never re-displayed (write-only invariant).
     setKeyInput('');
+    // alpha.41 — also collapse the "Replace credentials" disclosure on
+    // success so the user immediately sees the updated "✓ configured"
+    // banner without having to manually click Cancel. No-op when this
+    // was a first-time setup (replacingCredentials was already false).
+    setReplacingCredentials(false);
   };
 
   return (
@@ -346,6 +370,14 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
           onChange={(e): void => {
             const next = e.currentTarget.value;
             setSelectedProvider(next);
+            // alpha.41 — switching providers always returns the panel to
+            // the collapsed "configured" state. Without this reset, a user
+            // who clicked "Replace credentials" on provider A and then
+            // switched the dropdown to provider B would land on B with
+            // the replace form already open — confusing.
+            setReplacingCredentials(false);
+            setKeyInput('');
+            setSaveError(null);
             // Plan 04-03 (Phase 4) — if the new provider has no pi-ai OAuth
             // subsystem, fall back to api_key mode so the panel never sits
             // in oauth mode for a provider that cannot do OAuth.
@@ -380,127 +412,166 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
         </select>
       </div>
 
-      {/* alpha.36 fix: surface the "already configured" state so users don't
-          think SWT 'forgot' their credentials on every dashboard open.
-          Pre-fix the panel rendered the auth-entry form identically whether
-          credentials existed or not — same UX as first-time setup. The
-          banner makes the existing keychain credential visible + reframes
-          the inputs below as a "replace" affordance. */}
+      {/* alpha.36 + alpha.41 — surface the "already configured" state with a
+          green banner. alpha.41 also hides the auth-entry form (radios + API
+          key field + Login with OAuth button) behind a "Replace credentials"
+          disclosure so users opening the menu to SWITCH providers don't see a
+          prominent "Login with OAuth" / API-key input and interpret it as a
+          re-auth requirement. The form expands only when the user explicitly
+          clicks "Replace credentials". First-time setup (provider NOT
+          configured) keeps the existing always-visible form. */}
       <Show when={isCurrentProviderConfigured()}>
         <p class="provider-auth-banner provider-auth-banner-ok tools-panel-banner">
           ✓ {selectedProvider()} is configured ({currentProviderStatus()?.mode} via{' '}
-          {currentProviderStatus()?.label ?? currentProviderStatus()?.source ?? 'keychain'}). Submit
-          a new credential below to replace it, or pick a different provider.
+          {currentProviderStatus()?.label ?? currentProviderStatus()?.source ?? 'keychain'}). Pick a
+          different provider from the dropdown above, or replace this credential below.
         </p>
+        <Show when={!replacingCredentials()}>
+          <div class="provider-auth-actions provider-auth-actions-replace">
+            <button
+              type="button"
+              class="provider-auth-replace-btn"
+              onClick={(): void => setReplacingCredentials(true)}
+            >
+              Replace credentials…
+            </button>
+          </div>
+        </Show>
       </Show>
 
-      <div class="provider-auth-field">
-        <span class="provider-auth-field-label">Auth mode</span>
-        <div class="provider-auth-radio-group" role="radiogroup" aria-label="Auth mode">
-          <label class="provider-auth-radio">
-            <input
-              type="radio"
-              name="provider-auth-mode"
-              value="api_key"
-              checked={selectedMode() === 'api_key'}
-              disabled={saving()}
-              onChange={(): void => {
-                setSelectedMode('api_key');
+      <Show when={showAuthEntryForm()}>
+        <div class="provider-auth-field">
+          <span class="provider-auth-field-label">Auth mode</span>
+          <div class="provider-auth-radio-group" role="radiogroup" aria-label="Auth mode">
+            <label class="provider-auth-radio">
+              <input
+                type="radio"
+                name="provider-auth-mode"
+                value="api_key"
+                checked={selectedMode() === 'api_key'}
+                disabled={saving()}
+                onChange={(): void => {
+                  setSelectedMode('api_key');
+                }}
+              />
+              API key
+            </label>
+            <label
+              class="provider-auth-radio"
+              classList={{
+                'provider-auth-radio-disabled': isOAuthRadioDisabled(
+                  props.data,
+                  selectedProvider(),
+                ),
               }}
-            />
-            API key
-          </label>
-          <label
-            class="provider-auth-radio"
-            classList={{
-              'provider-auth-radio-disabled': isOAuthRadioDisabled(props.data, selectedProvider()),
-            }}
-          >
-            <input
-              type="radio"
-              name="provider-auth-mode"
-              value="oauth"
-              checked={selectedMode() === 'oauth'}
-              disabled={saving() || isOAuthRadioDisabled(props.data, selectedProvider())}
-              onChange={(): void => {
-                setSelectedMode('oauth');
-              }}
-            />
-            OAuth
-            <Show when={!isOAuthProvider(selectedProvider())}>
-              <span class="provider-auth-oauth-unavailable">
-                no OAuth subsystem for this provider
-              </span>
-            </Show>
-          </label>
-        </div>
-        {/* alpha.22 — Anthropic OAuth billing-pool advisory. SWT/Pi sends
+            >
+              <input
+                type="radio"
+                name="provider-auth-mode"
+                value="oauth"
+                checked={selectedMode() === 'oauth'}
+                disabled={saving() || isOAuthRadioDisabled(props.data, selectedProvider())}
+                onChange={(): void => {
+                  setSelectedMode('oauth');
+                }}
+              />
+              OAuth
+              <Show when={!isOAuthProvider(selectedProvider())}>
+                <span class="provider-auth-oauth-unavailable">
+                  no OAuth subsystem for this provider
+                </span>
+              </Show>
+            </label>
+          </div>
+          {/* alpha.22 — Anthropic OAuth billing-pool advisory. SWT/Pi sends
             the correct Claude Code identification headers, but Anthropic
             routes third-party OAuth requests to a separate `extra_usage`
             billing pool (empty by default) until Anthropic adds Pi's
             OAuth client_id to the Max-plan-routing allowlist. Until then,
             API key is the safer default for guaranteed quota routing. */}
-        <Show when={selectedProvider() === 'anthropic' && selectedMode() === 'oauth'}>
-          <p class="provider-auth-oauth-advisory">
-            <strong>Note:</strong> Anthropic routes third-party OAuth requests to a separate billing
-            pool that's empty by default. Until Anthropic adds SWT's OAuth client to their Max-plan
-            allowlist (pending), <strong>API key</strong> is the recommended path for guaranteed
-            quota routing. OAuth still works, but you may hit "out of extra usage" against your Max
-            plan.
-          </p>
+          <Show when={selectedProvider() === 'anthropic' && selectedMode() === 'oauth'}>
+            <p class="provider-auth-oauth-advisory">
+              <strong>Note:</strong> Anthropic routes third-party OAuth requests to a separate
+              billing pool that's empty by default. Until Anthropic adds SWT's OAuth client to their
+              Max-plan allowlist (pending), <strong>API key</strong> is the recommended path for
+              guaranteed quota routing. OAuth still works, but you may hit "out of extra usage"
+              against your Max plan.
+            </p>
+          </Show>
+        </div>
+
+        <Show when={selectedMode() === 'api_key'}>
+          <div class="provider-auth-field">
+            <label class="provider-auth-field-label" for="provider-auth-key">
+              API key
+            </label>
+            <input
+              id="provider-auth-key"
+              type="password"
+              class="provider-auth-key-input"
+              autocomplete="off"
+              placeholder={keyInputPlaceholder(props.data, selectedProvider())}
+              value={keyInput()}
+              disabled={isInputLocked(props.data, saving())}
+              onInput={(e): void => {
+                setKeyInput(e.currentTarget.value);
+              }}
+            />
+          </div>
         </Show>
-      </div>
 
-      <Show when={selectedMode() === 'api_key'}>
-        <div class="provider-auth-field">
-          <label class="provider-auth-field-label" for="provider-auth-key">
-            API key
-          </label>
-          <input
-            id="provider-auth-key"
-            type="password"
-            class="provider-auth-key-input"
-            autocomplete="off"
-            placeholder={keyInputPlaceholder(props.data, selectedProvider())}
-            value={keyInput()}
-            disabled={isInputLocked(props.data, saving())}
-            onInput={(e): void => {
-              setKeyInput(e.currentTarget.value);
-            }}
-          />
-        </div>
-      </Show>
+        <Show when={selectedMode() === 'api_key'}>
+          <div class="provider-auth-actions">
+            <button
+              type="button"
+              class="provider-auth-save-btn"
+              disabled={isSaveDisabled(props.data, selectedMode(), saving())}
+              onClick={(): void => void handleSave()}
+            >
+              {saving() ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </Show>
 
-      <Show when={selectedMode() === 'api_key'}>
-        <div class="provider-auth-actions">
-          <button
-            type="button"
-            class="provider-auth-save-btn"
-            disabled={isSaveDisabled(props.data, selectedMode(), saving())}
-            onClick={(): void => void handleSave()}
-          >
-            {saving() ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </Show>
-
-      {/* Plan 04-03 (Phase 4) — the oauth-mode "Login with OAuth" button,
+        {/* Plan 04-03 (Phase 4) — the oauth-mode "Login with OAuth" button,
           shown IN PLACE OF the API-key input + Save button. Disabled when
           the keychain is unavailable or an OAuth flow is already running. */}
-      <Show when={selectedMode() === 'oauth'}>
-        <div class="provider-auth-actions">
-          <button
-            type="button"
-            class="provider-auth-login-btn"
-            disabled={
-              props.onStartOAuth === undefined ||
-              isOAuthLoginDisabled(props.data, props.oauthFlow ?? null)
-            }
-            onClick={(): void => void props.onStartOAuth?.(selectedProvider())}
-          >
-            Login with OAuth
-          </button>
-        </div>
+        <Show when={selectedMode() === 'oauth'}>
+          <div class="provider-auth-actions">
+            <button
+              type="button"
+              class="provider-auth-login-btn"
+              disabled={
+                props.onStartOAuth === undefined ||
+                isOAuthLoginDisabled(props.data, props.oauthFlow ?? null)
+              }
+              onClick={(): void => void props.onStartOAuth?.(selectedProvider())}
+            >
+              Login with OAuth
+            </button>
+          </div>
+        </Show>
+
+        {/* alpha.41 — when in "replace credentials" mode, give the user a
+          way to back out without saving. Hidden during first-time setup
+          (provider NOT configured) since there's nothing to "cancel back
+          to" — the form is the entry point. */}
+        <Show when={isCurrentProviderConfigured() && replacingCredentials()}>
+          <div class="provider-auth-actions provider-auth-actions-cancel">
+            <button
+              type="button"
+              class="provider-auth-cancel-btn"
+              disabled={saving()}
+              onClick={(): void => {
+                setReplacingCredentials(false);
+                setKeyInput('');
+                setSaveError(null);
+              }}
+            >
+              Cancel (keep current credential)
+            </button>
+          </div>
+        </Show>
       </Show>
 
       <Show when={saveError() ?? props.error}>

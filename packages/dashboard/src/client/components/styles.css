@@ -2558,6 +2558,47 @@ body {
   color: var(--phosphor-green);
 }
 
+/* alpha.41 — "Replace credentials" disclosure for the configured-state
+ * path. Visually quieter than the prominent Save/Login-with-OAuth buttons
+ * so users opening the panel to switch providers aren't drawn toward
+ * re-authenticating. Sits below the "✓ configured" banner. */
+.provider-auth-actions-replace {
+  margin-top: 6px;
+}
+.provider-auth-replace-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  color: var(--phosphor-green);
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+.provider-auth-replace-btn:hover {
+  border-color: rgba(0, 255, 65, 0.6);
+  background: rgba(0, 255, 65, 0.05);
+}
+.provider-auth-actions-cancel {
+  margin-top: 6px;
+}
+.provider-auth-cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--terminal-text-dim);
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+.provider-auth-cancel-btn:hover:not([disabled]) {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--terminal-text);
+}
+.provider-auth-cancel-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Phase 4: provider-auth OAuth login flow sub-section ──
  * Additive only — plan 04-03 un-stubs the OAuth radio + adds the
  * "Login with OAuth" button + the OAuth flow sub-section (auth-URL display,
