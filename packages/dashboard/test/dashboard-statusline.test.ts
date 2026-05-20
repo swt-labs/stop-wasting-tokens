@@ -34,6 +34,7 @@ import {
   connectionDotTooltip,
   formatAgentsCell,
   formatContextEstimate,
+  formatCostRate,
   formatStatuslineKnob,
   formatStatuslineLabeled,
   formatStatuslineProvider,
@@ -440,6 +441,50 @@ describe('formatContextEstimate', () => {
     // helper still maps them to `—` rather than printing `0k`.
     expect(formatContextEstimate(42_000, 0)).toBe('ctx ~42k/—');
     expect(formatContextEstimate(42_000, -1)).toBe('ctx ~42k/—');
+  });
+});
+
+// v2 Wave 5 commit 10 — live cost-rate cell. The cell renders
+// `rate: $X.XX/min` (or sub-dollar with 4 decimals) when an
+// orchestrator session is running, `rate: —` between sessions.
+describe('formatCostRate', () => {
+  it('returns rate: — when sessionStartTs is null', () => {
+    expect(formatCostRate(null, 0.5, Date.now())).toBe('rate: —');
+  });
+
+  it('returns rate: — when cumulativeUsd is null / undefined / NaN', () => {
+    const start = '2026-05-20T19:00:00Z';
+    const now = Date.parse('2026-05-20T19:10:00Z');
+    expect(formatCostRate(start, null, now)).toBe('rate: —');
+    expect(formatCostRate(start, undefined, now)).toBe('rate: —');
+    expect(formatCostRate(start, Number.NaN, now)).toBe('rate: —');
+  });
+
+  it('returns rate: — when the timestamp is not parseable', () => {
+    expect(formatCostRate('not-a-date', 0.5, Date.now())).toBe('rate: —');
+  });
+
+  it('formats sub-$1/min with 4 decimal places', () => {
+    // 10 minutes elapsed, $0.50 spent → $0.05/min
+    const start = '2026-05-20T19:00:00Z';
+    const now = Date.parse('2026-05-20T19:10:00Z');
+    expect(formatCostRate(start, 0.5, now)).toBe('rate: $0.0500/min');
+  });
+
+  it('formats ≥$1/min with 2 decimal places', () => {
+    // 1 minute elapsed, $5.00 spent → $5.00/min
+    const start = '2026-05-20T19:00:00Z';
+    const now = Date.parse('2026-05-20T19:01:00Z');
+    expect(formatCostRate(start, 5, now)).toBe('rate: $5.00/min');
+  });
+
+  it('clamps elapsed minutes to a 0.01 floor (avoids divide-by-zero at session start)', () => {
+    // sessionStartTs and nowMs at the same instant — without the floor
+    // the result would be Infinity. With the floor, it's
+    // cumulative / 0.01 = 100x cumulative.
+    const start = '2026-05-20T19:00:00Z';
+    const now = Date.parse('2026-05-20T19:00:00Z');
+    expect(formatCostRate(start, 0.5, now)).toBe('rate: $50.00/min');
   });
 });
 

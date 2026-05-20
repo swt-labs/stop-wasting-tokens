@@ -127,6 +127,16 @@ export const App: Component = () => {
   // hides entirely in that case (absence is the signal — SWT manages
   // non-git workspaces too).
   const statuslineGit = createMemo(() => state.snapshot?.git);
+  // Statusline v2 Wave 5 commit 10 — 1Hz "now" ticker for the live
+  // cost-rate cell. Updated every 1s via setInterval so the `rate:`
+  // cell recomputes during a live session. The interval is cleaned
+  // up in onCleanup below. Solid's reactive graph batches per-tick
+  // recomputes of all cells that depend on `nowMs` — in practice
+  // only the cost-rate cell does, so the per-second cost is one
+  // `formatCostRate` call.
+  const [nowMs, setNowMs] = createSignal(Date.now());
+  const nowMsInterval = setInterval(() => setNowMs(Date.now()), 1_000);
+  onCleanup(() => clearInterval(nowMsInterval));
 
   // Theme — drive the dashboard's `data-theme` attribute on `<html>` from
   // the persisted config. The memo reads `state.tools.config.data?.config
@@ -507,6 +517,8 @@ export const App: Component = () => {
         connectionState={state.connection}
         git={statuslineGit()}
         activeSessionId={state.activeSessionId}
+        sessionStartTs={state.orchestratorSessionStartTs}
+        nowMs={nowMs()}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
         knobs={statuslineKnobs()}

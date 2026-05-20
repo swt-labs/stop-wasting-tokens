@@ -358,6 +358,18 @@ export interface DashboardState {
    */
   orchestratorSessionInputTokens: number;
   /**
+   * Statusline v2 Wave 5 commit 10 — ISO-8601 start timestamp of the
+   * current orchestrator session. Set from `cook.priority_decision.ts`
+   * on session start; cleared (to `null`) by the same 10s cookClearTimer
+   * that wipes `activeAgents` / `activeSessionId` / `orchestratorModel`.
+   *
+   * Drives the live `rate:` cell in the Money group: the statusline
+   * derives `rate: $X.XX/min` from `state.snapshot.cost_summary
+   * .this_session_usd` divided by elapsed minutes since this timestamp.
+   * `null` between sessions; the cell then renders `rate: —`.
+   */
+  orchestratorSessionStartTs: string | null;
+  /**
    * Plan 02-01 (milestone 13, Phase 02) — the single in-flight cook askUser
    * prompt, or `null` when no cook prompt is awaiting a user response.
    * SET by the `prompt.request` reducer branch when the event's `session_id`
@@ -670,6 +682,10 @@ export function createDashboardStore(
     // dashboard-lifetime cumulative (the v1 bug — read cost_summary.tokens
     // which never decremented across sessions).
     orchestratorSessionInputTokens: 0,
+    // Statusline v2 Wave 5 commit 10 — orchestrator session start
+    // timestamp for the live cost-rate cell. Set from
+    // `cook.priority_decision.ts`; cleared in the 10s cookClearTimer.
+    orchestratorSessionStartTs: null,
     cookAwaitingUser: null,
     oauthFlow: null,
     initSession: null,
@@ -764,6 +780,11 @@ export function createDashboardStore(
         // cancelled above (which would otherwise leave the counter
         // carrying the prior session's tail).
         setState('orchestratorSessionInputTokens', 0);
+        // Statusline v2 Wave 5 commit 10 — capture the session start
+        // timestamp from the event payload so the live cost-rate cell
+        // can compute $/min as the session runs. Falls back to "now"
+        // if the event omitted `ts` (defensive).
+        setState('orchestratorSessionStartTs', evt.ts ?? new Date().toISOString());
         setState('activeSessionId', evt.session_id);
         // Milestone 13 / Phase 01 — surface the priority-decision as a
         // started-subtype cook-status entry in the unified log. The
@@ -968,6 +989,10 @@ export function createDashboardStore(
           // to glance at all four signals before they zero out.
           setState('orchestratorModel', null);
           setState('orchestratorSessionInputTokens', 0);
+          // Statusline v2 Wave 5 commit 10 — clear the session start
+          // timestamp alongside everything else so the cost-rate cell
+          // returns to `rate: —` between sessions.
+          setState('orchestratorSessionStartTs', null);
           cookClearTimer = null;
         }, 10_000);
         // Milestone 13 / Phase 01 — surface completion as a cook-status entry

@@ -951,11 +951,62 @@ describe('statusline v2 Wave 2 — orchestrator session resets', () => {
   const SID_B = 'sess-B';
   const TS_W2 = '2026-05-20T19:00:00Z';
 
-  it('initial state: orchestratorSessionInputTokens starts at 0, orchestratorModel null', () => {
+  it('initial state: orchestratorSessionInputTokens starts at 0, orchestratorModel null, orchestratorSessionStartTs null', () => {
     createRoot((dispose) => {
       const [state] = createDashboardStore();
       expect(state.orchestratorSessionInputTokens).toBe(0);
       expect(state.orchestratorModel).toBeNull();
+      expect(state.orchestratorSessionStartTs).toBeNull();
+      dispose();
+    });
+  });
+
+  it('cook.priority_decision captures the event ts into orchestratorSessionStartTs', () => {
+    // Statusline v2 Wave 5 commit 10 — the live cost-rate cell needs
+    // the session start timestamp. Sourced from the event's `ts`
+    // field, captured into state on every new session.
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_A,
+        priority: 5,
+        mode: 'execute',
+      });
+      expect(state.orchestratorSessionStartTs).toBe(TS_W2);
+      dispose();
+    });
+  });
+
+  it('cook.completion 10s timer also clears orchestratorSessionStartTs', () => {
+    // Statusline v2 Wave 5 commit 10 — the session-start timestamp
+    // gets the same 10s post-completion hold then clear as the rest
+    // of the Runtime-section state.
+    vi.useFakeTimers();
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_A,
+        priority: 5,
+        mode: 'execute',
+      });
+      expect(state.orchestratorSessionStartTs).toBe(TS_W2);
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: TS_W2,
+        session_id: SID_A,
+        status: 'success',
+      });
+      // Hold window — start timestamp still readable.
+      vi.advanceTimersByTime(9_999);
+      expect(state.orchestratorSessionStartTs).toBe(TS_W2);
+      // Cross the 10s boundary — cleared alongside the other Runtime
+      // slots.
+      vi.advanceTimersByTime(2);
+      expect(state.orchestratorSessionStartTs).toBeNull();
       dispose();
     });
   });

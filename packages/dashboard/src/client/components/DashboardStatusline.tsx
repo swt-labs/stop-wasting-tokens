@@ -86,6 +86,20 @@ export interface DashboardStatuslineProps {
    * the head of the Runtime group.
    */
   activeSessionId: string | null;
+  /**
+   * v2 Wave 5 commit 10 — orchestrator session start timestamp (from
+   * `state.orchestratorSessionStartTs`). Drives the live `rate:` cell
+   * via `formatCostRate(sessionStartTs, cumulativeUsd, nowMs)`. Null
+   * between sessions; the cell then renders `rate: —`.
+   */
+  sessionStartTs: string | null;
+  /**
+   * v2 Wave 5 commit 10 — monotonically-increasing "now" in milliseconds.
+   * App.tsx ticks a `createSignal<number>(Date.now())` every 1s so the
+   * `rate:` cell recomputes during a live session. Pure prop; the
+   * component does no setInterval of its own.
+   */
+  nowMs: number;
   costSummary: CostSummary | null;
   /** UsageRollup is `.nullable().optional()` on the snapshot — accept both. */
   usageRollup: UsageRollup | null | undefined;
@@ -160,6 +174,37 @@ export function formatStatuslineSessionCost(usd: number | null | undefined): str
   if (usd === null || usd === undefined || Number.isNaN(usd)) return '$—';
   if (usd < 1) return `$${usd.toFixed(4)}`;
   return `$${usd.toFixed(2)}`;
+}
+
+/**
+ * Statusline v2 Wave 5 commit 10 — live cost-rate cell at the head of
+ * the Money group.
+ *
+ *   - No active session (`sessionStartTs === null`)            → `rate: —`
+ *   - Cumulative cost missing / NaN                            → `rate: —`
+ *   - Sub-$1/min rate                                          → `rate: $0.XXXX/min`
+ *   - ≥ $1/min rate                                            → `rate: $X.XX/min`
+ *
+ * `nowMs` is provided by App.tsx via a 1Hz `createSignal<number>` so
+ * Solid recomputes the memo every second while a session runs. Elapsed
+ * minutes is clamped to a 0.01-minute floor (~0.6s) to avoid the
+ * divide-by-zero blast right after `cook.priority_decision` arrives.
+ */
+export function formatCostRate(
+  sessionStartTs: string | null,
+  cumulativeUsd: number | null | undefined,
+  nowMs: number,
+): string {
+  if (sessionStartTs === null) return 'rate: —';
+  if (cumulativeUsd === null || cumulativeUsd === undefined || Number.isNaN(cumulativeUsd)) {
+    return 'rate: —';
+  }
+  const startMs = Date.parse(sessionStartTs);
+  if (Number.isNaN(startMs)) return 'rate: —';
+  const elapsedMin = Math.max(0.01, (nowMs - startMs) / 60_000);
+  const ratePerMin = cumulativeUsd / elapsedMin;
+  if (ratePerMin < 1) return `rate: $${ratePerMin.toFixed(4)}/min`;
+  return `rate: $${ratePerMin.toFixed(2)}/min`;
 }
 
 /**
@@ -460,15 +505,27 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       >
         {formatContextEstimate(props.cumulativeInputTokens, props.contextWindow)}
       </span>
-      {/* Cell 11: session cost (Money-group head).
-          v2 Wave 3 commit 5 — `group-start` renders the leading `│`
-          before the Money section. (Wave 5 commit 10 will swap this
-          marker to the new `rate:` cell once that lands at the head
-          of the Money group.)
-          v2 Wave 4 commit 7 — `is-cost` class earmarks the cell for the
-          200ms color transition shipped in Wave 5 commit 12. */}
+      {/* Cell 11: live cost-rate (Money-group head as of v2 Wave 5
+          commit 10). Renders `rate: $X.XX/min` when a session is
+          running; `rate: —` between sessions. `group-start` shifts
+          the leading `│` from the session-cost cell (where it lived
+          in Wave 3 commit 5) to here. `.is-rate` earmarks the cell
+          for Wave 5 commit 12's 200ms color transition. */}
       <span
-        class="dashboard-statusline-cell is-cost group-start"
+        class="dashboard-statusline-cell is-rate group-start"
+        title="Live cost rate — $/min derived from this session's elapsed time + cumulative cost"
+      >
+        {formatCostRate(
+          props.sessionStartTs,
+          costSummary()?.this_session_usd,
+          props.nowMs,
+        )}
+      </span>
+      {/* Cell 12: session cost. The cell still carries the `is-cost`
+          class so Wave 5 commit 12's color transition applies here
+          too. */}
+      <span
+        class="dashboard-statusline-cell is-cost"
         title={`Session cost — total $ spent this orchestrator session: ${formatStatuslineSessionCost(
           costSummary()?.this_session_usd,
         )}`}
