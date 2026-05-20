@@ -1,27 +1,33 @@
 /**
- * Plan 02-01 T2 (milestone 08, Phase 02) — viewport-fixed bottom statusline.
+ * v2 statusline (statusline_v2.md) — single-line bottom developer status bar.
  *
- * Statusline-extension milestone (step 5 of 8 per
- * a_non_production_files/statusline.md) — extended in place; preserves the
- * original 7 cells unchanged and prepends knob / model / agent cells plus
- * a now-live context-estimate cell that previously rendered as `ctx —/—`.
+ * Originally landed as Plan 02-01 T2 (milestone 08) and extended to 14
+ * cells via the statusline-extension milestone. v2 replaces the connection
+ * dot's keychain-availability proxy with the actual SSE connection state
+ * (Wave 1, this commit) and continues iterating through Waves 2-6 per
+ * `a_non_production_files/statusline_v2.md`.
  *
- * Current cell order (left → right):
+ * Connection-dot semantics (Wave 1):
  *
- *     {provider} ● {backend} {effort} {autonomy} {profile} {tier}
- *     model:{orchestrator} agents:{N}[...]
- *     ctx {~Xk/Yk} ${session} ({in}↛{out}) 7d:${week} 30d:${month}
+ *   - Source of truth is `state.connection` (`ConnectionState` from
+ *     `dashboard-store.ts:63`): `'connecting' | 'syncing' | 'connected' |
+ *     'error'`. The previous v1 dot read `providerAuth.keychain_available`
+ *     which conflated "OS keychain reachable" with "dashboard connected"
+ *     and lied during SSE drops.
+ *   - Three rendered states: `'connected'` → terminal-green ● ,
+ *     `'pending'` → amber ● (covers `'connecting'` and `'syncing'`),
+ *     `'error'` → danger-red ●. The unfilled `○` glyph is no longer used.
  *
  * Layout invariant: single line. Overflow scrolls horizontally
  * (`overflow-x: auto; white-space: nowrap` on the bar in styles.css). No
  * responsive hiding, no two-row fallback.
  *
- * Key constraints (from the milestone CONTEXT.md + Scout Q1/Q2/Q10):
+ * Key constraints (carried from v1):
  *
  *   - Model cells: orchestrator's resolved model id arrives via
- *     `cook.provider_selected.model` (commit f95441b). When the cook
- *     callsite couldn't resolve a model (Pi's ModelRegistry resolved
- *     internally), the cell renders `model:—`.
+ *     `cook.provider_selected.model`. When the cook callsite couldn't
+ *     resolve a model (Pi's ModelRegistry resolved internally), the cell
+ *     renders `model:—`.
  *   - Agents cell: live list/count from `state.activeAgents`. Renders
  *     `agents:N` followed by `[role:shortModel]` per agent when the list
  *     fits in ~40 chars; otherwise the count + `title` attr hold the
@@ -30,14 +36,9 @@
  *     orchestrator model's context window from
  *     `@swt-labs/shared/types/model-info`. Unknown model → `Yk = —`.
  *     Both unknown → `ctx —/—`.
- *   - All fallbacks use U+2014 (`—`). Established convention across
- *     `CostPanel.tsx`, `ProviderAuthPanel.tsx`, etc.
+ *   - All fallbacks use U+2014 (`—`).
  *   - The token cell uses U+219B (`↛` RIGHTWARDS ARROW WITH STROKE) as
- *     the in→out separator — distinct enough from `/` and `->` to read
- *     clearly in dense statusline output.
- *   - The connection dot derives from `providerAuth.data?.keychain_available`
- *     (the only boolean-shaped connection-state indicator available on
- *     the current `ProviderAuthSnapshot` shape — Scout Q10 Ambiguity 5).
+ *     the in→out separator (Wave 3 commit 6 swaps this for `→` U+2192).
  *   - This component does NOT fetch, run effects, or read the store. It
  *     accepts derived props and renders, nothing else.
  *
@@ -57,6 +58,7 @@ import type {
 import { For, type Component } from 'solid-js';
 
 import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
+import type { ConnectionState } from '../state/dashboard-store.js';
 
 import type { StatuslineKnobs } from './statusline-helpers.js';
 
@@ -66,6 +68,8 @@ export { shortModelLabel } from '../lib/model-helpers.js';
 
 export interface DashboardStatuslineProps {
   providerAuth: ProviderAuthSnapshot | null;
+  /** Live SSE connection state (`state.connection`). Drives the dot color. */
+  connectionState: ConnectionState;
   costSummary: CostSummary | null;
   /** UsageRollup is `.nullable().optional()` on the snapshot — accept both. */
   usageRollup: UsageRollup | null | undefined;
@@ -97,15 +101,20 @@ export function formatStatuslineProvider(provider: string | null | undefined): s
 }
 
 /**
- * Connection-dot source-of-truth: `keychain_available` is the only
- * boolean-shaped connection-state indicator on `ProviderAuthSnapshot`
- * today (Scout Q10 Ambiguity 5). Anything other than a literal `true`
- * (including `null` and `undefined`) renders disconnected.
+ * Connection-dot source-of-truth: the live SSE `ConnectionState` from
+ * `state.connection`. Replaces the v1 `keychain_available` proxy (which
+ * conflated OS-keychain availability with SSE health).
+ *
+ *   - `'connected'`              → 'connected' (terminal-green)
+ *   - `'connecting' | 'syncing'` → 'pending'   (amber)
+ *   - `'error'`                  → 'error'     (danger-red)
  */
 export function connectionDotState(
-  providerAuth: ProviderAuthSnapshot | null,
-): 'connected' | 'disconnected' {
-  return providerAuth?.keychain_available === true ? 'connected' : 'disconnected';
+  connectionState: ConnectionState,
+): 'connected' | 'pending' | 'error' {
+  if (connectionState === 'connected') return 'connected';
+  if (connectionState === 'error') return 'error';
+  return 'pending';
 }
 
 /**
@@ -250,9 +259,10 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span class="dashboard-statusline-cell">
         {formatStatuslineProvider(providerAuth()?.selected_provider)}
       </span>
-      {/* Cell 2: connection dot */}
+      {/* Cell 2: connection dot — Wave 1 of v2: dot reads state.connection
+          (SSE truth) instead of providerAuth.keychain_available. */}
       <span
-        class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(providerAuth())}`}
+        class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(props.connectionState)}`}
       >
         ●
       </span>

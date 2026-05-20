@@ -265,9 +265,10 @@ body {
   cursor: help;
 }
 
-/* Connection-dot — keychain_available drives the green/amber split.
-   Both states render the same glyph (●); only the colour changes so
-   the dot reads at-a-glance against the dark statusline backdrop. */
+/* Connection-dot — v2 Wave 1: state.connection (SSE truth) drives the
+   three-state colour split. All three states render the same ● glyph;
+   only colour changes so the dot reads at-a-glance against the dark
+   statusline backdrop. */
 .dashboard-statusline-dot {
   font-size: 10px;
   line-height: 1;
@@ -277,8 +278,12 @@ body {
   color: var(--terminal-green);
 }
 
-.dashboard-statusline-dot-disconnected {
+.dashboard-statusline-dot-pending {
   color: var(--warm-amber);
+}
+
+.dashboard-statusline-dot-error {
+  color: var(--danger-red);
 }
 
 .app-shell h1 {

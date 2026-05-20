@@ -496,6 +496,7 @@ export const App: Component = () => {
           change. */}
       <DashboardStatusline
         providerAuth={state.tools.providerAuth.data ?? null}
+        connectionState={state.connection}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
         knobs={statuslineKnobs()}

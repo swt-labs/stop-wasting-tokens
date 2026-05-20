@@ -18,7 +18,7 @@
  * RIGHTWARDS ARROW WITH STROKE) — re-verified verbatim in the assertions.
  */
 
-import type { CostSummary, ProviderAuthSnapshot, UsageRollup, UsageWindow } from '@swt-labs/shared';
+import type { CostSummary, UsageRollup, UsageWindow } from '@swt-labs/shared';
 import type { AgentLiveState } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -55,27 +55,25 @@ describe('formatStatuslineProvider', () => {
 });
 
 describe('connectionDotState', () => {
-  // Minimal fixture — `connectionDotState` only reads `keychain_available`.
-  // Tests pass partial shapes via `as ProviderAuthSnapshot` because the
-  // helper is field-narrow on purpose.
-  function snap(keychainAvailable: boolean | undefined): ProviderAuthSnapshot {
-    return { keychain_available: keychainAvailable } as unknown as ProviderAuthSnapshot;
-  }
+  // v2 Wave 1 — the dot reads `state.connection` (SSE truth) instead of
+  // the v1 keychain_available proxy. Three rendered states map across the
+  // four ConnectionState values: connecting + syncing collapse into the
+  // amber "pending" state; connected stays green; error goes red.
 
-  it('returns "connected" when keychain_available=true', () => {
-    expect(connectionDotState(snap(true))).toBe('connected');
+  it('returns "connected" when state.connection is "connected"', () => {
+    expect(connectionDotState('connected')).toBe('connected');
   });
 
-  it('returns "disconnected" when keychain_available=false', () => {
-    expect(connectionDotState(snap(false))).toBe('disconnected');
+  it('returns "pending" when state.connection is "connecting"', () => {
+    expect(connectionDotState('connecting')).toBe('pending');
   });
 
-  it('returns "disconnected" when keychain_available is undefined', () => {
-    expect(connectionDotState(snap(undefined))).toBe('disconnected');
+  it('returns "pending" when state.connection is "syncing"', () => {
+    expect(connectionDotState('syncing')).toBe('pending');
   });
 
-  it('returns "disconnected" when providerAuth is null', () => {
-    expect(connectionDotState(null)).toBe('disconnected');
+  it('returns "error" when state.connection is "error"', () => {
+    expect(connectionDotState('error')).toBe('error');
   });
 });
 
