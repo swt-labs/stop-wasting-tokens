@@ -34,6 +34,7 @@ import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerInitPrecheckRoute } from './routes/init-precheck.js';
 import { registerInitRoute } from './routes/init.js';
+import { registerMapRoute } from './routes/map.js';
 import { registerModelsRoute } from './routes/models.js';
 import { registerPromptsRoute } from './routes/prompts.js';
 import { registerProviderAuthOAuthRoute } from './routes/provider-auth-oauth.js';
@@ -323,6 +324,13 @@ export function createApp(
   // detection for the wizard's Step 1 render (already_initialized,
   // brownfield, source_file_count, git state). Never mutates state.
   registerInitPrecheckRoute(app, { projectRoot: cwd });
+  // Milestone 23 Phase 03 — POST /api/map. Spawns `swt map` as a detached
+  // subprocess (4 Scout agents fan out INSIDE the subprocess — NOT spawned
+  // by this route). Returns { session_id, pid, started_at }. The
+  // CodebaseMapPrompt banner triggers this; completion is detected via
+  // the snapshotter watching `.swt-planning/codebase/` and flipping
+  // `snapshot.codebase_mapped` to true.
+  registerMapRoute(app, { projectRoot: cwd, bus });
   registerCommandRoute(app, cwd);
   // Plan 04-02 T3 — REQ-17 cook control surface. Cook is intentionally NOT
   // routed through /api/command's allowlist: it spawns a long-lived agent

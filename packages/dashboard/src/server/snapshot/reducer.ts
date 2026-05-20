@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 import {
   type ArtifactSummary,
@@ -240,6 +241,17 @@ export function buildSnapshot(projectRoot: string): Snapshot {
     ...(extensions.blockers.length > 0 ? { blockers: extensions.blockers } : {}),
   };
 
+  // Milestone 23 Phase 03 — derive the brownfield + codebase_mapped
+  // flags from filesystem presence. `stack.json` is the canonical
+  // brownfield signal Phase 01's `detect-stack.sh` writes for brownfield
+  // projects; `.swt-planning/codebase/` is the directory the 4 Scout
+  // agents populate when `swt map` runs. Both fields are ALWAYS set
+  // explicitly here (no `undefined` in the post-init path); the schema's
+  // `.optional()` is purely defensive for old wire snapshots + test
+  // fixtures that omit them (PA-2).
+  const brownfield = existsSync(path.join(projectRoot, '.swt-planning', 'stack.json'));
+  const codebase_mapped = existsSync(path.join(projectRoot, '.swt-planning', 'codebase'));
+
   const snapshot: Snapshot = {
     schema_version: '1',
     generated_at: new Date().toISOString(),
@@ -254,6 +266,8 @@ export function buildSnapshot(projectRoot: string): Snapshot {
       this_milestone_usd: 0,
     },
     is_initialized: true,
+    brownfield,
+    codebase_mapped,
   };
 
   return SnapshotSchema.parse(snapshot);

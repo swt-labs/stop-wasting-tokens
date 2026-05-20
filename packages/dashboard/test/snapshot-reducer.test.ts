@@ -262,6 +262,60 @@ describe('buildSnapshot', () => {
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(50);
   });
+
+  // ── Milestone 23 Phase 03 — brownfield + codebase_mapped fields ─────────
+  it('sets snapshot.brownfield = true when .swt-planning/stack.json exists', () => {
+    const root = setupFixture();
+    writeFileSync(
+      path.join(root, '.swt-planning', 'stack.json'),
+      JSON.stringify({ detected_stack: ['typescript', 'node'] }),
+    );
+    const snap = buildSnapshot(root);
+    expect(snap.brownfield).toBe(true);
+  });
+
+  it('sets snapshot.brownfield = false when .swt-planning/stack.json is absent', () => {
+    const root = setupFixture();
+    const snap = buildSnapshot(root);
+    expect(snap.brownfield).toBe(false);
+  });
+
+  it('sets snapshot.codebase_mapped = true when .swt-planning/codebase/ exists', () => {
+    const root = setupFixture();
+    mkdirSync(path.join(root, '.swt-planning', 'codebase'), { recursive: true });
+    writeFileSync(path.join(root, '.swt-planning', 'codebase', 'META.md'), '# meta\n');
+    const snap = buildSnapshot(root);
+    expect(snap.codebase_mapped).toBe(true);
+  });
+
+  it('sets snapshot.codebase_mapped = false when .swt-planning/codebase/ is absent', () => {
+    const root = setupFixture();
+    const snap = buildSnapshot(root);
+    expect(snap.codebase_mapped).toBe(false);
+  });
+
+  it('parses an OLD snapshot fixture missing brownfield + codebase_mapped (backwards-compat)', () => {
+    // Pre-milestone-23 wire snapshot — no `brownfield` or `codebase_mapped`
+    // fields. `.optional()` on both fields (PA-2) means parse succeeds and
+    // the absent fields are `undefined`. Consumers default at the read site
+    // via `?? false`.
+    const old = {
+      schema_version: '1' as const,
+      generated_at: new Date().toISOString(),
+      project: null,
+      milestone: null,
+      phases: [],
+      active_agents: [],
+      recent_events: [],
+      cost_summary: null,
+      is_initialized: false,
+      brownfield_detected: true,
+    };
+    const parsed = SnapshotSchema.parse(old);
+    expect(parsed.brownfield).toBeUndefined();
+    expect(parsed.codebase_mapped).toBeUndefined();
+    expect(parsed.brownfield_detected).toBe(true);
+  });
 });
 
 describe('snapshotsEqual', () => {

@@ -62,6 +62,13 @@ const WATCH_GLOBS = (projectRoot: string): string[] => [
   path.join(projectRoot, '.swt-planning', '.metrics'),
   path.join(projectRoot, '.swt-planning', '.cook-controls'),
   path.join(projectRoot, '.swt-planning', '.events'),
+  // Milestone 23 Phase 03 PA-5 — the 4 Scout agents spawned by `swt map`
+  // write architecture/structure/stack/etc markdown files into
+  // `.swt-planning/codebase/`. Without this watch entry, the snapshotter
+  // never fires when they complete, so `snapshot.codebase_mapped` never
+  // flips to `true` on the SSE stream and the `CodebaseMapPrompt` banner
+  // never auto-hides.
+  path.join(projectRoot, '.swt-planning', 'codebase'),
 ];
 
 export interface SnapshotterOptions {

@@ -11,6 +11,7 @@ import {
   InitBodySchema,
   InitPrecheckResponseSchema,
   InitResponseSchema,
+  MapStartResponseSchema,
   ModelsSnapshotSchema,
   OAuthManualCodeBodySchema,
   OAuthManualCodeResponseSchema,
@@ -40,6 +41,7 @@ import {
   type InitBody,
   type InitPrecheckResponse,
   type InitResponse,
+  type MapStartResponse,
   type ModelsSnapshot,
   type OAuthManualCodeResponse,
   type OAuthStartResponse,
@@ -70,6 +72,7 @@ export type {
   InitBody,
   InitPrecheckResponse,
   InitResponse,
+  MapStartResponse,
   OAuthManualCodeResponse,
   OAuthStartResponse,
   ProviderAuthSnapshot,
@@ -475,6 +478,28 @@ export async function postInit(body: InitBody): Promise<InitResponse> {
   }
   const raw: unknown = await res.json();
   return InitResponseSchema.parse(raw);
+}
+
+/**
+ * Milestone 23 Phase 03 — `POST /api/map`. Triggers `swt map` CLI which
+ * fans out to 4 parallel **Scout** agents internally (NOT a Lead — per
+ * Scout Drift 1 of the milestone-23 Phase 03 plan). The route takes no
+ * body — the request is a bare POST. Returns the
+ * `{session_id, pid, started_at}` envelope; completion is signalled out-
+ * of-band via the snapshotter's `state.changed` SSE event once
+ * `snapshot.codebase_mapped` flips to `true`.
+ */
+export async function postMap(): Promise<MapStartResponse> {
+  const res = await fetch('/api/map', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+  });
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    throw new ApiError(message, res.status);
+  }
+  const raw: unknown = await res.json();
+  return MapStartResponseSchema.parse(raw);
 }
 
 export async function postCommand(body: CommandBody): Promise<CommandResponse> {

@@ -24,5 +24,12 @@ export function emptySnapshot(brownfield = false): Snapshot {
     cost_summary: null,
     is_initialized: false,
     brownfield_detected: brownfield,
+    // Milestone 23 Phase 03 PA-3 — set the NEW `brownfield` field alongside
+    // the existing `brownfield_detected` so the pre-init snapshot carries
+    // both consistently. App.tsx continues to read `brownfield_detected`
+    // for the pre-init InitScreen gate; `CodebaseMapPrompt` reads the new
+    // `brownfield` field — but only when `is_initialized === true`, so
+    // the value here is effectively informational for the pre-init shape.
+    brownfield: brownfield,
   };
 }

@@ -122,6 +122,26 @@ export const InitPrecheckResponseSchema = z.union([
 ]);
 export type InitPrecheckResponse = z.infer<typeof InitPrecheckResponseSchema>;
 
+/**
+ * `POST /api/map` response.
+ *
+ * Milestone 23 Phase 03 — the route shells out to `swt map` CLI which
+ * fans out to 4 parallel Scout agents internally (the route itself does
+ * NOT spawn Scouts directly per Scout Drift 1). Shape mirrors
+ * `/api/cook/start`: `session_id` mints the SWT_SESSION_ID env var, `pid`
+ * carries the spawned subprocess pid, `started_at` is the ISO timestamp
+ * the daemon recorded at spawn. Completion is signalled out-of-band via
+ * `state.changed` SSE events once the snapshotter sees the new
+ * `.swt-planning/codebase/` directory and flips `snapshot.codebase_mapped`
+ * to `true` (PA-4/PA-5 — no new SSE event variants this phase).
+ */
+export const MapStartResponseSchema = z.object({
+  session_id: z.string().min(1),
+  pid: z.number().int().nullable(),
+  started_at: z.string().datetime({ offset: true }),
+});
+export type MapStartResponse = z.infer<typeof MapStartResponseSchema>;
+
 export const CommandBodySchema = z.object({
   input: z.string().min(1).max(500),
 });
@@ -627,6 +647,10 @@ export const ApiSchemas = {
   '/api/init-precheck': {
     method: 'GET',
     response: InitPrecheckResponseSchema,
+  },
+  '/api/map': {
+    method: 'POST',
+    response: MapStartResponseSchema,
   },
   '/api/command': {
     method: 'POST',

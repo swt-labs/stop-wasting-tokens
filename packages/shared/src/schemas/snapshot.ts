@@ -252,5 +252,29 @@ export const SnapshotSchema = z.object({
    * it; clients should default to false.
    */
   brownfield_detected: z.boolean().optional(),
+  /**
+   * Milestone 23 Phase 03 — whether this INITIALIZED project is a brownfield
+   * codebase. Set by `buildSnapshot()` from `.swt-planning/stack.json`
+   * presence (Phase 01's `detect-stack.sh` writes that file only for
+   * brownfield projects). Distinct from `brownfield_detected` which is
+   * the PRE-init signal used by InitScreen — the two fields coexist by
+   * design (per Scout Drift 2 / PA-3 of milestone-23 Phase 03). Optional
+   * (no `.default(false)`) for backwards-compat: pre-milestone-23 wire
+   * snapshots that omit the field still parse, and consumers (such as
+   * `CodebaseMapPrompt`) default to `false` at the read site via `?? false`.
+   */
+  brownfield: z.boolean().optional(),
+  /**
+   * Milestone 23 Phase 03 — whether `swt map` has completed at least once
+   * for this project. Set by `buildSnapshot()` from `.swt-planning/codebase/`
+   * directory presence (the 4 Scout agents write 7 markdown files into that
+   * directory at the end of a map run). Drives the `CodebaseMapPrompt`
+   * banner's auto-hide: when the snapshotter's chokidar watcher (extended
+   * by milestone-23 PA-5 to include `.swt-planning/codebase/`) fires after
+   * the Scouts complete, `buildSnapshot()` flips this to `true` and the
+   * banner unmounts. Optional for backwards-compat with old snapshots; the
+   * consumer defaults to `false` at the read site.
+   */
+  codebase_mapped: z.boolean().optional(),
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;
