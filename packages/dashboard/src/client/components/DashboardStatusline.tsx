@@ -70,10 +70,17 @@ export interface DashboardStatuslineProps {
   providerAuth: ProviderAuthSnapshot | null;
   /** Live SSE connection state (`state.connection`). Drives the dot color. */
   connectionState: ConnectionState;
+  /**
+   * v2 Wave 3 commit 4 — `state.activeSessionId`. When non-null a cook
+   * session is in flight (orchestrator running, possibly spawning agents);
+   * when null the dashboard is idle. Drives the cook indicator cell at
+   * the head of the Runtime group.
+   */
+  activeSessionId: string | null;
   costSummary: CostSummary | null;
   /** UsageRollup is `.nullable().optional()` on the snapshot — accept both. */
   usageRollup: UsageRollup | null | undefined;
-  /** Five-knob projection of the dashboard's config cell. `null` per key → `—`. */
+  /** Four-knob projection of the dashboard's config cell. `null` per key → `—`. */
   knobs: StatuslineKnobs;
   /** Resolved orchestrator model id, or `null` when the cook callsite hasn't surfaced it. */
   orchestratorModel: string | null;
@@ -287,7 +294,20 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           </span>
         )}
       </For>
-      {/* Cell 7: orchestrator model.
+      {/* Cell 7: cook indicator (Runtime-group head).
+          v2 Wave 3 commit 4 — `cook: running` (terminal-green) when a
+          cook session is in flight, `cook: idle` (slate-muted) otherwise.
+          Source is `props.activeSessionId !== null`. Locked Decision #18:
+          when truly idle the explicit `idle` value reads better than
+          `—` (which would imply "unknown"). */}
+      <span
+        class={`dashboard-statusline-cell dashboard-statusline-cook ${
+          props.activeSessionId !== null ? 'is-running' : 'is-idle'
+        }`}
+      >
+        cook: {props.activeSessionId !== null ? 'running' : 'idle'}
+      </span>
+      {/* Cell 8: orchestrator model.
           v2 Wave 3 commit 3 — relabelled from `model:` to `orchestrator:`
           (Locked Decision #15) so the resolved-model display does not
           collide with the model-profile knob above. */}

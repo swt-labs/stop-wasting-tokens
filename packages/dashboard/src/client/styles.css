@@ -257,6 +257,18 @@ body {
   color: var(--ghost-white);
 }
 
+/* v2 Wave 3 commit 4 — cook indicator. Terminal-green when a cook
+   session is running; slate-muted otherwise. Color is the entire
+   affordance (no glyph swap, no underline) so the cell reads as a
+   regular cell that just happens to change color with state. */
+.dashboard-statusline-cook.is-running {
+  color: var(--terminal-green);
+}
+
+.dashboard-statusline-cook.is-idle {
+  color: var(--slate-muted);
+}
+
 /* When the agents-cell list overflows the inline cap, the cell collapses
    to the count + hover-for-full-list — accent the count subtly so the
    user has a cue that more state exists behind the tooltip. */

@@ -500,6 +500,7 @@ export const App: Component = () => {
       <DashboardStatusline
         providerAuth={state.tools.providerAuth.data ?? null}
         connectionState={state.connection}
+        activeSessionId={state.activeSessionId}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
         knobs={statuslineKnobs()}
