@@ -177,4 +177,68 @@ describe('POST /api/config', () => {
     await postConfig({ wrong: 'shape' });
     expect(busListener).not.toHaveBeenCalled();
   });
+
+  // alpha.38 regression — credential wiring persistence.
+  // Pre-fix bug: POST /api/config ran `parseConfig` which (via Zod's default
+  // strip-unknown behavior) silently dropped the `auth` + `providers` keys
+  // owned by `provider-auth.ts` / `provider-auth-oauth.ts`. Every Theme /
+  // Model / Settings save then wrote the stripped result back, wiping the
+  // user's keychain wiring from .swt-planning/config.json. The credentials
+  // stayed in the OS keychain but the config block naming them was gone,
+  // so on the next daemon restart `buildSnapshot.selected_provider` and
+  // `resolveActiveProvider` could not consistently route to the pinned
+  // provider — user-visible as "SWT forgot my OAuth / API key".
+  describe('credential wiring preservation', () => {
+    it('preserves auth + providers blocks across a POST /api/config write', async () => {
+      // Seed the file with the exact shape provider-auth-oauth.ts writes
+      // after a successful OAuth flow.
+      writeConfig(
+        JSON.stringify({
+          effort: 'balanced',
+          autonomy: 'standard',
+          auth: {
+            anthropic: { mode: 'oauth', credentialRef: 'swt:anthropic:oauth' },
+            openrouter: { mode: 'api_key', credentialRef: 'swt:openrouter:api_key' },
+          },
+          providers: { strategy: { kind: 'pinned', provider: 'anthropic' } },
+        }),
+      );
+
+      // Simulate a Theme dropdown click — client sends only the SwtConfig
+      // surface it has from GET /api/config (which already strips
+      // auth/providers via parseConfig), so auth + providers are NOT in
+      // the request body.
+      const { status } = await postConfig({
+        config: { effort: 'fast', theme: 'dracula' },
+      });
+      expect(status).toBe(200);
+
+      // Read back from disk — auth + providers must still be there,
+      // and the new theme value must have landed.
+      const cfgPath = join(cwd, '.swt-planning', 'config.json');
+      const onDisk = JSON.parse(readFileSync(cfgPath, 'utf8')) as Record<string, unknown>;
+      expect(onDisk['theme']).toBe('dracula');
+      expect(onDisk['effort']).toBe('fast');
+      expect(onDisk['auth']).toEqual({
+        anthropic: { mode: 'oauth', credentialRef: 'swt:anthropic:oauth' },
+        openrouter: { mode: 'api_key', credentialRef: 'swt:openrouter:api_key' },
+      });
+      expect(onDisk['providers']).toEqual({
+        strategy: { kind: 'pinned', provider: 'anthropic' },
+      });
+    });
+
+    it('writes cleanly on greenfield (no auth/providers to preserve)', async () => {
+      // Confirm the preservation logic does not introduce empty keys
+      // when there is nothing on disk to preserve.
+      const { status } = await postConfig({ config: { effort: 'turbo' } });
+      expect(status).toBe(200);
+      const cfgPath = join(cwd, '.swt-planning', 'config.json');
+      const onDisk = JSON.parse(readFileSync(cfgPath, 'utf8')) as Record<string, unknown>;
+      expect(onDisk['effort']).toBe('turbo');
+      // Greenfield: no auth/providers should be invented.
+      expect('auth' in onDisk).toBe(false);
+      expect('providers' in onDisk).toBe(false);
+    });
+  });
 });

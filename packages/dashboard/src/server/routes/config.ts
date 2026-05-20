@@ -109,7 +109,54 @@ export function registerConfigRoute(app: Hono, cwd: string, bus?: EventBus): voi
       // demand so the first config edit doesn't crash with ENOENT before
       // /api/init has been called.
       await mkdir(dirname(cfgPath), { recursive: true });
-      await writeFile(cfgPath, `${JSON.stringify(validated, null, 2)}\n`, 'utf8');
+
+      // alpha.38 fix: preserve credential-related sibling keys (`auth`,
+      // `providers`) that this route does NOT own. They are owned by
+      // `provider-auth.ts` / `provider-auth-oauth.ts` and live in the
+      // same `.swt-planning/config.json` file but are NOT part of the
+      // `SwtConfig` Zod schema — so `parseConfig` strips them at line 99
+      // above. Writing `validated` verbatim would therefore wipe the
+      // user's keychain wiring (`auth.<provider>.credentialRef` +
+      // `providers.strategy = {kind:'pinned', provider}`), causing
+      // every Save / Theme / Model click on the dashboard to "log out"
+      // the user from their pinned provider on the next daemon restart.
+      // The keychain itself stays intact (the secret never lived in
+      // config.json), but the config block that names it does — and
+      // without it, `buildSnapshot` cannot derive `selected_provider`
+      // reliably and `resolveActiveProvider` falls back to the wrong
+      // slot. Read the on-disk config first, lift out `auth` /
+      // `providers`, then write `validated` MERGED with those keys.
+      let preserved: Record<string, unknown> = {};
+      try {
+        const current = await readFile(cfgPath, 'utf8');
+        const parsedCurrent: unknown = JSON.parse(current);
+        if (typeof parsedCurrent === 'object' && parsedCurrent !== null) {
+          const obj = parsedCurrent as Record<string, unknown>;
+          if (obj['auth'] !== undefined) preserved['auth'] = obj['auth'];
+          if (obj['providers'] !== undefined) preserved['providers'] = obj['providers'];
+        }
+      } catch (err) {
+        // ENOENT (greenfield) or malformed JSON: nothing to preserve.
+        // For ENOENT this is correct (no auth wiring yet). For malformed
+        // JSON we fall through — the validated write replaces the bad
+        // file, mirroring the pre-fix behavior. Any other read error
+        // also falls through to the write attempt below; a real IO
+        // problem will surface from `writeFile`.
+        if (
+          typeof err !== 'object' ||
+          err === null ||
+          (err as { code?: string }).code !== 'ENOENT'
+        ) {
+          // Non-ENOENT — preserved stays empty. Not fatal here.
+          preserved = {};
+        }
+      }
+
+      const merged: Record<string, unknown> = {
+        ...(validated as unknown as Record<string, unknown>),
+        ...preserved,
+      };
+      await writeFile(cfgPath, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return c.json({ error: 'config_write_failed', detail: message }, 500);
