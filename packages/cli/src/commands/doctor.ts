@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { SpawnerEnvironment } from '@swt-labs/core';
+import { resolveActiveProvider, resolveCredentialStore } from '@swt-labs/runtime';
 
 import { EXIT, type ExitCode } from '../exit-codes.js';
 import type { CommandHandler, CommandIO } from '../router.js';
@@ -140,7 +141,16 @@ export function renderDoctorReport(report: DoctorReport): string {
 }
 
 export function doctorHandler(deps: DoctorDeps = {}): CommandHandler {
-  return async (_parsed, io: CommandIO): Promise<ExitCode> => {
+  return async (parsed, io: CommandIO): Promise<ExitCode> => {
+    // alpha.40 — `--auth` flag routes to the credential-triage diagnostic
+    // (keychain_improvements.md §2.1). Resolves keychain entries +
+    // config.json blocks + resolveActiveProvider output in one pass so
+    // future "credentials forgotten" bug reports get triaged in seconds.
+    if (parsed.flags['auth'] === true) {
+      const text = await renderAuthDoctor(io.cwd);
+      io.stdout.write(text);
+      return EXIT.SUCCESS;
+    }
     // Thread the io-supplied SpawnerEnvironment into deps if the caller hasn't already
     // overridden it (preserves test-injectable behavior; production wiring comes from main.ts).
     const finalDeps: DoctorDeps = {
@@ -153,4 +163,126 @@ export function doctorHandler(deps: DoctorDeps = {}): CommandHandler {
     io.stdout.write(renderDoctorReport(report));
     return EXIT.SUCCESS;
   };
+}
+
+/**
+ * alpha.40 — `swt doctor --auth` diagnostic per keychain_improvements.md §2.1.
+ *
+ * Surfaces the three layers credential persistence depends on, in one pass:
+ *
+ *   1. **Keychain** — every credential `swt` has written, with provider +
+ *      authMode. The user's secret is NEVER printed, only the
+ *      `(provider, authMode)` keys.
+ *   2. **Config** — the `auth` and `providers.strategy` blocks from
+ *      `.swt-planning/config.json`. These are the pointers from the config
+ *      to the keychain entries.
+ *   3. **Round-trip** — what `resolveActiveProvider` (the same helper the
+ *      chat route + spawn path call) returns given the current config.
+ *      Tells the user immediately whether the dashboard will see them as
+ *      authed.
+ *
+ * The keychain is the truth; the config is the namer; the resolver is the
+ * consumer. Any persistence bug surfaces as a mismatch between two of these
+ * three rows.
+ */
+export async function renderAuthDoctor(cwd: string): Promise<string> {
+  const lines: string[] = [];
+  lines.push('SWT doctor — credential triage:');
+  lines.push('');
+
+  // 1. Keychain entries.
+  lines.push('  Keychain entries (service=swt):');
+  try {
+    const { store, probe, backend } = await resolveCredentialStore();
+    if (!probe.available) {
+      lines.push(
+        `    ⚠ Keychain unavailable — ${probe.reason ?? 'no reason reported'} (backend: ${backend})`,
+      );
+    } else {
+      const refs = await store.list();
+      if (refs.length === 0) {
+        lines.push('    (none — no `swt` credentials have been written to this OS keychain)');
+      } else {
+        for (const ref of refs) {
+          lines.push(`    ✓ ${ref.provider}:${ref.authMode}`);
+        }
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    lines.push(`    ⚠ Keychain probe failed: ${message}`);
+  }
+  lines.push('');
+
+  // 2. Config blocks.
+  lines.push(`  Project config (${join(cwd, '.swt-planning', 'config.json')}):`);
+  const selection = resolveActiveProvider(cwd);
+  const authProviders = Object.keys(selection.authConfig);
+  if (authProviders.length === 0) {
+    lines.push('    auth                  : (empty — no provider entries)');
+  } else {
+    for (const p of authProviders) {
+      const entry = selection.authConfig[p];
+      if (entry !== undefined) {
+        lines.push(
+          `    auth.${p.padEnd(15)} : { mode: "${entry.mode}", credentialRef: "${entry.credentialRef ?? `swt:${p}:${entry.mode}`}" }`,
+        );
+      }
+    }
+  }
+  // Strategy: derived from the resolveActiveProvider source field.
+  if (selection.source === 'pinned') {
+    lines.push(`    providers.strategy    : { kind: "pinned", provider: "${selection.provider}" }`);
+  } else if (selection.source === 'first-authed') {
+    lines.push('    providers.strategy    : (not pinned — resolver falling back to first-authed)');
+  } else {
+    lines.push('    providers.strategy    : (not pinned, no auth entries)');
+  }
+  if (selection.model !== null) {
+    lines.push(`    model                 : "${selection.model}"`);
+  } else {
+    lines.push('    model                 : (null — Pi default model for the provider)');
+  }
+  lines.push('');
+
+  // 3. Round-trip — what the chat route + spawn path would see.
+  lines.push('  Round-trip (what resolveActiveProvider returns):');
+  if (selection.provider === null) {
+    lines.push('    ✗ provider            : null — no credential will resolve');
+  } else {
+    lines.push(`    ✓ provider            : "${selection.provider}" (source: ${selection.source})`);
+  }
+  lines.push('');
+
+  // 4. Status banner.
+  const keychainPresent = await (async (): Promise<number> => {
+    try {
+      const { store } = await resolveCredentialStore();
+      const refs = await store.list();
+      return refs.length;
+    } catch {
+      return -1;
+    }
+  })();
+  const configPresent = authProviders.length;
+  if (keychainPresent > 0 && configPresent === 0) {
+    lines.push(
+      '  Status: ⚠ MISMATCH — keychain has credentials but config.json has no auth block.',
+    );
+    lines.push(
+      '          Open the dashboard Provider menu and re-pin a provider to re-populate the config.',
+    );
+  } else if (keychainPresent === 0 && configPresent > 0) {
+    lines.push(
+      '  Status: ⚠ MISMATCH — config.json names credentials that are not in the keychain.',
+    );
+    lines.push('          Re-authenticate via the dashboard Provider menu.');
+  } else if (keychainPresent > 0 && configPresent > 0 && selection.provider !== null) {
+    lines.push('  Status: ✓ HEALTHY');
+  } else {
+    lines.push('  Status: — no credentials configured yet. Run the dashboard Provider menu.');
+  }
+  lines.push('');
+
+  return lines.join('\n');
 }

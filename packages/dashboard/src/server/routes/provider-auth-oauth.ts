@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import {
   runOAuthLoginFlow,
@@ -24,6 +23,7 @@ import {
 import type { Hono } from 'hono';
 
 import type { EventBus } from '../event-bus.js';
+import { updateConfigFile } from '../lib/update-config-file.js';
 
 /**
  * Phase 4 — the dashboard's OAuth login server half:
@@ -88,53 +88,34 @@ interface OAuthFlowState {
  * `credentialRef` NAME is persisted — never the `OAuthCredentials` blob.
  */
 async function writeAuthConfig(cfgPath: string, provider: string): Promise<void> {
-  let config: Record<string, unknown>;
-  try {
-    const current = await readFile(cfgPath, 'utf8');
-    const parsedCurrent: unknown = JSON.parse(current);
-    config =
-      typeof parsedCurrent === 'object' && parsedCurrent !== null
-        ? { ...(parsedCurrent as Record<string, unknown>) }
+  // alpha.40 — delegates the read-modify-write dance to `updateConfigFile`.
+  // Surgically updates `auth.<provider>` + `providers.strategy`; every other
+  // top-level key (preferences owned by POST /api/config) is preserved
+  // verbatim by the helper. The alpha.36 invariant (writing
+  // `providers.strategy` alongside `auth.<provider>` on OAuth completion to
+  // mirror the API-key path) is preserved — without it, post-OAuth
+  // `buildSnapshot.selected_provider` stays null + the Initialize button
+  // stays greyed.
+  await updateConfigFile(cfgPath, (config) => {
+    const prevAuth =
+      typeof config['auth'] === 'object' && config['auth'] !== null
+        ? (config['auth'] as Record<string, unknown>)
         : {};
-  } catch (err) {
-    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
-      // Greenfield daemon — no config.json yet; `mkdir -p` below creates
-      // `.swt-planning/` on demand.
-      config = {};
-    } else {
-      throw err;
-    }
-  }
-
-  const prevAuth =
-    typeof config['auth'] === 'object' && config['auth'] !== null
-      ? (config['auth'] as Record<string, unknown>)
-      : {};
-  config['auth'] = {
-    ...prevAuth,
-    // The fixed `swt:<provider>:oauth` credentialRef NAME (Phase 2 Risk 3
-    // naming). ONLY the name is persisted; never the OAuthCredentials blob.
-    [provider]: { mode: 'oauth', credentialRef: `swt:${provider}:oauth` },
-  };
-
-  // alpha.36 fix: ALSO pin `providers.strategy` to this provider on OAuth
-  // completion — mirrors the API-key write path in `provider-auth.ts` POST.
-  // Without this, `buildSnapshot.selected_provider` stays null after OAuth,
-  // every gate that reads `selected_provider` (InitScreen Initialize button,
-  // chat route credential resolver, TopBar Provider menu's auto-selection)
-  // treats the OAuth'd provider as not-selected. Pre-fix users saw the
-  // Initialize button stuck greyed even after a successful OAuth flow.
-  const prevProviders =
-    typeof config['providers'] === 'object' && config['providers'] !== null
-      ? (config['providers'] as Record<string, unknown>)
-      : {};
-  config['providers'] = {
-    ...prevProviders,
-    strategy: { kind: 'pinned', provider },
-  };
-
-  await mkdir(dirname(cfgPath), { recursive: true });
-  await writeFile(cfgPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+    config['auth'] = {
+      ...prevAuth,
+      // The fixed `swt:<provider>:oauth` credentialRef NAME (Phase 2 Risk 3
+      // naming). ONLY the name is persisted; never the OAuthCredentials blob.
+      [provider]: { mode: 'oauth', credentialRef: `swt:${provider}:oauth` },
+    };
+    const prevProviders =
+      typeof config['providers'] === 'object' && config['providers'] !== null
+        ? (config['providers'] as Record<string, unknown>)
+        : {};
+    config['providers'] = {
+      ...prevProviders,
+      strategy: { kind: 'pinned', provider },
+    };
+  });
 }
 
 /**

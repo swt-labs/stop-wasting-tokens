@@ -1,6 +1,10 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { buildDoctorReport, renderDoctorReport } from '../src/commands/doctor.js';
+import { buildDoctorReport, renderAuthDoctor, renderDoctorReport } from '../src/commands/doctor.js';
 
 describe('doctor report', () => {
   it('reports OK when codex and node are healthy', async () => {
@@ -92,5 +96,73 @@ describe('doctor report', () => {
       stat: async () => ({}),
     });
     expect(report.pi).toBeUndefined();
+  });
+});
+
+describe('renderAuthDoctor (alpha.40 — keychain_improvements.md §2.1)', () => {
+  it('reports MISMATCH when config has no auth block (greenfield project dir)', async () => {
+    const dir = join(tmpdir(), `swt-doctor-auth-${Math.random().toString(36).slice(2)}`);
+    await mkdir(dir, { recursive: true });
+    try {
+      // No .swt-planning/config.json — greenfield. The diagnostic must
+      // not crash; it surfaces the empty-config state cleanly.
+      const text = await renderAuthDoctor(dir);
+      expect(text).toContain('SWT doctor — credential triage:');
+      expect(text).toContain('auth                  : (empty');
+      expect(text).toContain('providers.strategy    : (not pinned, no auth entries)');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports a pinned provider + matching auth block as healthy in the round-trip section', async () => {
+    const dir = join(tmpdir(), `swt-doctor-auth-${Math.random().toString(36).slice(2)}`);
+    await mkdir(join(dir, '.swt-planning'), { recursive: true });
+    try {
+      // Seed a config that names anthropic via OAuth and pins it.
+      await writeFile(
+        join(dir, '.swt-planning', 'config.json'),
+        JSON.stringify(
+          {
+            auth: { anthropic: { mode: 'oauth', credentialRef: 'swt:anthropic:oauth' } },
+            providers: { strategy: { kind: 'pinned', provider: 'anthropic' } },
+            theme: 'default',
+          },
+          null,
+          2,
+        ),
+      );
+      const text = await renderAuthDoctor(dir);
+      expect(text).toContain('auth.anthropic');
+      expect(text).toContain('mode: "oauth"');
+      expect(text).toContain('providers.strategy    : { kind: "pinned", provider: "anthropic" }');
+      expect(text).toContain('provider            : "anthropic" (source: pinned)');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports first-authed fallback when auth has entries but providers.strategy is missing', async () => {
+    const dir = join(tmpdir(), `swt-doctor-auth-${Math.random().toString(36).slice(2)}`);
+    await mkdir(join(dir, '.swt-planning'), { recursive: true });
+    try {
+      await writeFile(
+        join(dir, '.swt-planning', 'config.json'),
+        JSON.stringify(
+          {
+            auth: { openrouter: { mode: 'api_key', credentialRef: 'swt:openrouter:api_key' } },
+          },
+          null,
+          2,
+        ),
+      );
+      const text = await renderAuthDoctor(dir);
+      expect(text).toContain(
+        'providers.strategy    : (not pinned — resolver falling back to first-authed)',
+      );
+      expect(text).toContain('provider            : "openrouter" (source: first-authed)');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

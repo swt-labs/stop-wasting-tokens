@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import { resolveCredentialStore } from '@swt-labs/runtime';
 import {
@@ -14,6 +14,7 @@ import {
 import type { Hono } from 'hono';
 
 import type { EventBus } from '../event-bus.js';
+import { updateConfigFile } from '../lib/update-config-file.js';
 
 /**
  * Phase 3 — the dashboard vendor-select panel's server half:
@@ -162,7 +163,7 @@ async function buildSnapshot(cwd: string): Promise<ProviderAuthSnapshot> {
   // `selected_provider` is `let` (not `const`) because the alpha.36 fallback
   // below may override it when `providers.strategy` doesn't pin a provider
   // but the keychain has an authed credential. `strategy_kind` stays const.
-  // eslint-disable-next-line prefer-const
+
   let { selected_provider, strategy_kind } = extractSelection(parsed);
   const authBlock = extractAuthBlock(parsed);
 
@@ -387,49 +388,34 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
       }
     }
 
-    // 7. Config write — atomic, preserving every other key (mirrors
-    //    config.ts: read current, mutate a copy, `mkdir -p` + `writeFile`).
-    let config: Record<string, unknown>;
+    // 7. Config write — alpha.40 delegates the read-modify-write dance to
+    // the shared `updateConfigFile` helper. The mutator surgically updates
+    // `auth.<provider>` + `providers.strategy`; every other top-level key
+    // (preferences owned by POST /api/config — theme, model, settings) is
+    // preserved verbatim by the helper's contract. See
+    // `update-config-file.test.ts` for the invariant tests.
     try {
-      const current = await readFile(cfgPath, 'utf8');
-      const parsedCurrent: unknown = JSON.parse(current);
-      config =
-        typeof parsedCurrent === 'object' && parsedCurrent !== null
-          ? { ...(parsedCurrent as Record<string, unknown>) }
-          : {};
-    } catch (err) {
-      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ENOENT') {
-        // Greenfield daemon — no config.json yet. Start from an empty object;
-        // `mkdir -p` below creates `.swt-planning/` on demand.
-        config = {};
-      } else {
-        const message = err instanceof Error ? err.message : String(err);
-        return c.json({ error: 'provider_auth_write_failed', detail: message }, 500);
-      }
-    }
-
-    const prevProviders =
-      typeof config['providers'] === 'object' && config['providers'] !== null
-        ? (config['providers'] as Record<string, unknown>)
-        : {};
-    const prevAuth =
-      typeof config['auth'] === 'object' && config['auth'] !== null
-        ? (config['auth'] as Record<string, unknown>)
-        : {};
-    config['providers'] = {
-      ...prevProviders,
-      strategy: { kind: 'pinned', provider },
-    };
-    config['auth'] = {
-      ...prevAuth,
-      // The global `swt:<provider>:<authMode>` credentialRef NAME — Phase 2
-      // Risk 3's fixed naming. ONLY the name is persisted; never the secret.
-      [provider]: { mode: 'api_key', credentialRef: `swt:${provider}:api_key` },
-    };
-
-    try {
-      await mkdir(dirname(cfgPath), { recursive: true });
-      await writeFile(cfgPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+      await updateConfigFile(cfgPath, (config) => {
+        const prevProviders =
+          typeof config['providers'] === 'object' && config['providers'] !== null
+            ? (config['providers'] as Record<string, unknown>)
+            : {};
+        const prevAuth =
+          typeof config['auth'] === 'object' && config['auth'] !== null
+            ? (config['auth'] as Record<string, unknown>)
+            : {};
+        config['providers'] = {
+          ...prevProviders,
+          strategy: { kind: 'pinned', provider },
+        };
+        config['auth'] = {
+          ...prevAuth,
+          // The global `swt:<provider>:<authMode>` credentialRef NAME —
+          // Phase 2 Risk 3's fixed naming. ONLY the name is persisted;
+          // never the secret.
+          [provider]: { mode: 'api_key', credentialRef: `swt:${provider}:api_key` },
+        };
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return c.json({ error: 'provider_auth_write_failed', detail: message }, 500);

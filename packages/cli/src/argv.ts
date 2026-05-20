@@ -116,6 +116,11 @@ export function parseSwtArgv(argv: readonly string[]): ParsedArgv {
       // bypassing freshness + filter guards). The handler does numeric
       // validation; the argv layer stays type-uniform.
       todo: { type: 'string' },
+      // alpha.40 — `swt doctor --auth` credential-triage diagnostic (per
+      // keychain_improvements.md §2.1). When present, the doctor command
+      // prints keychain entries + config.json auth/providers blocks +
+      // resolveActiveProvider output instead of the regular Node/Pi check.
+      auth: { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: true,
