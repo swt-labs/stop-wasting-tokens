@@ -96,10 +96,23 @@ export interface DashboardStatuslineProps {
   /**
    * v2 Wave 5 commit 10 — monotonically-increasing "now" in milliseconds.
    * App.tsx ticks a `createSignal<number>(Date.now())` every 1s so the
-   * `rate:` cell recomputes during a live session. Pure prop; the
-   * component does no setInterval of its own.
+   * `rate:` cell + the connection-dot's pending-state tooltip
+   * ("last event Xs ago") recompute live. Pure prop; the component
+   * does no setInterval of its own.
    */
   nowMs: number;
+  /**
+   * v2 Wave 5 commit 11 — most-recent SSE round-trip latency in ms
+   * (from `state.lastEventLatencyMs`). Renders into the
+   * connection-dot's `title` tooltip when connected.
+   */
+  lastEventLatencyMs: number | null;
+  /**
+   * v2 Wave 5 commit 11 — wall-clock ms at which the most-recent SSE
+   * event was received (from `state.lastEventReceivedAt`). Drives the
+   * "last event Xs ago" arm of the dot tooltip while pending/syncing.
+   */
+  lastEventReceivedAt: number | null;
   costSummary: CostSummary | null;
   /** UsageRollup is `.nullable().optional()` on the snapshot — accept both. */
   usageRollup: UsageRollup | null | undefined;
@@ -148,16 +161,57 @@ export function connectionDotState(
 }
 
 /**
- * v2 Wave 4 commit 7 — short hover tooltip for the connection dot.
- * Wave 5 commit 11 will extend this with SSE round-trip latency when
- * connected and last-event age when pending; for commit 7 the tooltip
- * is just a state label.
+ * v2 Wave 4 commit 7 — short hover tooltip for the connection dot
+ * (state-only form, retained for callers that haven't plumbed latency
+ * telemetry).
  */
 export function connectionDotTooltip(connectionState: ConnectionState): string {
   if (connectionState === 'connected') return 'Connected — SSE stream open';
   if (connectionState === 'syncing') return 'Syncing — replaying state from server';
   if (connectionState === 'connecting') return 'Connecting — SSE stream opening';
   return 'Connection error — SSE stream disconnected';
+}
+
+/**
+ * v2 Wave 5 commit 11 — connection-dot tooltip with live latency
+ * telemetry from `state.lastEventLatencyMs` + `state.lastEventReceivedAt`.
+ *
+ *   - `'connected'`  with latency  → `Connected · <N>ms latency`
+ *   - `'connected'`  without latency → falls back to the state-only form
+ *   - `'syncing'`    → `Syncing · last event <N>s ago` when receivedAt is
+ *                      known, else falls back to the state-only form
+ *   - `'connecting'` → `Connecting · last event <N>s ago` (same fallback)
+ *   - `'error'`      → `Connection error — SSE stream disconnected`
+ *                      (latency is meaningless during an error state)
+ *
+ * `nowMs` is provided by the App.tsx 1Hz ticker (same signal that
+ * drives the cost-rate cell), so the "last event Xs ago" readout
+ * recomputes live during pending states.
+ */
+export function connectionDotTooltipWithLatency(
+  connectionState: ConnectionState,
+  latencyMs: number | null,
+  receivedAt: number | null,
+  nowMs: number,
+): string {
+  if (connectionState === 'error') {
+    return 'Connection error — SSE stream disconnected';
+  }
+  if (connectionState === 'connected') {
+    if (latencyMs !== null) {
+      return `Connected · ${latencyMs}ms latency`;
+    }
+    return 'Connected — SSE stream open';
+  }
+  // 'connecting' | 'syncing' → pending branches share the readout.
+  const stateLabel = connectionState === 'syncing' ? 'Syncing' : 'Connecting';
+  if (receivedAt !== null) {
+    const ageS = Math.max(0, (nowMs - receivedAt) / 1000);
+    return `${stateLabel} · last event ${ageS.toFixed(1)}s ago`;
+  }
+  return connectionState === 'syncing'
+    ? 'Syncing — replaying state from server'
+    : 'Connecting — SSE stream opening';
 }
 
 /**
@@ -408,11 +462,17 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       </span>
       {/* Cell 2: connection dot — Wave 1 of v2: dot reads state.connection
           (SSE truth) instead of providerAuth.keychain_available.
-          Wave 4 commit 7: tooltip describes the state; Wave 5 commit 11
-          will extend with SSE latency. */}
+          Wave 5 commit 11 — tooltip extends to include live SSE
+          round-trip latency when connected, and "last event Xs ago"
+          while pending/syncing. */}
       <span
         class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(props.connectionState)}`}
-        title={connectionDotTooltip(props.connectionState)}
+        title={connectionDotTooltipWithLatency(
+          props.connectionState,
+          props.lastEventLatencyMs,
+          props.lastEventReceivedAt,
+          props.nowMs,
+        )}
       >
         ●
       </span>

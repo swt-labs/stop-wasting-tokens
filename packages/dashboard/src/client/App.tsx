@@ -519,6 +519,8 @@ export const App: Component = () => {
         activeSessionId={state.activeSessionId}
         sessionStartTs={state.orchestratorSessionStartTs}
         nowMs={nowMs()}
+        lastEventLatencyMs={state.lastEventLatencyMs}
+        lastEventReceivedAt={state.lastEventReceivedAt}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
         knobs={statuslineKnobs()}

@@ -32,6 +32,7 @@ import { describe, expect, it } from 'vitest';
 import {
   connectionDotState,
   connectionDotTooltip,
+  connectionDotTooltipWithLatency,
   formatAgentsCell,
   formatContextEstimate,
   formatCostRate,
@@ -87,14 +88,66 @@ describe('connectionDotState', () => {
   });
 });
 
-// v2 Wave 4 commit 7 — short hover tooltip for the dot. Pinned here so
-// commit 11 (SSE latency) extends rather than rewrites the contract.
+// v2 Wave 4 commit 7 — state-only hover tooltip for the dot. Retained
+// for callers that haven't plumbed the latency telemetry yet.
 describe('connectionDotTooltip', () => {
   it('describes each ConnectionState', () => {
     expect(connectionDotTooltip('connected')).toBe('Connected — SSE stream open');
     expect(connectionDotTooltip('syncing')).toBe('Syncing — replaying state from server');
     expect(connectionDotTooltip('connecting')).toBe('Connecting — SSE stream opening');
     expect(connectionDotTooltip('error')).toBe('Connection error — SSE stream disconnected');
+  });
+});
+
+// v2 Wave 5 commit 11 — connection-dot tooltip extended with live SSE
+// latency. Connected branch surfaces `Connected · <N>ms latency`;
+// pending branches (`connecting` / `syncing`) surface "last event
+// Xs ago"; error stays state-only.
+describe('connectionDotTooltipWithLatency', () => {
+  it('returns `Connected · <N>ms latency` when connected with latency telemetry', () => {
+    expect(connectionDotTooltipWithLatency('connected', 45, Date.now() - 45, Date.now())).toBe(
+      'Connected · 45ms latency',
+    );
+  });
+
+  it('falls back to the state-only Connected tooltip when latency is null', () => {
+    expect(connectionDotTooltipWithLatency('connected', null, null, Date.now())).toBe(
+      'Connected — SSE stream open',
+    );
+  });
+
+  it('renders `<state> · last event Xs ago` for pending states with receivedAt', () => {
+    const now = Date.parse('2026-05-20T20:00:00Z');
+    const received = Date.parse('2026-05-20T19:59:57.500Z');
+    expect(connectionDotTooltipWithLatency('connecting', null, received, now)).toBe(
+      'Connecting · last event 2.5s ago',
+    );
+    expect(connectionDotTooltipWithLatency('syncing', null, received, now)).toBe(
+      'Syncing · last event 2.5s ago',
+    );
+  });
+
+  it('falls back to the state-only label for pending states with no receivedAt', () => {
+    expect(connectionDotTooltipWithLatency('connecting', null, null, Date.now())).toBe(
+      'Connecting — SSE stream opening',
+    );
+    expect(connectionDotTooltipWithLatency('syncing', null, null, Date.now())).toBe(
+      'Syncing — replaying state from server',
+    );
+  });
+
+  it('always returns the state-only error tooltip (latency is meaningless during error)', () => {
+    expect(connectionDotTooltipWithLatency('error', 100, Date.now(), Date.now())).toBe(
+      'Connection error — SSE stream disconnected',
+    );
+  });
+
+  it('clamps negative event-age to 0 so a future receivedAt does not flash a negative readout', () => {
+    const now = Date.parse('2026-05-20T19:59:57Z');
+    const received = Date.parse('2026-05-20T20:00:00Z'); // 3s in the future
+    expect(connectionDotTooltipWithLatency('connecting', null, received, now)).toBe(
+      'Connecting · last event 0.0s ago',
+    );
   });
 });
 

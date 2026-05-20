@@ -370,6 +370,26 @@ export interface DashboardState {
    */
   orchestratorSessionStartTs: string | null;
   /**
+   * Statusline v2 Wave 5 commit 11 — most-recent SSE event round-trip
+   * latency in milliseconds. Computed in `applyEvent` as
+   * `Date.now() - Date.parse(evt.ts)` and clamped to a `>= 0` floor.
+   * Null until the first event with a parseable `ts` arrives.
+   *
+   * Drives the connection-dot's `title` tooltip via
+   * `connectionDotTooltipWithLatency(state, latencyMs, receivedAt,
+   * nowMs)` so the user gets a live latency readout on hover when the
+   * stream is healthy.
+   */
+  lastEventLatencyMs: number | null;
+  /**
+   * Statusline v2 Wave 5 commit 11 — wall-clock millisecond stamp at
+   * which the most-recent SSE event was received (`Date.now()` at
+   * dispatch time). Used by the connection-dot tooltip to render
+   * `Pending · last event <N>s ago` while the stream is in a
+   * pending/error state. Null until the first event lands.
+   */
+  lastEventReceivedAt: number | null;
+  /**
    * Plan 02-01 (milestone 13, Phase 02) — the single in-flight cook askUser
    * prompt, or `null` when no cook prompt is awaiting a user response.
    * SET by the `prompt.request` reducer branch when the event's `session_id`
@@ -686,6 +706,12 @@ export function createDashboardStore(
     // timestamp for the live cost-rate cell. Set from
     // `cook.priority_decision.ts`; cleared in the 10s cookClearTimer.
     orchestratorSessionStartTs: null,
+    // Statusline v2 Wave 5 commit 11 — SSE latency tooltip telemetry.
+    // Populated by `applyEvent` from `evt.ts`; the connection-dot's
+    // tooltip surfaces these (`Connected · 45ms latency` /
+    // `Pending · last event 2.3s ago`).
+    lastEventLatencyMs: null,
+    lastEventReceivedAt: null,
     cookAwaitingUser: null,
     oauthFlow: null,
     initSession: null,
@@ -1513,6 +1539,24 @@ export function createDashboardStore(
   };
 
   const applyEvent = (evt: SnapshotEvent): void => {
+    // Statusline v2 Wave 5 commit 11 — capture SSE round-trip latency
+    // BEFORE dispatching to the per-type reducer. Latency = `Date.now()
+    // - Date.parse(evt.ts)` when the event carries a parseable `ts`;
+    // both the latency and the receive-time go into state so the
+    // connection-dot tooltip can render `Connected · <N>ms latency`.
+    // Wrapped in a narrow `ts in evt` check because not every
+    // SnapshotEvent shape carries a top-level `ts` field — defensively
+    // treat missing `ts` as "no latency datum to record" so the tooltip
+    // degrades to the state-only form.
+    const evtWithTs = evt as { ts?: unknown };
+    if (typeof evtWithTs.ts === 'string') {
+      const eventMs = Date.parse(evtWithTs.ts);
+      if (!Number.isNaN(eventMs)) {
+        const now = Date.now();
+        setState('lastEventLatencyMs', Math.max(0, now - eventMs));
+        setState('lastEventReceivedAt', now);
+      }
+    }
     // Chat branch goes FIRST so the chat.* prefix routing wins before any
     // overlapping init./cook./oauth. handling could fire on a future
     // schema collision. The reducer is self-correlating (drops events
