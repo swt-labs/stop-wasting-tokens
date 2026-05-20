@@ -13,6 +13,7 @@ import {
 
 import { ActiveAgentsPane } from './components/ActiveAgentsPane.js';
 import { ArtifactPreview } from './components/ArtifactPreview.js';
+import { CodebaseMapPrompt } from './components/CodebaseMapPrompt.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { CommandsSection } from './components/CommandsSection.js';
 import { DashboardStatusline } from './components/DashboardStatusline.js';
@@ -268,11 +269,26 @@ export const App: Component = () => {
               brownfield={isBrownfield()}
               initSession={() => state.initSession}
               onInit={actions.initProject}
+              isMappingCodebase={() => state.isMappingCodebase}
+              onMapCodebase={() => void actions.startCodebaseMap()}
             />
           </main>
         }
       >
         <main class="app-body">
+          {/* Milestone 23 Phase 03 — persistent banner that surfaces the
+              codebase-mapping affordance for brownfield projects that have
+              NOT yet been mapped. Conditional render lives inside
+              `<CodebaseMapPrompt>` (its `shouldShowMapPrompt(snapshot)` Show
+              guard). Auto-hides via SSE-driven `state.changed` once
+              `snapshot.codebase_mapped` flips to `true`. Mounted INSIDE the
+              `isInitialized()` branch (Scout Drift 9) so it only renders
+              for actually-initialized projects. */}
+          <CodebaseMapPrompt
+            snapshot={() => state.snapshot}
+            isMappingCodebase={() => state.isMappingCodebase}
+            onMapCodebase={() => void actions.startCodebaseMap()}
+          />
           <Resizable
             orientation="horizontal"
             initialSizes={initialLayout.main}

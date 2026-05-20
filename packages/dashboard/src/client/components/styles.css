@@ -4286,3 +4286,75 @@ body {
   font-family: var(--font-mono);
   color: var(--ghost-white);
 }
+
+/* ── Milestone 23 Phase 03 — CodebaseMapPrompt banner ────────────────────
+ * Persistent banner mounted in App.tsx ABOVE the resizable 4-panel grid
+ * when `snapshot.brownfield === true && snapshot.codebase_mapped === false`.
+ * Compact horizontal row; never disruptive (small fixed height). Uses
+ * semantic CSS vars only so the 8 milestone-22 themes apply automatically.
+ */
+.codebase-map-prompt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  margin: 8px 12px 0 12px;
+  background: var(--deep-void);
+  border: 1px solid var(--terminal-green);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.codebase-map-prompt-icon {
+  flex: 0 0 auto;
+  color: var(--terminal-green);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.codebase-map-prompt-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.codebase-map-prompt-headline {
+  color: var(--ghost-white);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.codebase-map-prompt-detail {
+  color: var(--slate-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.codebase-map-prompt-cta {
+  flex: 0 0 auto;
+}
+
+.codebase-map-prompt-button {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--terminal-green);
+  color: var(--terminal-green);
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.codebase-map-prompt-button:hover:not(:disabled) {
+  background: var(--terminal-green);
+  color: var(--deep-void);
+}
+
+.codebase-map-prompt-button:disabled {
+  border-color: var(--slate-muted);
+  color: var(--slate-muted);
+  cursor: not-allowed;
+}

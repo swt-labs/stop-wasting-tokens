@@ -157,6 +157,20 @@ export interface InitScreenProps {
    * the wizard can read it).
    */
   onInit: (body: InitBody) => Promise<InitResponse>;
+  /**
+   * Milestone 23 Phase 03 (PA-1, PA-6) — Step 4's `[Map codebase]` button
+   * reads this accessor (true while `swt map` is running on the daemon).
+   * Hoisted from the former component-local `mapClicked` signal to the
+   * dashboard store so the wizard + the persistent `<CodebaseMapPrompt>`
+   * banner observe the SAME in-flight flag.
+   */
+  isMappingCodebase: () => boolean;
+  /**
+   * Milestone 23 Phase 03 (PA-1, PA-6) — Step 4's `[Map codebase]` button
+   * onClick. Wired in App.tsx to `actions.startCodebaseMap()` (the store
+   * action that calls `postMap()`).
+   */
+  onMapCodebase: () => void;
 }
 
 /**
@@ -251,11 +265,12 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
     'already-initialized' | 'retryable' | 'fatal' | null
   >(null);
 
-  // Milestone 23 Phase 02 T03 (placeholder for Phase 03) — Solid signal
-  // hook for the [Map codebase] button on Step 4. Phase 03 will consume
-  // this signal to wire POST /api/map; Phase 02 only sets the flag +
-  // logs a debug line.
-  const [mapClicked, setMapClicked] = createSignal(false);
+  // Milestone 23 Phase 03 (PA-1) — the former component-local `mapClicked`
+  // signal is GONE. The in-flight flag now lives in dashboard-store as
+  // `state.isMappingCodebase` and is read here via `props.isMappingCodebase()`.
+  // Single source of truth so the wizard + the persistent
+  // `<CodebaseMapPrompt>` banner observe the same value (no parallel
+  // signals; no UI drift).
 
   // ── /api/init-precheck resource (Step 1 auto-detect) ─────────────────
   // Milestone 23 Phase 02 T02. Fires once on mount; the response either
@@ -309,10 +324,13 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
     }
   };
 
+  // Milestone 23 Phase 03 (PA-1) — Step 4's `[Map codebase]` button calls
+  // the hoisted store action. The action is the single entry point for
+  // triggering mapping; the persistent CodebaseMapPrompt banner also calls
+  // it. The action returns a Promise<{ok}|{error}> but we don't await it
+  // here — the in-flight UI state is driven by `props.isMappingCodebase()`.
   const handleMapCodebaseClick = (): void => {
-    setMapClicked(true);
-    // eslint-disable-next-line no-console
-    console.debug('[InitScreen] map-codebase placeholder click — Phase 03 will wire POST /api/map');
+    props.onMapCodebase();
   };
 
   // ── Step 1 helpers ────────────────────────────────────────────────────
@@ -613,10 +631,10 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
                         <button
                           type="button"
                           class="init-wizard-secondary"
-                          disabled={mapClicked()}
+                          disabled={props.isMappingCodebase()}
                           onClick={handleMapCodebaseClick}
                         >
-                          {mapClicked() ? 'Map queued (Phase 03 wires)' : 'Map codebase'}
+                          {props.isMappingCodebase() ? 'Mapping…' : 'Map codebase'}
                         </button>
                       </div>
                     </div>

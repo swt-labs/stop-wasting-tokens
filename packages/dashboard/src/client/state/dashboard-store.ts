@@ -38,6 +38,7 @@ import {
   postCookRespond,
   postCookStart,
   postInit,
+  postMap,
   postOAuthCode,
   postOAuthStart,
   postPromptRespond,
@@ -274,6 +275,17 @@ export interface DashboardState {
   uatModal: UatModalState | null;
   uatSubmitting: boolean;
   initSubmitting: boolean;
+  /**
+   * Milestone 23 Phase 03 (PA-1) — single source of truth for "is `swt map`
+   * currently running?" Hoisted from `InitScreen.tsx`'s former component-
+   * local `mapClicked` signal so both the wizard's Step 4 `[Map codebase]`
+   * button AND the persistent `<CodebaseMapPrompt>` banner observe the
+   * SAME in-flight flag (no parallel signals; no UI drift). Set to `true`
+   * inside `actions.startCodebaseMap()` and cleared when the snapshotter's
+   * SSE-driven `state.changed` event flips `snapshot.codebase_mapped` to
+   * `true` (or on POST failure so the user can retry).
+   */
+  isMappingCodebase: boolean;
   commandSubmitting: boolean;
   vibeSession: VibeSessionState | null;
   vibeStarting: boolean;
@@ -377,6 +389,17 @@ export interface DashboardActions {
   closeUatModal: () => void;
   submitUatCheckpoint: (result: 'pass' | 'fail', note?: string) => Promise<void>;
   initProject: (body: InitBody) => Promise<InitResponse>;
+  /**
+   * Milestone 23 Phase 03 (PA-1) — single entry point for triggering
+   * `swt map` on a brownfield project. Called by both `<CodebaseMapPrompt>`
+   * (the persistent banner) and `<InitScreen>` Step 4's `[Map codebase]`
+   * button. Guards on `state.isMappingCodebase === true` (no-op while
+   * already in flight), flips the flag, and calls `postMap()`. On success
+   * the flag stays `true` until the snapshotter's `state.changed` event
+   * flips `snapshot.codebase_mapped` to `true` (a `createEffect` resets
+   * the flag). On error the flag is cleared so the user can retry.
+   */
+  startCodebaseMap: () => Promise<{ ok: true } | { error: string }>;
   runCommand: (input: string) => Promise<CommandResponse | null>;
   startVibeSession: (prompt: string) => Promise<string | null>;
   /**
@@ -594,6 +617,11 @@ export function createDashboardStore(
     uatModal: null,
     uatSubmitting: false,
     initSubmitting: false,
+    // Milestone 23 Phase 03 (PA-1) — hoisted from InitScreen.tsx's former
+    // component-local `mapClicked` signal. Single source of truth for "is
+    // `swt map` running?" observed by both the wizard's Step 4 button and
+    // the persistent CodebaseMapPrompt banner.
+    isMappingCodebase: false,
     commandSubmitting: false,
     vibeSession: null,
     vibeStarting: false,
@@ -1436,6 +1464,13 @@ export function createDashboardStore(
     }
     if (evt.type === 'snapshot.replace') {
       setState('snapshot', evt.snapshot);
+      // Milestone 23 Phase 03 (PA-1) — keep the in-flight flag aligned with
+      // a freshly replaced snapshot. On reconnect the daemon may emit the
+      // post-map snapshot directly; the flag must clear or the banner /
+      // wizard would stay stuck in "Mapping…" forever.
+      if ((evt.snapshot as Snapshot & { codebase_mapped?: boolean }).codebase_mapped === true) {
+        setState('isMappingCodebase', false);
+      }
       // Plan 04-03 T1 — hydrate live agents from the snapshot so a
       // reconnected client immediately shows the right table without
       // waiting on live events. The field is optional in the Snapshot
@@ -1456,6 +1491,15 @@ export function createDashboardStore(
           if (!prev) return prev;
           return { ...prev, ...partial };
         });
+        // Milestone 23 Phase 03 (PA-1) — when the snapshotter reports the
+        // 4-Scout fan-out has completed (.swt-planning/codebase/ now
+        // exists → buildSnapshot flips `codebase_mapped` to true → SSE
+        // carries the partial), clear the in-flight flag so the wizard's
+        // Step 4 button (if still mounted) and the CodebaseMapPrompt banner
+        // both observe the resolved state.
+        if ((partial as { codebase_mapped?: boolean }).codebase_mapped === true) {
+          setState('isMappingCodebase', false);
+        }
       }
       // v2.3 Phase 03: when the server reports config mutated (via POST
       // /api/config), refetch the Config cell so the panel reflects the
@@ -2061,6 +2105,42 @@ export function createDashboardStore(
   };
 
   /**
+   * Milestone 23 Phase 03 (PA-1) — single entry point for triggering
+   * `swt map` on a brownfield project. Hoisted from InitScreen.tsx's
+   * former component-local `mapClicked` signal so both surfaces (the
+   * wizard's Step 4 button + the persistent CodebaseMapPrompt banner)
+   * share ONE in-flight signal. No parallel signals; no UI drift.
+   *
+   * Guards on `state.isMappingCodebase === true` (no-op if already in
+   * flight). On success the flag stays `true` until the snapshotter's
+   * `state.changed` event with `codebase_mapped: true` lands (handled in
+   * the applyEvent state.changed branch above). On error the flag is
+   * cleared so the user can retry.
+   *
+   * Vendor-agnostic at the HTTP layer (Locked Decision #10) — the auth
+   * gate lives inside `swt map` CLI itself; a non-zero exit within 5s
+   * surfaces via the route's watchdog → ErrorEvent on the bus →
+   * pushError toast.
+   */
+  const startCodebaseMap = async (): Promise<{ ok: true } | { error: string }> => {
+    if (state.isMappingCodebase) {
+      return { ok: true };
+    }
+    setState('isMappingCodebase', true);
+    try {
+      await postMap();
+      return { ok: true };
+    } catch (err: unknown) {
+      // Failure path — clear the flag so the banner re-shows the CTA and
+      // the user can retry.
+      setState('isMappingCodebase', false);
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`codebase mapping failed: ${message}`);
+      return { error: message };
+    }
+  };
+
+  /**
    * Milestone 13 / Phase 01 — surface a runCommand response in the unified
    * log. The user's typed input becomes one stdout entry; each stdout/
    * stderr line is a separate entry; a non-zero exit code adds a final
@@ -2611,6 +2691,7 @@ export function createDashboardStore(
       closeUatModal,
       submitUatCheckpoint,
       initProject,
+      startCodebaseMap,
       runCommand,
       startVibeSession,
       startChat,

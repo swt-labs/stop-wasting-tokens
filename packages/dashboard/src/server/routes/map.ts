@@ -20,8 +20,8 @@
  *      `{type: 'error', code: 'MAP_SPAWN_FAILED'}` event on the bus.
  *   6. Returns `{ session_id, pid, started_at }` to the client.
  *
- * Locked Decision #10 (vendor-agnostic init surface): the route reads NO
- * `state.providerAuth`. Mapping requires a configured provider — but that
+ * Locked Decision #10 (vendor-agnostic init surface): the route reads no
+ * provider-auth state. Mapping requires a configured provider — but that
  * gate is checked INSIDE `swt map` itself (the CLI exits non-zero when no
  * provider is configured; the 5s watchdog surfaces that as an
  * `ErrorEvent`). The route + banner remain vendor-agnostic at the HTTP/UI

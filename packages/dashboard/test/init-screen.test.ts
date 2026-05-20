@@ -199,9 +199,19 @@ describe('InitScreen (smoke)', () => {
         git_initialized: false,
         stack: [],
       }),
+      // Milestone 23 Phase 03 (PA-1, PA-6) — Step 4 [Map codebase] button
+      // now reads the hoisted store flag + calls the hoisted action via
+      // these two new props (the former component-local `mapClicked`
+      // signal is gone).
+      isMappingCodebase: () => false,
+      onMapCodebase: () => {
+        /* no-op */
+      },
     };
     expect(typeof sanity.onInit).toBe('function');
     expect(typeof sanity.initSession).toBe('function');
+    expect(typeof sanity.isMappingCodebase).toBe('function');
+    expect(typeof sanity.onMapCodebase).toBe('function');
 
     // Compile-time gate: this assignment fails if providerAuth (or any
     // other unexpected key) is added to InitScreenProps.
@@ -210,9 +220,18 @@ describe('InitScreen (smoke)', () => {
       brownfield: true,
       initSession: true,
       onInit: true,
+      isMappingCodebase: true,
+      onMapCodebase: true,
     };
     expect(Object.keys(_typecheck).sort()).toEqual(
-      ['brownfield', 'initSession', 'onInit', 'submitting'].sort(),
+      [
+        'brownfield',
+        'initSession',
+        'isMappingCodebase',
+        'onInit',
+        'onMapCodebase',
+        'submitting',
+      ].sort(),
     );
   });
 
