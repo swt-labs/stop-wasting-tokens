@@ -1,6 +1,39 @@
 # Changelog
 
-## Unreleased — alpha.47 (milestone 24 — Vendor-Agnostic Chat Identity & Active-Model Surfacing + statusline v2 wave 5 + Free-talk persistence + Codex OAuth additions)
+## Unreleased — alpha.48 (openai-codex OAuth fix — surface OAuth on the architecturally-valid OpenAI provider id)
+
+_Single-commit hotfix surfacing the milestone-21 ChatGPT-subscription OAuth path on the SWT-facing `'openai-codex'` provider id (which matches pi-ai 0.74's registry id 1:1 and dispatches to `chatgpt.com/backend-api`) and removing the OAuth UI surface for the bare `'openai'` id (which routes to `api.openai.com/v1` and architecturally rejects JWTs)._
+
+### Fix
+
+- **`a094714` fix(dashboard): move OpenAI OAuth from 'openai' to 'openai-codex' provider** — Two-symptom bug surfaced by a user during alpha.47 smoke: (Issue A) selecting `'openai'` allowed OAuth login but every chat turn errored at the bottom of the chat log; (Issue B) selecting `'openai-codex'` showed no OAuth radio at all in `ProviderAuthPanel`.
+
+  **Root cause:** pi-ai 0.74 registers TWO OpenAI providers in its registry — `'openai'` (api `openai-responses`, endpoint `api.openai.com/v1`, API-key-only credential) and `'openai-codex'` (api `openai-codex-responses`, endpoint `chatgpt.com/backend-api`, OAuth JWT credential). Milestone 21 stored OAuth tokens under the SWT-facing `'openai'` provider id and only translated to pi-ai's `'openai-codex'` at the OAuth login route boundary via `mapToOAuthProviderId` (`packages/runtime/src/credentials/oauth/provider-id-map.ts:41`). At chat dispatch time, `session.ts:221` set up AuthStorage under provider id `'openai'`, but pi-ai's `getOAuthProvider('openai')` returns `undefined` (the OAuth provider is registered as `'openai-codex'`). Chat surfaced `CHAT_PROMPT_ERROR` ("No API key for provider: openai") at the bottom of the chat. Even if the lookup had succeeded, dispatch through pi-ai's `'openai'` provider would have hit `api.openai.com/v1` and rejected the JWT with a 401.
+
+  **Fix:** in `packages/dashboard/src/client/components/ProviderAuthPanel.tsx`, the `OAUTH_PROVIDERS` array changes from `['anthropic', 'openai', 'github-copilot']` to `['anthropic', 'openai-codex', 'github-copilot']`; the ChatGPT-Plus advisory re-gates from `selectedProvider() === 'openai'` to `selectedProvider() === 'openai-codex'`; the docblock is updated. The SWT-facing `'openai-codex'` id matches pi-ai's `'openai-codex'` registry id 1:1, so no `mapToOAuthProviderId` translation is needed at any boundary — OAuth login stores under `swt:openai-codex:oauth`, AuthStorage uses provider id `'openai-codex'`, and Pi dispatches via `openai-codex-responses` to `chatgpt.com/backend-api` (the JWT's home endpoint). End-to-end works natively.
+
+  **Backward compatibility:** `provider-id-map.ts:41` still has `{ openai: 'openai-codex' }` — the milestone-21 route-layer smoke (`packages/dashboard/test/provider-auth-oauth-openai.test.ts`) depends on it, and any external caller POSTing `{provider:'openai'}` to the OAuth route still resolves correctly via the translation. The UI just no longer offers that path. Existing keychain entries under `swt:openai:oauth` are harmless (unused).
+
+  **Test surface inversion:** the regression-lock test at `packages/dashboard/test/provider-auth-panel-oauth.test.ts:179` was inverted — it previously asserted `isOAuthProvider('openai-codex') === false` (locking the wrong shape); it now asserts `isOAuthProvider('openai-codex') === true`, `isOAuthProvider('openai') === false`, and `OAUTH_PROVIDERS` array contents lock the corrected shape with inline rationale to prevent re-drift.
+
+  **Verification:** 161/161 targeted tests pass (`provider-auth-panel-oauth` 27, `provider-auth-panel` 28, `provider-auth-oauth-route` 21, `provider-auth-route` 17, `provider-auth-oauth-openai` 2, `chat-route` 22, `chat-session-registry` 15, full runtime OAuth suite 29). Workspace `pnpm test`: **2922 passed / 67 skipped / 0 failed** across 309 test files. Typecheck clean. Lint 0 errors (583 pre-existing `import/no-restricted-paths` warnings — non-fatal per CLAUDE.md). Format clean. Gate A + Gate B (clean-worktree sandbox preflight at `/tmp/swt-alpha-48-sandbox`) both GREEN.
+
+  **Files modified (2):** `packages/dashboard/src/client/components/ProviderAuthPanel.tsx` (+34/-6) · `packages/dashboard/test/provider-auth-panel-oauth.test.ts` (+42/-13).
+
+### Carry-over (no change since alpha.47)
+
+- **Invert `.gitignore` scripts/ rule** — still deferred.
+- **Automate `pnpm release:preflight:sandbox`** — still deferred (alpha.48 was again validated in a hand-built sandbox).
+- **Deferred milestone-21 `originator` param override for `loginOpenAICodex`** — still deferred; the debug investigation confirmed it does NOT affect Issue A or B (it's a telemetry-attribution string defaulting to `"pi"` — auth and dispatch correctness do not depend on it).
+- **Burned tag cleanup** — `v3.0.0-alpha.44` and `v3.0.0-alpha.45` remain as orphan GitHub tags.
+
+### Process note
+
+This fix was discovered + diagnosed + applied + QA-verified via the `/vbw:debug` workflow in a single session (root cause → fix commit → 19/19 QA checks PASS). UAT is paused at the user's request; session resumes via `/vbw:debug --resume`.
+
+---
+
+## v3.0.0-alpha.47 — 2026-05-20 (milestone 24 — Vendor-Agnostic Chat Identity & Active-Model Surfacing + statusline v2 wave 5 + Free-talk persistence + Codex OAuth additions)
 
 _30 commits since alpha.46 covering: the full milestone 24 closure (4 phases / 5 plans / 7 commits including the e2e regression lock + PA-4 follow-up + archive docs); a substantial statusline v2 wave 5 polish train (cell-id vocabulary, density toggle, keyboard navigation, screen-reader semantics, several new cells); Free-talk Mode chat persistence across daemon restarts; three Codex OAuth additions from `a_non_production_files/codex-Oauth.md`. Test growth: ~2842 → 2920 (+~78 net workspace-wide). Final preflight: Gate A workspace-wide + Gate B clean-worktree sandbox both GREEN. Local tag: `milestone/24-vendor-agnostic-chat-identity-and-active-model-surfacing` on commit `5846dd9`._
 

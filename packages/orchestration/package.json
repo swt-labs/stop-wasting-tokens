@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/orchestration",
-  "version": "3.0.0-alpha.47",
+  "version": "3.0.0-alpha.48",
   "description": "Layer 2 — orchestration: sequential dispatcher (PR-03), PiSpawnerEnvironment, claim registry + DAG resolver (M3). Bridges methodology's `AgentSpawner` requests into runtime `createSession` calls.",
   "license": "MIT",
   "type": "module",
