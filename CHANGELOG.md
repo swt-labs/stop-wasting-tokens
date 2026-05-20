@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased — alpha.45 hotfix (track VBW-vendored scripts; alpha.44 detonated at CI Test step)
+
+_v3.0.0-alpha.44 was tagged on GitHub and pushed but **never published to npm** — the release workflow failed at the `pnpm test` step because `packages/core/src/scaffold/init-project.ts` shells out to `scripts/planning-git.sh`, `scripts/detect-stack.sh`, and `scripts/bootstrap/bootstrap-claude.sh` via `execFileSync`, but those 3 scripts were gitignored (VBW-vendored, "porter regenerates them" per CLAUDE.md). The local preflight passed because the user's VBW porter had populated `scripts/` locally; the CI runner had no such priming. 5 tests in `packages/core/test/scaffold/init-project.test.ts` failed at lines 227, 252, 307, 330, 350 — all `syncGitignore: planning-git.sh sync-ignore failed`. The `v3.0.0-alpha.44` git tag remains as documentation of the failure (same pattern as alpha.27/.28/.30 in v3 release history); npm `next` dist-tag jumps from alpha.43 to alpha.45._
+
+### Fix
+
+- **`{TBD}` fix(release): track milestone-23 scripts that initProject shells out to** —
+
+  **Root cause:** Phase 01 of milestone 23 added `syncGitignore()`, `runDetectStack()`, and `bootstrapClaudeMd()` to `initProject()`. These shell out to scripts at `scripts/planning-git.sh`, `scripts/detect-stack.sh`, and `scripts/bootstrap/bootstrap-claude.sh`. The scripts existed locally (VBW porter had run) but were gitignored by `.gitignore:122 scripts/*`. Local `pnpm release:preflight` passed; CI failed because the GHA runner had no porter priming. The contract — "VBW porter regenerates these" — only holds on developer machines, not CI runners.
+
+  **Fix:** Carve out the 3 scripts (plus 4 sibling bootstrap helpers under `scripts/bootstrap/`) in `.gitignore` so they ship with the npm tarball AND are present on CI. This follows the exact same pattern as the Phase 02 agent-state scripts (`scripts/agent-pid-tracker.sh`, `scripts/agent-start.sh`, ...) which are also VBW-authored but SWT-product-owned-by-usage. The carve-out block is annotated in `.gitignore` with the alpha.44 failure context for future readers.
+
+  **Why this is the right architectural fix, not a stop-gap:** Any script that SWT product code (under `packages/**`) shells out to MUST be tracked in git, otherwise the npm tarball + CI cannot reproduce the behavior. The "VBW porter regenerates them" exception only applies to scripts that SWT developer tooling consumes (e.g., `vbw-marketplace` plugin hooks). The 3 carved-out scripts now sit at the same SWT-owned tier as `bump-version.sh`, `check-tarball-shape.mjs`, etc. — explicit invariants of the SWT product, not VBW tooling.
+
+  **Verification:** local `pnpm release:preflight` GREEN with the scripts tracked. Test count unchanged (2845 passed / 67 skipped / 0 failed across 307 test files). Tarball-shape check: 301 entries, all 10 sentinels present.
+
+  **Files added:** `scripts/planning-git.sh` (VBW-vendored, 4310 LOC) · `scripts/detect-stack.sh` (VBW-vendored) · `scripts/bootstrap/bootstrap-claude.sh` + `bootstrap-project.sh` + `bootstrap-requirements.sh` + `bootstrap-roadmap.sh` + `bootstrap-state.sh` (5 bootstrap helpers, also VBW-vendored). **Files modified:** `.gitignore` (+10 LOC carve-out block with failure-mode commentary).
+
+  **No code changes to `packages/**`.** The scaffold helpers + `initProject()` orchestration are byte-identical to alpha.44.
+
+### Release history note (alpha.27/.28/.30/.44 precedent)
+
+Four alpha releases in v3 have now failed at the tag-push CI step due to local/CI environment drift: alpha.27 (lint), alpha.28 (format), alpha.30 (lint), alpha.44 (test — missing scripts). CLAUDE.md's "Release Discipline" section (Gate A + Gate B) was authored after alpha.30 to prevent the lint/format class. Today's failure is a NEW class — local preflight that depends on local-environment state. Future hardening: extend `release:preflight` to optionally run in a clean-checkout sandbox (`git worktree add /tmp/preflight-sandbox && cd $_ && pnpm install --frozen-lockfile && pnpm release:preflight`) so missing-from-git failures fire locally before tag-push.
+
+---
+
 ## Unreleased — milestone 23 (Initialize Wizard v2 — Synchronous Scaffold, Mapping Deferred)
 
 _Four-phase milestone replacing the dashboard's `Initialize SWT project` Lead-subprocess flow — which depended on Claude Code's `AskUserQuestion` primitive (broken in detached-subprocess SSE context) — with a synchronous wizard at `InitScreen.tsx` plus an optional post-init codebase-mapping affordance. Trigger: 758-line proposal at `a_non_production_files/init_wizard.md` with 17 locked decisions + 35 acceptance criteria. Archived 2026-05-20 as `23-init-wizard-v2-synchronous-scaffold-mapping-deferred`; local tag `milestone/23-init-wizard-v2-synchronous-scaffold-mapping-deferred` on commit `bc604ed`._

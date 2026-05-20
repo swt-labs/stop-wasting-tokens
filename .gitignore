@@ -158,6 +158,16 @@ scripts/lib/*
 !scripts/agent-stop.sh
 !scripts/agent-spawn-guard.sh
 !scripts/clean-stale-teams.sh
+# Milestone-23 init-wizard scripts: VBW-authored but SWT product code in
+# packages/core/src/scaffold/ shells out to them via initProject(). They must
+# ship with the npm tarball + be present in CI. alpha.44 failed at the Test
+# step because these scripts were absent on the GitHub Actions runner. Tracking
+# them here follows the same pattern as the agent-state scripts above (SWT-side
+# rewrites of VBW originals — Pi-substrate-aware).
+!scripts/planning-git.sh
+!scripts/detect-stack.sh
+!scripts/bootstrap/
+!scripts/bootstrap/*.sh
 !scripts/tmux-watchdog.sh
 !scripts/lease-lock.sh
 !scripts/hook-wrapper.sh
