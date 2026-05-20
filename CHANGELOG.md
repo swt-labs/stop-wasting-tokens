@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — alpha.43 providerAuth fetches even on greenfield (Initialize button now respects keychain)
+
+_User on alpha.42 verified provider switching works end-to-end. Last remaining bug: "starting a project from scratch, on first launch SWT does not remember auths, it requires to re-auth to be able to make the 'Initialize SWT' button green." Despite the keychain having both credentials, the InitScreen's ProviderAuthPanel rendered with `data: null` and no ✓ markers, forcing the user to re-enter credentials before the Initialize button enabled. This is the LAST link in the alpha.35→.43 auth-chain investigation._
+
+### Fixes
+
+- **`6594246` fix(dashboard): fetch providerAuth on bootstrap + polling even on greenfield** —
+
+  **Root cause:** `dashboard-store.ts` had three places that short-circuited tools-cell fetches on `!is_initialized`: `refreshTools()`, `refreshToolsGroup()`, and the bootstrap path. The short-circuit was an explicit design decision to keep the dashboard quiet pre-init (the comment called it out: "tools polling — only meaningful once the daemon reports is_initialized"). But the InitScreen mounts the `ProviderAuthPanel` BEFORE init so the user can pin a provider — and the "Initialize SWT project" button is gated on `selected_provider` being resolved from the snapshot. With the short-circuit, the snapshot never fetched, the panel rendered with `data: null`, and the button stayed greyed until manual re-auth populated the keychain (which it already had) and the snapshot.
+
+  **Fix:** new `filterKeysForGreenfield(keys)` helper used by both `refreshTools` and `refreshToolsGroup` — keeps the bug class compositional rather than ad-hoc per-call-site. The helper returns the full keys when `is_initialized=true`, and just `['providerAuth']` otherwise. Bootstrap also fires an initial `refreshToolsCell('providerAuth')` + `startToolsPolling()` + `installToolsVisibilityHandler()` in the greenfield branch (all three are idempotent — when init lands and the helpers run again, no duplicate timers/listeners).
+
+  **Why this is structural, not whack-a-mole:** any new tools cell added to `TOOLS_KEYS` automatically inherits the correct greenfield behavior via the filter. If a future cell needs to fetch pre-init (e.g., a Doctor pre-init check), it joins the `PROVIDERAUTH_KEY` allowlist; otherwise it stays gated. The existing snapshot-side fixes (alpha.36 `selected_provider` fallback derivation; alpha.41 "✓ configured" banner) work as designed — they just needed the snapshot to actually be FETCHED in greenfield.
+
+  **Test impact:** existing test "bootstrap on greenfield snapshot does NOT fetch tools" was test-locking the buggy behavior. Renamed + updated to assert the new contract: providerAuth IS fetched in greenfield, others stay null. Total: 2773 / 67 skipped / 0 failed. All 49 `dashboard-store.test.ts` tests green.
+
+  **Files modified:** `packages/dashboard/src/client/state/dashboard-store.ts` (+27 LOC including the new helper and comments, −5 LOC removing the bare short-circuit) · `packages/dashboard/test/dashboard-store.test.ts` (1 test renamed + updated with 5 new lines of assertions).
+
+  **D2 invariant preserved.** Preflight (Gate A+B): green.
+
+### The full auth-chain arc (alpha.35 → alpha.43, closed)
+
+| Release | Layer | Verified | 
+|---|---|---|
+| alpha.35 | Snapshot probe (both modes when config.auth.mode is null) | ✓ |
+| alpha.36 | OAuth save writes providers.strategy + buildSnapshot fallback | ✓ |
+| alpha.37 | Chat route honours pinned strategy + forwards config.model | ✓ |
+| alpha.38 | POST /api/config preserves auth + providers (Zod strip) | ✓ |
+| alpha.39 | Chat-session-registry binding invalidation on switch | ✓ |
+| alpha.40 | Structural: `updateConfigFile` helper + invariant test + `swt doctor --auth` | ✓ |
+| alpha.41 | UI: hide ProviderAuthPanel auth-entry behind "Replace credentials" | ✓ |
+| alpha.42 | Dropdown auto-pins to configured provider + server allows pin-only oauth | ✓ |
+| **alpha.43** | **providerAuth snapshot fetches even in greenfield** | **Awaits user UAT** |
+
 ## Unreleased — alpha.42 dropdown auto-pins to configured provider
 
 _User on alpha.41 testing a fresh greenfield project: re-OAuth'd Anthropic (chat replied), then switched the Provider dropdown to OpenRouter. Panel correctly showed "✓ openrouter is configured" — but the chat session was still pinned to anthropic. Quote: "I have no 'apply' button, so it stuck with anthropic." The dropdown was display-only; nothing pinned the strategy._
