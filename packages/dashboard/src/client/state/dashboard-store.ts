@@ -853,10 +853,7 @@ export function createDashboardStore(
         // counter from the only cook event that carries token counts
         // (`cook.agent_result.usage.input_tokens`). Powers App.tsx's
         // statuslineCumulativeTokens memo and the context-estimate cell.
-        setState(
-          'orchestratorSessionInputTokens',
-          (prev) => prev + evt.usage.input_tokens,
-        );
+        setState('orchestratorSessionInputTokens', (prev) => prev + evt.usage.input_tokens);
         // Milestone 13 / Phase 01 — cook-agent result entry. Carries
         // result_status + cost/elapsed for richer monospace rendering.
         pushLogEntry({
