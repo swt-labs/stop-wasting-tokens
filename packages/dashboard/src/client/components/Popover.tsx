@@ -76,8 +76,12 @@ export interface PopoverProps {
    * parent flips its open state false (and returns focus to the trigger).
    */
   onClose: () => void;
-  /** The popover surface's ARIA role — e.g. `"menu"`. */
-  role: string;
+  /** The popover surface's ARIA role — e.g. `"menu"`. Typed as the Solid
+   *  JSX ARIA-role union (matches what `<div role={...}>` actually accepts)
+   *  rather than the bare `string` that tripped TS2322 at line 138 for 10
+   *  consecutive milestones (DEVN-05). Closing this in alpha.43's typecheck
+   *  debt sweep. */
+  role: JSX.AriaAttributes['role'];
   /** The popover surface's accessible name. */
   ariaLabel: string;
   /** Extra class appended to the base `.popover` class (the consumer's skin). */

@@ -483,7 +483,9 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
             <button
               type="button"
               class="provider-auth-replace-btn"
-              onClick={(): void => setReplacingCredentials(true)}
+              onClick={(): void => {
+                setReplacingCredentials(true);
+              }}
             >
               Replace credentials…
             </button>

@@ -1,5 +1,5 @@
 import type { ProviderAuthSnapshot, ProviderAuthStatus } from '@swt-labs/shared';
-import { createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js';
+import { createMemo, createSignal, onCleanup, onMount, Show, type Component } from 'solid-js';
 
 import type { InitBody } from '../services/api.js';
 import type { InitSessionState } from '../state/dashboard-store.js';

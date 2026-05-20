@@ -433,7 +433,11 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // inside the component, so the registry data is lazy-loaded on first open.
   let modelTriggerRef: HTMLButtonElement | undefined;
   const [modelOpen, setModelOpen] = createSignal(false);
-  const toggleModelMenu = (): void => setModelOpen((v) => !v);
+  // alpha.43 typecheck-debt sweep: block-wrap so the setter's boolean
+  // return doesn't leak through the `(): void` annotation (TS2322).
+  const toggleModelMenu = (): void => {
+    setModelOpen((v) => !v);
+  };
   const closeModelMenu = (): void => {
     setModelOpen(false);
     modelTriggerRef?.focus();
@@ -447,7 +451,9 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // restores focus on dismissal; GithubDropdown only calls `onClose`.
   let githubTriggerRef: HTMLButtonElement | undefined;
   const [githubMenuOpen, setGithubMenuOpen] = createSignal(false);
-  const toggleGithubMenu = (): void => setGithubMenuOpen((v) => !v);
+  const toggleGithubMenu = (): void => {
+    setGithubMenuOpen((v) => !v);
+  };
   const closeGithubMenu = (): void => {
     setGithubMenuOpen(false);
     githubTriggerRef?.focus();
@@ -469,7 +475,9 @@ export const TopBar: Component<TopBarProps> = (props) => {
   // dashboard (degraded but visible).
   let themesTriggerRef: HTMLButtonElement | undefined;
   const [themesMenuOpen, setThemesMenuOpen] = createSignal(false);
-  const toggleThemesMenu = (): void => setThemesMenuOpen((v) => !v);
+  const toggleThemesMenu = (): void => {
+    setThemesMenuOpen((v) => !v);
+  };
   const closeThemesMenu = (): void => {
     setThemesMenuOpen(false);
     themesTriggerRef?.focus();
