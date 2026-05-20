@@ -335,8 +335,27 @@ export interface DashboardState {
    * rules). `null` before the orchestrator has emitted, or when the
    * callsite couldn't resolve the model (Pi's ModelRegistry resolved it
    * internally). The dashboard statusline renders `—` when null.
+   *
+   * Statusline v2 Wave 2 — the post-`cook.completion` cookClearTimer
+   * (line ~920) now also clears this slot 10s after the session ends
+   * so stale orchestrator model labels don't bleed into the next
+   * session's UI.
    */
   orchestratorModel: string | null;
+  /**
+   * Statusline v2 Wave 2 — cumulative input tokens for the current
+   * orchestrator session. Resets to 0 on every `cook.priority_decision`
+   * (new session) AND alongside `orchestratorModel` in the
+   * `cook.completion` cookClearTimer. Incremented on every
+   * `cook.agent_result` by `evt.usage.input_tokens` (the only cook
+   * event that carries per-turn input-token counts).
+   *
+   * Replaces the v1 statusline's read of `cost_summary.tokens.in` which
+   * was dashboard-lifetime cumulative and never decremented across
+   * sessions — so after three sessions the statusline read `~150k/200k`
+   * even when the active session had ~0 input tokens.
+   */
+  orchestratorSessionInputTokens: number;
   /**
    * Plan 02-01 (milestone 13, Phase 02) — the single in-flight cook askUser
    * prompt, or `null` when no cook prompt is awaiting a user response.
@@ -642,6 +661,14 @@ export function createDashboardStore(
     activeAgents: new Map<string, AgentLiveState>(),
     activeSessionId: null,
     orchestratorModel: null,
+    // Statusline v2 Wave 2 — per-orchestrator-session cumulative input-token
+    // counter. Resets on `cook.priority_decision` (new session) AND in the
+    // post-`cook.completion` cookClearTimer alongside the other Runtime
+    // slots. Used by App.tsx's statuslineCumulativeTokens memo so the
+    // context-estimate cell reflects the active session, not
+    // dashboard-lifetime cumulative (the v1 bug — read cost_summary.tokens
+    // which never decremented across sessions).
+    orchestratorSessionInputTokens: 0,
     cookAwaitingUser: null,
     oauthFlow: null,
     initSession: null,
@@ -730,6 +757,12 @@ export function createDashboardStore(
           clearTimeout(cookClearTimer);
           cookClearTimer = null;
         }
+        // Statusline v2 Wave 2 — reset the per-session input-token counter
+        // for the new session. Defensive guard per Locked Decision #16:
+        // we also re-zero if the prior session's cookClearTimer was
+        // cancelled above (which would otherwise leave the counter
+        // carrying the prior session's tail).
+        setState('orchestratorSessionInputTokens', 0);
         setState('activeSessionId', evt.session_id);
         // Milestone 13 / Phase 01 — surface the priority-decision as a
         // started-subtype cook-status entry in the unified log. The
@@ -816,6 +849,14 @@ export function createDashboardStore(
         };
         next.set(evt.sub_session_id, updated);
         setState('activeAgents', next);
+        // Statusline v2 Wave 2 — accumulate the per-session input-token
+        // counter from the only cook event that carries token counts
+        // (`cook.agent_result.usage.input_tokens`). Powers App.tsx's
+        // statuslineCumulativeTokens memo and the context-estimate cell.
+        setState(
+          'orchestratorSessionInputTokens',
+          (prev) => prev + evt.usage.input_tokens,
+        );
         // Milestone 13 / Phase 01 — cook-agent result entry. Carries
         // result_status + cost/elapsed for richer monospace rendering.
         pushLogEntry({
@@ -921,6 +962,14 @@ export function createDashboardStore(
         cookClearTimer = setTimeout(() => {
           setState('activeAgents', new Map<string, AgentLiveState>());
           setState('activeSessionId', null);
+          // Statusline v2 Wave 2 — clear the orchestrator model + the
+          // per-session token counter alongside agents/sessionId so
+          // stale Runtime-section signals don't bleed into the next
+          // cook session. 10s after completion mirrors the
+          // existing agents clear so the user has the same window
+          // to glance at all four signals before they zero out.
+          setState('orchestratorModel', null);
+          setState('orchestratorSessionInputTokens', 0);
           cookClearTimer = null;
         }, 10_000);
         // Milestone 13 / Phase 01 — surface completion as a cook-status entry

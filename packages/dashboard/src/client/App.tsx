@@ -112,13 +112,16 @@ export const App: Component = () => {
   // SSE round-trip (acceptance criterion §4 in artifacts.md).
   const statuslineKnobs = createMemo(() => selectStatuslineKnobs(state.tools.config.data?.config));
   const statuslineContextWindow = createMemo(() => getContextWindow(state.orchestratorModel));
-  // Cumulative session input tokens — input + cache_read + cache_creation
-  // per artifacts.md §3. Reads three independent snapshot fields, so Solid
-  // recomputes the memo when any of them changes.
-  const statuslineCumulativeTokens = createMemo(() => {
-    const tokens = state.snapshot?.cost_summary?.tokens;
-    return (tokens?.in ?? 0) + (tokens?.cache_read ?? 0) + (tokens?.cache_creation ?? 0);
-  });
+  // Statusline v2 Wave 2 — per-orchestrator-session input tokens. The v1
+  // statusline read `cost_summary.tokens.{in,cache_read,cache_creation}`,
+  // which is dashboard-lifetime cumulative (sums every cook session
+  // since the dashboard started) and never decremented across session
+  // boundaries — so after a few sessions `ctx ~Xk/Yk` lied about the
+  // active session. The new `state.orchestratorSessionInputTokens` slot
+  // (zeroed on `cook.priority_decision` + 10s after `cook.completion`)
+  // is the correct per-session source; money cells continue to read
+  // `cost_summary` directly because they ARE dashboard-lifetime.
+  const statuslineCumulativeTokens = createMemo(() => state.orchestratorSessionInputTokens);
 
   // Theme — drive the dashboard's `data-theme` attribute on `<html>` from
   // the persisted config. The memo reads `state.tools.config.data?.config

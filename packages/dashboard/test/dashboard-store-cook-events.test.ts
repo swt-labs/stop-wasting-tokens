@@ -939,3 +939,235 @@ describe('cook askUser reducer — prompt.request / prompt.response / cook.ask_u
     });
   });
 });
+
+// ── Statusline v2 Wave 2 — orchestrator-model + per-session input-tokens ─
+//
+// Wave 2 introduces `state.orchestratorSessionInputTokens` and threads
+// resets through `cook.priority_decision` (new session start) + the 10s
+// post-`cook.completion` cookClearTimer. The orchestratorModel slot
+// gets the same 10s clear so it doesn't bleed across sessions.
+describe('statusline v2 Wave 2 — orchestrator session resets', () => {
+  const SID_A = 'sess-A';
+  const SID_B = 'sess-B';
+  const TS_W2 = '2026-05-20T19:00:00Z';
+
+  it('initial state: orchestratorSessionInputTokens starts at 0, orchestratorModel null', () => {
+    createRoot((dispose) => {
+      const [state] = createDashboardStore();
+      expect(state.orchestratorSessionInputTokens).toBe(0);
+      expect(state.orchestratorModel).toBeNull();
+      dispose();
+    });
+  });
+
+  it('cook.priority_decision resets orchestratorSessionInputTokens to 0 on every new session', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      // Seed: session A spawn + agent_result so the counter is non-zero.
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_A,
+        priority: 5,
+        mode: 'execute',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: TS_W2,
+        session_id: SID_A,
+        role: 'dev',
+        sub_session_id: 'sub-1',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: TS_W2,
+        session_id: SID_A,
+        sub_session_id: 'sub-1',
+        status: 'completed',
+        usage: {
+          input_tokens: 12_345,
+          output_tokens: 3_000,
+        },
+      });
+      expect(state.orchestratorSessionInputTokens).toBe(12_345);
+
+      // A new session arrives — counter resets to 0.
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_B,
+        priority: 5,
+        mode: 'execute',
+      });
+      expect(state.orchestratorSessionInputTokens).toBe(0);
+      expect(state.activeSessionId).toBe(SID_B);
+      dispose();
+    });
+  });
+
+  it('cook.agent_result accumulates input_tokens across multiple agents within one session', () => {
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_A,
+        priority: 5,
+        mode: 'execute',
+      });
+      // Two agents, two result events. Counter sums.
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: TS_W2,
+        session_id: SID_A,
+        role: 'scout',
+        sub_session_id: 'sub-scout',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: TS_W2,
+        session_id: SID_A,
+        role: 'dev',
+        sub_session_id: 'sub-dev',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: TS_W2,
+        session_id: SID_A,
+        sub_session_id: 'sub-scout',
+        status: 'completed',
+        usage: { input_tokens: 5_000, output_tokens: 1_000 },
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: TS_W2,
+        session_id: SID_A,
+        sub_session_id: 'sub-dev',
+        status: 'completed',
+        usage: { input_tokens: 8_500, output_tokens: 2_500 },
+      });
+      expect(state.orchestratorSessionInputTokens).toBe(13_500);
+      dispose();
+    });
+  });
+
+  it('cook.completion 10s timer clears orchestratorModel + orchestratorSessionInputTokens', () => {
+    vi.useFakeTimers();
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_A,
+        priority: 5,
+        mode: 'execute',
+      });
+      actions.applyEvent({
+        type: 'cook.provider_selected',
+        ts: TS_W2,
+        session_id: SID_A,
+        provider: 'anthropic',
+        tier: 'sonnet',
+        model: 'claude-sonnet-4-6',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: TS_W2,
+        session_id: SID_A,
+        role: 'dev',
+        sub_session_id: 'sub-1',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: TS_W2,
+        session_id: SID_A,
+        sub_session_id: 'sub-1',
+        status: 'completed',
+        usage: { input_tokens: 7_777, output_tokens: 1_000 },
+      });
+      expect(state.orchestratorModel).toBe('claude-sonnet-4-6');
+      expect(state.orchestratorSessionInputTokens).toBe(7_777);
+
+      // Completion arrives — both values stay non-null for the 10s
+      // hold window so the user can glance at them.
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: TS_W2,
+        session_id: SID_A,
+        status: 'success',
+      });
+      expect(state.orchestratorModel).toBe('claude-sonnet-4-6');
+      expect(state.orchestratorSessionInputTokens).toBe(7_777);
+
+      // Advance just under the timer — values still hold.
+      vi.advanceTimersByTime(9_999);
+      expect(state.orchestratorModel).toBe('claude-sonnet-4-6');
+      expect(state.orchestratorSessionInputTokens).toBe(7_777);
+
+      // Cross the 10s boundary — both clear.
+      vi.advanceTimersByTime(2);
+      expect(state.orchestratorModel).toBeNull();
+      expect(state.orchestratorSessionInputTokens).toBe(0);
+      expect(state.activeSessionId).toBeNull();
+      dispose();
+    });
+  });
+
+  it('Locked Decision #16 — new session before the 10s clear fires still zeroes the counter', () => {
+    vi.useFakeTimers();
+    createRoot((dispose) => {
+      const [state, actions] = createDashboardStore();
+      // Session A completes with 1234 tokens accumulated.
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_A,
+        priority: 5,
+        mode: 'execute',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_spawn',
+        ts: TS_W2,
+        session_id: SID_A,
+        role: 'dev',
+        sub_session_id: 'sub-A',
+      });
+      actions.applyEvent({
+        type: 'cook.agent_result',
+        ts: TS_W2,
+        session_id: SID_A,
+        sub_session_id: 'sub-A',
+        status: 'completed',
+        usage: { input_tokens: 1_234, output_tokens: 100 },
+      });
+      actions.applyEvent({
+        type: 'cook.completion',
+        ts: TS_W2,
+        session_id: SID_A,
+        status: 'success',
+      });
+
+      // Session B arrives BEFORE the 10s timer fires. The
+      // cook.priority_decision reset path (Locked Decision #16 defensive
+      // guard) must zero the counter even though the cookClearTimer
+      // was cancelled before clearing the prior session's tail.
+      vi.advanceTimersByTime(3_000);
+      actions.applyEvent({
+        type: 'cook.priority_decision',
+        ts: TS_W2,
+        session_id: SID_B,
+        priority: 5,
+        mode: 'execute',
+      });
+      expect(state.activeSessionId).toBe(SID_B);
+      expect(state.orchestratorSessionInputTokens).toBe(0);
+
+      // Advance past the cancelled timer's original deadline — counter
+      // stays clean (the timer was cancelled, the new session is fresh).
+      vi.advanceTimersByTime(10_000);
+      expect(state.orchestratorSessionInputTokens).toBe(0);
+      expect(state.activeSessionId).toBe(SID_B);
+      dispose();
+    });
+  });
+});
