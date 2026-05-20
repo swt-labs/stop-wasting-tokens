@@ -241,6 +241,21 @@ body {
   margin-right: 0;
 }
 
+/* v2 Wave 3 commit 5 — visual grouping. Cells flagged with `group-start`
+   render a vertical bar (`│` U+2502) before themselves instead of the
+   default `·`, splitting the bar into 4 logical sections: Identity
+   (provider + dot), Config (knobs), Runtime (cook + orchestrator +
+   agents + ctx), Money (session-$ + tokens + 7d + 30d). The first
+   group's leading separator is still suppressed by the
+   `:first-of-type` rule above; later groups render the bar.
+   Declared AFTER the regular `::before` rule so the later-in-source
+   tiebreak wins (same specificity 0,2,1). */
+.dashboard-statusline-cell.group-start::before {
+  content: '│';
+  color: var(--slate-muted-15);
+  margin-right: 12px;
+}
+
 /* Knob cells render with a slightly muted colour so they read as
    "indicator" rather than competing with the cost numbers. */
 .dashboard-statusline-knob {

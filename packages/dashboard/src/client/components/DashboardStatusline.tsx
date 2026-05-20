@@ -277,7 +277,10 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           v2 Wave 3 commit 3 — `backend` cell dropped (no v3 meaning per
           TDD3 §1.3); labels expand to readable forms; `model:` is the
           model-PROFILE knob (quality / balanced / cost), distinct from
-          the orchestrator's resolved model id rendered below. */}
+          the orchestrator's resolved model id rendered below.
+          v2 Wave 3 commit 5 — the first knob (`effort`) is the Config
+          group head; `group-start` gives it the `│` leading separator
+          instead of `·`. The remaining three knobs use the default `·`. */}
       <For
         each={
           [
@@ -288,8 +291,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           ] as ReadonlyArray<readonly [string, string | null]>
         }
       >
-        {(pair) => (
-          <span class="dashboard-statusline-cell dashboard-statusline-knob">
+        {(pair, index) => (
+          <span
+            class={`dashboard-statusline-cell dashboard-statusline-knob${
+              index() === 0 ? ' group-start' : ''
+            }`}
+          >
             {formatStatuslineKnob(pair[0], pair[1])}
           </span>
         )}
@@ -299,9 +306,11 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           cook session is in flight, `cook: idle` (slate-muted) otherwise.
           Source is `props.activeSessionId !== null`. Locked Decision #18:
           when truly idle the explicit `idle` value reads better than
-          `—` (which would imply "unknown"). */}
+          `—` (which would imply "unknown").
+          v2 Wave 3 commit 5 — `group-start` marks this as the head of
+          the Runtime group so it renders a leading `│` instead of `·`. */}
       <span
-        class={`dashboard-statusline-cell dashboard-statusline-cook ${
+        class={`dashboard-statusline-cell dashboard-statusline-cook group-start ${
           props.activeSessionId !== null ? 'is-running' : 'is-idle'
         }`}
       >
@@ -325,8 +334,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span class="dashboard-statusline-cell">
         {formatContextEstimate(props.cumulativeInputTokens, props.contextWindow)}
       </span>
-      {/* Cell 11: session cost */}
-      <span class="dashboard-statusline-cell">
+      {/* Cell 11: session cost (Money-group head).
+          v2 Wave 3 commit 5 — `group-start` renders the leading `│`
+          before the Money section. (Wave 5 commit 10 will swap this
+          marker to the new `rate:` cell once that lands at the head
+          of the Money group.) */}
+      <span class="dashboard-statusline-cell group-start">
         {formatStatuslineSessionCost(costSummary()?.this_session_usd)}
       </span>
       {/* Cell 12: tokens (in↛out) */}
