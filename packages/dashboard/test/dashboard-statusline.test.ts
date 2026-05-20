@@ -27,6 +27,7 @@ import {
   formatAgentsCell,
   formatContextEstimate,
   formatStatuslineKnob,
+  formatStatuslineLabeled,
   formatStatuslineProvider,
   formatStatuslineRollup,
   formatStatuslineSessionCost,
@@ -100,35 +101,39 @@ describe('formatStatuslineSessionCost', () => {
 });
 
 describe('formatStatuslineTokens', () => {
+  // v2 Wave 3 commit 6 — token cell renders as `in: <in> → out: <out>`
+  // (U+2192 `→` plain RIGHTWARDS ARROW). The v1 wrapper parens and the
+  // U+219B `↛` arrow-with-stroke have been retired.
   it('renders <1K tokens as raw count', () => {
-    expect(formatStatuslineTokens(123, 456)).toBe('(123↛456)');
+    expect(formatStatuslineTokens(123, 456)).toBe('in: 123 → out: 456');
   });
 
   it('compacts ≥1K tokens with K suffix (floor)', () => {
-    expect(formatStatuslineTokens(12_345, 8_999)).toBe('(12K↛8K)');
-    expect(formatStatuslineTokens(1_000, 1_500)).toBe('(1K↛1K)');
+    expect(formatStatuslineTokens(12_345, 8_999)).toBe('in: 12K → out: 8K');
+    expect(formatStatuslineTokens(1_000, 1_500)).toBe('in: 1K → out: 1K');
   });
 
   it('compacts ≥1M tokens with M suffix (floor)', () => {
-    expect(formatStatuslineTokens(1_500_000, 2_300_000)).toBe('(1M↛2M)');
+    expect(formatStatuslineTokens(1_500_000, 2_300_000)).toBe('in: 1M → out: 2M');
   });
 
-  it('uses U+219B (right-arrow-with-stroke) as the in→out separator', () => {
+  it('uses U+2192 (plain right-arrow) as the in→out separator', () => {
     // Sentinel: assert the codepoint explicitly so a future refactor
-    // can't quietly degrade `↛` to `->` or `/`.
+    // can't quietly degrade `→` to `->` or `/` (or back to `↛`).
     const result = formatStatuslineTokens(1, 2);
-    expect(result).toContain('↛');
-    expect(result).toBe('(1↛2)');
+    expect(result).toContain('→');
+    expect(result).not.toContain('↛');
+    expect(result).toBe('in: 1 → out: 2');
   });
 
   it('replaces missing sides with U+2014 em-dash', () => {
-    expect(formatStatuslineTokens(null, 200)).toBe('(—↛200)');
-    expect(formatStatuslineTokens(100, undefined)).toBe('(100↛—)');
-    expect(formatStatuslineTokens(null, null)).toBe('(—↛—)');
+    expect(formatStatuslineTokens(null, 200)).toBe('in: — → out: 200');
+    expect(formatStatuslineTokens(100, undefined)).toBe('in: 100 → out: —');
+    expect(formatStatuslineTokens(null, null)).toBe('in: — → out: —');
   });
 
   it('renders 0 as `0` (zero is a renderable token count)', () => {
-    expect(formatStatuslineTokens(0, 0)).toBe('(0↛0)');
+    expect(formatStatuslineTokens(0, 0)).toBe('in: 0 → out: 0');
   });
 });
 
@@ -142,38 +147,42 @@ describe('formatStatuslineRollup', () => {
     } as unknown as UsageWindow;
   }
 
-  it('formats a populated 7d window as `7d:$X.XX`', () => {
-    expect(formatStatuslineRollup(window(2.1), '7d')).toBe('7d:$2.10');
+  // v2 Wave 3 commit 6 — rollup cells follow the `<label>: <value>`
+  // convention (with a space after the colon). The v1 `7d:$2.10`
+  // no-space form has been retired.
+  it('formats a populated 7d window as `7d: $X.XX`', () => {
+    expect(formatStatuslineRollup(window(2.1), '7d')).toBe('7d: $2.10');
   });
 
-  it('formats a populated 30d window as `30d:$X.XX`', () => {
-    expect(formatStatuslineRollup(window(8.42), '30d')).toBe('30d:$8.42');
+  it('formats a populated 30d window as `30d: $X.XX`', () => {
+    expect(formatStatuslineRollup(window(8.42), '30d')).toBe('30d: $8.42');
   });
 
   it('formats sub-$1 spend with 4 decimal places (matches session-cost helper)', () => {
-    expect(formatStatuslineRollup(window(0.0042), '7d')).toBe('7d:$0.0042');
+    expect(formatStatuslineRollup(window(0.0042), '7d')).toBe('7d: $0.0042');
   });
 
   it('formats $0 spend as `$0.0000` (literal zero is renderable)', () => {
-    expect(formatStatuslineRollup(window(0), '7d')).toBe('7d:$0.0000');
+    expect(formatStatuslineRollup(window(0), '7d')).toBe('7d: $0.0000');
   });
 
-  it('falls back to `<label>:—` when window is null', () => {
-    expect(formatStatuslineRollup(null, '7d')).toBe('7d:—');
-    expect(formatStatuslineRollup(null, '30d')).toBe('30d:—');
+  it('falls back to `<label>: —` when window is null', () => {
+    expect(formatStatuslineRollup(null, '7d')).toBe('7d: —');
+    expect(formatStatuslineRollup(null, '30d')).toBe('30d: —');
   });
 
-  it('falls back to `<label>:—` when window is undefined (aggregator has no data yet)', () => {
-    expect(formatStatuslineRollup(undefined, '7d')).toBe('7d:—');
-    expect(formatStatuslineRollup(undefined, '30d')).toBe('30d:—');
+  it('falls back to `<label>: —` when window is undefined (aggregator has no data yet)', () => {
+    expect(formatStatuslineRollup(undefined, '7d')).toBe('7d: —');
+    expect(formatStatuslineRollup(undefined, '30d')).toBe('30d: —');
   });
 });
 
 describe('end-to-end format coverage', () => {
   // One round-trip composition test pinning the full statusline output
   // string from a representative cost_summary + usage_rollup pair. Acts
-  // as a regression sentinel against accidental spacing/separator drift
-  // (per the milestone CONTEXT.md format contract).
+  // as a regression sentinel against accidental spacing/separator drift.
+  // v2 Wave 3 commit 6 — adjusted to the new `<label>: <value>` and
+  // `→` token separator conventions.
   it('composes the canonical statusline output string', () => {
     const provider = formatStatuslineProvider('anthropic');
     const sessionCost = formatStatuslineSessionCost(0.32);
@@ -187,7 +196,9 @@ describe('end-to-end format coverage', () => {
       '30d',
     );
     const composed = `${provider} ●  ctx —/—  ${sessionCost} ${tokens}  ${week}  ${month}`;
-    expect(composed).toBe('anthropic ●  ctx —/—  $0.3200 (12K↛8K)  7d:$2.10  30d:$8.42');
+    expect(composed).toBe(
+      'anthropic ●  ctx —/—  $0.3200 in: 12K → out: 8K  7d: $2.10  30d: $8.42',
+    );
   });
 
   it('composes a fully-empty statusline (no data sources yet)', () => {
@@ -202,9 +213,9 @@ describe('end-to-end format coverage', () => {
     ].join(' ');
     expect(composed).toContain('—');
     expect(composed).toContain('$—');
-    expect(composed).toContain('(—↛—)');
-    expect(composed).toContain('7d:—');
-    expect(composed).toContain('30d:—');
+    expect(composed).toContain('in: — → out: —');
+    expect(composed).toContain('7d: —');
+    expect(composed).toContain('30d: —');
   });
 
   // Suppress unused warnings on the type imports that exist solely for
@@ -225,14 +236,16 @@ describe('end-to-end format coverage', () => {
 //     dashboard's manual smoke flow per acceptance criterion §3)
 
 describe('formatStatuslineKnob', () => {
-  it('renders `key:value` when value is non-null', () => {
-    expect(formatStatuslineKnob('eff', 'thorough')).toBe('eff:thorough');
-    expect(formatStatuslineKnob('auto', 'standard')).toBe('auto:standard');
+  // v2 Wave 3 commit 6 — knob cells follow the shared `<label>: <value>`
+  // convention. The v1 `eff:thorough` no-space form has been retired.
+  it('renders `<key>: <value>` when value is non-null', () => {
+    expect(formatStatuslineKnob('effort', 'thorough')).toBe('effort: thorough');
+    expect(formatStatuslineKnob('autonomy', 'standard')).toBe('autonomy: standard');
   });
 
-  it('renders `key:—` when value is null or empty', () => {
-    expect(formatStatuslineKnob('eff', null)).toBe('eff:—');
-    expect(formatStatuslineKnob('auto', '')).toBe('auto:—');
+  it('renders `<key>: —` when value is null or empty', () => {
+    expect(formatStatuslineKnob('effort', null)).toBe('effort: —');
+    expect(formatStatuslineKnob('autonomy', '')).toBe('autonomy: —');
   });
 });
 
@@ -270,9 +283,13 @@ describe('formatAgentsCell', () => {
     ...(model !== undefined ? { model } : {}),
   });
 
-  it('returns `agents:0` for an empty map', () => {
+  // v2 Wave 3 commit 6 — empty cell renders `agents: —` (not `agents: 0`)
+  // so the bar's em-dash convention is uniform across every "no data"
+  // cell; the populated cells use the `<label>: <value>` format with a
+  // space after the colon.
+  it('returns `agents: —` for an empty map', () => {
     const out = formatAgentsCell(new Map());
-    expect(out.display).toBe('agents:0');
+    expect(out.display).toBe('agents: —');
     expect(out.fullList).toBe('');
     expect(out.truncated).toBe(false);
   });
@@ -282,7 +299,7 @@ describe('formatAgentsCell', () => {
       ['s1', mkAgent('s1', 'dev', 'claude-sonnet-4-6')],
     ]);
     const out = formatAgentsCell(map);
-    expect(out.display).toBe('agents:1 [dev:sonnet-4-6]');
+    expect(out.display).toBe('agents: 1 [dev:sonnet-4-6]');
     expect(out.fullList).toBe('dev:sonnet-4-6');
     expect(out.truncated).toBe(false);
   });
@@ -302,11 +319,29 @@ describe('formatAgentsCell', () => {
       ['s3', mkAgent('s3', 'dev', 'claude-sonnet-4-6')],
     ]);
     const out = formatAgentsCell(map);
-    expect(out.display).toBe('agents:3');
+    expect(out.display).toBe('agents: 3');
     expect(out.fullList).toContain('orchestrator:opus-4-7');
     expect(out.fullList).toContain('scout:haiku-4-5-20251001');
     expect(out.fullList).toContain('dev:sonnet-4-6');
     expect(out.truncated).toBe(true);
+  });
+});
+
+// v2 Wave 3 commit 6 — shared `formatStatuslineLabeled` helper. Every
+// non-symbolic value cell on the bar now routes through this so the
+// `<label>: <value>` convention is enforced by one function (rather
+// than each cell concatenating its own string).
+describe('formatStatuslineLabeled', () => {
+  it('renders `<label>: <value>` for a populated value', () => {
+    expect(formatStatuslineLabeled('effort', 'balanced')).toBe('effort: balanced');
+    expect(formatStatuslineLabeled('cook', 'running')).toBe('cook: running');
+    expect(formatStatuslineLabeled('orchestrator', 'sonnet-4-6')).toBe('orchestrator: sonnet-4-6');
+  });
+
+  it('renders `<label>: —` for null / undefined / empty', () => {
+    expect(formatStatuslineLabeled('effort', null)).toBe('effort: —');
+    expect(formatStatuslineLabeled('effort', undefined)).toBe('effort: —');
+    expect(formatStatuslineLabeled('effort', '')).toBe('effort: —');
   });
 });
 

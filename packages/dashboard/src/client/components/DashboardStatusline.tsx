@@ -141,11 +141,31 @@ export function formatStatuslineSessionCost(usd: number | null | undefined): str
 }
 
 /**
- * Format the in→out token cell as `(in↛out)`.
+ * v2 Wave 3 commit 6 — canonical `<label>: <value>` formatter (with one
+ * space after the colon). Replaces v1's per-cell ad-hoc concatenation
+ * which mixed `label:value` (no space, knobs) with `label: value`
+ * (with space, money rollups) inconsistently. Unknown values render
+ * as a single em-dash so the cell reads as `<label>: —`.
+ */
+export function formatStatuslineLabeled(
+  label: string,
+  value: string | null | undefined,
+): string {
+  if (value === null || value === undefined || value === '') return `${label}: —`;
+  return `${label}: ${value}`;
+}
+
+/**
+ * Format the in→out token cell as `in: <in> → out: <out>`.
  *
- *   - both null/undefined → `(—↛—)`
- *   - single null/undefined side renders as `—`
- *   - the separator is U+219B (RIGHTWARDS ARROW WITH STROKE)
+ *   - both null/undefined           → `in: — → out: —`
+ *   - single null/undefined side    → that side renders `—`
+ *   - separator is U+2192 (RIGHTWARDS ARROW)
+ *
+ * v2 Wave 3 commit 6 dropped the v1 paren wrapper (`(in↛out)`) and the
+ * U+219B "arrow-with-stroke" glyph — both fought legibility in dense
+ * monospace output. The standard `→` glyph is universally rendered
+ * across the JetBrains Mono / ui-monospace stack used by the bar.
  */
 export function formatStatuslineTokens(
   inTokens: number | null | undefined,
@@ -153,32 +173,38 @@ export function formatStatuslineTokens(
 ): string {
   const inText = compactTokens(inTokens);
   const outText = compactTokens(outTokens);
-  return `(${inText}↛${outText})`;
+  return `in: ${inText} → out: ${outText}`;
 }
 
 /**
- * Format a `UsageWindow` rollup cell as `<label>:<dollar>` (e.g.
- * `7d:$2.10`). When the window is null/undefined (no aggregator data
- * yet) the cell renders `<label>:—` — an existing window with a
- * literal `0` cost is renderable (`<label>:$0.0000`), only the missing
+ * Format a `UsageWindow` rollup cell as `<label>: <dollar>` (e.g.
+ * `7d: $2.10`). When the window is null/undefined (no aggregator data
+ * yet) the cell renders `<label>: —` — an existing window with a
+ * literal `0` cost is renderable (`<label>: $0.0000`), only the missing
  * window object falls back to the em-dash.
+ *
+ * v2 Wave 3 commit 6 — space after the colon (was `7d:$2.10`, now
+ * `7d: $2.10`) to match the `<label>: <value>` convention across
+ * every cell.
  */
 export function formatStatuslineRollup(
   window: UsageWindow | null | undefined,
   label: '7d' | '30d',
 ): string {
-  if (window === null || window === undefined) return `${label}:—`;
-  return `${label}:${formatStatuslineSessionCost(window.cost_usd)}`;
+  if (window === null || window === undefined) return `${label}: —`;
+  return `${label}: ${formatStatuslineSessionCost(window.cost_usd)}`;
 }
 
 /**
- * Format a knob cell as `<key>:<value-or-dash>`. Used by the five config
- * cells (backend / effort / autonomy / model_profile / verification_tier).
- * The key is the short visual label, NOT the raw config key — keep it
- * narrow to preserve horizontal real estate.
+ * Format a knob cell as `<key>: <value-or-dash>` (with one space after
+ * the colon). Used by the four config cells (effort / autonomy /
+ * model_profile / verification_tier).
+ *
+ * v2 Wave 3 commit 6 — uses the shared `formatStatuslineLabeled`
+ * helper. Empty-string is treated identically to `null`.
  */
 export function formatStatuslineKnob(label: string, value: string | null): string {
-  return `${label}:${value === null || value.length === 0 ? '—' : value}`;
+  return formatStatuslineLabeled(label, value);
 }
 
 // shortModelLabel + compactTokens moved to `../lib/model-helpers.ts` (used by
@@ -187,15 +213,20 @@ export function formatStatuslineKnob(label: string, value: string | null): strin
 
 /**
  * The compact agents-cell payload. Returns:
- *   - `agents:0`                                  when the map is empty
- *   - `agents:N [role:short, role:short]`         when the list fits
- *   - `agents:N`                                  when the list exceeds the cap
+ *   - `agents: —`                                   when no cook is running
+ *   - `agents: N [role:short, role:short]`          when the list fits
+ *   - `agents: N`                                   when the list exceeds the cap
  *
  * The cap is conservative (~40 chars after the count prefix) — wider
  * than the brief's hint but enough headroom for three running agents
  * with mid-length model ids before falling back. The full list rides
  * on the `title` attribute of the cell (App.tsx wires it) so hover
  * still surfaces every running agent + model.
+ *
+ * v2 Wave 3 commit 6 — empty map renders `agents: —` (not `agents: 0`)
+ * so the bar's em-dash convention is uniform; `0` masquerading as
+ * "no data" was U7 in statusline_v2.md. The label-value separator
+ * adds a space (`agents: N`) per the `<label>: <value>` convention.
  */
 export interface AgentsCellResult {
   /** The display string painted into the cell. */
@@ -211,18 +242,18 @@ const AGENTS_LIST_CAP_CHARS = 40;
 export function formatAgentsCell(agents: ReadonlyMap<string, AgentLiveState>): AgentsCellResult {
   const count = agents.size;
   if (count === 0) {
-    return { display: 'agents:0', fullList: '', truncated: false };
+    return { display: 'agents: —', fullList: '', truncated: false };
   }
   const parts: string[] = [];
   for (const a of agents.values()) {
     parts.push(`${a.role}:${shortModelLabel(a.model ?? null)}`);
   }
   const fullList = parts.join(', ');
-  const wantsListed = `agents:${count} [${fullList}]`;
+  const wantsListed = `agents: ${count} [${fullList}]`;
   if (parts.join(' | ').length <= AGENTS_LIST_CAP_CHARS) {
     return { display: wantsListed, fullList: parts.join(' | '), truncated: false };
   }
-  return { display: `agents:${count}`, fullList: parts.join(' | '), truncated: true };
+  return { display: `agents: ${count}`, fullList: parts.join(' | '), truncated: true };
 }
 
 /**
@@ -321,7 +352,7 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           (Locked Decision #15) so the resolved-model display does not
           collide with the model-profile knob above. */}
       <span class="dashboard-statusline-cell dashboard-statusline-model">
-        orchestrator:{shortModelLabel(props.orchestratorModel)}
+        {formatStatuslineLabeled('orchestrator', shortModelLabel(props.orchestratorModel))}
       </span>
       {/* Cell 9: agents */}
       <span
