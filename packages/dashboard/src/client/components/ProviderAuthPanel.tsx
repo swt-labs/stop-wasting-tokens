@@ -552,6 +552,24 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
               against your Max plan.
             </p>
           </Show>
+
+          {/* codex-Oauth.md #3 + #6 — OpenAI Codex OAuth requires a paid ChatGPT
+              tier (free-tier accounts are excluded per developers.openai.com/codex/cli),
+              AND email/password accounts must have MFA enabled before Codex cloud
+              access is granted (per developers.openai.com/codex/auth). Both are
+              silently-failed advisories: users see confusing post-auth scope errors
+              if they don't meet either prerequisite. The advisory is shown
+              proactively, before they click "Login with OAuth", so they discover
+              the constraint at the right moment. */}
+          <Show when={selectedProvider() === 'openai' && selectedMode() === 'oauth'}>
+            <p class="provider-auth-oauth-advisory">
+              <strong>Note:</strong> OpenAI Codex OAuth requires{' '}
+              <strong>ChatGPT Plus, Pro, Business, Edu, or Enterprise</strong> — free-tier accounts
+              cannot sign in via this flow. Also, if your account uses email/password login, you
+              must enable <strong>multi-factor authentication</strong> on your ChatGPT account
+              before Codex cloud access is granted.
+            </p>
+          </Show>
         </div>
 
         <Show when={selectedMode() === 'api_key'}>
