@@ -228,4 +228,57 @@ describe('@swt-labs/cli — augmentSpawnError (alpha.22)', () => {
       expect(out).toContain('Anthropic says:');
     });
   });
+
+  describe('openai scope-mismatch (codex-Oauth.md #2)', () => {
+    it("matches 'Missing scopes: model.request' with openai context + oauth mode", () => {
+      const raw =
+        '{"error":{"code":"insufficient_scope","message":"Missing scopes: model.request"},"request_id":"req_scope_abc"}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain("Your ChatGPT plan doesn't include Codex");
+      expect(out).toContain('Plus, Pro, Business, or Enterprise');
+      expect(out).toContain('https://chatgpt.com/upgrade');
+      expect(out).toContain('request_id: req_scope_abc');
+      expect(out).toContain('set OPENAI_API_KEY');
+    });
+
+    it("matches 'api.model.read scope required'", () => {
+      const raw = 'Error: api.model.read scope required for Codex access';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain("Your ChatGPT plan doesn't include Codex");
+    });
+
+    it('matches insufficient_scope code', () => {
+      const raw = '{"error":{"code":"insufficient_scope","message":"missing required scope"}}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain("Your ChatGPT plan doesn't include Codex");
+    });
+
+    it('does NOT match quota errors (which route to the quota branch)', () => {
+      const raw = '{"error":{"code":"rate_limit_exceeded","message":"Rate limit reached"}}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      // Quota branch wins — scope branch must NOT fire on quota patterns.
+      expect(out).not.toContain("Your ChatGPT plan doesn't include Codex");
+      expect(out).toContain('platform.openai.com/account/billing/overview');
+    });
+
+    it('does NOT match scope errors when context.provider is not openai (disjoint by provider)', () => {
+      const raw = '{"error":{"message":"Missing scopes: model.request"}}';
+      const out = augmentSpawnError(raw, { provider: 'anthropic', authMode: 'oauth' });
+      // No openai context — scope branch does not fire — falls through to rawSummary
+      expect(out).toBe(raw);
+    });
+
+    it('returns rawSummary when context is undefined even with scope pattern (backwards-compat)', () => {
+      const raw = '{"error":{"message":"Missing scopes: model.request"}}';
+      const out = augmentSpawnError(raw);
+      expect(out).toBe(raw);
+    });
+
+    it('scope-mismatch branch wins over quota branch when both patterns match (precedence lock)', () => {
+      const raw = '{"error":{"message":"Missing scopes: model.request - also quota exceeded"}}';
+      const out = augmentSpawnError(raw, { provider: 'openai', authMode: 'oauth' });
+      expect(out).toContain("Your ChatGPT plan doesn't include Codex");
+      expect(out).not.toContain('platform.openai.com/account/billing/overview');
+    });
+  });
 });

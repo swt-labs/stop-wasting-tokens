@@ -1220,6 +1220,35 @@ export function augmentSpawnError(
       .filter(Boolean)
       .join('\n');
   }
+  // Pattern (codex-Oauth.md #2): OpenAI Codex scope-mismatch — when the
+  // user's ChatGPT plan doesn't include Codex (free tier, or a paid tier
+  // whose Codex scopes aren't provisioned), the API returns errors like
+  // "Missing scopes: model.request" or "api.model.read scope required".
+  // This branch is disjoint from the quota branch below: scope-mismatch
+  // means the user CAN'T use Codex at all on this plan; quota means they
+  // CAN use it but exhausted the window. Gated on context.provider ===
+  // 'openai' so the same regex shapes against other providers don't false-
+  // match. Lands BEFORE the quota branch so a single error containing both
+  // signals (theoretically possible) routes to the more-actionable copy.
+  if (
+    context?.provider === 'openai' &&
+    /missing\s+scopes|model\.request|api\.model\.read|insufficient_scope/i.test(rawSummary)
+  ) {
+    const requestId = extractRequestId(rawSummary);
+    const headline = `OpenAI says: Your ChatGPT plan doesn't include Codex. Upgrade to Plus, Pro, Business, or Enterprise at chatgpt.com/upgrade.`;
+    return [
+      headline,
+      `Codex requires a paid ChatGPT tier (Plus / Pro / Business / Edu / Enterprise).`,
+      `Free-tier and unprovisioned accounts get a scope-mismatch error from auth.openai.com.`,
+      `Upgrade or switch tiers at: https://chatgpt.com/upgrade`,
+      `Or set OPENAI_API_KEY and re-auth via the Provider menu in api_key mode.`,
+      requestId ? `\nrequest_id: ${requestId}` : '',
+      `\nRaw OpenAI response: ${rawSummary}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
   // Pattern (milestone 21 Phase 02): OpenAI Codex OAuth + api_key quota
   // errors. Pi-ai's openai-codex-responses provider surfaces:
   //   - 429 rate_limit_exceeded (per-window message cap)
