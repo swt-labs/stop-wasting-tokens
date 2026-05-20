@@ -420,6 +420,58 @@ describe('POST /api/chat', () => {
     expect(events.map((e) => e.event)).toContain('chat.complete');
   });
 
+  it('5b. createSessionFn is called with vendor-neutral systemPrompt (D13 — closes Cause C of milestone 24)', async () => {
+    // Milestone 24 Phase 03 — runtime assertion of Locked Decision D13:
+    // chat sessions pass a vendor-neutral systemPrompt through Pi's
+    // documented `resourceLoader.getSystemPrompt()` escape hatch via
+    // `SwtSessionOptions.systemPrompt`. Mirror byte-identical of test 5's
+    // capture pattern. Per PA-3 of 03-01-PLAN.md, this test does NOT
+    // re-import `CHAT_VENDOR_NEUTRAL_SYSTEM_PROMPT` from chat.ts — it
+    // asserts SEMANTIC invariants via regex sentinels so chat.ts remains
+    // the single source of truth and the test is resilient to minor
+    // wording edits of the constant.
+    let capturedOpts: SwtSessionOptions | undefined;
+    const fakeSession = makeFakeSession('sid-systemprompt');
+    fakeSession.prompt.mockImplementation(async () => {
+      fakeSession.emit({
+        type: 'TASK_TOKEN_USAGE',
+        sessionId: 'sid-systemprompt',
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          turn: 1,
+          provider: 'anthropic',
+          model: 'claude-sonnet-4',
+        },
+      });
+    });
+    const { app, createSessionFn } = buildApp({
+      createSessionFn: async (opts) => {
+        capturedOpts = opts;
+        return fakeSession;
+      },
+    });
+    const { events } = await postChat(app, { prompt: 'who are you?' });
+    expect(createSessionFn).toHaveBeenCalledTimes(1);
+    expect(capturedOpts?.systemPrompt).toBeDefined();
+    expect(typeof capturedOpts?.systemPrompt).toBe('string');
+    expect(capturedOpts?.systemPrompt?.length ?? 0).toBeGreaterThan(0);
+    // Vendor-neutral invariant: the whole point of D13 is to REPLACE
+    // Pi 0.74's hardcoded `"…operating inside pi, a coding agent harness…"`
+    // identity with neutral text. A regression that re-introduces any of
+    // those tokens MUST fail this test.
+    expect(capturedOpts?.systemPrompt).not.toMatch(/inside pi|pi coding agent/i);
+    // Identity-instruction invariant: the model must be told to identify
+    // itself by its model family name when asked — otherwise even with
+    // Pi-brand language stripped, a non-identity-trained model would
+    // fall back to generic "I'm an AI assistant" replies. Regex sentinel
+    // (not re-imported constant) per PA-3.
+    expect(capturedOpts?.systemPrompt).toMatch(/identify yourself by your model name/i);
+    expect(events.map((e) => e.event)).toContain('chat.complete');
+  });
+
   it('6. TOOL_CALL event passes through as chat.tool_call', async () => {
     const fakeSession = makeFakeSession('sid-tool');
     fakeSession.prompt.mockImplementation(async () => {

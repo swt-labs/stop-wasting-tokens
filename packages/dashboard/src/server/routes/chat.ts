@@ -69,10 +69,14 @@
  * multi-turn handle reuse. TTL sweep + `registry.close()` handle
  * cleanup.
  *
- * **Pi 0.74 constraint:** no `systemPrompt` option on `createAgentSession`.
- * Chat has no role prompt anyway (it's plain prompt+response, no
- * orchestrator, no `swt_*` extensions — REQ-07 / milestone-12 scope), so
- * direct `session.prompt(text)` is the correct call.
+ * **Pi 0.74 constraint:** no top-level `systemPrompt` option on
+ * `createAgentSession`. SWT uses Pi's documented `resourceLoader.getSystemPrompt()`
+ * escape hatch via `SwtSessionOptions.systemPrompt` — see
+ * `buildPiResourceLoader` at `runtime/src/session.ts:51-89` + Locked
+ * Decision D13. Milestone 24 Phase 03 (Cause C) wires
+ * `CHAT_VENDOR_NEUTRAL_SYSTEM_PROMPT` (defined below) through this seam so
+ * non-identity-trained chat models no longer echo Pi's hardcoded default
+ * `"You are an expert coding assistant operating inside pi…"` identity.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -112,6 +116,33 @@ type ChatSseEvent =
   | ChatTokenUsageEvent
   | ChatErrorEvent
   | ChatCompleteEvent;
+
+/**
+ * Vendor-neutral chat-mode system prompt — passed to Pi via the
+ * `resourceLoader.getSystemPrompt()` escape hatch (Locked Decision D13).
+ *
+ * Pi 0.74's hardcoded default at `pi-coding-agent/dist/core/system-prompt.js:83`
+ * is `"You are an expert coding assistant operating inside pi, a coding
+ * agent harness."` — non-identity-trained models (DeepSeek, etc.) echo
+ * it verbatim when asked "who are you?", leaking Pi as a brand into the
+ * model's identity layer and violating SWT's Principle 1
+ * (vendor-agnostic methodology).
+ *
+ * `runtime/src/session.ts:51-89` (`buildPiResourceLoader`) threads this
+ * value into `DefaultResourceLoader({systemPrompt})` → Pi's
+ * `_rebuildSystemPrompt` reads it as `customPrompt` → `buildSystemPrompt`
+ * REPLACES Pi's default (NOT appends). The same REPLACE seam is already
+ * live for non-chat sessions (cook/agent/init) via `SwtSessionOptions.systemPrompt`
+ * (declared at `packages/shared/src/types/session.ts:177` with
+ * REPLACE-documenting JSDoc citing GATE-07 / GATE-15) — Phase 03 of
+ * milestone 24 closes the chat-side gap.
+ *
+ * Closes Cause C of milestone 24 (a_non_production_files/model_pickup.md).
+ */
+const CHAT_VENDOR_NEUTRAL_SYSTEM_PROMPT =
+  'You are a helpful coding assistant. When asked who you are, identify ' +
+  'yourself by your model name (e.g., DeepSeek V3, GPT-4o, Claude Sonnet) ' +
+  'rather than by the harness or toolchain you are running inside.';
 
 export interface ChatRouteOptions {
   /** Absolute project root — `.swt-planning/config.json` is read from here. */
@@ -288,6 +319,12 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
             ephemeral: true,
             provider: resolved.provider,
             resolvedCredential: resolved.resolvedCredential,
+            // milestone 24 Phase 03 — close Cause C (Pi-brand identity leak)
+            // by passing a vendor-neutral systemPrompt through Pi's
+            // documented `resourceLoader.getSystemPrompt()` escape hatch
+            // (Locked Decision D13). See `CHAT_VENDOR_NEUTRAL_SYSTEM_PROMPT`
+            // docblock above for the REPLACE-vs-APPEND seam trace.
+            systemPrompt: CHAT_VENDOR_NEUTRAL_SYSTEM_PROMPT,
             // alpha.37 — forward `config.model` to Pi. session.ts resolves
             // it to a `Model<any>` via `ModelRegistry.find(provider, id)`;
             // when the id isn't in the registry Pi falls back to its
