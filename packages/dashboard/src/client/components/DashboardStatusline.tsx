@@ -413,14 +413,35 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
   const agentsCell = (): AgentsCellResult => formatAgentsCell(props.activeAgents);
 
   const providerName = (): string => formatStatuslineProvider(providerAuth()?.selected_provider);
+  // v2 Wave 6 commit 14 — keyboard handler for the cook cell. Enter or
+  // Space activates the same scroll-to-Agents behaviour as a click;
+  // pulled out of the JSX so the handler reference stays stable across
+  // re-renders (matters for Solid's diffing).
+  const handleCookKeyDown = (e: KeyboardEvent): void => {
+    if (props.activeSessionId === null) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    document
+      .getElementById('agents-pane')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
   return (
-    <div class="dashboard-statusline" aria-label="Dashboard statusline">
+    <div
+      class="dashboard-statusline"
+      aria-label="Dashboard statusline"
+      role="status"
+      aria-live="polite"
+    >
       {/* v2 Wave 5 commit 9 — Project group (leftmost). Renders ONLY when
           `props.git` is present. When the dashboard cwd is non-git the
           group is hidden entirely (no `repo: —`/`branch: —` placeholders
           — absence IS the signal that SWT is managing a non-git
           workspace). Detached HEAD lights the branch cell amber via
-          `data-detached="true"`. */}
+          `data-detached="true"`.
+          v2 Wave 6 commit 14 — each cell becomes a focusable region
+          with a role + aria-label so screen readers announce the
+          per-cell value distinctly. */}
       <Show when={props.git !== undefined}>
         {(g) => (
           <>
@@ -431,6 +452,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
                   ? `Repository: ${g().repo_url_path} (origin)`
                   : 'Local-only repository — no origin remote configured'
               }
+              tabindex="0"
+              role="group"
+              aria-label={`Repository: ${g().repo_url_path ?? g().repo_basename}`}
             >
               repo: {g().repo_basename}
             </span>
@@ -442,6 +466,11 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
                   ? `Detached HEAD at ${g().short_sha}`
                   : `Branch: ${g().branch} · HEAD: ${g().short_sha}`
               }
+              tabindex="0"
+              role="group"
+              aria-label={`Branch: ${
+                g().detached ? `detached at ${g().short_sha}` : g().branch
+              }`}
             >
               branch: {formatStatuslineBranch(g().branch, g().detached, g().short_sha)}
             </span>
@@ -457,6 +486,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class={`dashboard-statusline-cell${props.git !== undefined ? ' group-start' : ''}`}
         title={`Provider: ${providerName()} — switch via the Provider menu`}
+        tabindex="0"
+        role="group"
+        aria-label={`Provider: ${providerName()}`}
       >
         {providerName()}
       </span>
@@ -468,6 +500,14 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(props.connectionState)}`}
         title={connectionDotTooltipWithLatency(
+          props.connectionState,
+          props.lastEventLatencyMs,
+          props.lastEventReceivedAt,
+          props.nowMs,
+        )}
+        tabindex="0"
+        role="status"
+        aria-label={connectionDotTooltipWithLatency(
           props.connectionState,
           props.lastEventLatencyMs,
           props.lastEventReceivedAt,
@@ -504,6 +544,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
             title={`${pair[0][0].toUpperCase()}${pair[0].slice(1)}: ${
               pair[1] ?? '—'
             } — tunable via Settings`}
+            tabindex="0"
+            role="group"
+            aria-label={`${pair[0][0].toUpperCase()}${pair[0].slice(1)}: ${pair[1] ?? 'unset'}`}
           >
             {formatStatuslineKnob(pair[0], pair[1])}
           </span>
@@ -540,6 +583,14 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
               }
             : undefined
         }
+        onKeyDown={handleCookKeyDown}
+        tabindex="0"
+        role={props.activeSessionId !== null ? 'button' : 'status'}
+        aria-label={
+          props.activeSessionId !== null
+            ? `Cook session running — press Enter to jump to the Agents pane`
+            : 'No cook session running'
+        }
       >
         cook: {props.activeSessionId !== null ? 'running' : 'idle'}
       </span>
@@ -554,6 +605,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
             ? `Orchestrator model: ${props.orchestratorModel}`
             : 'Orchestrator model not yet resolved (no cook session, or Pi resolved internally)'
         }
+        tabindex="0"
+        role="group"
+        aria-label={`Orchestrator model: ${props.orchestratorModel ?? 'not resolved'}`}
       >
         {formatStatuslineLabeled('orchestrator', shortModelLabel(props.orchestratorModel))}
       </span>
@@ -566,6 +620,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
         title={
           agentsCell().fullList || 'No agents running — populates while a cook session spawns sub-agents'
         }
+        tabindex="0"
+        role="group"
+        aria-label={`Active agents — ${agentsCell().display}`}
       >
         {agentsCell().display}
       </span>
@@ -576,6 +633,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class="dashboard-statusline-cell"
         title="Context estimate — per-session input tokens used / orchestrator model's context window"
+        tabindex="0"
+        role="group"
+        aria-label={`Context estimate: ${formatContextEstimate(
+          props.cumulativeInputTokens,
+          props.contextWindow,
+        )}`}
       >
         {formatContextEstimate(props.cumulativeInputTokens, props.contextWindow)}
       </span>
@@ -588,6 +651,13 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class="dashboard-statusline-cell is-rate group-start"
         title="Live cost rate — $/min derived from this session's elapsed time + cumulative cost"
+        tabindex="0"
+        role="group"
+        aria-label={`Cost rate: ${formatCostRate(
+          props.sessionStartTs,
+          costSummary()?.this_session_usd,
+          props.nowMs,
+        )}`}
       >
         {formatCostRate(
           props.sessionStartTs,
@@ -603,6 +673,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
         title={`Session cost — total $ spent this orchestrator session: ${formatStatuslineSessionCost(
           costSummary()?.this_session_usd,
         )}`}
+        tabindex="0"
+        role="group"
+        aria-label={`Session cost: ${formatStatuslineSessionCost(costSummary()?.this_session_usd)}`}
       >
         {formatStatuslineSessionCost(costSummary()?.this_session_usd)}
       </span>
@@ -610,6 +683,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class="dashboard-statusline-cell is-cost"
         title="Session tokens — input → output for the current orchestrator session"
+        tabindex="0"
+        role="group"
+        aria-label={`Session tokens: ${formatStatuslineTokens(
+          costSummary()?.tokens?.in,
+          costSummary()?.tokens?.out,
+        )}`}
       >
         {formatStatuslineTokens(costSummary()?.tokens?.in, costSummary()?.tokens?.out)}
       </span>
@@ -617,6 +696,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class="dashboard-statusline-cell is-cost is-rollup"
         title="Rolling cost — total $ spent across the last 7 days (all sessions)"
+        tabindex="0"
+        role="group"
+        aria-label={`7-day rolling cost: ${formatStatuslineRollup(
+          usageRollup()?.window_7d,
+          '7d',
+        )}`}
       >
         {formatStatuslineRollup(usageRollup()?.window_7d, '7d')}
       </span>
@@ -624,6 +709,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class="dashboard-statusline-cell is-cost is-rollup"
         title="Rolling cost — total $ spent across the last 30 days (all sessions)"
+        tabindex="0"
+        role="group"
+        aria-label={`30-day rolling cost: ${formatStatuslineRollup(
+          usageRollup()?.window_30d,
+          '30d',
+        )}`}
       >
         {formatStatuslineRollup(usageRollup()?.window_30d, '30d')}
       </span>
