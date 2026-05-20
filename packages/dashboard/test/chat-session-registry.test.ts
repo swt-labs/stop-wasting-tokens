@@ -1,7 +1,15 @@
 import type { SwtSession } from '@swt-labs/runtime';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ChatSessionRegistry } from '../src/server/chat-session-registry.js';
+import {
+  ChatSessionRegistry,
+  type ChatSessionBinding,
+} from '../src/server/chat-session-registry.js';
+
+/** Default binding for tests that don't care which provider/model the
+ *  session was created against — alpha.38's `set` requires a binding,
+ *  but the pre-existing registry tests cover the lifecycle generically. */
+const DEFAULT_BINDING: ChatSessionBinding = { provider: 'anthropic', model: null };
 
 /**
  * Plan 01-03 P01 — ChatSessionRegistry unit tests.
@@ -69,7 +77,7 @@ describe('ChatSessionRegistry', () => {
     const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
     const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
     const session = makeFakeSession('s1');
-    registry.set('chat-1', session);
+    registry.set('chat-1', session, DEFAULT_BINDING);
     expect(registry.get('chat-1')).toBe(session);
     expect(registry.size()).toBe(1);
     registry.close();
@@ -87,7 +95,7 @@ describe('ChatSessionRegistry', () => {
       now,
     });
     const session = makeFakeSession('s1');
-    registry.set('chat-1', session);
+    registry.set('chat-1', session, DEFAULT_BINDING);
     // Advance time PAST the TTL.
     nowVal = ttlMs + 500;
     // Refresh via get — lastUsed should now be `ttlMs + 500`.
@@ -111,7 +119,7 @@ describe('ChatSessionRegistry', () => {
       now: () => nowVal,
     });
     const session = makeFakeSession('s1');
-    registry.set('chat-1', session);
+    registry.set('chat-1', session, DEFAULT_BINDING);
     expect(registry.size()).toBe(1);
     // Advance past TTL without touching the entry.
     nowVal = ttlMs + 1;
@@ -127,8 +135,8 @@ describe('ChatSessionRegistry', () => {
     const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
     const first = makeFakeSession('first');
     const second = makeFakeSession('second');
-    registry.set('chat-1', first);
-    registry.set('chat-1', second);
+    registry.set('chat-1', first, DEFAULT_BINDING);
+    registry.set('chat-1', second, DEFAULT_BINDING);
     expect(first.dispose).toHaveBeenCalledTimes(1);
     expect(second.dispose).not.toHaveBeenCalled();
     expect(registry.get('chat-1')).toBe(second);
@@ -140,8 +148,8 @@ describe('ChatSessionRegistry', () => {
     const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
     const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
     const session = makeFakeSession('s1');
-    registry.set('chat-1', session);
-    registry.set('chat-1', session);
+    registry.set('chat-1', session, DEFAULT_BINDING);
+    registry.set('chat-1', session, DEFAULT_BINDING); // same instance, same binding — must NOT dispose
     expect(session.dispose).not.toHaveBeenCalled();
     expect(registry.size()).toBe(1);
     registry.close();
@@ -152,8 +160,8 @@ describe('ChatSessionRegistry', () => {
     const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
     const a = makeFakeSession('a');
     const b = makeFakeSession('b');
-    registry.set('chat-a', a);
-    registry.set('chat-b', b);
+    registry.set('chat-a', a, DEFAULT_BINDING);
+    registry.set('chat-b', b, DEFAULT_BINDING);
     expect(registry.size()).toBe(2);
     registry.close();
     expect(clearedHandles).toHaveLength(1);
@@ -162,7 +170,7 @@ describe('ChatSessionRegistry', () => {
     expect(a.dispose).toHaveBeenCalledTimes(1);
     expect(b.dispose).toHaveBeenCalledTimes(1);
     expect(registry.size()).toBe(0);
-    expect(() => registry.set('chat-c', makeFakeSession('c'))).toThrowError(
+    expect(() => registry.set('chat-c', makeFakeSession('c'), DEFAULT_BINDING)).toThrowError(
       /set\(\) after close\(\)/,
     );
   });
@@ -190,13 +198,120 @@ describe('ChatSessionRegistry', () => {
       throw new Error('dispose boom');
     });
     const good = makeFakeSession('good');
-    registry.set('chat-bad', bad);
-    registry.set('chat-good', good);
+    registry.set('chat-bad', bad, DEFAULT_BINDING);
+    registry.set('chat-good', good, DEFAULT_BINDING);
     nowVal = ttlMs + 1;
     expect(() => fireSweep()).not.toThrow();
     expect(bad.dispose).toHaveBeenCalledTimes(1);
     expect(good.dispose).toHaveBeenCalledTimes(1);
     expect(registry.size()).toBe(0);
     registry.close();
+  });
+
+  // ─── alpha.38 — binding-aware staleness check (`getMatching`) ──────────
+  describe('getMatching (alpha.38 — mid-session provider/model invalidation)', () => {
+    it('returns the cached session when binding matches', () => {
+      const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
+      const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
+      const session = makeFakeSession('s1');
+      registry.set('chat-1', session, { provider: 'anthropic', model: null });
+      expect(registry.getMatching('chat-1', { provider: 'anthropic', model: null })).toBe(session);
+      expect(session.dispose).not.toHaveBeenCalled();
+      expect(registry.size()).toBe(1);
+      registry.close();
+    });
+
+    it('returns undefined and disposes when provider changes', () => {
+      const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
+      const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
+      const session = makeFakeSession('s1');
+      registry.set('chat-1', session, { provider: 'anthropic', model: null });
+      expect(
+        registry.getMatching('chat-1', { provider: 'openrouter', model: null }),
+      ).toBeUndefined();
+      expect(session.dispose).toHaveBeenCalledTimes(1);
+      expect(registry.size()).toBe(0);
+      registry.close();
+    });
+
+    it('returns undefined and disposes when model changes (same provider)', () => {
+      const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
+      const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
+      const session = makeFakeSession('s1');
+      registry.set('chat-1', session, { provider: 'anthropic', model: 'claude-opus-4' });
+      expect(
+        registry.getMatching('chat-1', { provider: 'anthropic', model: 'claude-sonnet-4' }),
+      ).toBeUndefined();
+      expect(session.dispose).toHaveBeenCalledTimes(1);
+      expect(registry.size()).toBe(0);
+      registry.close();
+    });
+
+    it('treats model: null vs model: "x" as a mismatch (both directions)', () => {
+      const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
+      const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
+      // null stamped, asked for explicit
+      const sNullToExplicit = makeFakeSession('s-a');
+      registry.set('a', sNullToExplicit, { provider: 'anthropic', model: null });
+      expect(
+        registry.getMatching('a', { provider: 'anthropic', model: 'claude-opus-4' }),
+      ).toBeUndefined();
+      expect(sNullToExplicit.dispose).toHaveBeenCalledTimes(1);
+
+      // explicit stamped, asked for null
+      const sExplicitToNull = makeFakeSession('s-b');
+      registry.set('b', sExplicitToNull, { provider: 'anthropic', model: 'claude-opus-4' });
+      expect(registry.getMatching('b', { provider: 'anthropic', model: null })).toBeUndefined();
+      expect(sExplicitToNull.dispose).toHaveBeenCalledTimes(1);
+
+      registry.close();
+    });
+
+    it('returns undefined for an unknown id (no dispose)', () => {
+      const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
+      const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
+      expect(registry.getMatching('nope', { provider: 'anthropic', model: null })).toBeUndefined();
+      registry.close();
+    });
+
+    it('refreshes lastUsed on a matching lookup (survives next sweep)', () => {
+      const { setIntervalFn, clearIntervalFn, fireSweep } = makeFakeInterval();
+      let nowVal = 0;
+      const ttlMs = 1000;
+      const registry = new ChatSessionRegistry({
+        ttlMs,
+        setIntervalFn,
+        clearIntervalFn,
+        now: () => nowVal,
+      });
+      const session = makeFakeSession('s1');
+      registry.set('chat-1', session, { provider: 'anthropic', model: null });
+      // Advance past TTL of the initial `set` timestamp.
+      nowVal = ttlMs + 500;
+      expect(registry.getMatching('chat-1', { provider: 'anthropic', model: null })).toBe(session);
+      // Still within TTL of the refreshed timestamp.
+      nowVal = ttlMs + 600;
+      fireSweep();
+      expect(session.dispose).not.toHaveBeenCalled();
+      expect(registry.size()).toBe(1);
+      registry.close();
+    });
+
+    it('swallows dispose errors during stale-eviction', () => {
+      const { setIntervalFn, clearIntervalFn } = makeFakeInterval();
+      const registry = new ChatSessionRegistry({ setIntervalFn, clearIntervalFn, now: () => 0 });
+      const session = makeFakeSession('s1');
+      session.dispose.mockImplementation(() => {
+        throw new Error('dispose boom');
+      });
+      registry.set('chat-1', session, { provider: 'anthropic', model: null });
+      // Mismatch triggers dispose, which throws — getMatching must still
+      // return undefined and the entry must still be evicted.
+      expect(() =>
+        registry.getMatching('chat-1', { provider: 'openrouter', model: null }),
+      ).not.toThrow();
+      expect(registry.size()).toBe(0);
+      registry.close();
+    });
   });
 });

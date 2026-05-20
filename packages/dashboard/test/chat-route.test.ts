@@ -624,6 +624,258 @@ describe('POST /api/chat', () => {
     registry.close();
   });
 
+  // ─── alpha.38 — Mid-session provider/model switch invalidates cache ──
+  it('alpha.38. mid-session Provider dropdown switch disposes the cached session and creates a fresh one against the new provider', async () => {
+    // Reproduces the bug: user starts a chat with Anthropic (Opus
+    // replies), switches the TopBar Provider dropdown to OpenRouter +
+    // Model to DeepSeek, then sends a follow-up. Pre-alpha.38 the
+    // follow-up still hit Anthropic because the cached SwtSession from
+    // turn 1 had its `AuthStorage` bound to Anthropic and the cache-
+    // then-skip-resolve guard at `chat.ts:if (session === undefined)`
+    // never re-read `config.providers.strategy`. Post-fix, the route
+    // calls `getMatching(id, binding)` BEFORE the cache short-circuit;
+    // the binding mismatch disposes the cached session and the second
+    // turn flows through createSession with the new provider.
+    let nowVal = 0;
+    const setIntervalFn = ((_h: () => void, _ms: number) => ({
+      __fake__: true,
+    })) as unknown as typeof setInterval;
+    const clearIntervalFn = (() => undefined) as unknown as typeof clearInterval;
+    const registry = new ChatSessionRegistry({
+      setIntervalFn,
+      clearIntervalFn,
+      now: () => nowVal,
+    });
+
+    const firstSession = makeFakeSession('sid-anthropic');
+    const secondSession = makeFakeSession('sid-openrouter');
+    firstSession.prompt.mockImplementation(async () => {
+      firstSession.emit({
+        type: 'TASK_TOKEN_USAGE',
+        sessionId: 'sid-anthropic',
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          turn: 1,
+          provider: 'anthropic',
+          model: 'claude-opus-4',
+        },
+      });
+    });
+    secondSession.prompt.mockImplementation(async () => {
+      secondSession.emit({
+        type: 'TASK_TOKEN_USAGE',
+        sessionId: 'sid-openrouter',
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          turn: 1,
+          provider: 'openrouter',
+          model: 'deepseek/deepseek-v4-flash',
+        },
+      });
+    });
+
+    const createdSessions: SwtSession[] = [];
+    const createSessionFn = vi.fn(async (_opts: SwtSessionOptions) => {
+      const next = createdSessions.length === 0 ? firstSession : secondSession;
+      createdSessions.push(next);
+      return next;
+    });
+
+    // resolveActiveProvider returns a different selection on each call:
+    //   turn 1 → anthropic + claude-opus-4
+    //   turn 2 → openrouter + deepseek/deepseek-v4-flash
+    //   turn 3 → openrouter + deepseek/deepseek-v4-flash  (steady state)
+    const selectionsByCall: ActiveProviderSelection[] = [
+      {
+        provider: 'anthropic',
+        authConfig: { anthropic: { mode: 'api_key' } },
+        model: 'claude-opus-4',
+        source: 'pinned',
+      },
+      {
+        provider: 'openrouter',
+        authConfig: { openrouter: { mode: 'api_key' }, anthropic: { mode: 'api_key' } },
+        model: 'deepseek/deepseek-v4-flash',
+        source: 'pinned',
+      },
+      {
+        provider: 'openrouter',
+        authConfig: { openrouter: { mode: 'api_key' }, anthropic: { mode: 'api_key' } },
+        model: 'deepseek/deepseek-v4-flash',
+        source: 'pinned',
+      },
+    ];
+    let callIdx = 0;
+    const resolveActiveProviderFn = vi.fn(() => {
+      const sel = selectionsByCall[Math.min(callIdx, selectionsByCall.length - 1)]!;
+      callIdx += 1;
+      return sel;
+    });
+
+    const resolveCredentialFn = vi.fn(async (provider: string) => ({
+      provider,
+      resolvedCredential: { authMode: 'api_key' as const, secret: 'sk-test' },
+    }));
+
+    const { bus } = makeRecordingBus();
+    const app = new Hono();
+    app.route(
+      '/api/chat',
+      createChatRoute({
+        projectRoot: '/fake-project-root',
+        bus,
+        registry,
+        createSessionFn,
+        resolveCredentialFn,
+        resolveActiveProviderFn,
+      }),
+    );
+
+    // Turn 1 — Anthropic. Captures the chat_session_id from chat.start.
+    const t1 = await postChat(app, { prompt: 'who are you' });
+    const chatSessionId = t1.events.find((e) => e.event === 'chat.start')?.data[
+      'chat_session_id'
+    ] as string;
+    expect(typeof chatSessionId).toBe('string');
+    expect(createSessionFn).toHaveBeenCalledTimes(1);
+    expect(createSessionFn.mock.calls[0]?.[0]?.provider).toBe('anthropic');
+    expect(createSessionFn.mock.calls[0]?.[0]?.model).toBe('claude-opus-4');
+    expect(firstSession.prompt).toHaveBeenCalledTimes(1);
+
+    // User switches the TopBar Provider dropdown to OpenRouter AND the
+    // Model dropdown to DeepSeek. The `selectionsByCall` table advances
+    // resolveActiveProvider to the openrouter row.
+
+    // Turn 2 — same chat_session_id, but a different active provider.
+    const t2 = await postChat(app, { prompt: 'who are you now', chat_session_id: chatSessionId });
+
+    // The cached `firstSession` MUST have been disposed by `getMatching`'s
+    // binding-mismatch branch (THE FIX).
+    expect(firstSession.dispose).toHaveBeenCalledTimes(1);
+    // createSession was called AGAIN for the new provider.
+    expect(createSessionFn).toHaveBeenCalledTimes(2);
+    expect(createSessionFn.mock.calls[1]?.[0]?.provider).toBe('openrouter');
+    expect(createSessionFn.mock.calls[1]?.[0]?.model).toBe('deepseek/deepseek-v4-flash');
+    // The new session was prompted, the stale one was NOT prompted again.
+    expect(secondSession.prompt).toHaveBeenCalledTimes(1);
+    expect(firstSession.prompt).toHaveBeenCalledTimes(1);
+    // Same chat_session_id surfaces — the binding mismatch reset
+    // history but did not invalidate the id.
+    const t2_start = t2.events.find((e) => e.event === 'chat.start');
+    expect(t2_start?.data['chat_session_id']).toBe(chatSessionId);
+
+    // Turn 3 — same selection as turn 2 (no further switch). The
+    // openrouter session must be REUSED, not recreated.
+    const t3 = await postChat(app, { prompt: 'and you?', chat_session_id: chatSessionId });
+    expect(createSessionFn).toHaveBeenCalledTimes(2); // STILL 2
+    expect(secondSession.prompt).toHaveBeenCalledTimes(2);
+    expect(secondSession.dispose).not.toHaveBeenCalled();
+    const t3_start = t3.events.find((e) => e.event === 'chat.start');
+    expect(t3_start?.data['chat_session_id']).toBe(chatSessionId);
+
+    registry.close();
+  });
+
+  it('alpha.38. mid-session Model dropdown switch (same provider, different model) also invalidates cache', async () => {
+    // Sub-variant: provider stays anthropic but model switches Opus 4 →
+    // Sonnet 4. Must also dispose+recreate so Pi's resolved `Model<Api>`
+    // is rebuilt for the new id.
+    const setIntervalFn = ((_h: () => void, _ms: number) => ({
+      __fake__: true,
+    })) as unknown as typeof setInterval;
+    const clearIntervalFn = (() => undefined) as unknown as typeof clearInterval;
+    const registry = new ChatSessionRegistry({
+      setIntervalFn,
+      clearIntervalFn,
+      now: () => 0,
+    });
+
+    const opusSession = makeFakeSession('sid-opus');
+    const sonnetSession = makeFakeSession('sid-sonnet');
+    for (const s of [opusSession, sonnetSession]) {
+      s.prompt.mockImplementation(async () => {
+        s.emit({
+          type: 'TASK_TOKEN_USAGE',
+          sessionId: s.sessionId,
+          usage: {
+            input: 1,
+            output: 1,
+            cacheRead: 0,
+            cacheWrite: 0,
+            turn: 1,
+            provider: 'anthropic',
+            model: s === opusSession ? 'claude-opus-4' : 'claude-sonnet-4',
+          },
+        });
+      });
+    }
+
+    const created: SwtSession[] = [];
+    const createSessionFn = vi.fn(async () => {
+      const next = created.length === 0 ? opusSession : sonnetSession;
+      created.push(next);
+      return next;
+    });
+
+    const selections: ActiveProviderSelection[] = [
+      {
+        provider: 'anthropic',
+        authConfig: { anthropic: { mode: 'api_key' } },
+        model: 'claude-opus-4',
+        source: 'pinned',
+      },
+      {
+        provider: 'anthropic',
+        authConfig: { anthropic: { mode: 'api_key' } },
+        model: 'claude-sonnet-4',
+        source: 'pinned',
+      },
+    ];
+    let idx = 0;
+    const resolveActiveProviderFn = vi.fn(() => {
+      const sel = selections[Math.min(idx, selections.length - 1)]!;
+      idx += 1;
+      return sel;
+    });
+
+    const { bus } = makeRecordingBus();
+    const app = new Hono();
+    app.route(
+      '/api/chat',
+      createChatRoute({
+        projectRoot: '/fake-project-root',
+        bus,
+        registry,
+        createSessionFn,
+        resolveCredentialFn: vi.fn(async (provider: string) => ({
+          provider,
+          resolvedCredential: { authMode: 'api_key' as const, secret: 'sk-test' },
+        })),
+        resolveActiveProviderFn,
+      }),
+    );
+
+    const t1 = await postChat(app, { prompt: 'opus please' });
+    const chatSessionId = t1.events.find((e) => e.event === 'chat.start')?.data[
+      'chat_session_id'
+    ] as string;
+    expect(createSessionFn).toHaveBeenCalledTimes(1);
+    expect(createSessionFn.mock.calls[0]?.[0]?.model).toBe('claude-opus-4');
+
+    await postChat(app, { prompt: 'sonnet now', chat_session_id: chatSessionId });
+    expect(opusSession.dispose).toHaveBeenCalledTimes(1);
+    expect(createSessionFn).toHaveBeenCalledTimes(2);
+    expect(createSessionFn.mock.calls[1]?.[0]?.model).toBe('claude-sonnet-4');
+
+    registry.close();
+  });
+
   it('REGRESSION. SNAPSHOT_EVENT_TYPES carries every chat.* type the route emits', () => {
     // Locked-down list of every `chat.*` literal this route can write
     // through `stream.writeSSE({event: evt.type, ...})`. If a future

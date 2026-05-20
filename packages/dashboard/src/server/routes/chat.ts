@@ -12,6 +12,21 @@
  * (Scout RESEARCH §Q3), so multi-turn "just works" by calling
  * `session.prompt(text)` on the same handle.
  *
+ * **alpha.38 — Mid-session provider/model switch invalidates the cache.**
+ * Before every registry lookup the route calls `resolveActiveProvider`
+ * to read the current `(provider, model)` pin from
+ * `.swt-planning/config.json` and uses `registry.getMatching(id, binding)`
+ * — which disposes-and-returns-undefined when the cached entry's stamped
+ * binding differs. The route then falls through to the
+ * `resolveCredential` + `createSession` path with the freshly-pinned
+ * provider + model. Conversation history is reset by definition (the
+ * cached Pi `AgentSession` is disposed), which matches the user's
+ * mental model when they explicitly switch vendors mid-chat. Pre-fix
+ * (alpha.37), the cache-then-skip-resolve guard at
+ * `if (session === undefined)` silently ignored mid-session switches —
+ * the TopBar dropdown + statusline reflected the new provider, but
+ * every turn kept replying through the first-turn vendor.
+ *
  * **Event mapping (per @swt-labs/shared Zod schemas):**
  *   Pi `MESSAGE_DELTA`          → `chat.message_delta`
  *   Pi `TOOL_CALL`              → `chat.tool_call`
@@ -161,43 +176,59 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
         }
       };
 
+      // alpha.38 fix — resolve the active provider + model BEFORE the
+      // registry lookup so the cache-then-skip-resolve path can no longer
+      // bypass a mid-session TopBar Provider/Model switch. Pre-fix
+      // (alpha.37), the route used `opts.registry.get(chatSessionId)` and
+      // short-circuited around `resolveActiveProvider` whenever a session
+      // was already registered — which meant turn-1's `(provider, model)`
+      // binding stuck for every subsequent turn even after the user
+      // switched dropdowns. `resolveActiveProvider` reads
+      // `.swt-planning/config.json` on EVERY call (no in-process cache),
+      // so doing the resolve up front is cheap and now drives both the
+      // first-turn create path AND the multi-turn staleness check.
+      //
+      // alpha.37 comment (still applies): `resolveActiveProvider` honors
+      // `providers.strategy.provider` first, falls back to the first
+      // authed entry when no pin, AND returns `model` from `config.model`
+      // (alpha.35 Model dropdown) so it can flow through to Pi's
+      // `createAgentSession({model})` via `createSession({model})`.
+      const selection = resolveActiveProvider(opts.projectRoot);
+      if (selection.provider === null) {
+        await emit({
+          type: 'chat.error',
+          ts: ts(),
+          chat_session_id: chatSessionId,
+          code: 'CHAT_AUTH_FAILED',
+          message:
+            'No auth block configured for this project. Run `swt init` or open the dashboard Provider settings.',
+        });
+        await emit({ type: 'chat.complete', ts: ts(), chat_session_id: chatSessionId });
+        return;
+      }
+
+      // alpha.38 — stamp the registry entry with the resolved
+      // `(provider, model)` so a mid-session dropdown switch invalidates
+      // the cached session. `getMatching` disposes-and-returns-undefined
+      // on a binding mismatch; the route then falls through to the
+      // create-new-session branch below. Conversation history (Pi's
+      // `SessionManager.inMemory`) is reset by definition because the
+      // cached AgentSession is disposed — which matches the user's
+      // mental model when they explicitly switch vendors mid-chat.
+      const binding = { provider: selection.provider, model: selection.model };
+
       // First, try to reuse a session by id. We only reuse when the client
       // explicitly sent a `chat_session_id` — a fresh randomUUID() can't
       // possibly match an existing entry, so skip the lookup to keep the
       // create-path linear when no id is provided.
       let session: SwtSession | undefined =
-        requestedId !== undefined ? opts.registry.get(chatSessionId) : undefined;
+        requestedId !== undefined ? opts.registry.getMatching(chatSessionId, binding) : undefined;
       let unsubscribe: (() => void) | undefined;
 
       try {
         if (session === undefined) {
-          // ─── First turn for this chat_session_id ─────────────────────
-          // alpha.37 fix — resolve via `resolveActiveProvider` so the chat
-          // route HONORS the TopBar Provider dropdown's pinned strategy
-          // (`config.providers.strategy.provider`). Pre-fix the route used
-          // `Object.keys(authConfig)[0]` which silently ignored the pin
-          // and picked the first-inserted auth-block entry — so a user who
-          // OAuth'd Anthropic THEN added an OpenRouter API key saw the
-          // dropdown say openrouter, the statusline say openrouter, and
-          // yet every chat turn ran against Anthropic. `resolveActiveProvider`
-          // returns the pinned provider first, falls back to the first
-          // authed entry when no pin (preserving pre-alpha.37 behaviour for
-          // the unpinned case), AND returns `model` from `config.model`
-          // (alpha.35 Model dropdown) so it can flow through to Pi's
-          // `createAgentSession({model})` via `createSession({model})`.
-          const selection = resolveActiveProvider(opts.projectRoot);
-          if (selection.provider === null) {
-            await emit({
-              type: 'chat.error',
-              ts: ts(),
-              chat_session_id: chatSessionId,
-              code: 'CHAT_AUTH_FAILED',
-              message:
-                'No auth block configured for this project. Run `swt init` or open the dashboard Provider settings.',
-            });
-            await emit({ type: 'chat.complete', ts: ts(), chat_session_id: chatSessionId });
-            return;
-          }
+          // ─── First turn for this chat_session_id OR cached entry was
+          // invalidated by a provider/model switch (alpha.38) ───────────
           const resolved = await resolveCredential(selection.provider, selection.authConfig);
           if (resolved === undefined) {
             await emit({
@@ -223,7 +254,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
             // null case).
             ...(selection.model !== null ? { model: selection.model } : {}),
           });
-          opts.registry.set(chatSessionId, session);
+          opts.registry.set(chatSessionId, session, binding);
         }
 
         await emit({
