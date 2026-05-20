@@ -9,6 +9,7 @@ import {
   DoctorReportSchema,
   HealthResponseSchema,
   InitBodySchema,
+  InitPrecheckResponseSchema,
   InitResponseSchema,
   ModelsSnapshotSchema,
   OAuthManualCodeBodySchema,
@@ -37,6 +38,7 @@ import {
   type DoctorReport,
   type HealthResponse,
   type InitBody,
+  type InitPrecheckResponse,
   type InitResponse,
   type ModelsSnapshot,
   type OAuthManualCodeResponse,
@@ -66,6 +68,7 @@ export type {
   DetectPhaseReport,
   DoctorReport,
   InitBody,
+  InitPrecheckResponse,
   InitResponse,
   OAuthManualCodeResponse,
   OAuthStartResponse,
@@ -114,6 +117,21 @@ export async function fetchHealth(): Promise<HealthResponse> {
 export async function fetchSnapshot(): Promise<Snapshot> {
   const raw = await jsonRequest<unknown>('/api/snapshot');
   return SnapshotSchema.parse(raw);
+}
+
+/**
+ * Milestone 23 Phase 02 — `GET /api/init-precheck`. Read-only auto-
+ * detection the wizard's Step 1 displays above the name input. Returns
+ * a discriminated union: `{ already_initialized: true }` (short-circuit
+ * branch) or `{ already_initialized: false, brownfield, source_file_count,
+ * git }`. Follows the `fetchConfig` / `fetchSnapshot` pattern — thin GET
+ * + Zod parse via `InitPrecheckResponseSchema` from `@swt-labs/shared`.
+ * Keeps wire-protocol validation at the service boundary so panel
+ * components see fully-typed data.
+ */
+export async function fetchInitPrecheck(): Promise<InitPrecheckResponse> {
+  const raw = await jsonRequest<unknown>('/api/init-precheck');
+  return InitPrecheckResponseSchema.parse(raw);
 }
 
 /* ── v2.3: read-only CLI parity routes ─────────────────────────────────

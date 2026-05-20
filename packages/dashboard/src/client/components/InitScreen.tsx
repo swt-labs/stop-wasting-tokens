@@ -1,46 +1,15 @@
-import type { ProviderAuthSnapshot, ProviderAuthStatus } from '@swt-labs/shared';
 import {
-  createMemo,
+  createResource,
   createSignal,
   Match,
-  onCleanup,
-  onMount,
   Show,
   Switch,
   type Component,
 } from 'solid-js';
 
-import type { InitBody } from '../services/api.js';
+import { fetchInitPrecheck } from '../services/api.js';
+import type { InitBody, InitPrecheckResponse } from '../services/api.js';
 import type { InitSessionState } from '../state/dashboard-store.js';
-
-/**
- * Plan 19-04-01 T01 — pure helper computing the Initialize-button
- * enabled/disabled status from a ProviderAuthStatus row. 'green' iff the
- * credential is configured AND has a known auth mode (api_key or oauth) —
- * adapted from the brief's assumed `status === 'authed'` to the actual
- * schema per Phase 04 research P1 (no 'authed'|'missing'|'expired' string
- * field exists in ProviderAuthStatusSchema). 'red' otherwise. 'empty' for
- * null — no credentials configured at all OR no provider selected globally.
- *
- * Post-alpha.34 simplification: the InitScreen no longer renders a local
- * provider selector — provider selection happens exclusively via the
- * TopBar Provider menu (single source of truth). This helper now drives
- * only the Initialize-button enabled state, not a local status-indicator
- * button. The local dropdown was buggy (multiple "Keychain"-labeled
- * entries when more than one provider had keychain creds, and it could
- * default to a non-authed provider — see commit history).
- *
- * Milestone 23 Phase 02 T01 carry-over: still exported as a dead utility
- * for the existing `init-screen-helpers.test.ts` import; T02 either
- * deletes both the export AND the test, or keeps both. T01 leaves the
- * function in place to keep the diff minimal.
- */
-export function computeProviderStatus(
-  credential: ProviderAuthStatus | null,
-): 'green' | 'red' | 'empty' {
-  if (credential === null) return 'empty';
-  return credential.configured && credential.mode !== null ? 'green' : 'red';
-}
 
 /**
  * Plan 19-03-01 T02 — friendly-label map for `[tool] X` lines coming out
@@ -83,7 +52,7 @@ function toolFriendlyLabel(tool: string): string {
  *   - anything else               → render raw (defensive fallback)
  *
  * Pure function: no Solid primitives, no side effects. Exported for unit
- * testing in init-screen-helpers.test.ts. Milestone 23 Phase 02 T01: the
+ * testing in init-screen-helpers.test.ts. Milestone 23 Phase 02: the
  * synchronous scaffold no longer emits these trace lines, so this helper
  * is dead code in production for the new wizard — kept as a pure export
  * so its test continues to compile (Drift 4 resolution from Plan Notes).
@@ -141,6 +110,34 @@ export function buildInitBody(args: {
   return body;
 }
 
+/**
+ * Milestone 23 Phase 02 T02 — pure label for the Step 1 git-state line.
+ * Maps the 3-value enum from `GET /api/init-precheck` to a one-line
+ * human-readable string.
+ */
+export function describeGitState(git: 'absent' | 'repo' | 'parent_repo'): string {
+  switch (git) {
+    case 'absent':
+      return 'No git repository (SWT will run `git init` for you)';
+    case 'repo':
+      return 'Git repository detected';
+    case 'parent_repo':
+      return 'Inside parent git repository';
+  }
+}
+
+/**
+ * Milestone 23 Phase 02 T02 — pure label for the Step 1 brownfield-vs-
+ * greenfield line. Renders a "Brownfield (N source file{s} detected)"
+ * string for brownfield projects (with singular/plural agreement) and a
+ * static "Greenfield (no existing source files)" for fresh dirs.
+ */
+export function describePrecheckMode(brownfield: boolean, sourceFileCount: number): string {
+  if (!brownfield) return 'Greenfield (no existing source files)';
+  const noun = sourceFileCount === 1 ? 'source file' : 'source files';
+  return `Brownfield (${sourceFileCount} ${noun} detected)`;
+}
+
 export interface InitScreenProps {
   submitting: boolean;
   /**
@@ -159,22 +156,6 @@ export interface InitScreenProps {
    */
   initSession: () => InitSessionState | null;
   onInit: (body: InitBody) => Promise<void>;
-  /**
-   * Accessor for the provider-auth snapshot. Used only to gate the
-   * Initialize button on whether the GLOBALLY-selected provider
-   * (snapshot.selected_provider, set via the TopBar Provider menu) has
-   * valid credentials. Returns null while the tools cell is still loading
-   * on first paint; the gate treats null as empty-state (button disabled).
-   *
-   * Post-alpha.34: InitScreen no longer owns a local provider selector.
-   * Provider selection is exclusively the TopBar's responsibility; this
-   * snapshot is read-only here.
-   *
-   * Milestone 23 Phase 02 T01 carry-over: the prop is still in the
-   * interface for T01 (smaller diff). T02 removes it entirely along with
-   * the gate logic (Locked Decision #10 — wizard is vendor-agnostic).
-   */
-  providerAuth: () => ProviderAuthSnapshot | null;
 }
 
 export const InitScreen: Component<InitScreenProps> = (props) => {
@@ -200,6 +181,12 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   // ── Submit / error state ──────────────────────────────────────────────
   const [error, setError] = createSignal<string | null>(null);
 
+  // ── /api/init-precheck resource (Step 1 auto-detect) ─────────────────
+  // Milestone 23 Phase 02 T02. Fires once on mount; the response either
+  // short-circuits the wizard into the "already initialized" branch or
+  // drives the 2-line auto-detection display above the name input.
+  const [precheck] = createResource<InitPrecheckResponse>(fetchInitPrecheck);
+
   // Plan 03-01 T3 — the form is disabled while either the scaffold POST
   // is in flight (props.submitting from initSubmitting) OR the init Lead
   // is running on the daemon (initSession.status === 'detecting'). With
@@ -207,47 +194,10 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   // flash. Retained per Drift 6 — same prop contract still applies.
   const isBusy = (): boolean => props.submitting || props.initSession()?.status === 'detecting';
 
-  // Plan 19-03-01 T02 — elapsed-counter signal driving the "(Ns)" suffix
-  // on the live progress block. Retained as-is for T01; Step 3 (T03)
-  // continues to reuse this if the brief progress flash is visible.
-  const [tick, setTick] = createSignal<number>(Date.now());
-  onMount(() => {
-    const id = setInterval(() => {
-      if (isBusy()) setTick(Date.now());
-    }, 1000);
-    onCleanup(() => clearInterval(id));
-  });
-  const elapsed = createMemo<number>(() => {
-    const startedAt = props.initSession()?.started_at;
-    if (!startedAt) return 0;
-    return Math.floor((tick() - new Date(startedAt).getTime()) / 1000);
-  });
-
-  // Post-alpha.34 / Milestone 23 Phase 02 T01 carry-over: the provider
-  // gate. T02 removes this block entirely along with the `providerAuth`
-  // prop (Locked Decision #10 — wizard is vendor-agnostic).
-  const selectedCredential = createMemo<ProviderAuthStatus | null>(() => {
-    const snapshot = props.providerAuth();
-    if (!snapshot) return null;
-    const id = snapshot.selected_provider;
-    if (id === null) return null;
-    return snapshot.statuses.find((s) => s.provider === id) ?? null;
-  });
-
-  const providerStatus = createMemo<'green' | 'red' | 'empty'>(() =>
-    computeProviderStatus(selectedCredential()),
-  );
-
-  // TODO(T02): remove with provider-gate purge. Currently retained so
-  // the [Continue →] button can still be visually disabled when the
-  // provider is not authed — but per Locked Decision #10 the gate must
-  // be DELETED in T02 and [Continue →] becomes name-only.
-  const providerGateBlocked = (): boolean => providerStatus() !== 'green';
-
-  // ── Submit handler (T01 placeholder — T03 finalises with response capture) ──
-  // For T01 the submit just advances the wizard to Step 3 (placeholder).
-  // T03 will wire the actual POST /api/init through props.onInit + capture
-  // the response in lastInitResponse for Step 4's render.
+  // ── Submit handler (T02 placeholder — T03 finalises with response capture) ──
+  // For T02 the submit just advances the wizard to Step 3. T03 will wire
+  // the actual POST /api/init through props.onInit + capture the response
+  // in lastInitResponse for Step 4's render + 409/5xx error handling.
   const handleSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     if (isBusy()) return;
@@ -257,9 +207,6 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
       return;
     }
     setError(null);
-    // T01 placeholder: just advance to the Step 3 view. T03 replaces
-    // this with `await props.onInit(buildInitBody({...}))` + response
-    // capture + Step 4 transition + 409/5xx error handling.
     setStep(3);
   };
 
@@ -319,6 +266,41 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
                   ? 'No .swt-planning/ here yet — but plenty of code. SWT scaffolds its planning artifacts alongside your existing files. Nothing changes until an agent makes an edit you approve.'
                   : 'No .swt-planning/ here yet. Pick a name to scaffold one. SWT runs the methodology loop while you describe what you want.'}
               </p>
+
+              {/* Phase-01 precheck auto-detection display */}
+              <Show
+                when={precheck()}
+                fallback={
+                  <div class="init-wizard-precheck" data-loading="true" role="status">
+                    Detecting project state…
+                  </div>
+                }
+              >
+                {(p) => (
+                  <Show
+                    when={!p().already_initialized}
+                    fallback={
+                      <div class="init-wizard-already-initialized" role="status">
+                        Project already initialized — go to dashboard.
+                      </div>
+                    }
+                  >
+                    {/* Type narrowing: already_initialized=false branch has all fields */}
+                    {(() => {
+                      const detail = p() as Extract<
+                        InitPrecheckResponse,
+                        { already_initialized: false }
+                      >;
+                      return (
+                        <div class="init-wizard-precheck" role="status">
+                          <span>{describePrecheckMode(detail.brownfield, detail.source_file_count)}</span>
+                          <span>{describeGitState(detail.git)}</span>
+                        </div>
+                      );
+                    })()}
+                  </Show>
+                )}
+              </Show>
 
               <label class="init-field">
                 <span>Project name</span>
@@ -444,7 +426,7 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
                 <button
                   type="button"
                   class="init-submit init-wizard-primary"
-                  disabled={isBusy() || providerGateBlocked()}
+                  disabled={isBusy()}
                   onClick={(e) => void handleSubmit(e)}
                 >
                   Initialize SWT →
@@ -453,17 +435,15 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
             </section>
           </Match>
 
-          {/* ── Step 3 — Scaffold progress (T01 placeholder) ─────────── */}
+          {/* ── Step 3 — Scaffold progress (T02 placeholder) ─────────── */}
           <Match when={step() === 3}>
             <section class="init-wizard-step-panel init-wizard-progress" aria-live="polite">
               <h2 class="init-wizard-step-heading">Scaffolding…</h2>
-              <p class="init-wizard-lede">
-                ◆ Writing <code>.swt-planning/</code> · {elapsed()}s
-              </p>
+              <p class="init-wizard-lede">◆ Writing <code>.swt-planning/</code>…</p>
             </section>
           </Match>
 
-          {/* ── Step 4 — Complete (T01 placeholder) ──────────────────── */}
+          {/* ── Step 4 — Complete (T02 placeholder) ──────────────────── */}
           <Match when={step() === 4}>
             <section class="init-wizard-step-panel init-wizard-complete">
               <h2 class="init-wizard-step-heading">Complete.</h2>

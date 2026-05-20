@@ -268,7 +268,6 @@ export const App: Component = () => {
               brownfield={isBrownfield()}
               initSession={() => state.initSession}
               onInit={actions.initProject}
-              providerAuth={() => state.tools.providerAuth.data}
             />
           </main>
         }

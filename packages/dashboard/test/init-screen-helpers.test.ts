@@ -4,19 +4,23 @@
  * friendly progress labels for the live status block above the
  * Initialize button on InitScreen.
  *
- * Phase 04 will extend this file with the `selectInitialProvider` +
- * `computeProviderStatus` helpers — naming the file `init-screen-helpers`
- * (plural-friendly) anticipates that, matching brief §H line 432.
+ * Milestone 23 Phase 02 T02 update: the `computeProviderStatus` describe
+ * block + import were removed when the InitScreen wizard's provider gate
+ * was deleted (Locked Decision #10 — vendor-agnostic init). The function
+ * itself is no longer exported from `InitScreen.tsx`; the wizard reads
+ * NO providerAuth data. `classifyInitLine` survives as a pure export
+ * because the synchronous scaffold could still surface fall-through
+ * trace lines in unusual code paths; the test stays as an isolation
+ * guard for the truth table.
  *
  * No Solid component harness, no DOM. classifyInitLine is exported from
  * InitScreen.tsx specifically so the classifier truth table can be
  * exhaustively asserted without rendering the component.
  */
 
-import type { ProviderAuthStatus } from '@swt-labs/shared';
 import { describe, expect, it } from 'vitest';
 
-import { classifyInitLine, computeProviderStatus } from '../src/client/components/InitScreen.js';
+import { classifyInitLine } from '../src/client/components/InitScreen.js';
 
 describe('classifyInitLine', () => {
   describe('[tool] prefix', () => {
@@ -110,48 +114,11 @@ describe('classifyInitLine', () => {
   });
 });
 
-/**
- * Plan 19-04-01 T01 — pure-function tests for the two provider-selector
- * helpers exported from InitScreen.tsx. Each helper is a pure mapping from
- * the actual `ProviderAuthStatus` Zod schema (configured + mode + source +
- * label) to the dropdown's default selection / status-indicator color.
- *
- * Adapted from the brief's assumed `status: 'authed'|'missing'|'expired'`
- * field per Phase 04 research P1 (no such field exists) — the actual rule
- * is `(configured && mode !== null) → 'green'`, anything else → 'red',
- * null credential → 'empty'.
- */
-const mkStatus = (overrides: Partial<ProviderAuthStatus> = {}): ProviderAuthStatus => ({
-  provider: 'anthropic',
-  configured: true,
-  mode: 'oauth',
-  source: 'keychain',
-  label: 'Anthropic',
-  ...overrides,
-});
-
-// selectInitialProvider describe block retired post-alpha.34. The InitScreen
-// no longer renders a local provider selector; selection is exclusively the
-// TopBar Provider menu's responsibility. The helper itself was removed from
-// InitScreen.tsx — only computeProviderStatus survives (Initialize-button
-// gating still uses it to read the globally-selected provider's auth state).
-
-describe('computeProviderStatus', () => {
-  it('returns empty for null credential', () => {
-    expect(computeProviderStatus(null)).toBe('empty');
-  });
-
-  it('returns green when configured AND mode set', () => {
-    expect(computeProviderStatus(mkStatus({ configured: true, mode: 'oauth' }))).toBe('green');
-    expect(computeProviderStatus(mkStatus({ configured: true, mode: 'api_key' }))).toBe('green');
-  });
-
-  it('returns red when configured is false', () => {
-    expect(computeProviderStatus(mkStatus({ configured: false, mode: 'api_key' }))).toBe('red');
-    expect(computeProviderStatus(mkStatus({ configured: false, mode: null }))).toBe('red');
-  });
-
-  it('returns red when mode is null even if configured is true (degraded state)', () => {
-    expect(computeProviderStatus(mkStatus({ configured: true, mode: null }))).toBe('red');
-  });
-});
+// computeProviderStatus describe block retired in milestone 23 Phase 02 T02.
+// The wizard is vendor-agnostic per Locked Decision #10 — InitScreen no
+// longer imports ProviderAuthSnapshot or ProviderAuthStatus, and the
+// computeProviderStatus helper is deleted from InitScreen.tsx. The
+// provider-auth flow continues to work via ProviderAuthPanel in TopBar
+// independently; there is no remaining call site for a provider-status
+// computation INSIDE the wizard. Provider authentication is a per-
+// operation concern, not a project-init concern.
