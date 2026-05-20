@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   connectionDotState,
+  connectionDotTooltip,
   formatAgentsCell,
   formatContextEstimate,
   formatStatuslineKnob,
@@ -75,6 +76,17 @@ describe('connectionDotState', () => {
 
   it('returns "error" when state.connection is "error"', () => {
     expect(connectionDotState('error')).toBe('error');
+  });
+});
+
+// v2 Wave 4 commit 7 — short hover tooltip for the dot. Pinned here so
+// commit 11 (SSE latency) extends rather than rewrites the contract.
+describe('connectionDotTooltip', () => {
+  it('describes each ConnectionState', () => {
+    expect(connectionDotTooltip('connected')).toBe('Connected — SSE stream open');
+    expect(connectionDotTooltip('syncing')).toBe('Syncing — replaying state from server');
+    expect(connectionDotTooltip('connecting')).toBe('Connecting — SSE stream opening');
+    expect(connectionDotTooltip('error')).toBe('Connection error — SSE stream disconnected');
   });
 });
 

@@ -125,6 +125,19 @@ export function connectionDotState(
 }
 
 /**
+ * v2 Wave 4 commit 7 — short hover tooltip for the connection dot.
+ * Wave 5 commit 11 will extend this with SSE round-trip latency when
+ * connected and last-event age when pending; for commit 7 the tooltip
+ * is just a state label.
+ */
+export function connectionDotTooltip(connectionState: ConnectionState): string {
+  if (connectionState === 'connected') return 'Connected — SSE stream open';
+  if (connectionState === 'syncing') return 'Syncing — replaying state from server';
+  if (connectionState === 'connecting') return 'Connecting — SSE stream opening';
+  return 'Connection error — SSE stream disconnected';
+}
+
+/**
  * Format a USD amount for the statusline.
  *
  *   - null / undefined / NaN → `$—`
@@ -291,16 +304,23 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
   const usageRollup = (): UsageRollup | null | undefined => props.usageRollup ?? null;
   const agentsCell = (): AgentsCellResult => formatAgentsCell(props.activeAgents);
 
+  const providerName = (): string => formatStatuslineProvider(providerAuth()?.selected_provider);
   return (
     <div class="dashboard-statusline" aria-label="Dashboard statusline">
       {/* Cell 1: provider */}
-      <span class="dashboard-statusline-cell">
-        {formatStatuslineProvider(providerAuth()?.selected_provider)}
+      <span
+        class="dashboard-statusline-cell"
+        title={`Provider: ${providerName()} — switch via the Provider menu`}
+      >
+        {providerName()}
       </span>
       {/* Cell 2: connection dot — Wave 1 of v2: dot reads state.connection
-          (SSE truth) instead of providerAuth.keychain_available. */}
+          (SSE truth) instead of providerAuth.keychain_available.
+          Wave 4 commit 7: tooltip describes the state; Wave 5 commit 11
+          will extend with SSE latency. */}
       <span
         class={`dashboard-statusline-dot dashboard-statusline-dot-${connectionDotState(props.connectionState)}`}
+        title={connectionDotTooltip(props.connectionState)}
       >
         ●
       </span>
@@ -311,7 +331,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           the orchestrator's resolved model id rendered below.
           v2 Wave 3 commit 5 — the first knob (`effort`) is the Config
           group head; `group-start` gives it the `│` leading separator
-          instead of `·`. The remaining three knobs use the default `·`. */}
+          instead of `·`. The remaining three knobs use the default `·`.
+          v2 Wave 4 commit 7 — each knob carries a `title` attribute
+          explaining the value and pointing the user to the Settings UI. */}
       <For
         each={
           [
@@ -327,6 +349,9 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
             class={`dashboard-statusline-cell dashboard-statusline-knob${
               index() === 0 ? ' group-start' : ''
             }`}
+            title={`${pair[0][0].toUpperCase()}${pair[0].slice(1)}: ${
+              pair[1] ?? '—'
+            } — tunable via Settings`}
           >
             {formatStatuslineKnob(pair[0], pair[1])}
           </span>
@@ -344,6 +369,11 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
         class={`dashboard-statusline-cell dashboard-statusline-cook group-start ${
           props.activeSessionId !== null ? 'is-running' : 'is-idle'
         }`}
+        title={
+          props.activeSessionId !== null
+            ? `Cook session running — id ${props.activeSessionId.slice(0, 8)}`
+            : 'No cook session running — start one from the prompt card'
+        }
       >
         cook: {props.activeSessionId !== null ? 'running' : 'idle'}
       </span>
@@ -351,38 +381,72 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           v2 Wave 3 commit 3 — relabelled from `model:` to `orchestrator:`
           (Locked Decision #15) so the resolved-model display does not
           collide with the model-profile knob above. */}
-      <span class="dashboard-statusline-cell dashboard-statusline-model">
+      <span
+        class="dashboard-statusline-cell dashboard-statusline-model"
+        title={
+          props.orchestratorModel !== null
+            ? `Orchestrator model: ${props.orchestratorModel}`
+            : 'Orchestrator model not yet resolved (no cook session, or Pi resolved internally)'
+        }
+      >
         {formatStatuslineLabeled('orchestrator', shortModelLabel(props.orchestratorModel))}
       </span>
-      {/* Cell 9: agents */}
+      {/* Cell 9: agents — title carries the full role:model list when the
+          inline display was truncated; v2 Wave 4 commit 7 ALSO falls back
+          to a generic explainer when nothing is running so every cell
+          has a tooltip. */}
       <span
         class={`dashboard-statusline-cell dashboard-statusline-agents${agentsCell().truncated ? ' dashboard-statusline-agents-truncated' : ''}`}
-        title={agentsCell().fullList || undefined}
+        title={
+          agentsCell().fullList || 'No agents running — populates while a cook session spawns sub-agents'
+        }
       >
         {agentsCell().display}
       </span>
-      {/* Cell 10: context estimate (replaces the static `ctx —/—` placeholder) */}
-      <span class="dashboard-statusline-cell">
+      {/* Cell 10: context estimate (replaces the static `ctx —/—` placeholder).
+          v2 Wave 4 commit 7 — title explains the `~Xk/Yk` shape and
+          reminds the reader that the estimate is per-session, not
+          dashboard-lifetime. */}
+      <span
+        class="dashboard-statusline-cell"
+        title="Context estimate — per-session input tokens used / orchestrator model's context window"
+      >
         {formatContextEstimate(props.cumulativeInputTokens, props.contextWindow)}
       </span>
       {/* Cell 11: session cost (Money-group head).
           v2 Wave 3 commit 5 — `group-start` renders the leading `│`
           before the Money section. (Wave 5 commit 10 will swap this
           marker to the new `rate:` cell once that lands at the head
-          of the Money group.) */}
-      <span class="dashboard-statusline-cell group-start">
+          of the Money group.)
+          v2 Wave 4 commit 7 — `is-cost` class earmarks the cell for the
+          200ms color transition shipped in Wave 5 commit 12. */}
+      <span
+        class="dashboard-statusline-cell is-cost group-start"
+        title={`Session cost — total $ spent this orchestrator session: ${formatStatuslineSessionCost(
+          costSummary()?.this_session_usd,
+        )}`}
+      >
         {formatStatuslineSessionCost(costSummary()?.this_session_usd)}
       </span>
-      {/* Cell 12: tokens (in↛out) */}
-      <span class="dashboard-statusline-cell">
+      {/* Cell 12: tokens (in → out). */}
+      <span
+        class="dashboard-statusline-cell is-cost"
+        title="Session tokens — input → output for the current orchestrator session"
+      >
         {formatStatuslineTokens(costSummary()?.tokens?.in, costSummary()?.tokens?.out)}
       </span>
-      {/* Cell 13: 7d rolling cost */}
-      <span class="dashboard-statusline-cell">
+      {/* Cell 13: 7d rolling cost. */}
+      <span
+        class="dashboard-statusline-cell is-cost is-rollup"
+        title="Rolling cost — total $ spent across the last 7 days (all sessions)"
+      >
         {formatStatuslineRollup(usageRollup()?.window_7d, '7d')}
       </span>
-      {/* Cell 14: 30d rolling cost */}
-      <span class="dashboard-statusline-cell">
+      {/* Cell 14: 30d rolling cost. */}
+      <span
+        class="dashboard-statusline-cell is-cost is-rollup"
+        title="Rolling cost — total $ spent across the last 30 days (all sessions)"
+      >
         {formatStatuslineRollup(usageRollup()?.window_30d, '30d')}
       </span>
     </div>

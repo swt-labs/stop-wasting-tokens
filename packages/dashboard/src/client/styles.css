@@ -284,6 +284,27 @@ body {
   color: var(--slate-muted);
 }
 
+/* v2 Wave 4 commit 7 — per-cell `min-width` keeps the bar from
+   jittering as values change (e.g., `agents: 0` → `agents: 3 [...]`).
+   Numbers are tuned by visual review against the JetBrains Mono 12px
+   font used by the bar; left-aligned content fits inside the box
+   without padding so short values still read as left-anchored. */
+.dashboard-statusline-cell {
+  min-width: 48px;
+}
+.dashboard-statusline-knob {
+  min-width: 96px;
+}
+.dashboard-statusline-model {
+  min-width: 132px;
+}
+.dashboard-statusline-agents {
+  min-width: 96px;
+}
+.dashboard-statusline-cook {
+  min-width: 88px;
+}
+
 /* When the agents-cell list overflows the inline cap, the cell collapses
    to the count + hover-for-full-list — accent the count subtly so the
    user has a cue that more state exists behind the tooltip. */
