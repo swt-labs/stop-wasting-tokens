@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — alpha.37 chat-route pinned-provider + model forwarding
+
+_One-commit bundle following the alpha.36 auth-persistence ship. User reported: "Anthropic works fine, but when I switch the Provider dropdown to OpenRouter it doesn't reply / 401 User not found from OpenRouter on restart." Two complementary bugs in the chat route + session factory, both auth-mode-agnostic (benefit OAuth + API-key equally). No VBW milestone scope — direct mechanical fix per [feedback_pragmatic_over_protocol]._
+
+### Fixes
+
+- **`9a16bad` fix(dashboard,runtime): chat honours pinned provider + forwards selected model** — Two-bug fix in one commit.
+
+  **Bug A — chat ignored the pinned provider.** `chat.ts:189` picked `Object.keys(authConfig)[0]` as the active provider, silently ignoring `config.providers.strategy.provider` (the field the TopBar Provider dropdown writes + the statusline reads). End result: a user who OAuth'd Anthropic THEN added an OpenRouter API key saw the dropdown say "openrouter", the statusline say "openrouter", and yet every chat turn ran against Anthropic (because anthropic was first in JSON insertion order). New runtime helper `resolveActiveProvider` returns BOTH the auth block AND the pinned-or-first-authed provider id + the model from `config.model` with one config.json read. Resolution order: (1) `providers.strategy.kind === 'pinned'` AND pin references a provider in the auth block → use pin (`source: 'pinned'`); (2) stale pin (provider not in auth block) → fall through to first-authed rather than handing the spawn a no-credential provider; (3) unpinned → first auth-block entry (preserves pre-alpha.37 behaviour for the unpinned case); (4) empty → `provider: null`. Mirrors `buildSnapshot`'s alpha.36 fallback chain.
+
+  **Bug B — chat dropped `opts.model` on the floor.** `session.ts:222` explicitly didn't forward `opts.model` to Pi's `createAgentSession({model})` — the alpha.35 Model dropdown wrote `config.model` but the chat session never consumed it (the alpha.35 "model-picker fast-follow" comment promised this wiring would come later; it never did). For OpenRouter this matters: Pi has no default model for OpenRouter, so without an explicit model the request was malformed and OpenRouter responded `401 User not found`. Session now resolves the id-string via `ModelRegistry.find(provider, modelId)` and conditionally spreads it into `createAgentSession({model})`; when the id isn't in the registry the conditional spread omits it and Pi's default-model path runs (byte-identical to pre-alpha.37 for the unselected case).
+
+  **Test plumbing.** Chat-route tests migrated from the obsolete `readAuthConfigFn` seam to the new `resolveActiveProviderFn` seam — the synthesized selection mimics the first-authed fallback the previous tests exercised, so existing assertions hold. New `resolve-active-provider.test.ts` (9 cases) pins the resolution order including the stale-pin fall-through.
+
+**Coverage matrix:** Both bugs sit in auth-mode-agnostic layers — the chat route resolves the provider id, and the session factory injects the credential into Pi's in-memory `AuthStorage` regardless of `authMode`. Net effect: OAuth users (Anthropic OAuth, OpenAI Codex OAuth, GitHub Copilot OAuth) and API-key users (OpenRouter, OpenAI, Anthropic API, …) benefit equally. Pairs cleanly with alpha.36's OAuth-write fix (`550b1c0`) — alpha.36 ensured the OAuth flow writes `providers.strategy` (parity with the API-key path that already did); alpha.37 ensures the chat route correctly READS `providers.strategy` regardless of how it got there.
+
+**Test growth:** 2739 (alpha.36 baseline) → 2748 (+9). **Regression:** 0 failed. **D2 invariant preserved:** no provider-prompt edits. **Preflight (Gate A+B):** green at the v3.0.0-alpha.37 bump.
+
 ## Unreleased — alpha.36 post-alpha.35 auth-persistence fixes
 
 _Two commits between v3.0.0-alpha.35 (published 2026-05-19) and this bundle. Both address the same user-reported regression — "I'm authorized with Anthropic and Openrouter, but when I start a new SWT the dashboard does not seem to remember and always asks me to authorize like it were the first time." Two-layer fix: server-side write+derivation so the Initialize button gates correctly, plus client-side UX so the user can SEE that their credentials ARE remembered. No VBW milestone scope — direct mechanical fixes per [feedback_pragmatic_over_protocol]._
