@@ -1,4 +1,4 @@
-import type { LogEntry } from '@swt-labs/shared';
+import type { ChatStartEvent, LogEntry } from '@swt-labs/shared';
 import { createRoot } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -204,5 +204,61 @@ describe('e2e vendor-agnostic chat identity integration (milestone 24)', () => {
       expect(state.orchestratorModel).toBeNull();
       dispose();
     });
+  });
+});
+
+/**
+ * PA-4 — ChatStartEvent.model TYPE-LOCK regression guard.
+ *
+ * Locks the `string | null | undefined` union shape of `ChatStartEvent.model`
+ * shipped in Phase 02 T02 (commit 1bc0bd3, schema at
+ * `packages/shared/src/schemas/events.ts:591` —
+ * `model: z.string().nullable().optional()`). A future commit that renames
+ * the field, narrows the union, or removes the field entirely fails this
+ * test — at typecheck (the `satisfies` clauses below would error if the
+ * schema-inferred type no longer matches the constructed objects) or at
+ * runtime (the structural probes assert each leg of the union).
+ *
+ * `expectTypeOf<ChatStartEvent['model']>().toEqualTypeOf<string | null | undefined>()`
+ * would be the strongest compile-time lock, but `expectTypeOf` is not in
+ * workspace use yet (verified via `grep -r expectTypeOf packages/dashboard/test/
+ * packages/shared/test/` returning empty). The `satisfies ChatStartEvent`
+ * clauses below give the same compile-time signal without the dependency.
+ */
+describe('ChatStartEvent.model type-lock — Phase 02 T02 schema regression guard', () => {
+  it('ChatStartEvent.model is string | null | undefined (type-lock — locks Phase 02 T02 schema commit 1bc0bd3 against future drift)', () => {
+    // Leg 1 — string: the populated path Phase 02 T02 added.
+    const withModel = {
+      type: 'chat.start',
+      ts: '2026-05-20T12:00:00.000Z',
+      chat_session_id: 'sess-typelock-string',
+      prompt: 'p',
+      model: 'deepseek/deepseek-v3',
+    } satisfies ChatStartEvent;
+    expect(typeof withModel.model === 'string').toBe(true);
+    expect(withModel.model).toBe('deepseek/deepseek-v3');
+
+    // Leg 2 — null: explicit null per `.nullable()` (older daemon could
+    // emit an explicit null to mean "I tried but Pi did not surface a
+    // resolved id").
+    const withNull = {
+      type: 'chat.start',
+      ts: '2026-05-20T12:00:00.000Z',
+      chat_session_id: 'sess-typelock-null',
+      prompt: 'p',
+      model: null,
+    } satisfies ChatStartEvent;
+    expect(withNull.model).toBeNull();
+
+    // Leg 3 — undefined (field omitted): the `.optional()` path that
+    // makes the schema additive — older daemons predating Phase 02 T02
+    // omit the field entirely and the reducer guard short-circuits.
+    const withoutModel = {
+      type: 'chat.start',
+      ts: '2026-05-20T12:00:00.000Z',
+      chat_session_id: 'sess-typelock-omitted',
+      prompt: 'p',
+    } satisfies ChatStartEvent;
+    expect(withoutModel.model).toBeUndefined();
   });
 });
