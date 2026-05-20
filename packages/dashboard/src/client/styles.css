@@ -169,7 +169,16 @@ body {
    panel grid (z-index: 10) so it doesn't push layout sizes. The 24px
    height + `.app-shell { padding-bottom: 48px }` together keep panel
    content from hiding underneath. Renders unconditionally — also on
-   top of the greenfield InitScreen (normal-flow, no z-index). */
+   top of the greenfield InitScreen (normal-flow, no z-index).
+
+   v2 Wave 5 commit 13 — theme-token contract: every color in the
+   statusline block below MUST be a `var(--<token>)` reference (no
+   inline `#hex` / `rgb(...)` / `rgba(...)` values). The 8 themes
+   defined at the top of this file each override the token values;
+   the statusline themes for free. A `grep -nE '#[0-9a-fA-F]{6}|rgb\('
+   packages/dashboard/src/client/components/DashboardStatusline.tsx
+   packages/dashboard/src/client/styles.css | grep -v -- '--'` must
+   return zero hits when restricted to statusline rules. */
 .dashboard-statusline {
   position: fixed;
   bottom: 0;
@@ -286,7 +295,11 @@ body {
 }
 
 .dashboard-statusline-cook.is-running:hover {
-  background: var(--terminal-green-15, rgba(0, 255, 65, 0.15));
+  /* v2 Wave 5 commit 13 — theme-token only, no inline rgba fallback.
+     `--terminal-green-15` is defined in every theme block above; if
+     it's ever undefined the cell loses its hover wash, which fails
+     gracefully (the click target still works). */
+  background: var(--terminal-green-15);
   border-radius: 3px;
 }
 
