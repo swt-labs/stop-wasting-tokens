@@ -179,6 +179,21 @@ export const ConfigSchema = z.object({
    * `parseConfig({})` produces `theme: 'default'`.
    */
   theme: z.enum(THEMES).default('default'),
+  /**
+   * Statusline v2 (statusline_v2.md) Wave 6 commit 15 — bottom-bar
+   * density mode.
+   *
+   *   - `'comfortable'` (default): every cell renders. Below 1024px
+   *     viewport width the responsive CSS `@media` query hides the
+   *     knob cells (4) + the 7d/30d rollup cells (2) automatically.
+   *   - `'compact'`: knobs + rollups hide unconditionally at any
+   *     viewport width. Project + Identity + cook + ctx + session-$
+   *     + tokens + rate stay visible.
+   *
+   * Persisted to `.swt-planning/config.json` so the choice survives
+   * dashboard restarts.
+   */
+  statusline_density: z.enum(['comfortable', 'compact']).default('comfortable'),
 });
 
 export { CustomProfileSchema };

@@ -350,6 +350,29 @@ body {
   color: var(--warm-amber);
 }
 
+/* v2 Wave 6 commit 15 — density toggle.
+   `comfortable` (default): every cell renders, but below 1024px the
+     responsive `@media` rule below hides the knob + rollup cells
+     automatically so the bar fits a typical laptop without horizontal
+     scroll dropping the most-important cells off-screen first.
+   `compact`: knob + rollup cells are hidden at any viewport width.
+   The Project group stays visible in both modes — project identity
+   is the highest-value at-a-glance signal and must not hide. Hidden
+   cells use `display: none` so they also drop out of the keyboard
+   tab order (which is the right behaviour — focusing an invisible
+   cell would trap the user). */
+.dashboard-statusline.density-compact .dashboard-statusline-knob,
+.dashboard-statusline.density-compact .dashboard-statusline-cell.is-rollup {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-statusline.density-comfortable .dashboard-statusline-knob,
+  .dashboard-statusline.density-comfortable .dashboard-statusline-cell.is-rollup {
+    display: none;
+  }
+}
+
 /* When the agents-cell list overflows the inline cap, the cell collapses
    to the count + hover-for-full-list — accent the count subtly so the
    user has a cue that more state exists behind the tooltip. */

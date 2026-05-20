@@ -127,6 +127,15 @@ export const App: Component = () => {
   // hides entirely in that case (absence is the signal — SWT manages
   // non-git workspaces too).
   const statuslineGit = createMemo(() => state.snapshot?.git);
+  // Statusline v2 Wave 6 commit 15 — density mode from
+  // `config.statusline_density`. `'comfortable'` (default) shows every
+  // cell; the responsive CSS @media hides knobs + rollups below
+  // 1024px. `'compact'` hides them at any viewport width.
+  const statuslineDensity = createMemo<'comfortable' | 'compact'>(() => {
+    const config = state.tools.config.data?.config as SwtConfig | undefined;
+    const d = config?.statusline_density;
+    return d === 'compact' ? 'compact' : 'comfortable';
+  });
   // Statusline v2 Wave 5 commit 10 — 1Hz "now" ticker for the live
   // cost-rate cell. Updated every 1s via setInterval so the `rate:`
   // cell recomputes during a live session. The interval is cleaned
@@ -521,6 +530,7 @@ export const App: Component = () => {
         nowMs={nowMs()}
         lastEventLatencyMs={state.lastEventLatencyMs}
         lastEventReceivedAt={state.lastEventReceivedAt}
+        density={statuslineDensity()}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}
         knobs={statuslineKnobs()}

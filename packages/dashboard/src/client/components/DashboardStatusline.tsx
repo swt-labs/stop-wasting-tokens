@@ -113,6 +113,13 @@ export interface DashboardStatuslineProps {
    * "last event Xs ago" arm of the dot tooltip while pending/syncing.
    */
   lastEventReceivedAt: number | null;
+  /**
+   * v2 Wave 6 commit 15 — bottom-bar density. `'comfortable'` (default)
+   * shows every cell; below 1024px the responsive CSS hides knobs +
+   * rollups via `@media`. `'compact'` hides them at any width. Sourced
+   * from `config.statusline_density`.
+   */
+  density: 'comfortable' | 'compact';
   costSummary: CostSummary | null;
   /** UsageRollup is `.nullable().optional()` on the snapshot — accept both. */
   usageRollup: UsageRollup | null | undefined;
@@ -428,7 +435,7 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
 
   return (
     <div
-      class="dashboard-statusline"
+      class={`dashboard-statusline density-${props.density}`}
       aria-label="Dashboard statusline"
       role="status"
       aria-live="polite"
