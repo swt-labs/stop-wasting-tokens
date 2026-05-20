@@ -1,6 +1,70 @@
 # Changelog
 
-## Unreleased — alpha.46 hotfix (track phase-detect.sh + transitive deps; alpha.45 detonated at CI Test step too)
+## Unreleased — alpha.47 (milestone 24 — Vendor-Agnostic Chat Identity & Active-Model Surfacing + statusline v2 wave 5 + Free-talk persistence + Codex OAuth additions)
+
+_30 commits since alpha.46 covering: the full milestone 24 closure (4 phases / 5 plans / 7 commits including the e2e regression lock + PA-4 follow-up + archive docs); a substantial statusline v2 wave 5 polish train (cell-id vocabulary, density toggle, keyboard navigation, screen-reader semantics, several new cells); Free-talk Mode chat persistence across daemon restarts; three Codex OAuth additions from `a_non_production_files/codex-Oauth.md`. Test growth: ~2842 → 2920 (+~78 net workspace-wide). Final preflight: Gate A workspace-wide + Gate B clean-worktree sandbox both GREEN. Local tag: `milestone/24-vendor-agnostic-chat-identity-and-active-model-surfacing` on commit `5846dd9`._
+
+### Milestone 24 — Vendor-Agnostic Chat Identity & Active-Model Surfacing
+
+Closes three layered vendor-identity bugs that caused chat sessions to render misleading model identity across all non-Anthropic Pi-native providers (OpenRouter, DeepSeek-direct, xAI, Groq, Cerebras, Moonshot, Kimi). Trigger: `a_non_production_files/model_pickup.md` (380-line Scout research report). Archived as `24-vendor-agnostic-chat-identity-and-active-model-surfacing`.
+
+- **`c76fd30` fix(runtime): extractGeneric accepts Pi 0.74 bare-camelCase Usage shape** (Cause A — wire). `GenericUsageLike` extended with 4 Pi 0.74 camelCase fields (`input`/`output`/`cacheRead`/`cacheWrite`); `firstDefined` chain extended to recognize them as TRAILING candidates after the existing snake_case + Tokens-suffix variants. Preserves byte-identical resolution for existing fixtures. Closes the `[Assistant]` chat label fallback for every Pi-native provider that isn't `anthropic`/`bedrock`/`openai`. Runtime asserts D11 via `recognises Pi 0.74 bare camelCase variants` at `extractors.test.ts:160`.
+- **`a6169f8` feat(dashboard): statusline orchestrator cell falls back to config.model when no cook session** (Cause B layer 1). One-line App.tsx fallback: `orchestratorModel={state.orchestratorModel ?? currentModel()}`. Closes the `orchestrator:—` em-dash during chat sessions when a config.model is pinned but no cook session is active. PA-4 declared T02 deferred to a follow-up plan against post-alpha.47 HEAD (in-flight WIP overlapped T02's file scope at execution time per DEVN-04).
+- **`1bc0bd3` feat(dashboard,shared): ChatStartEvent carries model + reducer mutates state.orchestratorModel on chat.start, resets on chat.complete** (Cause B layer 2 — locks D12). Additive `model: z.string().nullable().optional()` schema field (milestone-23 precedent at `events.ts:549`); route emit at `chat.ts:348` adds `model: selection.model`; chat.start reducer mutates `state.orchestratorModel` (guarded by non-empty model, both adoption + re-broadcast arms per PA-2); chat.complete switch case synchronously resets to null (NO 10-second timer — cook-only pattern). Runtime asserts D12 via `dashboard-store.chat.test.ts:201`.
+- **`6cf0eb0` fix(dashboard): chat session passes vendor-neutral system prompt via Pi resourceLoader** (Cause C — locks D13). Chat session passes `CHAT_VENDOR_NEUTRAL_SYSTEM_PROMPT` constant via `SwtSessionOptions.systemPrompt` → `buildPiResourceLoader` REPLACE seam (infrastructure shipped in a prior R01 remediation). Closes Pi 0.74's Anthropic-branded default-prompt leak into chat sessions across all Pi-native providers. Runtime asserts D13 via `chat-route.test.ts:423-473`.
+- **`566760e` test(dashboard): e2e vendor-agnostic chat identity integration** (Phase 04 — A+B regression lock). NEW `packages/dashboard/test/e2e-vendor-agnostic-chat-integration.test.ts` with Pattern B template (mock api.ts + sse.js, exercise createDashboardStore via applyEvent pumps, NO Solid render). 3 it-cases: full chat lifecycle (chat.start → chat.token_usage → chat.complete), negative-path fallback semantic, ChatStartEvent.model type-lock regression guard. D13 noted-not-asserted in store-level Pattern B (chat-route-level test is authoritative).
+- **`c5c9674` test(dashboard): ChatStartEvent.model type-lock regression guard** (Phase 04 PA-4 follow-up to 566760e).
+- **`5846dd9` docs(claude): update Active Context for milestone 24 archive**.
+
+**D2 invariant cumulative:** `git diff c76fd30..5846dd9 -- agents/ provider_overlays/` = 0 bytes. **Locked Decisions runtime-asserted:** D11 (Cause A wire), D12 (ChatStartEvent.model schema + reducer), D13 (resourceLoader.getSystemPrompt REPLACE).
+
+### Statusline v2 wave 5
+
+Substantial polish of the dashboard statusline introduced earlier in v3 — cell-id vocabulary, density toggle, keyboard navigation, screen-reader semantics, several new cells, and the visual-grouping pass.
+
+- **`47b358c` feat(dashboard,shared): statusline v2 wave 5 — git project-identity (repo + branch) cells**.
+- **`dc5bd63` feat(shared,dashboard): statusline cell-id vocabulary + render-by-order schema**.
+- **`9b01af1` feat(dashboard,shared): statusline density toggle (comfortable/compact)**.
+- **`6dbd7be` feat(dashboard): statusline keyboard navigation + screen-reader semantics**.
+- **`28d5bc3` refactor(dashboard): drift-verify zero hardcoded colors in statusline** (themes.md prep).
+- **`2fc8849` feat(dashboard): clickable cook indicator + cost-cell color flicker easing**.
+- **`4a9a7fd` feat(dashboard): SSE latency tracked + surfaced on connection-dot tooltip**.
+- **`34febf7` feat(dashboard): live cost-rate ticker cell on statusline**.
+- **`664c187` feat(dashboard): cook running/idle indicator cell on statusline**.
+- **`6039506` feat(dashboard): statusline cell tooltips + min-width jitter prevention**.
+- **`a32d655` style(dashboard): statusline visual grouping with │ between groups**.
+- **`c606d49` refactor(dashboard): label: value formatting consistency + → token separator**.
+- **`8e8c85d` refactor(dashboard): drop backend knob + expand knob labels to readable forms**.
+- **`88971db` fix(dashboard): reset orchestratorModel + add per-session input-token counter**.
+- **`b4c005b` fix(dashboard): statusline dot reflects SSE connection state, not keychain**.
+- **`ecdd1fc` test(dashboard): statusline v2 — composed bar text contract + Wave 1-3 sentinels**.
+- **`d7fb076` style(dashboard): prettier autofix on dashboard-store.ts** (Gate B precedent).
+- **`50b224d` chore(dashboard): clean statusline_v2 wave 5 lint + format drift** (interlude commit between milestone 24 Phase 02 T01 and T02 — restored clean Gate A workspace-wide preflight discipline).
+- **`3537d35` docs(config): regenerate config.mdx for statusline_density + statusline_cells**.
+
+### Free-talk Mode chat persistence
+
+- **`4e62eae` fix(dashboard): persist Free-talk Mode chat transcript across daemon restarts**. Per-chat-session JSONL persistence so transcripts survive daemon restarts (and so chat-history fetch can rehydrate after a tab refresh).
+
+### Codex OAuth additions (from `a_non_production_files/codex-Oauth.md`)
+
+- **`b7e4f5e` feat(dashboard,shared): enterprise access-token pipe-in route** (codex-Oauth.md #5).
+- **`76f0329` feat(dashboard): ProviderAuthPanel OpenAI tier + MFA advisory** (codex-Oauth.md #3 + #6).
+- **`0c66afa` feat(cli): scope-mismatch arm in augmentSpawnError** (codex-Oauth.md #2).
+
+### Carry-over notes from alpha.46 backlog
+
+- **Invert `.gitignore` scripts/ rule** — still deferred (the 130 untracked-but-present-locally scripts indicate the existing allowlist remains fragile; alpha.47 did not introduce new carve-outs because no new shell-out surface area was added since alpha.46).
+- **Automate `pnpm release:preflight:sandbox`** — still deferred (alpha.47 was validated in a hand-built sandbox; see Release Discipline below).
+- **Burned tag cleanup** — `v3.0.0-alpha.44` and `v3.0.0-alpha.45` remain as orphan GitHub tags (no NPM artifacts). Optional cleanup: `git push origin :v3.0.0-alpha.44 :v3.0.0-alpha.45`.
+
+### Release Discipline (per CLAUDE.md)
+
+alpha.47 was validated via: (1) `pnpm release:preflight` workspace-wide (Gate A) — typecheck + lint + format:check + test + build all exit 0; (2) clean-worktree sandbox preflight at `/tmp/swt-alpha-47-sandbox` (Gate B — `git worktree add /tmp/swt-alpha-47-sandbox HEAD && cd /tmp/swt-alpha-47-sandbox && pnpm install --frozen-lockfile && pnpm release:preflight`). Both GREEN before `bash scripts/bump-version.sh 3.0.0-alpha.47`. Tag-push triggers GHA `release.yml` which re-runs the 5 gates and publishes to NPM with Sigstore provenance.
+
+---
+
+## v3.0.0-alpha.46 — 2026-05-20 (hotfix; alpha.45 detonated at CI Test step too)
 
 _v3.0.0-alpha.45 was the first hotfix for the alpha.44 failure but **also failed CI publish** — same workflow step (`pnpm test`), new root causes: (1) `bootstrap-claude.sh` sources `scripts/lib/claude-md-swt-sections.sh` which was still gitignored, (2) `detect-stack.sh` sources `scripts/resolve-claude-dir.sh` which was still gitignored, and (3) `check-tarball-shape.mjs` sentinel-checks `scripts/phase-detect.sh` which was still gitignored. The alpha.45 carve-out captured top-level scripts but missed transitive bash deps AND the tarball-shape sentinel list. The `v3.0.0-alpha.45` git tag remains on GitHub as documentation of the failure; npm `next` dist-tag jumps from alpha.43 to alpha.46._
 
