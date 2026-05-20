@@ -1,5 +1,84 @@
 # Changelog
 
+## Unreleased — milestone 23 (Initialize Wizard v2 — Synchronous Scaffold, Mapping Deferred)
+
+_Four-phase milestone replacing the dashboard's `Initialize SWT project` Lead-subprocess flow — which depended on Claude Code's `AskUserQuestion` primitive (broken in detached-subprocess SSE context) — with a synchronous wizard at `InitScreen.tsx` plus an optional post-init codebase-mapping affordance. Trigger: 758-line proposal at `a_non_production_files/init_wizard.md` with 17 locked decisions + 35 acceptance criteria. Archived 2026-05-20 as `23-init-wizard-v2-synchronous-scaffold-mapping-deferred`; local tag `milestone/23-init-wizard-v2-synchronous-scaffold-mapping-deferred` on commit `bc604ed`._
+
+**Cumulative impact:** 4 phases / 4 plans / 10 atomic milestone commits + 1 user-authored out-of-band commit ("halindrome" theme rename mid-Phase-02). **Tests:** 2718 → 2845 (+127 net workspace-wide). **Test files:** 306 → 307. **Acceptance criteria:** 35/35 covered. **Plan amendments:** 21 absorbed upfront in `plan_amendments:` frontmatter (PA-1-8 Phase 01, PA-1-5 Phase 02, PA-1-8 Phase 03, PA-1-5 Phase 04) — zero remediation cycles needed. **Final preflight:** typecheck + lint + format:check + test + build all green at HEAD `bc604ed` (Gate A + B). **D2 invariant preserved throughout:** zero edits under `agents/` or `provider_overlays/` across all 4 phases. **L0-L7 layering:** schemas at L0, helpers at L1, routes/components at L7 — zero upward imports.
+
+### Net effect
+
+- A fresh user clicks Initialize → ~1 second later they have a complete, working SWT project regardless of greenfield/brownfield, regardless of pre-existing git, **regardless of whether any LLM provider has been configured** (Locked Decision #10 — vendor-agnostic init).
+- All 6 planning files (`PROJECT.md`, `STATE.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `config.json`, `phases/`) ship synchronously from `initProject()` at L1 — no Lead subprocess required, no broken `AskUserQuestion` prompts.
+- Auto `git init` silently when no repo exists. Brownfield projects get `detect-stack.sh` output saved to `.swt-planning/stack.json` for downstream consumption.
+- Optional "Map codebase" affordance for brownfield projects appears as a persistent dashboard banner; Lead is now ONLY spawned via the `swt map` CLI subprocess (4-Scout fan-out inside the subprocess per Scout Drift 1) — the one operation that genuinely benefits from interactive subagent work.
+
+### Phase 01 — Server scaffold complete (1 plan / 3 commits — `ad1ade4` → `69d38ea`)
+
+- **`ad1ade4` feat(core): initProject writes all 6 planning files + config.json from defaults.** L1 orchestration in `packages/core/src/scaffold/init-project.ts`. New `InitProjectOptions` accepts `planningTracking`, `autoPush`, `providerId`, `initGit`; new `InitProjectResult` returns `brownfield`, `gitInitialized`, `stack`. Co-located scaffold helpers (`init-git.ts`, `detect-brownfield.ts`, `run-detect-stack.ts`, `sync-gitignore.ts`, `install-git-hooks.ts`, `bootstrap-claude-md.ts`, `write-config-json.ts`, `errors.ts`) wrap shell scripts via `execFileSync`. Backwards-compat via `.optional()` form on new fields.
+- **`8626c47` feat(core): initProject git init + .gitignore sync + hooks install + brownfield detect + stack detect.** Wires `git init` silently when no repo present; runs `detect-stack.sh` for brownfield projects → `.swt-planning/stack.json`; `bootstrap-claude.sh` preserves user CLAUDE.md content; `install-hooks.sh` runs after `git init` so hook installation is repo-guaranteed-to-exist; `.gitignore` synced.
+- **`69d38ea` feat(dashboard): /api/init enriched body + /api/init-precheck + remove Lead spawn.** Removes the 299-LOC Lead subprocess block from `packages/dashboard/src/server/routes/init.ts` (Locked Decision #16 — 245+ LOC delete verified). `InitBodySchema.strict()` extended with `planning_tracking` + `auto_push` and rejects unknown fields. NEW `GET /api/init-precheck` returns `{already_initialized, brownfield, source_file_count, git: 'repo'|'absent'|'parent_repo'}`. `POST /api/init` returns enriched result to wizard. **`InitCompleteEvent` schema extension** in `packages/shared/src/schemas/events.ts`.
+
+### Phase 02 — Wizard UI refactor (1 plan / 3 commits — `64fa833` → `6bd5d1b`)
+
+- **`64fa833` feat(dashboard): InitScreen wizard scaffold — multi-step state machine, identity + config steps.** `InitScreen.tsx` becomes a `WizardStep` state machine: `step()` signal 1→4, per-step signals (`projectName`, `projectDescription`, `planningTracking`, `autoPush`). New pure-helper exports: `isStep1Complete`, `buildInitBody`, `describeGitState`, `describePrecheckMode`. NEW `init-screen.test.ts` (12 tests with `Record<keyof InitScreenProps>` type-lock assertion for Locked Decision #10 regression protection).
+- **`5334be2` feat(dashboard): InitScreen provider-gate removal + Step 1 auto-detect via /api/init-precheck.** Removes the milestone-19 provider selector and provider-status disable gate on Continue/Initialize (Locked Decision #10 — init becomes vendor-agnostic by construction). NEW `fetchInitPrecheck()` helper in `packages/dashboard/src/client/services/api.ts` populates Step 1 with auto-detected git/brownfield state via `createResource`.
+- **`6bd5d1b` feat(dashboard): InitScreen Step 3 (progress) + Step 4 (complete) + wire submit to /api/init.** Step 3 brief progress flash (synchronous scaffold is ~100ms). Step 4 renders from `/api/init` HTTP response directly — NOT from `state.initSession` SSE (Scout finding: synchronous scaffold is too fast for meaningful SSE-driven view). New helpers `classifyInitError` (routes 409 AlreadyInitialized + 5xx + 4xx to recovery/Retry/fatal affordances) and `summarizeInitResponse`. Response-driven Step 4 + 409 recovery affordance.
+
+**Out-of-band:** commit `3f85e3e style(dashboard): rename Themes dropdown "Light" label to "halindrome"` is a **user-authored UI label change** (not Phase 02 work) that landed between T01 and T02. Documented as `accepted-process-exception` in Phase 03 SUMMARY's `pre_existing_issues`.
+
+### Phase 03 — Codebase mapping affordance (1 plan / 2 commits — `6e9d3f2` → `2f125b5`)
+
+- **`6e9d3f2` feat(shared,dashboard): snapshot brownfield + codebase_mapped fields, POST /api/map route with Scout fan-out subprocess, snapshotter watch globs.** `packages/shared/src/schemas/snapshot.ts` gains TWO new additive fields: `brownfield: z.boolean().optional()` (post-init signal) and `codebase_mapped: z.boolean().optional()` — both `.optional()` form (NOT `.default(false)` per PA-2) for backwards-compat with pre-milestone-23 snapshots. **Scout Drift 2:** the existing `brownfield_detected` field stays (pre-init signal); `brownfield` is the NEW post-init field — two coexisting fields, NOT renames (per PA-3). NEW `MapStartResponseSchema` (`{session_id, pid, started_at}`) + `/api/map` entry in `ApiSchemas`. NEW `routes/map.ts`: shells out to `swt map` CLI via `resolveSwtCommand` + `spawn` + stderr JSONL + `child.unref` + 5s `MAP_SPAWN_FAILED` watchdog. **Scout Drift 1:** 4-Scout fan-out happens INSIDE the subprocess — the route does NOT spawn Scouts directly nor a Lead subagent. **Scout Drift 4:** snapshotter `WATCH_GLOBS` adds `.swt-planning/codebase/` so `codebase_mapped` flips on SSE when the 4 Scouts complete.
+- **`2f125b5` feat(dashboard): CodebaseMapPrompt banner + hoist mapClicked to dashboard-store + wire InitScreen Step 4 to /api/map.** NEW `CodebaseMapPrompt.tsx` persistent banner with exported pure helpers `shouldShowMapPrompt` + `describeMapState`; conditional on `snapshot.brownfield===true && snapshot.codebase_mapped===false`. **PA-1 hoist:** state.isMappingCodebase + actions.startCodebaseMap() in `dashboard-store.ts` (NOT a local InitScreen signal). NEW `postMap()` client helper in `api.ts` with Zod validation. **PA-6/7 prop-driven pattern:** InitScreen + CodebaseMapPrompt receive `isMappingCodebase` + `onMapCodebase` as props. **PA-8 canonical path:** banner mounts in `client/App.tsx` (NOT `client/components/App.tsx`) inside `Show when={isInitialized()}` above the resizable grid. NEW `codebase-map-prompt.test.ts` (smoke + 7 shouldShowMapPrompt cases + 6 describeMapState cases + props type-lock).
+
+### Phase 04 — Polish + e2e integration (1 plan / 2 commits — `f5c648f` → `bc604ed`)
+
+- **`f5c648f` test(dashboard): e2e integration tests for init wizard (AC 25-27, 31) + fix postMap mock gap in greenfield smoke (Drift 1).** NEW `packages/dashboard/test/e2e-init-wizard-integration.test.ts` (574 LOC) following Pattern B template: `vi.mock('../src/client/services/api.js', ...)` + `vi.mock('../src/client/services/sse.js', ...)` + `createDashboardStore()` inside `createRoot()` + `applyEvent` pump. NO Solid component rendering. 6 new it-cases: AC 25 greenfield E2E (no banner, no map, vendor-agnostic), AC 26 brownfield lifecycle + idempotency (banner appears → startCodebaseMap → postMap called → SSE flip → banner clears), AC 27 409 store-level error path, AC 31 vendor-agnostic runtime invariant (`state.tools.providerAuth` never mutated by init flow — **Locked Decision #10 runtime assertion**), and an in-parent-repo edge case. Drift 1 fix: `e2e-greenfield-init-smoke.test.ts` mock factory gains `postMap: vi.fn(...)` (Phase 03 added `postMap()` to `api.ts` but didn't update this existing file).
+- **`bc604ed` chore(milestone-23): AC 32-35 structural verification + release-preflight green confirmation + import/order touchup.** AC 32-35 evidence channel via grep (all four return empty): AC 32 (no GSD checks), AC 33 (no `~/.claude/settings.json` modifications in production code), AC 34 (no LSP/find-skills in init scope), AC 35 (no CLI `swt init` changes since pre-milestone-23 baseline `4be40a0`). Import/order lint touchup surfaced by workspace preflight on T01. **Final preflight at this HEAD:** `Tests 2845 passed | 67 skipped (2912)` across 307 test files, all 5 sub-gates exit 0.
+
+### Locked Decisions enforced + runtime-asserted
+
+- **#3 + #17:** Mapping decoupled from init. Init completes in <1s synchronously; mapping is a separate `/api/map` route surfaced via persistent banner.
+- **#10:** Init is vendor-agnostic by construction. Phase 04 AC 31 test asserts `state.tools.providerAuth` is never mutated by init flow.
+- **#16:** Lead subprocess spawn REMOVED from `/api/init` (245+ LOC delete verified). CLI `swt init` keeps Lead for Claude Code users (where `AskUserQuestion` works).
+
+### Capabilities delivered
+
+- **Synchronous 4-step wizard.** Identity → Config → Progress (~100ms flash) → Complete. No subprocess, no SSE-driven view, no `AskUserQuestion`-dependent prompts.
+- **Auto-detect Step 1.** `/api/init-precheck` populates greenfield/brownfield/git state on mount — wizard never asks the user for state it can detect itself.
+- **Brownfield-aware completion.** Step 4 shows stack array (`['typescript', 'react', ...]` from `detect-stack.sh`) + `gitInitialized` flag + `[Map codebase]` callout.
+- **Persistent post-init banner.** `CodebaseMapPrompt` appears in the main dashboard view whenever `brownfield && !codebase_mapped` — click dispatches `postMap()` → POST `/api/map` → CLI subprocess fans out 4 Scouts. Banner switches to "Mapping..." then auto-hides when `codebase_mapped` flips via SSE.
+- **409 already-initialized recovery.** Store-level error pushes onto `state.errors`; component-level affordance routes the user back to the existing project view.
+- **Vendor-agnostic init by runtime test.** Even with `state.tools.providerAuth = {}`, the wizard completes all 4 steps and never reads or mutates provider state. Locked at runtime via AC 31.
+
+### Drift-locks held across milestone (now 7-milestone pre-plan-research pattern: 17/19/20/21/22/23 + this one)
+
+Phase 02 Drift 1 (postMap mock gap in greenfield smoke — closed Phase 04 T01) · Phase 02 Drift 3 (proposal line 504 conflicted with Locked Decision #10 — resolved per CONTEXT.md) · Phase 03 Drift 1 ("Lead subagent" → `swt map` CLI 4-Scout fan-out) · Phase 03 Drift 2 (`brownfield_detected` coexists with new `brownfield`, NOT a rename) · Phase 03 Drift 4 (snapshotter `WATCH_GLOBS` adds `.swt-planning/codebase/` — unmentioned in proposal but mandatory) · Phase 03 Drift 6 (`MapStartResponseSchema` + `/api/map` ApiSchemas entry + `postMap()` client helper — all missing from proposal).
+
+### DEVN-class deviations
+
+- **DEVN-04 (Phase 02):** User-authored "halindrome" theme rename commit `3f85e3e` landed between T01 and T02. Bundled into Phase 02's commit history; documented as `accepted-process-exception` in Phase 03 SUMMARY's `pre_existing_issues`. Per `[feedback_pragmatic_over_protocol]` user intent honored.
+- **DEVN-02 (Phase 04):** Import/order lint drift surfaced by workspace preflight on T01 batched into T02's `chore(milestone-23):` commit (Gate B precedent — same as alpha.28 `a0a4dfd`, milestone 19 `97e0481`, milestone 21 `b755214`, milestone 22 `5b28bcd`).
+
+### Bonus: `derive-milestone-slug.sh` 7-milestone bug PERMANENTLY FIXED
+
+`derive-milestone-slug.sh` had been producing word-salad slugs with off-by-one milestone numbers across milestones 17-23 (workaround: grep `**Milestone slug:**` from ROADMAP.md). **Fixed 2026-05-20** in local plugin cache (`~/.claude/plugins/cache/vbw-marketplace/vbw/1.37.1/`):
+
+- **NEW Try 0** (highest priority): reads `**Milestone slug:**` line from ROADMAP.md verbatim, bypassing both phase-name derivation AND number-prefix computation. Pipefail-safe via `|| true` guard so missing slug lines fall through cleanly to backwards-compat derivation.
+- **Try 3 regex tightened:** `^[-*] +Phase [0-9]+: ` (Phase N: now REQUIRED, was optional). Goal-text bullets like `- A fresh user clicks Initialize → 1 second later...` can no longer word-salad-match.
+- **6 new bats tests** added covering Try 0 priority + malformed-slug fall-through + missing-line backwards-compat + collision-suffix + Try 3 word-salad regression. **16/16 smoke tests green.** All 7 historical milestone fixtures (17-23) now resolve to their correct slugs.
+
+**Caveat:** local plugin cache patch — survives until next plugin update. For permanent fix across plugin updates, requires PR to the `vbw-marketplace` upstream repo.
+
+### Carry-over backlog (now 11-milestone exception, extended)
+
+`Popover.tsx:138` TS2322 ARIA-role-union (DEVN-05 across milestones 13-23) · `TopBar.tsx:426/448` TS2322 setter return-type drift (carry-over from milestone 22) · Per-item Github dropdown wiring (4 priority tiers from milestone 20) · `originator` param override for `loginOpenAICodex` (milestone 21 deferred) · DEVN-PHASE-06-DRIFT-CI-DEFERRED Lark generator CI step · `.vbw-planning/` migration fallback at `phase-detect.ts:189` · Milestone 19 Phase 04 Solid component test for provider-selector dropdown.
+
+**NEW milestone 23 Future Work (per `init_wizard.md`):** CLI `swt init` wizard parity · "Reinitialize" command · provider auth flow embedded in wizard · project template seeding · brownfield Lead-driven inference UI · wizard cancellation cleanup · per-project provider pinning · auto-run codebase mapping on idle — all explicitly deferred.
+
+---
+
 ## Unreleased — alpha.43 providerAuth fetches even on greenfield (Initialize button now respects keychain)
 
 _User on alpha.42 verified provider switching works end-to-end. Last remaining bug: "starting a project from scratch, on first launch SWT does not remember auths, it requires to re-auth to be able to make the 'Initialize SWT' button green." Despite the keychain having both credentials, the InitScreen's ProviderAuthPanel rendered with `data: null` and no ✓ markers, forcing the user to re-enter credentials before the Initialize button enabled. This is the LAST link in the alpha.35→.43 auth-chain investigation._

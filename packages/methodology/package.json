@@ -1,6 +1,6 @@
 {
   "name": "@swt-labs/methodology",
-  "version": "3.0.0-alpha.43",
+  "version": "3.0.0-alpha.44",
   "description": "Six-agent SDLC: Scout, Architect, Lead, Dev, QA, Debugger plus skills, prompts, and prompt-builder.",
   "license": "MIT",
   "type": "module",
