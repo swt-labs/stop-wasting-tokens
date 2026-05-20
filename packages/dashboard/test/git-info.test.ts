@@ -15,8 +15,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detectGitInfo, parseRepoPath } from '../src/server/snapshot/git-info.js';
 import { formatStatuslineBranch } from '../src/client/components/statusline-helpers.js';
+import { detectGitInfo, parseRepoPath } from '../src/server/snapshot/git-info.js';
 
 describe('parseRepoPath', () => {
   it('parses canonical HTTPS GitHub URLs', () => {
@@ -129,13 +129,7 @@ describe('detectGitInfo', () => {
     writeFileSync(path.join(tmpDir, 'README.md'), '# test\n');
     git(tmpDir, 'add', 'README.md');
     git(tmpDir, 'commit', '-m', 'initial', '-q');
-    git(
-      tmpDir,
-      'remote',
-      'add',
-      'origin',
-      'https://github.com/swt-labs/stop-wasting-tokens.git',
-    );
+    git(tmpDir, 'remote', 'add', 'origin', 'https://github.com/swt-labs/stop-wasting-tokens.git');
 
     const info = detectGitInfo(tmpDir);
     expect(info?.repo_url_path).toBe('swt-labs/stop-wasting-tokens');

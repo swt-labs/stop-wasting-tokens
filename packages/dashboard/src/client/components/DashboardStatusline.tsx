@@ -78,7 +78,7 @@ export interface DashboardStatuslineProps {
    * Project group is then hidden entirely (not rendered as em-dashes;
    * absence is the signal).
    */
-  git: GitInfo;
+  git?: GitInfo;
   /**
    * v2 Wave 3 commit 4 — `state.activeSessionId`. When non-null a cook
    * session is in flight (orchestrator running, possibly spawning agents);
@@ -275,10 +275,7 @@ export function formatCostRate(
  * (with space, money rollups) inconsistently. Unknown values render
  * as a single em-dash so the cell reads as `<label>: —`.
  */
-export function formatStatuslineLabeled(
-  label: string,
-  value: string | null | undefined,
-): string {
+export function formatStatuslineLabeled(label: string, value: string | null | undefined): string {
   if (value === null || value === undefined || value === '') return `${label}: —`;
   return `${label}: ${value}`;
 }
@@ -449,7 +446,7 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           v2 Wave 6 commit 14 — each cell becomes a focusable region
           with a role + aria-label so screen readers announce the
           per-cell value distinctly. */}
-      <Show when={props.git !== undefined}>
+      <Show when={props.git}>
         {(g) => (
           <>
             <span
@@ -475,9 +472,7 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
               }
               tabindex="0"
               role="group"
-              aria-label={`Branch: ${
-                g().detached ? `detached at ${g().short_sha}` : g().branch
-              }`}
+              aria-label={`Branch: ${g().detached ? `detached at ${g().short_sha}` : g().branch}`}
             >
               branch: {formatStatuslineBranch(g().branch, g().detached, g().short_sha)}
             </span>
@@ -625,7 +620,8 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       <span
         class={`dashboard-statusline-cell dashboard-statusline-agents${agentsCell().truncated ? ' dashboard-statusline-agents-truncated' : ''}`}
         title={
-          agentsCell().fullList || 'No agents running — populates while a cook session spawns sub-agents'
+          agentsCell().fullList ||
+          'No agents running — populates while a cook session spawns sub-agents'
         }
         tabindex="0"
         role="group"
@@ -666,11 +662,7 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           props.nowMs,
         )}`}
       >
-        {formatCostRate(
-          props.sessionStartTs,
-          costSummary()?.this_session_usd,
-          props.nowMs,
-        )}
+        {formatCostRate(props.sessionStartTs, costSummary()?.this_session_usd, props.nowMs)}
       </span>
       {/* Cell 12: session cost. The cell still carries the `is-cost`
           class so Wave 5 commit 12's color transition applies here
@@ -705,10 +697,7 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
         title="Rolling cost — total $ spent across the last 7 days (all sessions)"
         tabindex="0"
         role="group"
-        aria-label={`7-day rolling cost: ${formatStatuslineRollup(
-          usageRollup()?.window_7d,
-          '7d',
-        )}`}
+        aria-label={`7-day rolling cost: ${formatStatuslineRollup(usageRollup()?.window_7d, '7d')}`}
       >
         {formatStatuslineRollup(usageRollup()?.window_7d, '7d')}
       </span>

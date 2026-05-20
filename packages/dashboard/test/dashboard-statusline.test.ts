@@ -269,9 +269,7 @@ describe('end-to-end format coverage', () => {
       '30d',
     );
     const composed = `${provider} ●  ctx —/—  ${sessionCost} ${tokens}  ${week}  ${month}`;
-    expect(composed).toBe(
-      'anthropic ●  ctx —/—  $0.3200 in: 12K → out: 8K  7d: $2.10  30d: $8.42',
-    );
+    expect(composed).toBe('anthropic ●  ctx —/—  $0.3200 in: 12K → out: 8K  7d: $2.10  30d: $8.42');
   });
 
   it('composes a fully-empty statusline (no data sources yet)', () => {
@@ -563,7 +561,10 @@ describe('v2 composed bar text contract', () => {
     const knobValues = ['balanced', 'standard', 'quality', 'standard'];
     const knobs = knobLabels.map((l, i) => formatStatuslineKnob(l, knobValues[i])).join(' · ');
     const cook = 'cook: running';
-    const orchestrator = formatStatuslineLabeled('orchestrator', shortModelLabel('claude-sonnet-4-6'));
+    const orchestrator = formatStatuslineLabeled(
+      'orchestrator',
+      shortModelLabel('claude-sonnet-4-6'),
+    );
     const agents = formatAgentsCell(
       new Map<string, AgentLiveState>([
         [
