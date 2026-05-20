@@ -232,10 +232,7 @@ describe('initProject', () => {
       pluginRoot,
     });
 
-    const requirements = readFileSync(
-      path.join(cwd, '.swt-planning', 'REQUIREMENTS.md'),
-      'utf8',
-    );
+    const requirements = readFileSync(path.join(cwd, '.swt-planning', 'REQUIREMENTS.md'), 'utf8');
     expect(requirements).toContain('AwesomeProj');
     expect(requirements).toContain('A tool that does X.');
     // The `{Project Name}` and `{one-liner}` tokens are substituted out.
@@ -305,11 +302,7 @@ describe('initProject', () => {
       'utf8',
     );
     mkdirSync(path.join(cwd, 'src'), { recursive: true });
-    writeFileSync(
-      path.join(cwd, 'src', 'index.ts'),
-      `export const hello = 'world';\n`,
-      'utf8',
-    );
+    writeFileSync(path.join(cwd, 'src', 'index.ts'), `export const hello = 'world';\n`, 'utf8');
 
     const result = initProject({
       cwd,
@@ -344,10 +337,7 @@ describe('initProject', () => {
 
     expect(result.gitInitialized).toBe(false);
     expect(existsSync(path.join(nested, '.git'))).toBe(false);
-    const stateContent = readFileSync(
-      path.join(nested, '.swt-planning', 'STATE.md'),
-      'utf8',
-    );
+    const stateContent = readFileSync(path.join(nested, '.swt-planning', 'STATE.md'), 'utf8');
     expect(stateContent).toMatch(/Working inside parent repo at /);
   });
 
@@ -368,10 +358,7 @@ describe('initProject', () => {
     expect(result.gitInitialized).toBe(false);
     // .git/ still present (from our pre-init).
     expect(existsSync(path.join(cwd, '.git'))).toBe(true);
-    const stateContent = readFileSync(
-      path.join(cwd, '.swt-planning', 'STATE.md'),
-      'utf8',
-    );
+    const stateContent = readFileSync(path.join(cwd, '.swt-planning', 'STATE.md'), 'utf8');
     // No parent-repo activity-log line.
     expect(stateContent).not.toMatch(/Working inside parent repo at /);
   });

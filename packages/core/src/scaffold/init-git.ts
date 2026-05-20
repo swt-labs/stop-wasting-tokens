@@ -112,7 +112,11 @@ export function initGit(cwd: string): InitGitResult {
   const probe = gitRevParseGitDir(cwd);
   if (probe.ok) {
     const cls = classifyGitDirOutput(cwd, probe.output);
-    return { initialized: false, alreadyExists: cls.alreadyExists, parentRepoPath: cls.parentRepoPath };
+    return {
+      initialized: false,
+      alreadyExists: cls.alreadyExists,
+      parentRepoPath: cls.parentRepoPath,
+    };
   }
   // Not inside a git repo — initialize silently. `execSync` with
   // `stdio: 'pipe'` suppresses git's "Initialized empty Git repository"

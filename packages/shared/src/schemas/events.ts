@@ -541,6 +541,14 @@ const InitCompleteEvent = z.object({
   ts: TimestampSchema,
   session_id: z.string().min(1),
   status: z.enum(['success', 'failed']).optional(),
+  // Milestone 23 Phase 01 T03 — synchronous scaffold result fields. All
+  // optional for back-compat with v1.6.x daemons that emitted the bare
+  // session_id-only envelope; v3.0.0-alpha.44+ always emits the enriched
+  // shape so the dashboard wizard can render Step 3 without a follow-up
+  // GET /api/snapshot round-trip.
+  brownfield: z.boolean().optional(),
+  git_initialized: z.boolean().optional(),
+  stack: z.array(z.string()).optional(),
 });
 
 const InitErrorEvent = z.object({

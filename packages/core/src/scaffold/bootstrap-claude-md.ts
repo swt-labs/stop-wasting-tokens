@@ -22,6 +22,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
+import { extractStderr } from './errors.js';
+
 export function bootstrapClaudeMd(
   cwd: string,
   pluginRoot: string,
@@ -47,10 +49,7 @@ export function bootstrapClaudeMd(
       encoding: 'utf8',
     });
   } catch (err: unknown) {
-    const stderr =
-      err !== null && typeof err === 'object' && 'stderr' in err
-        ? String((err as { stderr: unknown }).stderr ?? '')
-        : '';
+    const stderr = extractStderr(err);
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
       `bootstrapClaudeMd: bootstrap-claude.sh failed (${message})${

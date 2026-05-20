@@ -15,6 +15,14 @@
     "./scaffold/init-project.js": {
       "types": "./src/scaffold/init-project.ts",
       "import": "./src/scaffold/init-project.ts"
+    },
+    "./scaffold/init-git.js": {
+      "types": "./src/scaffold/init-git.ts",
+      "import": "./src/scaffold/init-git.ts"
+    },
+    "./scaffold/detect-brownfield.js": {
+      "types": "./src/scaffold/detect-brownfield.ts",
+      "import": "./src/scaffold/detect-brownfield.ts"
     }
   },
   "scripts": {

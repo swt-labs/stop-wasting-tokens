@@ -23,6 +23,8 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
+import { extractStderr } from './errors.js';
+
 const PLANNING_DIR = '.swt-planning';
 
 export function syncGitignore(cwd: string, pluginRoot: string): void {
@@ -35,10 +37,7 @@ export function syncGitignore(cwd: string, pluginRoot: string): void {
       encoding: 'utf8',
     });
   } catch (err: unknown) {
-    const stderr =
-      err !== null && typeof err === 'object' && 'stderr' in err
-        ? String((err as { stderr: unknown }).stderr ?? '')
-        : '';
+    const stderr = extractStderr(err);
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
       `syncGitignore: planning-git.sh sync-ignore failed (${message})${

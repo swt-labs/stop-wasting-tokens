@@ -11,6 +11,8 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
+import { extractStderr } from './errors.js';
+
 export function installGitHooks(cwd: string, pluginRoot: string): void {
   const scriptPath = path.join(pluginRoot, 'scripts', 'install-hooks.sh');
   try {
@@ -29,10 +31,7 @@ export function installGitHooks(cwd: string, pluginRoot: string): void {
       },
     });
   } catch (err: unknown) {
-    const stderr =
-      err !== null && typeof err === 'object' && 'stderr' in err
-        ? String((err as { stderr: unknown }).stderr ?? '')
-        : '';
+    const stderr = extractStderr(err);
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
       `installGitHooks: install-hooks.sh failed (${message})${

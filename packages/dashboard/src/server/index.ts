@@ -1,4 +1,3 @@
-import { spawn as nodeSpawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +32,7 @@ import { registerDetectPhaseRoute } from './routes/detect-phase.js';
 import { registerDoctorRoute } from './routes/doctor.js';
 import { registerEventsRoute } from './routes/events.js';
 import { registerHealthRoute } from './routes/health.js';
+import { registerInitPrecheckRoute } from './routes/init-precheck.js';
 import { registerInitRoute } from './routes/init.js';
 import { registerModelsRoute } from './routes/models.js';
 import { registerPromptsRoute } from './routes/prompts.js';
@@ -311,15 +311,18 @@ export function createApp(
     // Read the snapshot AFTER onInitialized has spun up the snapshotter so
     // the route can include it inline in the response (B-08 / S-02).
     getSnapshot: () => snapshotter?.current() ?? null,
-    // Plan 02-01 T3 — bus + spawnFn wire the Lead-subprocess lifecycle.
-    // The bus carries init.start / init.complete / init.error to the SPA;
-    // spawnFn defaults to node:child_process.spawn at the route's use-site
-    // because passing the import here keeps the production wiring
-    // explicit (and tests register WITHOUT spawnFn to verify graceful
-    // degradation).
+    // Milestone 23 Phase 01 T03 — the Lead subprocess spawn is removed.
+    // The bus still carries init.start + init.complete (emitted
+    // synchronously around the initProjectFn call); init.error is no
+    // longer produced here (initProject() throws on error and the route
+    // returns 5xx — the dashboard surfaces failures via the HTTP error
+    // body, not the SSE stream).
     bus,
-    spawnFn: nodeSpawn,
   });
+  // Milestone 23 Phase 01 T03 — GET /api/init-precheck. Read-only auto-
+  // detection for the wizard's Step 1 render (already_initialized,
+  // brownfield, source_file_count, git state). Never mutates state.
+  registerInitPrecheckRoute(app, { projectRoot: cwd });
   registerCommandRoute(app, cwd);
   // Plan 04-02 T3 — REQ-17 cook control surface. Cook is intentionally NOT
   // routed through /api/command's allowlist: it spawns a long-lived agent

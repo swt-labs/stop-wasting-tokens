@@ -178,10 +178,7 @@ export function resolvePluginRootForInit(override: string | undefined): string {
   return resolved;
 }
 
-function substituteTemplate(
-  template: string,
-  substitutions: Record<string, string>,
-): string {
+function substituteTemplate(template: string, substitutions: Record<string, string>): string {
   let out = template;
   for (const [key, value] of Object.entries(substitutions)) {
     // Use a literal `{key}` token replacement. Templates use single-brace

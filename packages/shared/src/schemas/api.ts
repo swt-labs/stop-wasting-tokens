@@ -38,16 +38,54 @@ export const UatCheckpointResponseSchema = z.object({
 });
 export type UatCheckpointResponse = z.infer<typeof UatCheckpointResponseSchema>;
 
-export const InitBodySchema = z.object({
-  name: z.string().min(1).max(120),
-  description: z.string().max(2000).optional(),
-});
-export type InitBody = z.infer<typeof InitBodySchema>;
+/**
+ * `POST /api/init` body.
+ *
+ * Milestone 23 Phase 01 T03 — the wizard collects `planning_tracking` +
+ * `auto_push` in Step 2; both pass through into `initProject()` via this
+ * schema. `.strict()` rejects any unknown field (AC 29), including the
+ * deliberately-omitted `provider_id` (Locked Decision #10 — init is
+ * vendor-agnostic, AC 30).
+ */
+export const InitBodySchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    description: z.string().max(2000).optional(),
+    planning_tracking: z.enum(['manual', 'ignore', 'commit']).default('manual'),
+    auto_push: z.enum(['never', 'after_phase', 'always']).default('never'),
+  })
+  .strict();
+/**
+ * `InitBody` uses the Zod INPUT type (`z.input<>`), NOT the inferred output
+ * type. The `.default('manual')` / `.default('never')` clauses make the new
+ * fields OPTIONAL at the wire boundary (callers can omit them and Zod fills
+ * the defaults on parse) but REQUIRED at the output type. Client code that
+ * pre-dates milestone-23's wizard (e.g., the pre-Phase-02 `InitScreen.tsx`)
+ * still passes `{ name, description? }` and must continue to compile —
+ * the input type accepts that exact shape. The server parses with
+ * `InitBodySchema.safeParse(raw)` and reads the (now-populated) output type.
+ */
+export type InitBody = z.input<typeof InitBodySchema>;
 
+/**
+ * `POST /api/init` response.
+ *
+ * Milestone 23 Phase 01 T03 — extended with `brownfield`, `git_initialized`,
+ * and `stack` so the wizard's Step 3 can render the right completion screen
+ * without a follow-up GET. Naming follows the snake_case convention used
+ * throughout this schema (uptime_ms, session_id, exit_code, etc.); the
+ * route handler remaps from `InitProjectResult`'s camelCase fields.
+ */
 export const InitResponseSchema = z.object({
   initialized: z.literal(true),
   root: z.string().min(1),
   files: z.array(z.string().min(1)),
+  /** Whether the cwd was detected as a brownfield project (had user source files). */
+  brownfield: z.boolean(),
+  /** `true` only when THIS call ran `git init` (not when .git already existed). */
+  git_initialized: z.boolean(),
+  /** Detected stack tags from detect-stack.sh; empty `[]` for greenfield. */
+  stack: z.array(z.string()),
   /**
    * The snapshot the daemon's just-spun-up snapshotter produced. Lets the
    * client drop the redundant follow-up `GET /api/snapshot` round-trip.
@@ -56,6 +94,33 @@ export const InitResponseSchema = z.object({
   snapshot: SnapshotSchema.optional(),
 });
 export type InitResponse = z.infer<typeof InitResponseSchema>;
+
+/**
+ * `GET /api/init-precheck` response.
+ *
+ * Milestone 23 Phase 01 T03 — read-only auto-detection for the wizard's
+ * Step 1 render. Two discriminated shapes:
+ *   - `{ already_initialized: true }` when `.swt-planning/PROJECT.md`
+ *     already exists. Other fields are omitted so the wizard short-circuits
+ *     into the "already initialized" branch.
+ *   - `{ already_initialized: false, brownfield, source_file_count, git }`
+ *     for the greenfield + brownfield branches; the wizard renders
+ *     "{N source files detected — looks like a brownfield project}" or
+ *     similar in Step 1 based on `brownfield` + `source_file_count`, and
+ *     surfaces the `git: 'absent'|'repo'|'parent_repo'` hint accordingly.
+ */
+export const InitPrecheckResponseSchema = z.union([
+  z.object({
+    already_initialized: z.literal(true),
+  }),
+  z.object({
+    already_initialized: z.literal(false),
+    brownfield: z.boolean(),
+    source_file_count: z.number().int().nonnegative(),
+    git: z.enum(['absent', 'repo', 'parent_repo']),
+  }),
+]);
+export type InitPrecheckResponse = z.infer<typeof InitPrecheckResponseSchema>;
 
 export const CommandBodySchema = z.object({
   input: z.string().min(1).max(500),
@@ -558,6 +623,10 @@ export const ApiSchemas = {
     method: 'POST',
     body: InitBodySchema,
     response: InitResponseSchema,
+  },
+  '/api/init-precheck': {
+    method: 'GET',
+    response: InitPrecheckResponseSchema,
   },
   '/api/command': {
     method: 'POST',
