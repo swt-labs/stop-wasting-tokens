@@ -4004,3 +4004,246 @@ body {
   color: var(--terminal-green);
   opacity: 0.7;
 }
+
+/* ── Milestone 23 Phase 02 — Initialize Wizard v2 ──────────────────────
+ * The new 4-step wizard layout (identity → config → progress → complete).
+ * Uses semantic var(--*) tokens only — inherits all 8 milestone-22 themes
+ * automatically via :root[data-theme]. No hardcoded hex.
+ */
+.init-wizard {
+  align-items: center;
+  padding: 32px 24px;
+}
+
+.init-wizard-shell {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  gap: 24px;
+  padding: 32px;
+  background: var(--deep-void);
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 8px;
+}
+
+.init-wizard-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.init-wizard-title {
+  font-size: 28px;
+  margin: 0;
+  color: var(--terminal-green);
+}
+
+.init-wizard-stepper {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  align-items: center;
+}
+
+.init-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--slate-muted);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--slate-muted-15);
+}
+
+.init-wizard-step[data-active='true'] {
+  color: var(--terminal-green);
+  border-color: var(--terminal-green);
+  background: var(--terminal-green-15);
+}
+
+.init-wizard-step[data-done='true'] {
+  color: var(--ghost-white);
+  border-color: var(--slate-muted);
+}
+
+.init-wizard-step-num {
+  font-weight: 700;
+}
+
+.init-wizard-step-label {
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.init-wizard-step-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.init-wizard-step-heading {
+  font-size: 20px;
+  margin: 0;
+  color: var(--ghost-white);
+}
+
+.init-wizard-lede {
+  color: var(--slate-muted);
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.init-wizard-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 4px;
+  background: transparent;
+}
+
+.init-wizard-radio-group legend {
+  color: var(--ghost-white);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 0 6px;
+}
+
+.init-wizard-hint {
+  margin: 0 0 4px 0;
+  color: var(--slate-muted);
+  font-size: 12px;
+}
+
+.init-wizard-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.init-wizard-radio:hover {
+  background: var(--slate-muted-15);
+}
+
+.init-wizard-radio input[type='radio'] {
+  margin-top: 3px;
+  accent-color: var(--terminal-green);
+}
+
+.init-wizard-radio-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.init-wizard-radio-label strong {
+  color: var(--ghost-white);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.init-wizard-radio-desc {
+  color: var(--slate-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.init-wizard-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.init-wizard-primary,
+.init-wizard-secondary {
+  font-family: var(--font-mono);
+  padding: 10px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  border: 1px solid var(--terminal-green);
+  background: transparent;
+  color: var(--terminal-green);
+  transition: background 0.12s ease;
+}
+
+.init-wizard-primary {
+  background: var(--terminal-green-15);
+}
+
+.init-wizard-primary:hover:not(:disabled),
+.init-wizard-secondary:hover:not(:disabled) {
+  background: var(--terminal-green-15);
+}
+
+.init-wizard-secondary {
+  border-color: var(--slate-muted);
+  color: var(--slate-muted);
+}
+
+.init-wizard-primary:disabled,
+.init-wizard-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.init-wizard-progress {
+  text-align: center;
+  padding: 32px 0;
+}
+
+.init-wizard-complete {
+  padding: 8px 0;
+}
+
+.init-wizard-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ghost-white);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.init-wizard-precheck {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--slate-muted-15);
+  border-radius: 4px;
+  background: var(--terminal-green-15);
+  color: var(--ghost-white);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.init-wizard-precheck[data-loading='true'] {
+  color: var(--slate-muted);
+  background: transparent;
+}
+
+.init-wizard-already-initialized {
+  text-align: center;
+  padding: 24px;
+  border: 1px solid var(--warm-amber);
+  border-radius: 4px;
+  color: var(--warm-amber);
+}
