@@ -58,7 +58,7 @@ export interface ThemeOption {
 export const THEME_OPTIONS: readonly ThemeOption[] = [
   { id: 'default', label: 'Default', description: 'SWT terminal — green on black' },
   { id: 'dark', label: 'Dark', description: 'Clean modern dark' },
-  { id: 'light', label: 'Light', description: 'White background, dark text' },
+  { id: 'light', label: 'halindrome', description: 'White background, dark text' },
   { id: 'dracula', label: 'Dracula', description: 'dracula.io palette' },
   { id: 'gruvbox', label: 'Gruvbox', description: 'Retro groove' },
   { id: 'monokai', label: 'Monokai', description: 'Sublime Text classic' },
