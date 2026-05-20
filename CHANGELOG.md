@@ -22,17 +22,17 @@ _User on alpha.42 verified provider switching works end-to-end. Last remaining b
 
 ### The full auth-chain arc (alpha.35 → alpha.43, closed)
 
-| Release | Layer | Verified | 
-|---|---|---|
-| alpha.35 | Snapshot probe (both modes when config.auth.mode is null) | ✓ |
-| alpha.36 | OAuth save writes providers.strategy + buildSnapshot fallback | ✓ |
-| alpha.37 | Chat route honours pinned strategy + forwards config.model | ✓ |
-| alpha.38 | POST /api/config preserves auth + providers (Zod strip) | ✓ |
-| alpha.39 | Chat-session-registry binding invalidation on switch | ✓ |
-| alpha.40 | Structural: `updateConfigFile` helper + invariant test + `swt doctor --auth` | ✓ |
-| alpha.41 | UI: hide ProviderAuthPanel auth-entry behind "Replace credentials" | ✓ |
-| alpha.42 | Dropdown auto-pins to configured provider + server allows pin-only oauth | ✓ |
-| **alpha.43** | **providerAuth snapshot fetches even in greenfield** | **Awaits user UAT** |
+| Release      | Layer                                                                        | Verified            |
+| ------------ | ---------------------------------------------------------------------------- | ------------------- |
+| alpha.35     | Snapshot probe (both modes when config.auth.mode is null)                    | ✓                   |
+| alpha.36     | OAuth save writes providers.strategy + buildSnapshot fallback                | ✓                   |
+| alpha.37     | Chat route honours pinned strategy + forwards config.model                   | ✓                   |
+| alpha.38     | POST /api/config preserves auth + providers (Zod strip)                      | ✓                   |
+| alpha.39     | Chat-session-registry binding invalidation on switch                         | ✓                   |
+| alpha.40     | Structural: `updateConfigFile` helper + invariant test + `swt doctor --auth` | ✓                   |
+| alpha.41     | UI: hide ProviderAuthPanel auth-entry behind "Replace credentials"           | ✓                   |
+| alpha.42     | Dropdown auto-pins to configured provider + server allows pin-only oauth     | ✓                   |
+| **alpha.43** | **providerAuth snapshot fetches even in greenfield**                         | **Awaits user UAT** |
 
 ## Unreleased — alpha.42 dropdown auto-pins to configured provider
 

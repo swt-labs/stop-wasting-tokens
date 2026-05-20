@@ -53,6 +53,36 @@ export const THEMES = [
 ] as const;
 export type Theme = (typeof THEMES)[number];
 
+/**
+ * `ConfigSchema` — the canonical Zod schema for `.swt-planning/config.json`'s
+ * user-preference surface (theme / model / effort / autonomy / settings).
+ *
+ * **STRIP-UNKNOWN IS INTENTIONAL** (alpha.43 doc clarification — keychain_improvements.md §3.2):
+ *
+ *   `z.object({...})` defaults to strip-unknown — any top-level key NOT
+ *   declared here is silently dropped on `parse()`. This is the correct
+ *   shape for the CLI / dashboard preference surface (we don't want stray
+ *   fields polluting `SwtConfig`), but it has a load-bearing implication
+ *   for any route that writes the parsed result back to disk:
+ *
+ *   > **Routes that write to `.swt-planning/config.json` MUST NOT write
+ *   > the validated `parseConfig()` result verbatim.** Sibling routes own
+ *   > top-level keys outside `ConfigSchema` (`auth` and `providers` are
+ *   > owned by `provider-auth.ts` / `provider-auth-oauth.ts` and live in
+ *   > the same file). A verbatim write strips them and breaks credential
+ *   > persistence — the alpha.38 root cause (closed by commit `5f27690`).
+ *
+ *   The discipline is enforced structurally via
+ *   `packages/dashboard/src/server/lib/update-config-file.ts` (alpha.40)
+ *   — a shared read-modify-write helper that preserves every top-level
+ *   key the caller's mutator doesn't touch. The
+ *   `update-config-file.test.ts` invariant suite locks this in for all
+ *   current + future config-writing routes.
+ *
+ *   `config.test.ts` has an explicit assertion that `ConfigSchema.parse`
+ *   strips unknown top-level keys, so the silent-contract is no longer
+ *   silent.
+ */
 export const ConfigSchema = z.object({
   effort: z.enum(EFFORTS as unknown as [string, ...string[]]).default('balanced'),
   autonomy: z.enum(AUTONOMY_TIERS as unknown as [string, ...string[]]).default('standard'),

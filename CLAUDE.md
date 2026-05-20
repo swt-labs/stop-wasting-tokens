@@ -77,6 +77,10 @@ Role prompts live in `agents/swt-{role}.md`; per-provider overlays in `provider_
 - **Do not bump version or `git push`** unless explicitly asked, or `.vbw-planning/config.json` sets `auto_push` to `always`/`after_phase`.
 - **Code intelligence:** prefer LSP (`goToDefinition`, `findReferences`, `workspaceSymbol`, `hover`) over Grep/Read for semantic navigation; `findReferences` before any rename or signature change. Grep/Glob for literal strings, config values, non-code assets.
 
+## Diagnostic Ladders
+
+**Credential persistence ("SWT doesn't remember my auth"):** the alpha.35–.43 arc taught us this bug class has three layers (OS keychain ↔ `config.json` ↔ snapshot resolver). Ask the user to run **`swt doctor --auth`** in the affected project dir; the output shows all three layers + the round-trip resolution in one pass. If `Status: HEALTHY`, the bug is downstream (UI / chat-route caching); if `MISMATCH`, the output tells you which layer broke. Structural protections (`updateConfigFile` helper + invariant test) mean the alpha.38 strip-on-write bug class cannot recur silently — if a future config-writing route forgets the discipline, `packages/dashboard/test/update-config-file.test.ts` fails loudly.
+
 ## Development Process
 
 SWT is _built using_ the VBW methodology plugin (`/vbw:vibe`) — distinct from the SWT product itself. Use VBW commands for all lifecycle actions (scope → discuss → plan → execute → verify → archive); plans are the source of truth. Do not hand-edit files in `.vbw-planning/`. Do not fabricate content in project-defining flows — use only what the user explicitly states.

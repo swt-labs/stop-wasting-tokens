@@ -160,3 +160,44 @@ describe('SwtConfig — settings-v2 fields', () => {
     expect(cfg.active_profile).toBe('my_custom_id');
   });
 });
+
+describe('SwtConfig — strip-unknown invariant (alpha.43, keychain_improvements.md §3.2)', () => {
+  // The strip-unknown behavior of `ConfigSchema.parse` is what made the
+  // alpha.38 bug class possible: any top-level key not declared in
+  // ConfigSchema gets silently dropped on parse(). The fix landed in
+  // alpha.40's `updateConfigFile` helper (preserves sibling-owned keys
+  // by reading the on-disk file first and applying the mutator on top),
+  // not by changing the schema itself — strip-unknown remains the right
+  // shape for the CLI/dashboard preference surface.
+  //
+  // These assertions make the silent contract explicit. They document
+  // (and lock in) that ConfigSchema DOES strip — so any future config-
+  // writing route knows it must use `updateConfigFile` or another
+  // explicit preserve-then-merge dance.
+
+  it('strips unknown top-level keys on parse (the load-bearing default)', () => {
+    const result = parseConfig({
+      effort: 'fast',
+      auth: { anthropic: { mode: 'oauth' } },
+      providers: { strategy: { kind: 'pinned', provider: 'anthropic' } },
+      totally_made_up_key: 'should be dropped',
+    });
+    // The defined field survived…
+    expect(result.effort).toBe('fast');
+    // …but the credential-adjacent siblings (owned by provider-auth*.ts)
+    // and the made-up key are stripped. Writers MUST NOT round-trip the
+    // parsed result back to disk verbatim — see update-config-file.ts.
+    expect(result).not.toHaveProperty('auth');
+    expect(result).not.toHaveProperty('providers');
+    expect(result).not.toHaveProperty('totally_made_up_key');
+  });
+
+  it('strip applies even when the stripped value is well-formed', () => {
+    // Sanity: it's not "strips invalid auth, accepts valid auth". It's
+    // strips ANY undeclared key, regardless of shape.
+    const result = parseConfig({
+      auth: { anthropic: { mode: 'api_key', credentialRef: 'swt:anthropic:api_key' } },
+    });
+    expect(result).not.toHaveProperty('auth');
+  });
+});
