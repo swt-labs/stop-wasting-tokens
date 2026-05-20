@@ -305,6 +305,18 @@ body {
   min-width: 88px;
 }
 
+/* v2 Wave 5 commit 9 — Project group cells. `repo:` reads default
+   cell color (theme-driven); `branch:` switches to warm-amber when
+   the dashboard cwd is in a detached-HEAD state so the unusual
+   condition is visually flagged. */
+.dashboard-statusline-repo,
+.dashboard-statusline-branch {
+  min-width: 80px;
+}
+.dashboard-statusline-branch[data-detached='true'] {
+  color: var(--warm-amber);
+}
+
 /* When the agents-cell list overflows the inline cap, the cell collapses
    to the count + hover-for-full-list — accent the count subtly so the
    user has a cue that more state exists behind the tooltip. */

@@ -40,6 +40,26 @@ export type StatuslineKnobKey = (typeof STATUSLINE_KNOB_KEYS)[number];
 export type StatuslineKnobs = Readonly<Record<StatuslineKnobKey, string | null>>;
 
 /**
+ * Statusline v2 Wave 5 commit 9 — format the branch cell text. Handles
+ * three states:
+ *
+ *   - normal checkout      → `<name>` (e.g. `main`)
+ *   - detached HEAD        → `detached@<short_sha>` (e.g. `detached@bc604ed`)
+ *   - missing branch input → `—` (defensive; in practice the caller
+ *     hides the Project group entirely when `git` is undefined, so
+ *     this branch is unreachable from the live render)
+ */
+export function formatStatuslineBranch(
+  branch: string | null,
+  detached: boolean,
+  shortSha: string,
+): string {
+  if (detached) return `detached@${shortSha}`;
+  if (branch !== null && branch.length > 0) return branch;
+  return '—';
+}
+
+/**
  * Defensive extraction. Returns `null` for any key when:
  *   - `config` is null / undefined / non-object
  *   - the key is missing

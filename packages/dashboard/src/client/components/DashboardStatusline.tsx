@@ -51,16 +51,17 @@
 import type {
   AgentLiveState,
   CostSummary,
+  GitInfo,
   ProviderAuthSnapshot,
   UsageRollup,
   UsageWindow,
 } from '@swt-labs/shared';
-import { For, type Component } from 'solid-js';
+import { For, Show, type Component } from 'solid-js';
 
 import { compactTokens, shortModelLabel } from '../lib/model-helpers.js';
 import type { ConnectionState } from '../state/dashboard-store.js';
 
-import type { StatuslineKnobs } from './statusline-helpers.js';
+import { formatStatuslineBranch, type StatuslineKnobs } from './statusline-helpers.js';
 
 // Re-export for back-compat with existing test imports from this module
 // (`dashboard-statusline.test.ts` imports `shortModelLabel` from here).
@@ -70,6 +71,14 @@ export interface DashboardStatuslineProps {
   providerAuth: ProviderAuthSnapshot | null;
   /** Live SSE connection state (`state.connection`). Drives the dot color. */
   connectionState: ConnectionState;
+  /**
+   * v2 Wave 5 commit 9 — git project-identity payload from
+   * `snapshot.git`. Drives the leftmost `repo:` + `branch:` cells.
+   * Undefined when the dashboard cwd is not in a git repository — the
+   * Project group is then hidden entirely (not rendered as em-dashes;
+   * absence is the signal).
+   */
+  git: GitInfo;
   /**
    * v2 Wave 3 commit 4 — `state.activeSessionId`. When non-null a cook
    * session is in flight (orchestrator running, possibly spawning agents);
@@ -307,9 +316,47 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
   const providerName = (): string => formatStatuslineProvider(providerAuth()?.selected_provider);
   return (
     <div class="dashboard-statusline" aria-label="Dashboard statusline">
-      {/* Cell 1: provider */}
+      {/* v2 Wave 5 commit 9 — Project group (leftmost). Renders ONLY when
+          `props.git` is present. When the dashboard cwd is non-git the
+          group is hidden entirely (no `repo: —`/`branch: —` placeholders
+          — absence IS the signal that SWT is managing a non-git
+          workspace). Detached HEAD lights the branch cell amber via
+          `data-detached="true"`. */}
+      <Show when={props.git !== undefined}>
+        {(g) => (
+          <>
+            <span
+              class="dashboard-statusline-cell dashboard-statusline-repo"
+              title={
+                g().repo_url_path !== null
+                  ? `Repository: ${g().repo_url_path} (origin)`
+                  : 'Local-only repository — no origin remote configured'
+              }
+            >
+              repo: {g().repo_basename}
+            </span>
+            <span
+              class="dashboard-statusline-cell dashboard-statusline-branch"
+              data-detached={g().detached ? 'true' : undefined}
+              title={
+                g().detached
+                  ? `Detached HEAD at ${g().short_sha}`
+                  : `Branch: ${g().branch} · HEAD: ${g().short_sha}`
+              }
+            >
+              branch: {formatStatuslineBranch(g().branch, g().detached, g().short_sha)}
+            </span>
+          </>
+        )}
+      </Show>
+      {/* Cell 1: provider — Identity-group head. When the Project group
+          (above) renders, the provider cell becomes the first cell of
+          the Identity group and receives the `│` group separator via
+          `group-start`. When the Project group is hidden, the provider
+          cell's leading separator is suppressed by the existing
+          `:first-of-type` rule. */}
       <span
-        class="dashboard-statusline-cell"
+        class={`dashboard-statusline-cell${props.git !== undefined ? ' group-start' : ''}`}
         title={`Provider: ${providerName()} — switch via the Provider menu`}
       >
         {providerName()}

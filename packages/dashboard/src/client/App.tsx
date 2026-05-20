@@ -122,6 +122,11 @@ export const App: Component = () => {
   // is the correct per-session source; money cells continue to read
   // `cost_summary` directly because they ARE dashboard-lifetime.
   const statuslineCumulativeTokens = createMemo(() => state.orchestratorSessionInputTokens);
+  // Statusline v2 Wave 5 commit 9 — git project-identity payload from
+  // `snapshot.git`. Undefined for non-git workspaces; the Project group
+  // hides entirely in that case (absence is the signal — SWT manages
+  // non-git workspaces too).
+  const statuslineGit = createMemo(() => state.snapshot?.git);
 
   // Theme — drive the dashboard's `data-theme` attribute on `<html>` from
   // the persisted config. The memo reads `state.tools.config.data?.config
@@ -500,6 +505,7 @@ export const App: Component = () => {
       <DashboardStatusline
         providerAuth={state.tools.providerAuth.data ?? null}
         connectionState={state.connection}
+        git={statuslineGit()}
         activeSessionId={state.activeSessionId}
         costSummary={state.snapshot?.cost_summary ?? null}
         usageRollup={state.snapshot?.usage_rollup ?? null}

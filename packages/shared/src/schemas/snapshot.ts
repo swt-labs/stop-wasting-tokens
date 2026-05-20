@@ -205,6 +205,34 @@ export const UsageRollupSchema = z.object({
 });
 export type UsageRollup = z.infer<typeof UsageRollupSchema>;
 
+/**
+ * Statusline v2 Wave 5 commit 9 — git project-identity payload. Drives
+ * the `repo:` + `branch:` cells at the leftmost end of the bar.
+ *
+ *   - `repo_url_path` is `<org>/<repo>` parsed from the origin remote
+ *     URL (https + ssh forms supported; `.git` suffix stripped).
+ *     `null` when no remote is configured (local-only repo).
+ *   - `repo_basename` is the workspace directory basename — always set
+ *     when the cwd is inside a git repo, used by the cell when
+ *     `repo_url_path` is null.
+ *   - `branch` is the active branch name from `.git/HEAD`. `null` on
+ *     detached HEAD (the cell then renders `branch: detached@<sha>`).
+ *   - `detached` mirrors `branch === null` for ergonomic consumer
+ *     branching.
+ *   - `short_sha` is the 7-char abbrev of the HEAD commit; used for
+ *     the detached-HEAD fallback display.
+ */
+export const GitInfoSchema = z
+  .object({
+    repo_url_path: z.string().nullable(),
+    repo_basename: z.string(),
+    branch: z.string().nullable(),
+    detached: z.boolean(),
+    short_sha: z.string(),
+  })
+  .optional();
+export type GitInfo = z.infer<typeof GitInfoSchema>;
+
 export const SnapshotSchema = z.object({
   schema_version: z.literal('1'),
   generated_at: z.string().datetime({ offset: true }),
@@ -276,5 +304,24 @@ export const SnapshotSchema = z.object({
    * consumer defaults to `false` at the read site.
    */
   codebase_mapped: z.boolean().optional(),
+  /**
+   * Statusline v2 (statusline_v2.md) Wave 5 commit 9 — git project
+   * identity derived from the dashboard's `projectRoot`. `undefined` when
+   * the cwd is not inside a git repository (SWT can manage non-git
+   * workspaces); the dashboard's Project group then hides its
+   * `repo:` and `branch:` cells entirely rather than rendering em-dashes.
+   *
+   * Field is optional (NOT `.default({...})`) so old wire snapshots and
+   * non-git workspaces parse cleanly as `undefined` — same additive
+   * pattern as milestone-23's `brownfield` and `codebase_mapped`.
+   *
+   * Source of truth + cache strategy: `detectGitInfo(cwd)` reads
+   * `.git/HEAD` and shells `git config --get remote.origin.url` /
+   * `git rev-parse --short HEAD` once at startup, then again on
+   * FS-watcher events when `.git/HEAD` or `.git/config` change
+   * (snapshotter.ts WATCH_GLOBS additions). No polling, no per-event
+   * git invocation in the hot path.
+   */
+  git: GitInfoSchema,
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;

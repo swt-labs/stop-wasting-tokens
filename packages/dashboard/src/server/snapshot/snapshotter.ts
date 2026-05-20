@@ -69,6 +69,12 @@ const WATCH_GLOBS = (projectRoot: string): string[] => [
   // flips to `true` on the SSE stream and the `CodebaseMapPrompt` banner
   // never auto-hides.
   path.join(projectRoot, '.swt-planning', 'codebase'),
+  // Statusline v2 Wave 5 commit 9 — the two `.git/` files the dashboard
+  // project-identity cells depend on. Concrete file paths so chokidar
+  // never recurses into `.git/objects` etc.; the `ignored` predicate
+  // below explicitly exempts them from the `/.git/` exclusion.
+  path.join(projectRoot, '.git', 'HEAD'),
+  path.join(projectRoot, '.git', 'config'),
 ];
 
 export interface SnapshotterOptions {
@@ -96,14 +102,28 @@ export function createSnapshotter(opts: SnapshotterOptions): Snapshotter {
   // glob form `'**/node_modules/**'` no longer matches). Keep the
   // `awaitWriteFinish` stability guard from v2 — the AC-03 500ms budget
   // accommodates the ~25ms delay.
+  // Statusline v2 Wave 5 commit 9 — pre-compute the two exempt `.git/`
+  // paths so the `ignored` predicate can short-circuit before falling
+  // through to the broad `/.git/` rejection.
+  const gitHead = path.join(projectRoot, '.git', 'HEAD');
+  const gitConfig = path.join(projectRoot, '.git', 'config');
   const watcher: FSWatcher = chokidar.watch(WATCH_GLOBS(projectRoot), {
     ignoreInitial: true,
     persistent: true,
     awaitWriteFinish: { stabilityThreshold: 25, pollInterval: 10 },
-    ignored: (filePath: string): boolean =>
-      filePath.includes('/node_modules/') ||
-      filePath.includes('/.git/') ||
-      filePath.includes('/.cache/'),
+    ignored: (filePath: string): boolean => {
+      // Statusline v2 Wave 5 commit 9 — exempt the two specific `.git/`
+      // files we explicitly watch from the broad `/.git/` rejection.
+      // Without this carve-out, chokidar would silently drop the
+      // `.git/HEAD` and `.git/config` watches and project-identity
+      // would never re-emit on branch checkouts / remote URL edits.
+      if (filePath === gitHead || filePath === gitConfig) return false;
+      return (
+        filePath.includes('/node_modules/') ||
+        filePath.includes('/.git/') ||
+        filePath.includes('/.cache/')
+      );
+    },
   });
 
   const eventsTailer: EventsTailer = createEventsTailer({ projectRoot, bus });

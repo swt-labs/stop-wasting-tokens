@@ -10,6 +10,7 @@ import {
   type Snapshot,
 } from '@swt-labs/shared';
 
+import { detectGitInfo } from './git-info.js';
 import {
   pickActiveSessionId,
   type RawArtifact,
@@ -252,6 +253,12 @@ export function buildSnapshot(projectRoot: string): Snapshot {
   const brownfield = existsSync(path.join(projectRoot, '.swt-planning', 'stack.json'));
   const codebase_mapped = existsSync(path.join(projectRoot, '.swt-planning', 'codebase'));
 
+  // Statusline v2 Wave 5 commit 9 — project-identity payload for the
+  // leftmost `repo:` + `branch:` statusline cells. `detectGitInfo`
+  // returns `undefined` for non-git workspaces; the consumer renders
+  // its Project group only when the field is present.
+  const git = detectGitInfo(projectRoot);
+
   const snapshot: Snapshot = {
     schema_version: '1',
     generated_at: new Date().toISOString(),
@@ -268,6 +275,7 @@ export function buildSnapshot(projectRoot: string): Snapshot {
     is_initialized: true,
     brownfield,
     codebase_mapped,
+    ...(git !== undefined ? { git } : {}),
   };
 
   return SnapshotSchema.parse(snapshot);
