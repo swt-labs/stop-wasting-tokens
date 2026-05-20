@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — alpha.39 mid-session chat provider/model switch
+
+_One-commit bundle. User reported: started a chat with Anthropic, switched the TopBar Provider dropdown to OpenRouter + Model to DeepSeek V4 (statusline correctly updated to `openrouter ●`), sent another message — got an Opus 4.7 reply (Anthropic). Mid-session vendor/model switches via the dropdowns were silently ignored by the chat route. A `/vbw:debug` Path-B investigation identified the cache-then-skip-resolve guard in `chat.ts` and fixed it via a registry-level binding stamp + binding-aware staleness check._
+
+### Fixes
+
+- **`d58d1a2` fix(dashboard): invalidate cached chat session on provider/model switch** — `ChatSessionRegistry` now stamps every entry with `{provider, model}` and exposes a new `getMatching(id, binding)` that disposes-and-returns-undefined when the cached entry's stamped binding differs from the incoming one. The chat route calls `resolveActiveProvider` BEFORE the registry lookup (instead of conditionally skipping it when a cached session exists), constructs the binding, and uses `getMatching` instead of `get`. On a mismatch, the cached `SwtSession` is disposed (Pi's `AgentSession` releases its `InMemoryAuthStorageBackend` resources) and the chat route falls through to its existing create-new-session branch with the freshly-pinned provider + model.
+
+  **Why this kept slipping past alpha.37's fixes:** alpha.37 made the chat route correctly resolve the pinned provider + forward the model — but only on the FIRST turn for a `chat_session_id`. The cache-then-skip-resolve guard at `if (session === undefined)` meant the second+ turns reused the first-turn binding regardless of how config.json had changed in between. The TopBar dropdown writes (POST /api/config + POST /api/provider-auth) correctly updated `config.providers.strategy.provider` and `config.model`, the statusline correctly reflected the new pin — but the in-memory `SwtSession` had Anthropic's `AuthStorage` baked in via Pi's construction-time binding (`AgentSession` immutably holds its `AuthStorage` + resolved `Model<Api>`, can't be re-bound in place). The cached session kept replying through the original vendor.
+
+  **History semantics:** Pi's `SessionManager.inMemory` ties conversation history to the `AgentSession` instance. When the binding changes and the cached session is disposed, history resets by definition. This matches the user's mental model when they explicitly switch vendors mid-chat — different vendor = different conversation. The unchanged-binding path (steady-state reuse) is preserved exactly as before; `getMatching` is byte-identical to `get` when the binding matches.
+
+  **Files modified:** `packages/dashboard/src/server/chat-session-registry.ts` (binding stamp + `getMatching`) · `packages/dashboard/src/server/routes/chat.ts` (hoist `resolveActiveProvider`, switch to `getMatching`) · `packages/dashboard/test/chat-session-registry.test.ts` (+7 binding tests, 11 pre-existing call sites updated) · `packages/dashboard/test/chat-route.test.ts` (+2 alpha.39 regression tests covering Provider switch + Model switch).
+
+  **Verification:** vbw-qa standard tier PASS 15/15. Test growth: 2750 → 2759 (+9 net). Dashboard suite 983 passed / 1 skipped / 0 failed. Preflight (Gate A+B) green.
+
 ## Unreleased — alpha.38 the actual auth-persistence bug fix
 
 _One-commit bundle. After publishing alpha.35/.36/.37 chasing this bug chain from the read side, a `/vbw:debug` Path-B investigation found the actual root cause was on the WRITE side — in a completely different route the prior fixes never touched. This commit explains why credentials were "forgotten" even though the keychain was working correctly all along._
