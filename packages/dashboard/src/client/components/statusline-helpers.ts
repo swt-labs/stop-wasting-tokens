@@ -21,13 +21,14 @@
 import { CONFIG_ENUM_OPTIONS } from './config-enum-vocab.js';
 
 /**
- * The five statusline knob keys, in display order (Goal section #4-7 of
- * artifacts.md + `backend` at the head per design decision §1). All five
- * render even when their value is the default — they are status
- * indicators, not differentials.
+ * The statusline knob keys, in display order. v1 included `backend` at
+ * the head, but TDD3 §1.3 + REQ-01 (`commands.md`) lock v3's runtime to
+ * Pi as the sole substrate — `backend` no longer parameterises anything.
+ * v2 of the statusline drops the cell entirely (statusline_v2.md §D);
+ * the four remaining knobs each render even when at their default value
+ * because they are status indicators, not differentials.
  */
 export const STATUSLINE_KNOB_KEYS = [
-  'backend',
   'effort',
   'autonomy',
   'model_profile',
@@ -56,7 +57,6 @@ export type StatuslineKnobs = Readonly<Record<StatuslineKnobKey, string | null>>
 export function selectStatuslineKnobs(config: unknown): StatuslineKnobs {
   // Build the all-null fallback first; we'll overlay validated values.
   const result: Record<StatuslineKnobKey, string | null> = {
-    backend: null,
     effort: null,
     autonomy: null,
     model_profile: null,

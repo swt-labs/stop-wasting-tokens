@@ -266,15 +266,18 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
       >
         ●
       </span>
-      {/* Cells 3-7: knob status indicators (backend, effort, autonomy, profile, tier) */}
+      {/* Cells 3-6: knob status indicators (effort, autonomy, model, verify).
+          v2 Wave 3 commit 3 — `backend` cell dropped (no v3 meaning per
+          TDD3 §1.3); labels expand to readable forms; `model:` is the
+          model-PROFILE knob (quality / balanced / cost), distinct from
+          the orchestrator's resolved model id rendered below. */}
       <For
         each={
           [
-            ['be', props.knobs.backend],
-            ['eff', props.knobs.effort],
-            ['auto', props.knobs.autonomy],
-            ['prof', props.knobs.model_profile],
-            ['ver', props.knobs.verification_tier],
+            ['effort', props.knobs.effort],
+            ['autonomy', props.knobs.autonomy],
+            ['model', props.knobs.model_profile],
+            ['verify', props.knobs.verification_tier],
           ] as ReadonlyArray<readonly [string, string | null]>
         }
       >
@@ -284,9 +287,12 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           </span>
         )}
       </For>
-      {/* Cell 8: orchestrator model */}
+      {/* Cell 7: orchestrator model.
+          v2 Wave 3 commit 3 — relabelled from `model:` to `orchestrator:`
+          (Locked Decision #15) so the resolved-model display does not
+          collide with the model-profile knob above. */}
       <span class="dashboard-statusline-cell dashboard-statusline-model">
-        model:{shortModelLabel(props.orchestratorModel)}
+        orchestrator:{shortModelLabel(props.orchestratorModel)}
       </span>
       {/* Cell 9: agents */}
       <span
