@@ -48,6 +48,7 @@ import {
   type CommandResponse,
   type ConfigUpdateBody,
   type InitBody,
+  type InitResponse,
   type ProviderAuthSnapshot,
   type ProviderAuthUpdateBody,
   type RenderedArtifact,
@@ -375,7 +376,7 @@ export interface DashboardActions {
   openUatModal: (modal: UatModalState) => void;
   closeUatModal: () => void;
   submitUatCheckpoint: (result: 'pass' | 'fail', note?: string) => Promise<void>;
-  initProject: (body: InitBody) => Promise<void>;
+  initProject: (body: InitBody) => Promise<InitResponse>;
   runCommand: (input: string) => Promise<CommandResponse | null>;
   startVibeSession: (prompt: string) => Promise<string | null>;
   /**
@@ -1990,7 +1991,7 @@ export function createDashboardStore(
     });
   };
 
-  const initProject = async (body: InitBody): Promise<void> => {
+  const initProject = async (body: InitBody): Promise<InitResponse> => {
     setState('initSubmitting', true);
     // Plan 03-01 T2 — the old optimistic snapshot flip (setting
     // is_initialized) is REMOVED. Phase 02 made `POST /api/init` spawn a detached Lead
@@ -2033,6 +2034,15 @@ export function createDashboardStore(
       });
       appendLogLine(`[ok] Initialized .swt-planning/ — type 'help' for available subcommands.`);
       appendLogLine(`[ok] Project ${body.name} ready at ${response.root}`);
+      // Milestone 23 Phase 02 T03 (Drift 5) — return the parsed
+      // InitResponse so InitScreen's submit handler can capture
+      // `{ brownfield, git_initialized, stack, files }` into a local
+      // `lastInitResponse` signal that drives Step 4. Step 4 must read
+      // from the HTTP response (not state.initSession), because the
+      // synchronous scaffold's `init.complete` SSE event arrives ~100ms
+      // later and immediately clears state.initSession via the
+      // handleInitEvent reducer.
+      return response;
     } catch (err: unknown) {
       // Scaffold-time failure (409 AlreadyInitialized, write error, etc.)
       // — clear any provisional initSession that a prior call left behind

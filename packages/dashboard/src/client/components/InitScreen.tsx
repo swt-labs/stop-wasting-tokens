@@ -1,14 +1,7 @@
-import {
-  createResource,
-  createSignal,
-  Match,
-  Show,
-  Switch,
-  type Component,
-} from 'solid-js';
+import { createResource, createSignal, Match, Show, Switch, type Component } from 'solid-js';
 
-import { fetchInitPrecheck } from '../services/api.js';
-import type { InitBody, InitPrecheckResponse } from '../services/api.js';
+import { ApiError, fetchInitPrecheck } from '../services/api.js';
+import type { InitBody, InitPrecheckResponse, InitResponse } from '../services/api.js';
 import type { InitSessionState } from '../state/dashboard-store.js';
 
 /**
@@ -155,7 +148,70 @@ export interface InitScreenProps {
    * panes) so Solid's reactivity tracks store mutations.
    */
   initSession: () => InitSessionState | null;
-  onInit: (body: InitBody) => Promise<void>;
+  /**
+   * Milestone 23 Phase 02 T03 (Drift 5) — onInit now returns the parsed
+   * `InitResponse` so the wizard's Step 4 can render from the HTTP
+   * response (brownfield, git_initialized, stack, files) instead of
+   * waiting for the SSE `init.complete` event (which fires
+   * synchronously ~100ms later and clears state.initSession before
+   * the wizard can read it).
+   */
+  onInit: (body: InitBody) => Promise<InitResponse>;
+}
+
+/**
+ * Milestone 23 Phase 02 T03 — pure helper that classifies a submit
+ * error into one of three categories so the wizard's UI can route to
+ * the correct affordance. Mirrors the 409 / 5xx / network split the
+ * Phase 01 `POST /api/init` route produces:
+ *
+ *   - `already-initialized` — HTTP 409. Server detected `.swt-planning/`
+ *     already exists at submit time. Show the "go to dashboard"
+ *     recovery affordance. Do not advance to Step 4.
+ *   - `retryable` — HTTP 5xx or thrown network error. Show inline error
+ *     + [Retry] button that re-invokes submit.
+ *   - `fatal` — any other error (4xx other than 409, ZodError parse
+ *     failure, etc.). Show inline error WITHOUT [Retry] (clicking
+ *     again would deterministically fail again).
+ *
+ * The `ApiError` shape (from `services/api.ts`) carries the
+ * `status: number` so we can branch reliably.
+ */
+export function classifyInitError(err: unknown): 'already-initialized' | 'retryable' | 'fatal' {
+  if (err instanceof ApiError) {
+    if (err.status === 409) return 'already-initialized';
+    if (err.status >= 500) return 'retryable';
+    return 'fatal';
+  }
+  // Non-ApiError throwables — network failures, parse errors,
+  // unexpected DOM exceptions. Treat as retryable so the user has an
+  // affordance to recover.
+  return 'retryable';
+}
+
+/**
+ * Milestone 23 Phase 02 T03 — pure summary builder for the Step 4
+ * completion view. Maps the InitResponse into a struct the JSX
+ * consumes; extracted as a pure function so the snapshot is testable
+ * in vitest node-env without rendering Solid components.
+ */
+export interface InitResponseSummary {
+  modeLabel: string;
+  gitInitializedLabel: string | null;
+  stackLabel: string | null;
+  fileCount: number;
+  filesPreview: ReadonlyArray<string>;
+}
+
+export function summarizeInitResponse(response: InitResponse): InitResponseSummary {
+  return {
+    modeLabel: response.brownfield ? 'Mode: Brownfield' : 'Mode: Greenfield',
+    gitInitializedLabel: response.git_initialized ? '✓ git repository initialized' : null,
+    stackLabel: response.stack.length > 0 ? `Stack: ${response.stack.join(', ')}` : null,
+    fileCount: response.files.length,
+    // Cap at 5 entries to keep the panel compact for large file lists.
+    filesPreview: response.files.slice(0, 5),
+  };
 }
 
 export const InitScreen: Component<InitScreenProps> = (props) => {
@@ -181,6 +237,26 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   // ── Submit / error state ──────────────────────────────────────────────
   const [error, setError] = createSignal<string | null>(null);
 
+  // Milestone 23 Phase 02 T03 (Drift 5) — captured at await-resolution
+  // time so Step 4 can render from the HTTP RESPONSE, not from
+  // state.initSession (which the SSE `init.complete` clears ~100ms
+  // after the response arrives).
+  const [lastInitResponse, setLastInitResponse] = createSignal<InitResponse | null>(null);
+
+  // Milestone 23 Phase 02 T03 — error category branches the inline
+  // error UI: 'already-initialized' renders the recovery affordance,
+  // 'retryable' renders a [Retry] button, 'fatal' renders the message
+  // only. `null` means no error.
+  const [errorKind, setErrorKind] = createSignal<
+    'already-initialized' | 'retryable' | 'fatal' | null
+  >(null);
+
+  // Milestone 23 Phase 02 T03 (placeholder for Phase 03) — Solid signal
+  // hook for the [Map codebase] button on Step 4. Phase 03 will consume
+  // this signal to wire POST /api/map; Phase 02 only sets the flag +
+  // logs a debug line.
+  const [mapClicked, setMapClicked] = createSignal(false);
+
   // ── /api/init-precheck resource (Step 1 auto-detect) ─────────────────
   // Milestone 23 Phase 02 T02. Fires once on mount; the response either
   // short-circuits the wizard into the "already initialized" branch or
@@ -194,20 +270,49 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
   // flash. Retained per Drift 6 — same prop contract still applies.
   const isBusy = (): boolean => props.submitting || props.initSession()?.status === 'detecting';
 
-  // ── Submit handler (T02 placeholder — T03 finalises with response capture) ──
-  // For T02 the submit just advances the wizard to Step 3. T03 will wire
-  // the actual POST /api/init through props.onInit + capture the response
-  // in lastInitResponse for Step 4's render + 409/5xx error handling.
-  const handleSubmit = async (e: Event): Promise<void> => {
-    e.preventDefault();
+  // ── Submit handler (T03 final form) ──────────────────────────────────
+  // Wires the [Initialize SWT →] button to POST /api/init via
+  // props.onInit. On success: capture response → setStep(4). On 409:
+  // surface the already-initialized affordance. On 5xx / network: show
+  // [Retry]. On other 4xx / parse errors: show fatal inline.
+  const handleSubmit = async (e?: Event): Promise<void> => {
+    if (e) e.preventDefault();
     if (isBusy()) return;
     if (!isStep1Complete(name())) {
       setError('Project name is required.');
+      setErrorKind('fatal');
       setStep(1);
       return;
     }
     setError(null);
+    setErrorKind(null);
     setStep(3);
+    try {
+      const body = buildInitBody({
+        name: name(),
+        description: description(),
+        planningTracking: planningTracking(),
+        autoPush: autoPush(),
+      });
+      const response = await props.onInit(body);
+      setLastInitResponse(response);
+      setStep(4);
+    } catch (err: unknown) {
+      const kind = classifyInitError(err);
+      setErrorKind(kind);
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      // Surface the error on Step 2 so the user can act on it. The
+      // 'already-initialized' branch has its own affordance below the
+      // error message.
+      setStep(2);
+    }
+  };
+
+  const handleMapCodebaseClick = (): void => {
+    setMapClicked(true);
+    // eslint-disable-next-line no-console
+    console.debug('[InitScreen] map-codebase placeholder click — Phase 03 will wire POST /api/map');
   };
 
   // ── Step 1 helpers ────────────────────────────────────────────────────
@@ -293,7 +398,9 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
                       >;
                       return (
                         <div class="init-wizard-precheck" role="status">
-                          <span>{describePrecheckMode(detail.brownfield, detail.source_file_count)}</span>
+                          <span>
+                            {describePrecheckMode(detail.brownfield, detail.source_file_count)}
+                          </span>
                           <span>{describeGitState(detail.git)}</span>
                         </div>
                       );
@@ -411,7 +518,27 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
               </fieldset>
 
               <Show when={error()}>
-                <p class="init-error">{error()}</p>
+                <div
+                  class="init-wizard-error-panel"
+                  data-kind={errorKind() ?? 'fatal'}
+                  role="alert"
+                >
+                  <Show when={errorKind() === 'already-initialized'}>
+                    <p class="init-error">This project is already initialized — go to dashboard.</p>
+                  </Show>
+                  <Show when={errorKind() !== 'already-initialized'}>
+                    <p class="init-error">{error()}</p>
+                  </Show>
+                  <Show when={errorKind() === 'retryable'}>
+                    <button
+                      type="button"
+                      class="init-wizard-secondary"
+                      onClick={() => void handleSubmit()}
+                    >
+                      Retry
+                    </button>
+                  </Show>
+                </div>
               </Show>
 
               <div class="init-wizard-actions">
@@ -439,15 +566,63 @@ export const InitScreen: Component<InitScreenProps> = (props) => {
           <Match when={step() === 3}>
             <section class="init-wizard-step-panel init-wizard-progress" aria-live="polite">
               <h2 class="init-wizard-step-heading">Scaffolding…</h2>
-              <p class="init-wizard-lede">◆ Writing <code>.swt-planning/</code>…</p>
+              <p class="init-wizard-lede">
+                ◆ Writing <code>.swt-planning/</code>…
+              </p>
             </section>
           </Match>
 
-          {/* ── Step 4 — Complete (T02 placeholder) ──────────────────── */}
+          {/* ── Step 4 — Complete ───────────────────────────────────── */}
           <Match when={step() === 4}>
             <section class="init-wizard-step-panel init-wizard-complete">
               <h2 class="init-wizard-step-heading">Complete.</h2>
-              <p class="init-wizard-lede">SWT is initialized. Dashboard takes over shortly.</p>
+              <Show
+                when={lastInitResponse()}
+                fallback={
+                  <p class="init-wizard-lede">SWT is initialized. Dashboard takes over shortly.</p>
+                }
+              >
+                {(response) => {
+                  const summary = summarizeInitResponse(response());
+                  return (
+                    <div class="init-wizard-summary">
+                      <p class="init-wizard-lede">SWT is initialized.</p>
+                      <ul class="init-wizard-checklist">
+                        <li>{summary.modeLabel}</li>
+                        <Show when={summary.gitInitializedLabel}>
+                          {(label) => <li>{label()}</li>}
+                        </Show>
+                        <Show when={summary.stackLabel}>{(label) => <li>{label()}</li>}</Show>
+                        <li>
+                          {summary.fileCount} file{summary.fileCount === 1 ? '' : 's'} created
+                          <Show when={summary.filesPreview.length > 0}>
+                            <ul class="init-wizard-files-preview">
+                              {summary.filesPreview.map((f) => (
+                                <li>
+                                  <code>{f}</code>
+                                </li>
+                              ))}
+                              <Show when={summary.fileCount > summary.filesPreview.length}>
+                                <li>…and {summary.fileCount - summary.filesPreview.length} more</li>
+                              </Show>
+                            </ul>
+                          </Show>
+                        </li>
+                      </ul>
+                      <div class="init-wizard-actions">
+                        <button
+                          type="button"
+                          class="init-wizard-secondary"
+                          disabled={mapClicked()}
+                          onClick={handleMapCodebaseClick}
+                        >
+                          {mapClicked() ? 'Map queued (Phase 03 wires)' : 'Map codebase'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }}
+              </Show>
             </section>
           </Match>
         </Switch>

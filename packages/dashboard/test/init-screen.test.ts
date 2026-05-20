@@ -23,12 +23,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildInitBody,
+  classifyInitError,
   describeGitState,
   describePrecheckMode,
   InitScreen,
   isStep1Complete,
+  summarizeInitResponse,
   type InitScreenProps,
 } from '../src/client/components/InitScreen.js';
+import { ApiError } from '../src/client/services/api.js';
+import type { InitResponse } from '../src/client/services/api.js';
 
 describe('isStep1Complete', () => {
   it('returns false for empty string', () => {
@@ -187,9 +191,14 @@ describe('InitScreen (smoke)', () => {
       submitting: false,
       brownfield: false,
       initSession: () => null,
-      onInit: async () => {
-        // noop
-      },
+      onInit: async () => ({
+        initialized: true,
+        root: '/tmp/p',
+        files: [],
+        brownfield: false,
+        git_initialized: false,
+        stack: [],
+      }),
     };
     expect(typeof sanity.onInit).toBe('function');
     expect(typeof sanity.initSession).toBe('function');
@@ -214,5 +223,180 @@ describe('InitScreen (smoke)', () => {
     // the assertion survives as a runtime-visible test name in the
     // suite reporter.
     expect(true).toBe(true);
+  });
+});
+
+// ── T03 — submit response classification + summary ─────────────────────
+
+describe('buildInitBody — snapshot', () => {
+  it('produces the exact wire body the wizard POSTs to /api/init', () => {
+    const body = buildInitBody({
+      name: 'snapshot-project',
+      description: 'A baseline body for the wizard submit.',
+      planningTracking: 'commit',
+      autoPush: 'after_phase',
+    });
+    expect(body).toMatchInlineSnapshot(`
+      {
+        "auto_push": "after_phase",
+        "description": "A baseline body for the wizard submit.",
+        "name": "snapshot-project",
+        "planning_tracking": "commit",
+      }
+    `);
+  });
+
+  it('omits description from the wire body when blank', () => {
+    const body = buildInitBody({
+      name: 'no-desc',
+      description: '',
+      planningTracking: 'manual',
+      autoPush: 'never',
+    });
+    expect(body).toMatchInlineSnapshot(`
+      {
+        "auto_push": "never",
+        "name": "no-desc",
+        "planning_tracking": "manual",
+      }
+    `);
+  });
+});
+
+describe('classifyInitError', () => {
+  it('classifies a 409 ApiError as already-initialized', () => {
+    expect(classifyInitError(new ApiError('AlreadyInitialized', 409))).toBe('already-initialized');
+  });
+
+  it('classifies any 5xx ApiError as retryable', () => {
+    expect(classifyInitError(new ApiError('Internal', 500))).toBe('retryable');
+    expect(classifyInitError(new ApiError('Bad gateway', 502))).toBe('retryable');
+    expect(classifyInitError(new ApiError('Timeout', 504))).toBe('retryable');
+  });
+
+  it('classifies other 4xx ApiErrors as fatal', () => {
+    expect(classifyInitError(new ApiError('Bad request', 400))).toBe('fatal');
+    expect(classifyInitError(new ApiError('Unauthorized', 401))).toBe('fatal');
+    expect(classifyInitError(new ApiError('Forbidden', 403))).toBe('fatal');
+    expect(classifyInitError(new ApiError('Not found', 404))).toBe('fatal');
+  });
+
+  it('classifies a generic Error (network / parse / DOM) as retryable', () => {
+    expect(classifyInitError(new Error('Failed to fetch'))).toBe('retryable');
+    expect(classifyInitError(new TypeError('Cannot read prop'))).toBe('retryable');
+  });
+
+  it('classifies a non-Error throw as retryable (defensive)', () => {
+    expect(classifyInitError('something weird')).toBe('retryable');
+    expect(classifyInitError(null)).toBe('retryable');
+    expect(classifyInitError(undefined)).toBe('retryable');
+  });
+});
+
+describe('summarizeInitResponse', () => {
+  const baseGreenfield: InitResponse = {
+    initialized: true,
+    root: '/tmp/proj',
+    files: ['.swt-planning/PROJECT.md', '.swt-planning/STATE.md', '.swt-planning/config.json'],
+    brownfield: false,
+    git_initialized: true,
+    stack: [],
+  };
+
+  const baseBrownfield: InitResponse = {
+    initialized: true,
+    root: '/tmp/proj',
+    files: [
+      '.swt-planning/PROJECT.md',
+      '.swt-planning/STATE.md',
+      '.swt-planning/config.json',
+      '.swt-planning/stack.json',
+      '.swt-planning/REQUIREMENTS.md',
+      '.swt-planning/ROADMAP.md',
+    ],
+    brownfield: true,
+    git_initialized: false,
+    stack: ['typescript', 'react', 'vite'],
+  };
+
+  it('labels mode correctly for greenfield', () => {
+    expect(summarizeInitResponse(baseGreenfield).modeLabel).toBe('Mode: Greenfield');
+  });
+
+  it('labels mode correctly for brownfield', () => {
+    expect(summarizeInitResponse(baseBrownfield).modeLabel).toBe('Mode: Brownfield');
+  });
+
+  it('emits a git-initialized label only when git_initialized is true', () => {
+    expect(summarizeInitResponse(baseGreenfield).gitInitializedLabel).toBe(
+      '✓ git repository initialized',
+    );
+    expect(summarizeInitResponse(baseBrownfield).gitInitializedLabel).toBeNull();
+  });
+
+  it('emits a comma-joined stack label only when stack is non-empty', () => {
+    expect(summarizeInitResponse(baseGreenfield).stackLabel).toBeNull();
+    expect(summarizeInitResponse(baseBrownfield).stackLabel).toBe('Stack: typescript, react, vite');
+  });
+
+  it('caps filesPreview at 5 entries while keeping fileCount accurate', () => {
+    const summary = summarizeInitResponse(baseBrownfield);
+    expect(summary.fileCount).toBe(6);
+    expect(summary.filesPreview).toHaveLength(5);
+    expect(summary.filesPreview).toEqual(baseBrownfield.files.slice(0, 5));
+  });
+
+  it('shows the full file list when count is <= 5', () => {
+    const summary = summarizeInitResponse(baseGreenfield);
+    expect(summary.fileCount).toBe(3);
+    expect(summary.filesPreview).toHaveLength(3);
+    expect(summary.filesPreview).toEqual(baseGreenfield.files);
+  });
+});
+
+describe('InitScreen state-machine smoke (mocked onInit return)', () => {
+  it('handles a successful onInit by capturing the parsed response shape', async () => {
+    // Pure data smoke: assert the contract the wizard depends on —
+    // `await props.onInit(body)` resolves to an InitResponse the
+    // component can hand to `summarizeInitResponse`. The actual
+    // component-level mounting is not exercised (no DOM), so this is
+    // a contract-level test only.
+    const fakeResponse: InitResponse = {
+      initialized: true,
+      root: '/tmp/x',
+      files: ['.swt-planning/PROJECT.md'],
+      brownfield: false,
+      git_initialized: true,
+      stack: [],
+    };
+    const onInit = async (): Promise<InitResponse> => fakeResponse;
+    const result = await onInit();
+    expect(summarizeInitResponse(result).modeLabel).toBe('Mode: Greenfield');
+  });
+
+  it('handles a 409 ApiError reject by classifying as already-initialized', async () => {
+    const onInit = async (): Promise<InitResponse> => {
+      throw new ApiError('already initialized', 409);
+    };
+    let caught: unknown = null;
+    try {
+      await onInit();
+    } catch (err) {
+      caught = err;
+    }
+    expect(classifyInitError(caught)).toBe('already-initialized');
+  });
+
+  it('handles a 503 ApiError reject by classifying as retryable', async () => {
+    const onInit = async (): Promise<InitResponse> => {
+      throw new ApiError('upstream gone', 503);
+    };
+    let caught: unknown = null;
+    try {
+      await onInit();
+    } catch (err) {
+      caught = err;
+    }
+    expect(classifyInitError(caught)).toBe('retryable');
   });
 });

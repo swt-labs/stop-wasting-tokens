@@ -4247,3 +4247,42 @@ body {
   border-radius: 4px;
   color: var(--warm-amber);
 }
+
+/* ── Milestone 23 Phase 02 T03 — Step 3 progress + Step 4 complete + error panel ── */
+
+.init-wizard-error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--danger-red);
+  border-radius: 4px;
+  background: transparent;
+}
+
+.init-wizard-error-panel[data-kind='already-initialized'] {
+  border-color: var(--warm-amber);
+  color: var(--warm-amber);
+}
+
+.init-wizard-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.init-wizard-files-preview {
+  list-style: none;
+  margin: 4px 0 0 0;
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--slate-muted);
+  font-size: 12px;
+}
+
+.init-wizard-files-preview code {
+  font-family: var(--font-mono);
+  color: var(--ghost-white);
+}
