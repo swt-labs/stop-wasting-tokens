@@ -282,13 +282,54 @@ describe('POST /api/provider-auth', () => {
     expect(existsSync(configPath())).toBe(false);
   });
 
-  it('returns 501 oauth_not_yet_supported for authMode:oauth and writes nothing', async () => {
-    const { status, body } = await postAuth({ provider: 'openai', authMode: 'oauth' });
+  it('returns 501 oauth_setup_not_supported only when authMode:oauth IS combined with apiKey (new-OAuth-setup attempt), and writes nothing', async () => {
+    // alpha.42 — the 501 gate was refined to fire only on new-OAuth-setup
+    // attempts via this endpoint (apiKey + authMode='oauth'). OAuth setup
+    // belongs at POST /api/provider-auth/oauth/start, not here. The
+    // pin-only branch (authMode='oauth' with no apiKey) is now allowed
+    // and exercised by the separate "pin-only oauth" test below.
+    const { status, body } = await postAuth({
+      provider: 'openai',
+      authMode: 'oauth',
+      apiKey: 'sk-doesnt-matter-rejected-pre-write',
+    });
     expect(status).toBe(501);
-    expect((body as { error: string }).error).toBe('oauth_not_yet_supported');
+    expect((body as { error: string }).error).toBe('oauth_setup_not_supported');
     // Nothing was written — no keychain set, no config file.
     expect(currentResolved.store.set).not.toHaveBeenCalled();
     expect(existsSync(configPath())).toBe(false);
+  });
+
+  it('alpha.42 — pin-only POST (authMode:oauth, no apiKey) writes config.providers.strategy + auth.<provider>.mode=oauth without touching keychain', async () => {
+    const { status, body } = await postAuth({ provider: 'anthropic', authMode: 'oauth' });
+    expect(status).toBe(200);
+    const parsed = ProviderAuthUpdateResponseSchema.parse(body);
+    expect(parsed.ok).toBe(true);
+    // Keychain was NOT touched — pin-only is a config-write only.
+    expect(currentResolved.store.set).not.toHaveBeenCalled();
+    // Config now pins anthropic + names the existing oauth credentialRef.
+    const config = JSON.parse(readFileSync(configPath(), 'utf8')) as Record<string, unknown>;
+    expect((config['providers'] as Record<string, unknown>)['strategy']).toEqual({
+      kind: 'pinned',
+      provider: 'anthropic',
+    });
+    expect((config['auth'] as Record<string, unknown>)['anthropic']).toEqual({
+      mode: 'oauth',
+      credentialRef: 'swt:anthropic:oauth',
+    });
+  });
+
+  it('alpha.42 — pin-only POST (authMode:api_key, no apiKey) writes config without touching keychain', async () => {
+    const { status, body } = await postAuth({ provider: 'openrouter', authMode: 'api_key' });
+    expect(status).toBe(200);
+    const parsed = ProviderAuthUpdateResponseSchema.parse(body);
+    expect(parsed.ok).toBe(true);
+    expect(currentResolved.store.set).not.toHaveBeenCalled();
+    const config = JSON.parse(readFileSync(configPath(), 'utf8')) as Record<string, unknown>;
+    expect((config['auth'] as Record<string, unknown>)['openrouter']).toEqual({
+      mode: 'api_key',
+      credentialRef: 'swt:openrouter:api_key',
+    });
   });
 
   it('returns 409 keychain_unavailable when the keychain set rejects, leaving config.json unchanged', async () => {

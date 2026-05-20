@@ -355,12 +355,29 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
       return c.json({ error: 'unknown_provider', detail: provider }, 400);
     }
 
-    // 4. `oauth` is Phase 4 territory — refuse cleanly, write NOTHING.
-    if (authMode === 'oauth') {
+    // 4. alpha.42 — refine the OAuth-write gate. Pre-fix this endpoint
+    //    rejected ALL `authMode: 'oauth'` POSTs with 501, which blocked
+    //    pin-only switching to an OAuth-configured provider (the missing
+    //    "Apply" affordance the user reported on alpha.41 — picking an
+    //    OAuth-authed provider in the dropdown couldn't update
+    //    config.providers.strategy without re-running the full OAuth flow).
+    //    The 501 still applies to NEW OAuth setup attempts via this endpoint
+    //    (apiKey provided + authMode='oauth' — that's a category error;
+    //    OAuth setup lives at POST /api/provider-auth/oauth/*). But a POST
+    //    without apiKey + authMode='oauth' is "pin to this already-OAuth'd
+    //    provider" — let it through. The config write below produces a
+    //    valid auth.<provider> + providers.strategy.provider pair pointing
+    //    at the existing keychain entry; no OAuthCredentials blob is
+    //    manufactured. If the keychain doesn't actually have a cred under
+    //    `swt:<provider>:oauth`, the next spawn fails cleanly at
+    //    resolveSpawnCredential — same failure mode as any other missing
+    //    cred.
+    if (authMode === 'oauth' && parsed.data.apiKey !== undefined) {
       return c.json(
         {
-          error: 'oauth_not_yet_supported',
-          detail: 'OAuth login lands in a future release.',
+          error: 'oauth_setup_not_supported',
+          detail:
+            'Use POST /api/provider-auth/oauth/start for OAuth setup. This endpoint only accepts api_key writes or pin-only (no apiKey) requests.',
         },
         501,
       );
@@ -410,10 +427,16 @@ export function registerProviderAuthRoute(app: Hono, cwd: string, bus?: EventBus
         };
         config['auth'] = {
           ...prevAuth,
+          // alpha.42 — use the authMode from the request body (not the
+          // pre-alpha.42 hardcoded 'api_key'). Pin-only requests for an
+          // already-OAuth'd provider must produce a `mode: 'oauth'` entry
+          // pointing at the existing `swt:<provider>:oauth` keychain
+          // entry; pre-fix the hardcode would overwrite to api_key on
+          // every pin and break the next chat-route credential resolve.
           // The global `swt:<provider>:<authMode>` credentialRef NAME —
           // Phase 2 Risk 3's fixed naming. ONLY the name is persisted;
           // never the secret.
-          [provider]: { mode: 'api_key', credentialRef: `swt:${provider}:api_key` },
+          [provider]: { mode: authMode, credentialRef: `swt:${provider}:${authMode}` },
         };
       });
     } catch (err) {

@@ -320,6 +320,34 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
     setReplacingCredentials(false);
   };
 
+  // alpha.42 fix: pin the strategy to an already-configured provider WITHOUT
+  // touching the keychain. Used by the dropdown onChange below when the user
+  // selects a configured provider — POSTs to /api/provider-auth with the
+  // stored mode + NO apiKey. The route's apiKey-conditional keychain write
+  // (provider-auth.ts:373) means the keychain entry stays untouched while
+  // config.auth.<provider> + config.providers.strategy are still written
+  // (the latter is the "pin"). This is the missing "Apply" affordance the
+  // user reported on alpha.41 — picking a configured provider in the
+  // dropdown now actually switches the chat session to it instead of just
+  // updating the panel's displayed status. Errors surface in the panel
+  // without rolling back local state (matches handleSave's keep-edit-mode
+  // discipline; the dropdown re-syncs from props.data on the next refresh).
+  const handlePinExisting = async (provider: string, storedMode: PanelAuthMode): Promise<void> => {
+    setSaving(true);
+    setSaveError(null);
+    // buildAuthUpdateBody(provider, mode, '') yields a body with no apiKey
+    // (empty key is dropped by the schema's `.optional()` + Solid panel
+    // helper) — exactly the pin-only shape we want. The server's
+    // provider-auth.ts:372 guard skips the keychain write for apiKey === ''
+    // and still writes auth + providers.strategy.
+    const body = buildAuthUpdateBody(provider, storedMode, '');
+    const result = await props.onSave(body);
+    setSaving(false);
+    if ('error' in result) {
+      setSaveError(result.error);
+    }
+  };
+
   return (
     <section class="panel tools-panel provider-auth-panel" aria-label="Provider Auth">
       <header class="tools-panel-header">
@@ -369,6 +397,7 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
           disabled={saving()}
           onChange={(e): void => {
             const next = e.currentTarget.value;
+            const prevPinned = props.data?.selected_provider ?? null;
             setSelectedProvider(next);
             // alpha.41 — switching providers always returns the panel to
             // the collapsed "configured" state. Without this reset, a user
@@ -392,6 +421,29 @@ export const ProviderAuthPanel: Component<ProviderAuthPanelProps> = (props) => {
             const nextStatus = props.data?.statuses?.find((s) => s.provider === next);
             if (nextStatus?.configured && nextStatus.mode !== null) {
               setSelectedMode(nextStatus.mode);
+            }
+            // alpha.42 fix: auto-pin the strategy to the newly-selected
+            // provider when (a) it's configured and (b) it isn't already
+            // the pinned one. Pre-fix the dropdown changed the panel's
+            // displayed status but didn't actually pin the strategy —
+            // users picked openrouter, saw "✓ openrouter is configured",
+            // but the chat session was still bound to anthropic because
+            // config.providers.strategy.provider stayed at 'anthropic'.
+            // The user had no "Apply" affordance — only Replace
+            // credentials. Now the dropdown IS the switcher: changing it
+            // to any configured provider immediately POSTs a pin-only
+            // request to /api/provider-auth (no apiKey, no keychain
+            // touch) which updates config.providers.strategy.provider.
+            // The chat route's resolveActiveProvider + getMatching then
+            // route the next turn correctly. Switching to a NOT-configured
+            // provider remains a panel-display-only change (the form
+            // expands so the user can enter credentials).
+            if (
+              nextStatus?.configured === true &&
+              nextStatus.mode !== null &&
+              next !== prevPinned
+            ) {
+              void handlePinExisting(next, nextStatus.mode);
             }
           }}
         >
