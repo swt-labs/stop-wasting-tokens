@@ -37,6 +37,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchSnapshotMock = vi.fn();
 const postInitMock = vi.fn();
+const postMapMock = vi.fn();
 const postCommandMock = vi.fn();
 const postUatCheckpointMock = vi.fn();
 const fetchArtifactRenderedMock = vi.fn();
@@ -56,6 +57,12 @@ const postProviderAuthMock = vi.fn();
 vi.mock('../src/client/services/api.js', () => ({
   fetchSnapshot: (...args: unknown[]) => fetchSnapshotMock(...args),
   postInit: (...args: unknown[]) => postInitMock(...args),
+  // Milestone 23 Phase 04 (Drift 1 fix) — Phase 03 added `postMap` to
+  // api.ts but did NOT update this pre-existing mock factory. Adding it
+  // here as a defensive completeness fix: matches the `postInitMock`
+  // indirection pattern so any future test in this file that triggers
+  // `actions.startCodebaseMap()` lands on the mock instead of `undefined`.
+  postMap: (...args: unknown[]) => postMapMock(...args),
   postCommand: (...args: unknown[]) => postCommandMock(...args),
   postUatCheckpoint: (...args: unknown[]) => postUatCheckpointMock(...args),
   fetchArtifactRendered: (...args: unknown[]) => fetchArtifactRenderedMock(...args),
