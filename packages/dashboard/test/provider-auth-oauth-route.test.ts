@@ -146,6 +146,21 @@ async function postCode(
   return { status: res.status, body: JSON.parse(text) as unknown, text };
 }
 
+async function postToken(
+  body: unknown,
+  opts: { confirm?: boolean } = {},
+): Promise<{ status: number; body: unknown; text: string }> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (opts.confirm !== false) headers['X-SWT-Credential-Write'] = 'confirm';
+  const res = await app.request('/api/provider-auth/oauth/token', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  return { status: res.status, body: JSON.parse(text) as unknown, text };
+}
+
 /** Let the route's async `onComplete` settle (it awaits the keychain write +
  *  the config write before publishing). */
 const flush = async (): Promise<void> => {
@@ -336,5 +351,111 @@ describe('secret-leak guard — OAuth route', () => {
     expect(serialized).not.toContain('REFRESH-SENTINEL-9f3a');
     // Sanity — the test actually drove events through (guard is meaningful).
     expect(publishedEvents.length).toBeGreaterThan(0);
+  });
+
+  describe('POST /api/provider-auth/oauth/token (codex-Oauth.md #5 — enterprise token pipe-in)', () => {
+    it('rejects without X-SWT-Credential-Write header (Risk 7 gate)', async () => {
+      const result = await postToken(
+        { provider: 'openai', access_token: 'eyJ-ACCESS-SENTINEL-9f3a' },
+        { confirm: false },
+      );
+      expect(result.status).toBe(403);
+      expect(result.body).toMatchObject({ error: 'credential_write_confirmation_required' });
+      // Keychain NOT touched
+      expect(storeOAuthCredentialsMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown field in the body (.strict())', async () => {
+      const result = await postToken({
+        provider: 'openai',
+        access_token: 'eyJ-ACCESS-SENTINEL-9f3a',
+        secret_field: 'leak',
+      });
+      expect(result.status).toBe(400);
+      expect(result.body).toMatchObject({ error: 'invalid_enterprise_token_body' });
+      expect(storeOAuthCredentialsMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects missing access_token', async () => {
+      const result = await postToken({ provider: 'openai' });
+      expect(result.status).toBe(400);
+      expect(result.body).toMatchObject({ error: 'invalid_enterprise_token_body' });
+    });
+
+    it('rejects providers with no OAuth subsystem', async () => {
+      const result = await postToken({
+        provider: 'google',
+        access_token: 'eyJ-ACCESS-SENTINEL-9f3a',
+      });
+      expect(result.status).toBe(400);
+      expect(result.body).toMatchObject({ error: 'oauth_provider_unsupported' });
+      expect(storeOAuthCredentialsMock).not.toHaveBeenCalled();
+    });
+
+    it('writes the enterprise token to keychain + config + publishes state.changed (happy path)', async () => {
+      const result = await postToken({
+        provider: 'openai',
+        access_token: 'eyJ-ACCESS-SENTINEL-9f3a',
+      });
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({ ok: true, provider: 'openai' });
+
+      // Keychain write: SWT canonical id (`openai`), oauth namespace, with
+      // access populated + refresh empty + expires = MAX_SAFE_INTEGER.
+      expect(storeOAuthCredentialsMock).toHaveBeenCalledOnce();
+      const [keychainProvider, credentials] = storeOAuthCredentialsMock.mock.calls[0]!;
+      expect(keychainProvider).toBe('openai');
+      expect(credentials).toMatchObject({
+        access: 'eyJ-ACCESS-SENTINEL-9f3a',
+        refresh: '',
+        expires: Number.MAX_SAFE_INTEGER,
+      });
+
+      // Config write: auth.openai.mode=oauth + credentialRef=swt:openai:oauth.
+      const cfg = JSON.parse(readFileSync(configPath(), 'utf8'));
+      expect(cfg.auth?.openai?.mode).toBe('oauth');
+      expect(cfg.auth?.openai?.credentialRef).toBe('swt:openai:oauth');
+
+      // SSE state.changed published so the panel refetches.
+      const changed = publishedEvents.find((e) => e.type === 'state.changed');
+      expect(changed).toBeDefined();
+    });
+
+    it('respects an explicit expires_at by parsing it into ms-since-epoch', async () => {
+      const expires_at = '2027-01-01T00:00:00Z';
+      const result = await postToken({
+        provider: 'openai',
+        access_token: 'eyJ-ACCESS-SENTINEL-9f3a',
+        expires_at,
+      });
+      expect(result.status).toBe(200);
+      const [, credentials] = storeOAuthCredentialsMock.mock.calls[0]!;
+      expect((credentials as { expires: number }).expires).toBe(Date.parse(expires_at));
+    });
+
+    it('returns 500 with keychain_unavailable when storeOAuthCredentials rejects', async () => {
+      storeShouldReject = true;
+      const result = await postToken({
+        provider: 'openai',
+        access_token: 'eyJ-ACCESS-SENTINEL-9f3a',
+      });
+      expect(result.status).toBe(500);
+      expect(result.body).toMatchObject({ error: 'keychain_unavailable' });
+
+      // Crucially: config NOT written when keychain fails (ordering invariant)
+      expect(existsSync(configPath())).toBe(false);
+    });
+
+    it('does NOT leak the access_token into any SSE event (secret-leak guard)', async () => {
+      await postToken({
+        provider: 'openai',
+        access_token: 'eyJ-ACCESS-SENTINEL-9f3a',
+      });
+      // Walk every published event and assert the sentinel string never appears.
+      for (const evt of publishedEvents) {
+        const serialized = JSON.stringify(evt);
+        expect(serialized).not.toContain('eyJ-ACCESS-SENTINEL-9f3a');
+      }
+    });
   });
 });

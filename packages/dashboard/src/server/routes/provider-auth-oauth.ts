@@ -13,6 +13,8 @@ import {
   OAuthManualCodeBodySchema,
   OAuthStartResponseSchema,
   OAuthManualCodeResponseSchema,
+  OAuthEnterpriseTokenBodySchema,
+  OAuthEnterpriseTokenResponseSchema,
   OAuthAuthUrlEventSchema,
   OAuthProgressEventSchema,
   OAuthAwaitingCodeEventSchema,
@@ -391,6 +393,112 @@ export function registerProviderAuthOAuthRoute(app: Hono, cwd: string, bus: Even
     // 6. Acknowledge — the actual completion arrives via the SSE event.
     const response = { ok: true as const, flow_id: parsed.data.flow_id };
     OAuthManualCodeResponseSchema.parse(response);
+    return c.json(response);
+  });
+
+  /**
+   * POST /api/provider-auth/oauth/token — codex-Oauth.md #5: enterprise
+   * access-token pipe-in.
+   *
+   * Bypasses the browser-based OAuth flow entirely. ChatGPT Business and
+   * Enterprise admins create long-lived Codex access tokens in the admin
+   * console (https://developers.openai.com/codex/enterprise/access-tokens);
+   * this route accepts the resulting token + optional expiry, packs it into
+   * the same `OAuthCredentials` shape `pi-ai`'s `login()` would emit, and
+   * stores it under the same `swt:<provider>:oauth` keychain namespace. The
+   * downstream `getOAuthApiKey` extraction path is identical — the
+   * dashboard cannot tell the difference between a browser-flow credential
+   * and an enterprise-token credential.
+   *
+   * Refresh-token discipline: enterprise tokens have NO refresh token (they
+   * are issued for fixed lifetimes via the admin console, not via OAuth
+   * refresh grants). The stored credential's `refresh` is the empty string,
+   * which `pi-ai`'s `refreshToken` rejects — so the token MUST outlive its
+   * use OR be re-issued by the admin. When `expires_at` is omitted we set
+   * `expires: Number.MAX_SAFE_INTEGER` so `getOAuthApiKey` never attempts
+   * the (impossible) refresh; admins who DO provide `expires_at` opt into
+   * pi-ai's expiry detection (which will return null after the deadline,
+   * signaling "re-issue the token in the admin console").
+   *
+   * Risk 7: gated by the same `X-SWT-Credential-Write: confirm` header as
+   * the other credential-write routes.
+   */
+  app.post('/api/provider-auth/oauth/token', async (c) => {
+    const ts = (): string => new Date().toISOString();
+
+    // 1. Risk-7 header gate — same as /oauth/start and /oauth/code.
+    const confirm = c.req.header('x-swt-credential-write');
+    if (confirm !== 'confirm') {
+      return c.json(
+        {
+          error: 'credential_write_confirmation_required',
+          detail:
+            'POST /api/provider-auth/oauth/token requires the X-SWT-Credential-Write: confirm header.',
+        },
+        403,
+      );
+    }
+
+    // 2. Body validation against the shared schema (`.strict()`).
+    const raw: unknown = await c.req.json().catch(() => null);
+    const parsed = OAuthEnterpriseTokenBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json(
+        { error: 'invalid_enterprise_token_body', detail: parsed.error.flatten() },
+        400,
+      );
+    }
+    const { provider, access_token, expires_at } = parsed.data;
+
+    // 3. Map SWT canonical provider id to pi-ai's id and verify the provider
+    //    actually has an OAuth subsystem (the keychain namespace is shared,
+    //    so we shouldn't write an `oauth` entry for a provider pi-ai can't
+    //    even authenticate via OAuth). Same screen as /oauth/start step 3.
+    const mappedProvider = mapToOAuthProviderId(provider);
+    const oauthProvider = getOAuthProvider(mappedProvider);
+    if (oauthProvider === undefined) {
+      return c.json(
+        {
+          error: 'oauth_provider_unsupported',
+          detail: `No OAuth provider for '${provider}' (mapped to '${mappedProvider}'). Enterprise tokens are only meaningful for OAuth-capable providers.`,
+        },
+        400,
+      );
+    }
+
+    // 4. Compute the credential blob. The `expires` field is milliseconds
+    //    since epoch; omitted -> never expires (MAX_SAFE_INTEGER).
+    const expires = expires_at !== undefined ? Date.parse(expires_at) : Number.MAX_SAFE_INTEGER;
+    const credentials = {
+      access: access_token,
+      refresh: '',
+      expires,
+    };
+
+    // 5. Keychain write + config write — same ordering as the OAuth onComplete
+    //    callback above (keychain BEFORE config; if keychain fails, config is
+    //    NOT touched so `auth.<provider>` never names a missing credentialRef).
+    try {
+      await storeOAuthCredentials(provider, credentials);
+      await writeAuthConfig(cfgPath, provider);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: 'keychain_unavailable', detail: message }, 500);
+    }
+
+    // 6. Publish state.changed so the dashboard's providerAuth cell refetches
+    //    (same as the OAuth onComplete handler — `['config']` is a schema-
+    //    valid subset of the `changed` enum that triggers the refetch).
+    bus.publish({
+      type: 'state.changed',
+      ts: ts(),
+      changed: ['config'],
+      snapshot: {},
+    });
+
+    // 7. Acknowledge.
+    const response = { ok: true as const, provider };
+    OAuthEnterpriseTokenResponseSchema.parse(response);
     return c.json(response);
   });
 }

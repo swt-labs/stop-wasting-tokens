@@ -581,6 +581,45 @@ export const OAuthManualCodeResponseSchema = z
   .strict();
 export type OAuthManualCodeResponse = z.infer<typeof OAuthManualCodeResponseSchema>;
 
+/**
+ * `POST /api/provider-auth/oauth/token` body — codex-Oauth.md #5: enterprise
+ * access-token pipe-in. ChatGPT Business and Enterprise admins create
+ * long-lived Codex access tokens in the admin console (per
+ * https://developers.openai.com/codex/enterprise/access-tokens). These tokens
+ * bypass the browser-based OAuth flow entirely — the user provides them once
+ * and SWT stores them in the keychain under the same `oauth` namespace the
+ * browser flow uses.
+ *
+ * The `expires_at` field accepts an ISO-8601 timestamp; when omitted, the
+ * credential is stored as effectively-never-expires (pi-ai's
+ * `getOAuthApiKey` won't trigger its refresh logic).
+ *
+ * `.strict()` rejects unknown fields. The route's `X-SWT-Credential-Write`
+ * header gate (mirroring `POST /api/provider-auth`) protects against
+ * cross-site write attempts.
+ */
+export const OAuthEnterpriseTokenBodySchema = z
+  .object({
+    provider: z.string().min(1),
+    access_token: z.string().min(1),
+    expires_at: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict();
+export type OAuthEnterpriseTokenBody = z.infer<typeof OAuthEnterpriseTokenBodySchema>;
+
+/**
+ * `POST /api/provider-auth/oauth/token` response — codex-Oauth.md #5.
+ * The credential has been written to the keychain; the dashboard panel
+ * refetches `providerAuth` on the accompanying `state.changed` SSE event.
+ */
+export const OAuthEnterpriseTokenResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    provider: z.string().min(1),
+  })
+  .strict();
+export type OAuthEnterpriseTokenResponse = z.infer<typeof OAuthEnterpriseTokenResponseSchema>;
+
 /* ── User Notes — freeform per-project scratchpad ────────────────────────
  *
  * A deliberately-isolated personal scratchpad backed by a single plain-text
