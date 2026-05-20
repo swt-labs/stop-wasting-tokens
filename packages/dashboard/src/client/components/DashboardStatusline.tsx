@@ -516,15 +516,29 @@ export const DashboardStatusline: Component<DashboardStatuslineProps> = (props) 
           when truly idle the explicit `idle` value reads better than
           `—` (which would imply "unknown").
           v2 Wave 3 commit 5 — `group-start` marks this as the head of
-          the Runtime group so it renders a leading `│` instead of `·`. */}
+          the Runtime group so it renders a leading `│` instead of `·`.
+          v2 Wave 5 commit 12 — clickable when running: clicking scrolls
+          the `<ActiveAgentsPane>` into view via `#agents-pane` (id
+          added there in the same commit). Cursor + hover affordance are
+          gated on `.is-running` in CSS so the idle cell remains a
+          non-interactive status indicator. */}
       <span
         class={`dashboard-statusline-cell dashboard-statusline-cook group-start ${
           props.activeSessionId !== null ? 'is-running' : 'is-idle'
         }`}
         title={
           props.activeSessionId !== null
-            ? `Cook session running — id ${props.activeSessionId.slice(0, 8)}`
+            ? `Cook session running — id ${props.activeSessionId.slice(0, 8)} (click to jump to Agents)`
             : 'No cook session running — start one from the prompt card'
+        }
+        onClick={
+          props.activeSessionId !== null
+            ? (): void => {
+                document
+                  .getElementById('agents-pane')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            : undefined
         }
       >
         cook: {props.activeSessionId !== null ? 'running' : 'idle'}

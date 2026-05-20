@@ -275,13 +275,33 @@ body {
 /* v2 Wave 3 commit 4 — cook indicator. Terminal-green when a cook
    session is running; slate-muted otherwise. Color is the entire
    affordance (no glyph swap, no underline) so the cell reads as a
-   regular cell that just happens to change color with state. */
+   regular cell that just happens to change color with state.
+   v2 Wave 5 commit 12 — running cell is clickable (scrolls to the
+   <ActiveAgentsPane> via #agents-pane); hover lights the cell with
+   a faint terminal-green background. The idle cell stays
+   non-interactive. */
 .dashboard-statusline-cook.is-running {
   color: var(--terminal-green);
+  cursor: pointer;
+}
+
+.dashboard-statusline-cook.is-running:hover {
+  background: var(--terminal-green-15, rgba(0, 255, 65, 0.15));
+  border-radius: 3px;
 }
 
 .dashboard-statusline-cook.is-idle {
   color: var(--slate-muted);
+  cursor: default;
+}
+
+/* v2 Wave 5 commit 12 — cost cells (session-$, in/out tokens, 7d, 30d)
+   + the rate cell get a 200ms color easing so live updates (which
+   happen every ~1-2s during an active session) don't flash hard.
+   Text value still swaps instantly — only the color animation eases. */
+.dashboard-statusline-cell.is-cost,
+.dashboard-statusline-cell.is-rate {
+  transition: color 200ms ease-out;
 }
 
 /* v2 Wave 4 commit 7 — per-cell `min-width` keeps the bar from

@@ -274,7 +274,7 @@ export const ActiveAgentsPane: Component<ActiveAgentsPaneProps> = (props) => {
   };
 
   return (
-    <section class="panel active-agents-pane" aria-label="Agents">
+    <section id="agents-pane" class="panel active-agents-pane" aria-label="Agents">
       <header class="active-agents-header">
         <h2 class="panel-header">Agents</h2>
         <Show
