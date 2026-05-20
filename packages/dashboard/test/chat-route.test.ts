@@ -15,7 +15,16 @@
 // The reply should reference the prior turn — confirming Pi's
 // SessionManager.inMemory is accumulating history natively.
 
-import { readFileSync } from 'node:fs';
+import {
+  existsSync as fsExistsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readFileSync as fsReadFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type {
@@ -578,25 +587,29 @@ describe('POST /api/chat', () => {
     expect(busTypes).toEqual(sseTypes);
   });
 
-  it('12. NO JSONL file emit on the chat path (source has no appendFileSync / no node:fs import)', () => {
-    // Per Lead's OQ#2 decision: chat events go to bus.publish + SSE only,
-    // NEVER to a `.swt-planning/.events/chat-*.jsonl` file. Asserting via
-    // a static source-file check is more robust than `vi.spyOn(fs, ...)`
-    // (which fails on ESM's non-configurable named exports) and catches
-    // both the direct-call and the import paths a future contributor
-    // might use.
+  it('12. alpha.47 — chat events ARE persisted to .swt-planning/.events/chat-*.jsonl (source contract)', () => {
+    // alpha.47 reverses the v1 OQ#2 decision: chat events now dual-emit
+    // to (a) bus.publish, (b) streamSSE.writeSSE, AND (c) appendFileSync
+    // into `<projectRoot>/.swt-planning/.events/chat-<id>.jsonl`. This
+    // static source-file check enforces the contract from the import +
+    // call-site side; the round-trip behaviour is covered by the
+    // "alpha.47 chat persistence" describe block further down. The
+    // string match is robust against future refactors (renaming the
+    // path constant, extracting a helper) so long as the route file
+    // continues to import node:fs and call appendFileSync somewhere.
     const here = fileURLToPath(import.meta.url);
-    // here = .../packages/dashboard/test/chat-route.test.ts
     const routePath = here.replace(/test\/chat-route\.test\.ts$/, 'src/server/routes/chat.ts');
     const source = readFileSync(routePath, 'utf8');
-    // The route MUST NOT call appendFileSync or import node:fs — bus.publish
-    // + streamSSE are the only emit channels. The JSDoc may mention these
-    // strings in prose, so we strip block comments before asserting.
     const withoutBlockComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
     const withoutLineComments = withoutBlockComments.replace(/^\s*\/\/.*$/gm, '');
-    expect(withoutLineComments).not.toMatch(/appendFileSync/);
-    expect(withoutLineComments).not.toMatch(/from 'node:fs'/);
-    expect(withoutLineComments).not.toMatch(/from "node:fs"/);
+    expect(withoutLineComments).toMatch(/appendFileSync/);
+    expect(withoutLineComments).toMatch(/from 'node:fs'/);
+    // The persisted file path must live under the canonical events dir
+    // so the snapshotter's existing chokidar watch + the events-tailer
+    // pipeline both pick it up without further wiring.
+    expect(withoutLineComments).toMatch(/['"]\.swt-planning['"]/);
+    expect(withoutLineComments).toMatch(/['"]\.events['"]/);
+    expect(withoutLineComments).toMatch(/chat-\$\{[A-Za-z_]+\}\.jsonl/);
   });
 
   // ─── P05 — End-to-end smoke + regression alignment ────────────────────
@@ -942,5 +955,160 @@ describe('POST /api/chat', () => {
     for (const t of expected) {
       expect(SNAPSHOT_EVENT_TYPES).toContain(t);
     }
+  });
+});
+
+/**
+ * alpha.47 — chat transcript persistence + GET /api/chat/history.
+ *
+ * These tests use a real tmpdir for `projectRoot` so the route's
+ * `appendFileSync` lands on disk and the history endpoint can read it
+ * back. Confirms the round-trip a user would see across a daemon
+ * restart: POST a chat turn → restart (= new Hono app, new registry)
+ * → GET /api/chat/history → see the prior turn in the response.
+ */
+describe('alpha.47 chat persistence + GET /api/chat/history', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function buildAppWithRealProjectRoot(): {
+    app: Hono;
+    projectRoot: string;
+    bus: EventBus;
+    registry: ChatSessionRegistry;
+  } {
+    const projectRoot = mkdtempSync(nodePath.join(tmpdir(), 'swt-chat-history-'));
+    const { bus } = makeRecordingBus();
+    const setIntervalFn = ((_h: () => void, _ms: number) => ({
+      __fake__: true,
+    })) as unknown as typeof setInterval;
+    const clearIntervalFn = (() => undefined) as unknown as typeof clearInterval;
+    const registry = new ChatSessionRegistry({
+      setIntervalFn,
+      clearIntervalFn,
+      now: () => 0,
+    });
+    const authConfig: AuthConfig = { anthropic: { mode: 'api_key' } };
+    const activeProviderSelection: ActiveProviderSelection = {
+      provider: 'anthropic',
+      authConfig,
+      model: null,
+      source: 'first-authed',
+    };
+    const session = makeFakeSession('persist-sid');
+    // Drive a single MESSAGE_DELTA + TASK_TOKEN_USAGE inside prompt() so
+    // the on-disk transcript contains a representative chat-* sequence.
+    session.prompt.mockImplementation(async () => {
+      session.emit({ type: 'MESSAGE_DELTA', text: 'hello back' });
+      session.emit({
+        type: 'TASK_TOKEN_USAGE',
+        usage: {
+          input: 10,
+          output: 5,
+          cacheRead: 0,
+          cacheWrite: 0,
+          provider: 'anthropic',
+          model: 'claude-test',
+        },
+      });
+    });
+    const routeOpts: ChatRouteOptions = {
+      projectRoot,
+      bus,
+      registry,
+      resolveActiveProviderFn: vi.fn(() => activeProviderSelection),
+      resolveCredentialFn: vi.fn(async () => ({
+        provider: 'anthropic',
+        resolvedCredential: { authMode: 'api_key' as const, secret: 'sk-test' },
+      })),
+      createSessionFn: vi.fn(async () => session),
+    };
+    const app = new Hono();
+    app.route('/api/chat', createChatRoute(routeOpts));
+    return { app, projectRoot, bus, registry };
+  }
+
+  it('POST /api/chat appends every emitted chat.* event to .swt-planning/.events/chat-<id>.jsonl', async () => {
+    const { app, projectRoot } = buildAppWithRealProjectRoot();
+    const { status, events } = await postChat(app, { prompt: 'hello' });
+    expect(status).toBe(200);
+    const chatStart = events.find((e) => e.event === 'chat.start');
+    const chatSessionId = chatStart?.data['chat_session_id'] as string;
+    expect(typeof chatSessionId).toBe('string');
+    const jsonlPath = nodePath.join(
+      projectRoot,
+      '.swt-planning',
+      '.events',
+      `chat-${chatSessionId}.jsonl`,
+    );
+    expect(fsExistsSync(jsonlPath)).toBe(true);
+    const lines = fsReadFileSync(jsonlPath, 'utf8')
+      .split('\n')
+      .filter((l) => l.length > 0);
+    // chat.start + chat.message_delta + chat.message_end + chat.token_usage + chat.complete = 5 events
+    const types = lines.map((l) => (JSON.parse(l) as { type: string }).type);
+    expect(types).toContain('chat.start');
+    expect(types).toContain('chat.message_delta');
+    expect(types).toContain('chat.message_end');
+    expect(types).toContain('chat.token_usage');
+    expect(types).toContain('chat.complete');
+  });
+
+  it('GET /api/chat/history returns empty entries when no chat-*.jsonl exists', async () => {
+    const { app } = buildAppWithRealProjectRoot();
+    const res = await app.request('http://x/api/chat/history');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { entries: unknown[] };
+    expect(body.entries).toEqual([]);
+  });
+
+  it('POST then GET /api/chat/history projects the on-disk transcript into LogEntries (round-trip)', async () => {
+    const { app } = buildAppWithRealProjectRoot();
+    await postChat(app, { prompt: 'hello' });
+    const res = await app.request('http://x/api/chat/history');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      entries: Array<{ kind: string; text?: string; chat_session_id: string }>;
+    };
+    expect(body.entries.length).toBeGreaterThanOrEqual(2);
+    const kinds = body.entries.map((e) => e.kind);
+    expect(kinds).toContain('chat-user');
+    expect(kinds).toContain('chat-assistant');
+    const userEntry = body.entries.find((e) => e.kind === 'chat-user');
+    expect(userEntry?.text).toBe('hello');
+    const assistantEntry = body.entries.find((e) => e.kind === 'chat-assistant');
+    expect(assistantEntry?.text).toBe('hello back');
+  });
+
+  it('history entries are sorted by ts so multi-session files interleave correctly', async () => {
+    const { app, projectRoot } = buildAppWithRealProjectRoot();
+    // Hand-craft two chat-*.jsonl files with deterministic timestamps so we
+    // can assert ordering without relying on Date.now between requests.
+    const dir = nodePath.join(projectRoot, '.swt-planning', '.events');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      nodePath.join(dir, 'chat-sid-A.jsonl'),
+      JSON.stringify({
+        type: 'chat.start',
+        ts: '2026-01-01T00:00:01.000Z',
+        chat_session_id: 'sid-A',
+        prompt: 'first',
+      }) + '\n',
+    );
+    writeFileSync(
+      nodePath.join(dir, 'chat-sid-B.jsonl'),
+      JSON.stringify({
+        type: 'chat.start',
+        ts: '2026-01-01T00:00:00.000Z',
+        chat_session_id: 'sid-B',
+        prompt: 'second-but-earlier',
+      }) + '\n',
+    );
+    const res = await app.request('http://x/api/chat/history');
+    const body = (await res.json()) as { entries: Array<{ ts: string; text?: string }> };
+    expect(body.entries.length).toBe(2);
+    expect(body.entries[0]?.text).toBe('second-but-earlier');
+    expect(body.entries[1]?.text).toBe('first');
   });
 });

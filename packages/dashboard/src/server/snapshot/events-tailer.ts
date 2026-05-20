@@ -84,6 +84,15 @@ export function createEventsTailer(options: EventsTailerOptions): EventsTailer {
       const result = SnapshotEventSchema.safeParse(parsed);
       if (!result.success) return; // skip schema violations (e.g. CLI uses different shape)
       const event: SnapshotEvent = result.data;
+      // alpha.47 — chat.* lines on disk are the route's own write
+      // shadow (`chat.ts emit()` directly calls `bus.publish(evt)` AND
+      // appends to `chat-<id>.jsonl`). Republishing them through the
+      // tailer here would double-fire every chat event for every
+      // connected SSE client. Skip the tailer republish for chat.* —
+      // the on-disk channel exists ONLY to support `GET /api/chat/history`
+      // (boot-time rehydration); live fan-out runs through bus.publish
+      // already.
+      if (event.type.startsWith('chat.')) return;
       if (event.type === 'log.append' && !allowLogAppend()) return;
       bus.publish(event);
     },

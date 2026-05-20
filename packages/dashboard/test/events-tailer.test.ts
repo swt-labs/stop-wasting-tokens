@@ -151,4 +151,35 @@ describe('createEventsTailer', { retry: 2 }, () => {
     await waitFor(() => received.length >= 2);
     expect(received.map((e) => e.type).sort()).toEqual(['agent.spawn', 'log.append']);
   });
+
+  it('alpha.47 — chat.* events tailed from chat-*.jsonl are NOT republished (route already publishes them directly)', async () => {
+    const { root, eventsDir } = setupFixture();
+    const bus = createEventBus();
+    const received: SnapshotEvent[] = [];
+    bus.subscribe((event) => received.push(event));
+
+    tailer = createEventsTailer({ projectRoot: root, bus });
+    await tailer.ready;
+
+    // Mix a chat.* line in the same file as a non-chat event. Only the
+    // non-chat event must republish; the chat.* line is silently
+    // dropped by the alpha.47 skip guard in events-tailer.ts.
+    const sampleChatStart = {
+      type: 'chat.start' as const,
+      ts: '2026-05-20T12:00:00.000Z',
+      chat_session_id: 'sid-suppress',
+      prompt: 'hi',
+    };
+    const chatFile = path.join(eventsDir, 'chat-sid-suppress.jsonl');
+    const cookFile = path.join(eventsDir, 'agent-suppress.jsonl');
+    writeFileSync(chatFile, jsonl([sampleChatStart]));
+    writeFileSync(cookFile, jsonl([sampleSpawn]));
+
+    await waitFor(() => received.length >= 1);
+    // Exactly one published event — the agent.spawn. The chat.start must
+    // be filtered out (otherwise live chat clients would receive every
+    // chat event TWICE: once from the route's direct bus.publish and
+    // once from the chokidar-driven tailer republish).
+    expect(received.map((e) => e.type)).toEqual(['agent.spawn']);
+  });
 });

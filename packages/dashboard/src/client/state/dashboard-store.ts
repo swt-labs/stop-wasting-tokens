@@ -24,6 +24,7 @@ import { createStore } from 'solid-js/store';
 import {
   ApiError,
   fetchArtifactRendered,
+  fetchChatHistory,
   fetchCommands,
   fetchConfig,
   fetchDetectPhase,
@@ -1884,6 +1885,39 @@ export function createDashboardStore(
       pushError(`initial snapshot fetch failed: ${message}`);
       setState('connection', 'error');
       return;
+    }
+
+    // alpha.47 — rehydrate the Log card's chat transcript from the on-disk
+    // `<projectRoot>/.swt-planning/.events/chat-*.jsonl` channel BEFORE SSE
+    // opens. This guarantees prior chat entries land in `unifiedLog` before
+    // any live `chat.*` SSE event from a fresh turn arrives — so the user
+    // sees their full history immediately on dashboard restart. Failure is
+    // swallowed (the route returns `entries: []` rather than 5xx in the
+    // common "no events dir yet" case; only schema-violation responses
+    // throw, and that should not block the rest of bootstrap). The next
+    // turn always starts a fresh Pi `AgentSession` — restored history is
+    // display-only, the previous Pi `SessionManager.inMemory` cannot be
+    // recovered across a daemon restart by design (Pi 0.74 constraint).
+    try {
+      const history = await fetchChatHistory();
+      if (history.length > 0) {
+        setState('unifiedLog', (prev) => [...history, ...prev].slice(-UNIFIED_LOG_LIMIT));
+        // Adopt the MOST RECENT chat_session_id so a follow-up turn
+        // continues the same thread visually. The server-side
+        // `ChatSessionRegistry` no longer holds that id (process restart
+        // cleared it), so the chat route will create a fresh Pi session
+        // on the next POST — but the LogEntry stream stays continuous.
+        const lastChatEntry = [...history]
+          .reverse()
+          .find(
+            (e) => e.kind === 'chat-user' || e.kind === 'chat-assistant' || e.kind === 'chat-error',
+          );
+        if (lastChatEntry !== undefined) {
+          setState('chat_session_id', lastChatEntry.chat_session_id);
+        }
+      }
+    } catch {
+      // Rehydration is best-effort — never block the rest of bootstrap.
     }
 
     // Snapshot is in hand; SSE is opening. 'syncing' covers this gap so the

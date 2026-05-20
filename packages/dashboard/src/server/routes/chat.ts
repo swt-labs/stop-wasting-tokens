@@ -41,12 +41,24 @@
  * filtered — v1 chat UI doesn't need them; a future plan can add new
  * event variants if telemetry/UX asks.
  *
- * **No JSONL dual-emit (Lead decision on Scout Open Question #2):**
- * `bus.publish()` runs in parallel with `stream.writeSSE` for live
- * telemetry parity (so other dashboard subscribers see chat events too),
- * but no `.swt-planning/.events/chat-*.jsonl` file is written. Chat
- * history is in-memory only in v1; a reconnecting client starts a new
- * chat session.
+ * **JSONL dual-emit (alpha.47):** every emitted `chat.*` event is also
+ * appended to `<projectRoot>/.swt-planning/.events/chat-<chatSessionId>.jsonl`
+ * so the dashboard can rehydrate the Log card's chat history after a
+ * daemon restart. The write is best-effort + try/swallowed (mirrors the
+ * init / map JSONL pattern — disk write failures must not crash a live
+ * SSE stream). The on-disk channel feeds two consumers:
+ *   1. `GET /api/chat/history` (client bootstrap) — reads every
+ *      `chat-*.jsonl` file and projects each line into a `LogEntry`
+ *      shape for `state.unifiedLog` seeding before SSE opens.
+ *   2. `createEventsTailer` chokidar watch on `.swt-planning/.events/` —
+ *      republishes any line appended after a client connects, which is
+ *      what powers the live SSE channel for non-originating tabs.
+ *
+ * The Pi `AgentSession` itself is NOT recoverable — its
+ * `SessionManager.inMemory` is disposed at daemon shutdown
+ * (`ChatSessionRegistry.close()`). So restored chat history is
+ * display-only: the user sees the prior transcript, and the next
+ * `POST /api/chat` starts a fresh Pi session with no native history.
  *
  * **Empty prompt is a synchronous 400 BEFORE headers fly** — Hono's
  * `streamSSE` makes it awkward to surface a clean error response after
@@ -64,6 +76,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { appendFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 
 import {
   createSession as defaultCreateSession,
@@ -72,14 +86,16 @@ import {
   type SwtEvent,
   type SwtSession,
 } from '@swt-labs/runtime';
-import type {
-  ChatCompleteEvent,
-  ChatErrorEvent,
-  ChatMessageDeltaEvent,
-  ChatMessageEndEvent,
-  ChatStartEvent,
-  ChatTokenUsageEvent,
-  ChatToolCallEvent,
+import {
+  SnapshotEventSchema,
+  type ChatCompleteEvent,
+  type ChatErrorEvent,
+  type ChatMessageDeltaEvent,
+  type ChatMessageEndEvent,
+  type ChatStartEvent,
+  type ChatTokenUsageEvent,
+  type ChatToolCallEvent,
+  type LogEntry,
 } from '@swt-labs/shared';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
@@ -153,12 +169,25 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
 
     const chatSessionId = requestedId ?? randomUUID();
 
+    // alpha.47 — per-chat-session JSONL transcript file. Lazy-mkdir on first
+    // append so the route doesn't touch the disk when persistence is disabled
+    // (projectRoot pointing at a non-existent path in unit tests). The
+    // try/swallow around each append mirrors init.ts:170-177 — disk failure
+    // must NEVER crash a live SSE stream; the in-memory bus + SSE write
+    // remain authoritative for live subscribers.
+    const eventsDir = path.join(opts.projectRoot, '.swt-planning', '.events');
+    const eventsFile = path.join(eventsDir, `chat-${chatSessionId}.jsonl`);
+    let eventsDirReady = false;
+
     return streamSSE(c, async (stream) => {
       const ts = (): string => new Date().toISOString();
 
       /**
-       * Emit a chat.* event to BOTH the bus (telemetry parity) and the
-       * SSE stream (the live channel the dashboard subscribes to).
+       * Emit a chat.* event to the bus (telemetry parity), the SSE stream
+       * (the live channel the dashboard subscribes to), AND the on-disk
+       * JSONL transcript (alpha.47 — feeds `GET /api/chat/history` for
+       * post-restart rehydration). All three sinks are independently
+       * try/swallowed so one failure cannot block the others.
        */
       const emit = async (evt: ChatSseEvent): Promise<void> => {
         try {
@@ -166,6 +195,18 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
         } catch {
           // Bus listeners that throw are already swallowed by the bus
           // implementation; this catch is defense-in-depth.
+        }
+        try {
+          if (!eventsDirReady) {
+            mkdirSync(eventsDir, { recursive: true });
+            eventsDirReady = true;
+          }
+          appendFileSync(eventsFile, JSON.stringify(evt) + '\n');
+        } catch {
+          // Disk persistence is best-effort — a write failure means the
+          // post-restart rehydration path is broken for this session but
+          // the live channels above already delivered the event. Common
+          // case in unit tests where `projectRoot` is a fake path.
         }
         try {
           await stream.writeSSE({ event: evt.type, data: JSON.stringify(evt) });
@@ -359,5 +400,146 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
     });
   });
 
+  // alpha.47 — `GET /api/chat/history`. Reads every `chat-*.jsonl` file
+  // under `<projectRoot>/.swt-planning/.events/`, projects each line into
+  // a `LogEntry`, and returns the sorted list so the client can seed
+  // `state.unifiedLog` on dashboard boot. The projection is deliberately
+  // lossy: streaming-only frames (`chat.message_end`, `chat.complete`)
+  // are dropped, and per-assistant-turn deltas are folded into a single
+  // `chat-assistant` entry (mirroring the in-memory reducer at
+  // `dashboard-store.ts:1418-1480`). Read failures fall back to an empty
+  // list — the client never gets a 500 from rehydration.
+  app.get('/history', (c) => {
+    const entries: LogEntry[] = [];
+    try {
+      const dirEntries = readdirSync(path.join(opts.projectRoot, '.swt-planning', '.events'), {
+        withFileTypes: true,
+      });
+      for (const dirent of dirEntries) {
+        if (!dirent.isFile()) continue;
+        if (!dirent.name.startsWith('chat-') || !dirent.name.endsWith('.jsonl')) continue;
+        const filePath = path.join(opts.projectRoot, '.swt-planning', '.events', dirent.name);
+        let text: string;
+        try {
+          text = readFileSync(filePath, 'utf8');
+        } catch {
+          continue;
+        }
+        projectChatJsonlIntoEntries(text, entries);
+      }
+    } catch {
+      // Events dir absent (greenfield daemon, never wrote a chat) —
+      // return an empty list. The client treats `entries: []` as
+      // "nothing to rehydrate" and the unifiedLog stays empty.
+    }
+    // Chronological order: file iteration order is filesystem-dependent;
+    // sort by ts so multi-session histories interleave correctly.
+    entries.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+    return c.json({ entries });
+  });
+
   return app;
+}
+
+/**
+ * alpha.47 — fold a single chat-*.jsonl file's parsed lines into LogEntry
+ * shapes appended to `out`. Mirrors the in-memory reducer's projection in
+ * `dashboard-store.ts handleChatEvent` so a restored transcript is
+ * byte-identical (modulo entry ids — those are re-generated server-side
+ * from the file basename + a per-line counter to stay stable across
+ * reloads) to what the user saw before the daemon restart.
+ *
+ * Per-turn assistant accumulation: `chat.message_delta` text is appended
+ * to the most-recent in-progress `chat-assistant` entry for the same
+ * chat_session_id; `chat.tool_call` extends `tools_called[]`;
+ * `chat.token_usage` stamps the `usage` field; `chat.message_end` /
+ * `chat.complete` mark `completed: true`. A new `chat.start` always
+ * pushes a fresh `chat-user` LogEntry and resets the in-progress
+ * assistant slot for that session id.
+ */
+function projectChatJsonlIntoEntries(jsonl: string, out: LogEntry[]): void {
+  let entryCounter = 0;
+  const inProgress = new Map<string, number>(); // chat_session_id → index in `out`
+  for (const line of jsonl.split('\n')) {
+    if (line.length === 0) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const result = SnapshotEventSchema.safeParse(parsed);
+    if (!result.success) continue;
+    const evt = result.data;
+    if (!evt.type.startsWith('chat.')) continue;
+    if (evt.type === 'chat.start') {
+      out.push({
+        kind: 'chat-user',
+        id: `chat-history-${++entryCounter}`,
+        ts: evt.ts,
+        chat_session_id: evt.chat_session_id,
+        text: evt.prompt,
+      });
+      inProgress.delete(evt.chat_session_id);
+      continue;
+    }
+    if (
+      evt.type === 'chat.message_delta' ||
+      evt.type === 'chat.tool_call' ||
+      evt.type === 'chat.token_usage' ||
+      evt.type === 'chat.message_end' ||
+      evt.type === 'chat.complete'
+    ) {
+      let idx = inProgress.get(evt.chat_session_id);
+      if (idx === undefined) {
+        // No in-progress assistant entry — synthesize one (matches the
+        // dashboard-store.ts synthesis fallback for out-of-order arrivals).
+        out.push({
+          kind: 'chat-assistant',
+          id: `chat-history-${++entryCounter}`,
+          ts: evt.ts,
+          chat_session_id: evt.chat_session_id,
+          text: '',
+          completed: false,
+        });
+        idx = out.length - 1;
+        inProgress.set(evt.chat_session_id, idx);
+      }
+      const target = out[idx];
+      if (target === undefined || target.kind !== 'chat-assistant') continue;
+      if (evt.type === 'chat.message_delta') {
+        out[idx] = { ...target, text: target.text + evt.text };
+      } else if (evt.type === 'chat.tool_call') {
+        out[idx] = { ...target, tools_called: [...(target.tools_called ?? []), evt.tool] };
+      } else if (evt.type === 'chat.token_usage') {
+        out[idx] = {
+          ...target,
+          usage: {
+            input: evt.input,
+            output: evt.output,
+            cacheRead: evt.cacheRead,
+            cacheWrite: evt.cacheWrite,
+            provider: evt.provider,
+            model: evt.model,
+          },
+        };
+      } else if (evt.type === 'chat.message_end' || evt.type === 'chat.complete') {
+        out[idx] = { ...target, completed: true };
+        if (evt.type === 'chat.complete') inProgress.delete(evt.chat_session_id);
+      }
+      continue;
+    }
+    if (evt.type === 'chat.error') {
+      out.push({
+        kind: 'chat-error',
+        id: `chat-history-${++entryCounter}`,
+        ts: evt.ts,
+        chat_session_id: evt.chat_session_id,
+        code: evt.code,
+        message: evt.message,
+      });
+      inProgress.delete(evt.chat_session_id);
+      continue;
+    }
+  }
 }

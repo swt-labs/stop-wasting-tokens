@@ -11,6 +11,7 @@ import {
   InitBodySchema,
   InitPrecheckResponseSchema,
   InitResponseSchema,
+  LogEntrySchema,
   MapStartResponseSchema,
   ModelsSnapshotSchema,
   OAuthManualCodeBodySchema,
@@ -28,6 +29,7 @@ import {
   UserNotesSnapshotSchema,
   UserNotesUpdateBodySchema,
   UserNotesUpdateResponseSchema,
+  type LogEntry,
   type CommandBody,
   type CommandRegistry,
   type CommandResponse,
@@ -58,6 +60,7 @@ import {
   type UserNotesUpdateBody,
   type UserNotesUpdateResponse,
 } from '@swt-labs/shared';
+import { z } from 'zod';
 
 export type {
   CommandBody,
@@ -120,6 +123,25 @@ export async function fetchHealth(): Promise<HealthResponse> {
 export async function fetchSnapshot(): Promise<Snapshot> {
   const raw = await jsonRequest<unknown>('/api/snapshot');
   return SnapshotSchema.parse(raw);
+}
+
+/**
+ * alpha.47 — `GET /api/chat/history`. Reads the on-disk chat transcript
+ * channel (`<projectRoot>/.swt-planning/.events/chat-*.jsonl`) and
+ * projects each line into a `LogEntry`. Called once on dashboard
+ * bootstrap so the Log card's chat history survives daemon restarts.
+ *
+ * Read failures (route 404 / 500 / dir absent server-side) are absorbed
+ * by the caller — chat history rehydration is best-effort, never a
+ * blocker for the rest of the bootstrap flow. The route itself swallows
+ * its own filesystem errors and returns `{ entries: [] }` rather than a
+ * 5xx, so this fetcher only throws on schema-violation responses.
+ */
+const ChatHistoryResponseSchema = z.object({ entries: z.array(LogEntrySchema) });
+export type ChatHistoryResponse = z.infer<typeof ChatHistoryResponseSchema>;
+export async function fetchChatHistory(): Promise<LogEntry[]> {
+  const raw = await jsonRequest<unknown>('/api/chat/history');
+  return ChatHistoryResponseSchema.parse(raw).entries;
 }
 
 /**
