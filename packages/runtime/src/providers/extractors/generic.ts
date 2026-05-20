@@ -26,6 +26,16 @@ interface GenericUsageLike {
   readonly cacheReadInputTokens?: number;
   readonly cache_creation_input_tokens?: number;
   readonly cacheWriteInputTokens?: number;
+  // Pi 0.74 `Usage` shape (bare camelCase, NO `Tokens` suffix) — same
+  // precedent as the alpha.21 fixes in extractAnthropic / extractOpenAI.
+  // Without this, every Pi-native provider that isn't
+  // anthropic/bedrock/openai (openrouter, deepseek, xai, groq, cerebras,
+  // moonshotai, kimi) routes through extractGeneric and silently drops
+  // `turn_end` because Pi sends camelCase-without-suffix.
+  readonly input?: number;
+  readonly output?: number;
+  readonly cacheRead?: number;
+  readonly cacheWrite?: number;
 }
 
 function firstDefined(...candidates: ReadonlyArray<number | undefined>): number | undefined {
@@ -41,12 +51,14 @@ export function extractGeneric(
 ): TaskTokenUsage | undefined {
   if (typeof usage !== 'object' || usage === null) return undefined;
   const u = usage as GenericUsageLike;
-  const input = firstDefined(u.input_tokens, u.prompt_tokens, u.inputTokens);
-  const output = firstDefined(u.output_tokens, u.completion_tokens, u.outputTokens);
+  const input = firstDefined(u.input_tokens, u.prompt_tokens, u.inputTokens, u.input);
+  const output = firstDefined(u.output_tokens, u.completion_tokens, u.outputTokens, u.output);
   if (input === undefined && output === undefined) return undefined;
   const cacheRead =
-    firstDefined(u.cache_read_input_tokens, u.cached_tokens, u.cacheReadInputTokens) ?? 0;
-  const cacheWrite = firstDefined(u.cache_creation_input_tokens, u.cacheWriteInputTokens) ?? 0;
+    firstDefined(u.cache_read_input_tokens, u.cached_tokens, u.cacheReadInputTokens, u.cacheRead) ??
+    0;
+  const cacheWrite =
+    firstDefined(u.cache_creation_input_tokens, u.cacheWriteInputTokens, u.cacheWrite) ?? 0;
   return {
     input: input ?? 0,
     output: output ?? 0,

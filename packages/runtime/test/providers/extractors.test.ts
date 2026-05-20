@@ -150,6 +150,20 @@ describe('@swt-labs/runtime — extractors/generic', () => {
     expect(extractGeneric({ random_field: 1 }, CTX)).toBeUndefined();
     expect(extractGeneric({}, CTX)).toBeUndefined();
   });
+
+  // Phase 01 Cause A — Pi 0.74 `Usage` shape (bare camelCase, NO `Tokens`
+  // suffix). Same alpha.21 precedent that fixed extractAnthropic +
+  // extractOpenAI for the same Pi shape. Without this, every Pi-native
+  // provider that isn't anthropic/bedrock/openai (openrouter, deepseek,
+  // xai, groq, cerebras, moonshotai, kimi) routes through extractGeneric
+  // and silently drops `turn_end`.
+  it('recognises Pi 0.74 bare camelCase variants (input/output/cacheRead/cacheWrite)', () => {
+    const out = extractGeneric(
+      { input: 50, output: 25, cacheRead: 10, cacheWrite: 2, totalTokens: 87 },
+      CTX,
+    );
+    expect(out).toMatchObject({ input: 50, output: 25, cacheRead: 10, cacheWrite: 2 });
+  });
 });
 
 describe('@swt-labs/runtime — extractUsage dispatch', () => {

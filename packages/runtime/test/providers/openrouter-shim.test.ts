@@ -94,6 +94,24 @@ describe('OpenRouter shim — extractUsage dispatch (M5 PR-39)', () => {
     expect(out?.output).toBe(150);
   });
 
+  it('routes bare openrouter + Pi camelCase usage through extractGeneric (Phase 01 Cause A regression lock)', () => {
+    // Pre-fix: bare `'openrouter'` (no provider prefix) routed to
+    // extractGeneric, which only knew snake_case + Tokens-suffix keys.
+    // Pi 0.74 emits `{input, output, cacheRead, cacheWrite}` (bare
+    // camelCase) — so firstDefined returned undefined, mapPiEvent dropped
+    // the turn_end, and chat.token_usage never fired. This locks the fix:
+    // the dispatcher correctly routes the bare provider to extractGeneric
+    // AND the extractor now consumes Pi's shape end-to-end through
+    // dispatch.
+    const out = extractUsage(
+      'openrouter',
+      { input: 900, output: 150, cacheRead: 0, cacheWrite: 0, totalTokens: 1050 },
+      ctx('openrouter', 'deepseek/deepseek-v3'),
+    );
+    expect(out).toBeDefined();
+    expect(out).toMatchObject({ input: 900, output: 150 });
+  });
+
   it('dispatch is case-insensitive on the provider prefix', () => {
     const out = extractUsage(
       'OpenRouter/Anthropic/Claude-Opus-4-7',

@@ -328,6 +328,53 @@ describe('POST /api/chat', () => {
     expect(events[3]?.data['output']).toBe(7);
   });
 
+  it('Phase 01 Cause A. emits chat.token_usage with provider:openrouter + model:deepseek/deepseek-v3 when TASK_TOKEN_USAGE carries them (route-level lock)', async () => {
+    // Mirrors test 4 but with the OpenRouter + DeepSeek pairing the
+    // Phase 01 Cause A fix targets. The route-level emit must carry
+    // provider:'openrouter' + model:'deepseek/deepseek-v3' through to
+    // chat.token_usage so the dashboard reducer can compute the
+    // [DeepSeek V3] bracket label (rather than the [Assistant] fallback).
+    //
+    // Caveat: this test does NOT exercise mapPiEvent → extractGeneric.
+    // `makeFakeSession` consumes SwtEvent post-mapping, so the test
+    // locks only the route-level emit shape downstream of the extractor.
+    // The extractor-direct path is covered by the
+    // `extractors.test.ts` unit case `recognises Pi 0.74 bare camelCase
+    // variants (...)`.
+    const fakeSession = makeFakeSession('sid-openrouter');
+    fakeSession.prompt.mockImplementation(async (_text: string) => {
+      fakeSession.emit({ type: 'MESSAGE_DELTA', sessionId: 'sid-openrouter', text: 'Hi from DS.' });
+      fakeSession.emit({
+        type: 'TASK_TOKEN_USAGE',
+        sessionId: 'sid-openrouter',
+        usage: {
+          input: 900,
+          output: 150,
+          cacheRead: 0,
+          cacheWrite: 0,
+          turn: 1,
+          provider: 'openrouter',
+          model: 'deepseek/deepseek-v3',
+        },
+      });
+    });
+    const { app } = buildApp({
+      authConfig: { openrouter: { mode: 'api_key' } },
+      resolveCredentialResult: {
+        provider: 'openrouter',
+        resolvedCredential: { authMode: 'api_key', secret: 'or-test' },
+      },
+      createSessionFn: async () => fakeSession,
+    });
+    const { events } = await postChat(app, { prompt: 'hello deepseek' });
+    const tokenEvt = events.find((e) => e.event === 'chat.token_usage');
+    expect(tokenEvt).toBeDefined();
+    expect(tokenEvt?.data['provider']).toBe('openrouter');
+    expect(tokenEvt?.data['model']).toBe('deepseek/deepseek-v3');
+    expect(tokenEvt?.data['input']).toBe(900);
+    expect(tokenEvt?.data['output']).toBe(150);
+  });
+
   it('5. OAuth credential path — createSessionFn is called with authMode oauth', async () => {
     let capturedOpts: SwtSessionOptions | undefined;
     const fakeSession = makeFakeSession('sid-oauth');
